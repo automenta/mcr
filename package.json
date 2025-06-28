@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node mcr.js",
     "cli": "node mcr-cli.js",
-    "test": "jest"
+    "test": "jest",
+    "test:coverage": "jest --coverage"
   },
   "keywords": [
     "llm",
@@ -39,6 +40,7 @@
   },
   "devDependencies": {
     "@babel/preset-env": "^7.27.2",
-    "jest": "^30.0.3"
+    "jest": "^30.0.3",
+    "supertest": "^7.1.1"
   }
 }

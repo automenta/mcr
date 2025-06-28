@@ -50,50 +50,95 @@ const config = ConfigManager.load();
 // Initialize LLM Service
 LlmService.init();
 
+// UUID for request correlation
+const { v4: uuidv4 } = require('uuid');
+const { initializeLoggerContext } = require('./src/logger'); // Import the new middleware
+
 // -----------------------------------------------------------------------------
 // SECTION 2: MAIN APPLICATION
 // -----------------------------------------------------------------------------
 
-function main() {
-    const app = express();
-    app.use(express.json({ limit: '1mb' }));
+const app = express(); // Define app here so it can be exported
 
-    // Setup API routes
-    setupRoutes(app);
-
-    // Centralized Error Handling Middleware
-    app.use((err, req, res, next) => {
-        if (err instanceof ApiError) {
-            logger.warn(`API Error (${err.statusCode}): ${err.message} for ${req.method} ${req.path}`);
-            return res.status(err.statusCode).json({ error: { message: err.message, type: err.name } });
-        }
-        logger.error(`Internal Server Error: ${err.stack || err.message } for ${req.method} ${req.path}`);
-        res.status(500).json({ error: { message: 'An internal server error occurred.', details: err.message, type: 'InternalServerError' }});
+function setupApp(currentApp) {
+    // Correlation ID Middleware (generates ID and sets header)
+    currentApp.use((req, res, next) => {
+        req.correlationId = uuidv4();
+        res.setHeader('X-Correlation-ID', req.correlationId);
+        next();
     });
 
-    function startServer() {
-        app.listen(config.server.port, config.server.host, () => {
-            logger.info(`MCR server listening on http://${config.server.host}:${config.server.port}`);
-            logger.info(`LLM Provider: ${config.llm.provider}`);
-            const llmModel = config.llm.model[config.llm.provider];
-            logger.info(`LLM Model: ${llmModel}`);
-            if (config.llm.provider === 'ollama') {
-                logger.info(`Ollama Base URL: ${config.llm.ollamaBaseUrl}`);
-            }
-        }).on('error', (error) => {
-            logger.error(`Failed to start server: ${error.message}`);
-            if (error.code === 'EADDRINUSE') {
-                logger.error(`Port ${config.server.port} is already in use.`);
-            }
-            process.exit(1); // Exit if server fails to start
-        });
-    }
+    // Logger Context Middleware (makes correlationId available to logger via AsyncLocalStorage)
+    currentApp.use(initializeLoggerContext);
 
-    startServer(); // Call startServer at the end of main()
+    currentApp.use(express.json({ limit: '1mb' }));
+
+    // Setup API routes
+    setupRoutes(currentApp);
+
+    // Centralized Error Handling Middleware
+    currentApp.use((err, req, res, next) => {
+        const correlationId = req.correlationId || 'unknown';
+        // Ensure all logger calls within error handling include correlationId
+        if (err instanceof ApiError) {
+            logger.warn(`API Error (${err.statusCode}): ${err.message} for ${req.method} ${req.path}`, {
+                correlationId,
+                statusCode: err.statusCode,
+                errorMessage: err.message,
+                errorType: err.name,
+                requestPath: req.path,
+                requestMethod: req.method,
+            });
+            return res.status(err.statusCode).json({
+                error: {
+                    message: err.message,
+                    type: err.name,
+                    correlationId
+                }
+            });
+        }
+        logger.error(`Internal Server Error: ${err.stack || err.message } for ${req.method} ${req.path}`, {
+            correlationId,
+            errorMessage: err.message,
+            errorStack: err.stack,
+            requestPath: req.path,
+            requestMethod: req.method,
+        });
+        res.status(500).json({
+            error: {
+                message: 'An internal server error occurred.',
+                details: err.message, // In production, you might want to hide err.message for non-ApiErrors
+                type: 'InternalServerError',
+                correlationId
+            }
+        });
+    });
+}
+
+setupApp(app); // Configure the app
+
+function startServer(currentApp, currentConfig) {
+    return currentApp.listen(currentConfig.server.port, currentConfig.server.host, () => {
+        logger.info(`MCR server listening on http://${currentConfig.server.host}:${currentConfig.server.port}`);
+        logger.info(`LLM Provider: ${currentConfig.llm.provider}`);
+        const llmModel = currentConfig.llm.model[currentConfig.llm.provider];
+        logger.info(`LLM Model: ${llmModel}`);
+        if (currentConfig.llm.provider === 'ollama') {
+            logger.info(`Ollama Base URL: ${currentConfig.llm.ollamaBaseUrl}`);
+        }
+    }).on('error', (error) => {
+        logger.error(`Failed to start server: ${error.message}`);
+        if (error.code === 'EADDRINUSE') {
+            logger.error(`Port ${currentConfig.server.port} is already in use.`);
+        }
+        process.exit(1); // Exit if server fails to start
+    });
 }
 
 // --- Main Execution Block ---
 // This code runs if the script is executed directly: `node mcr.js`
 if (require.main === module) {
-    main(); // Initialize and start the application
+    startServer(app, config); // Initialize and start the application
 }
+
+module.exports = { app, startServer, config }; // Export app for testing and server control

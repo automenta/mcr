@@ -21,6 +21,7 @@ const setupRoutes = (app) => {
 
     // Prompt Management
     app.get('/prompts', ApiHandlers.getPrompts);
+    app.post('/debug/format-prompt', ApiHandlers.debugFormatPrompt); // New debug endpoint
 
     // Ontology Management
     app.post('/ontologies', ApiHandlers.addOntology);

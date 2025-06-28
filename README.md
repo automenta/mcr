@@ -23,12 +23,16 @@ MCR is built with a "guitar pedal" philosophy: a single, plug-and-play unit that
     The LLM provider is easily selectable via configuration.
 *   **Robust Error Handling**: Features a custom `ApiError` class and centralized error-handling middleware for consistent and predictable API responses.
 *   **Configuration Validation**: Robust configuration loading with clear startup checks for required API keys.
-*   **Automatic Dependency Installation**: The script automatically checks for and installs missing Node.js dependencies upon first run.
+*   **Dependency Management**: Uses a standard `package.json` file for managing Node.js dependencies.
 
 ## Setup and Installation
 
-1.  **Save the Code**: Save the `mcr.js` file (provided in this repository) to your desired project directory.
-2.  **Create `.env` file**: In the same directory as `mcr.js`, create a file named `.env`. You only need to add the API keys for the LLM services you intend to use.
+1.  **Clone or Download the Code**: Obtain the source code, including `mcr.js`, `package.json`, and the `src/` directory.
+2.  **Install Dependencies**: Navigate to the project directory in your terminal and run:
+    ```bash
+    npm install
+    ```
+3.  **Create `.env` file**: In the same directory as `mcr.js`, create a file named `.env`. You only need to add the API keys for the LLM services you intend to use.
 
     ```dotenv
     # --- CHOOSE ONE LLM PROVIDER ---
@@ -56,11 +60,39 @@ MCR is built with a "guitar pedal" philosophy: a single, plug-and-play unit that
     ```bash
     node mcr.js
     ```
-    The script will automatically install any missing dependencies and then start the server, indicating which LLM provider is active.
+    The script will then start the server, indicating which LLM provider is active.
 
 ## API Reference
 
 MCR exposes a RESTful API for interaction. All requests and responses are JSON-based.
+
+### General Considerations
+
+*   **`X-Correlation-ID` Header**: All responses will include an `X-Correlation-ID` header, containing a unique ID for the request. This ID is also included in server logs and can be useful for debugging and tracing.
+
+*   **Error Responses**: Errors are returned in a consistent JSON format.
+    *   **API Errors (Client-side or expected issues, e.g., 4xx status codes):**
+        ```json
+        {
+          "error": {
+            "message": "Descriptive error message",
+            "type": "ApiError", // Or a more specific type like 'SyntaxError' if applicable
+            "correlationId": "a-unique-uuid"
+            // "internalCode": "SPECIFIC_ERROR_CODE" // May be present in development/debug mode
+          }
+        }
+        ```
+    *   **Internal Server Errors (Server-side unexpected issues, e.g., 5xx status codes):**
+        ```json
+        {
+          "error": {
+            "message": "An internal server error occurred.",
+            "details": "Specific error message from the server (may be hidden in production)",
+            "type": "InternalServerError",
+            "correlationId": "a-unique-uuid"
+          }
+        }
+        ```
 
 ### 1. Root Endpoint
 
@@ -166,6 +198,33 @@ Ask natural language questions against a session's knowledge base. MCR translate
         }
         ```
         *   If no solution is found, `result` will be "No solution found." and `answer` will reflect that.
+    *   **Dynamic Knowledge Injection (for RAG, etc.)**: The `ontology` field in the request body is optional. If provided, it should be a string containing Prolog facts or rules (newline-separated). These will be added to the knowledge base *for this query only*, alongside existing session facts and globally configured ontologies. This allows clients to implement Retrieval Augmented Generation (RAG) by fetching context from a datastore, converting it to Prolog facts, and injecting it into the query.
+
+        *Example with dynamic `ontology` data:*
+        ```json
+        {
+          "query": "Is the newly discovered particle stable?",
+          "ontology": "particle(p1).\nproperty(p1, unstable).\n% End of dynamic facts",
+          "options": { "debug": true }
+        }
+        ```
+
+*   `POST /sessions/:sessionId/explain-query`
+    *   **Description**: Uses an LLM to generate a natural language explanation of how a given query would be resolved against the session's current knowledge base (including facts and ontologies). This does not execute the query but explains the reasoning steps.
+    *   **Parameters**: `sessionId` (path) - The ID of the session.
+    *   **Request Body**:
+        ```json
+        {
+          "query": "Who are Mary's grandparents?"
+        }
+        ```
+    *   **Response**:
+        ```json
+        {
+          "query": "Who are Mary's grandparents?",
+          "explanation": "The query asks for individuals who are grandparents of Mary. This would typically involve finding parents of Mary (e.g., `parent(X, mary)`) and then finding parents of those individuals (e.g., `parent(Y, X)`). The combined results for Y would be Mary's grandparents..."
+        }
+        ```
 
 ### 5. Direct Translation Endpoints
 
@@ -199,6 +258,111 @@ These endpoints allow direct translation without session management.
         ```json
         {
           "text": "A parent (X) is defined as either a father (X) of Y or a mother (X) of Y."
+        }
+        ```
+
+### 6. Ontology Management Endpoints
+
+MCR allows for the management of global ontologies (collections of Prolog facts and rules) that can be applied to reasoning tasks. These ontologies are stored by MCR and can be created, updated, listed, retrieved, and deleted via the API. Ontologies are identified by a unique `name`.
+
+*   `POST /ontologies`
+    *   **Description**: Creates a new global ontology.
+    *   **Request Body**:
+        ```json
+        {
+          "name": "family_relations",
+          "rules": "parent(X,Y) :- father(X,Y).\nparent(X,Y) :- mother(X,Y).\ngrandparent(X,Z) :- parent(X,Y), parent(Y,Z)."
+        }
+        ```
+    *   **Response**: `201 Created`
+        ```json
+        {
+          "name": "family_relations",
+          "rules": "parent(X,Y) :- father(X,Y).\nparent(X,Y) :- mother(X,Y).\ngrandparent(X,Z) :- parent(X,Y), parent(Y,Z)."
+        }
+        ```
+
+*   `GET /ontologies`
+    *   **Description**: Retrieves a list of all global ontologies.
+    *   **Response**:
+        ```json
+        [
+          { "name": "family_relations", "rules": "..." },
+          { "name": "another_ontology", "rules": "..." }
+        ]
+        ```
+
+*   `GET /ontologies/:name`
+    *   **Description**: Retrieves a specific global ontology by its name.
+    *   **Parameters**: `name` (path) - The name of the ontology.
+    *   **Response**:
+        ```json
+        {
+          "name": "family_relations",
+          "rules": "parent(X,Y) :- father(X,Y).\nparent(X,Y) :- mother(X,Y).\ngrandparent(X,Z) :- parent(X,Y), parent(Y,Z)."
+        }
+        ```
+
+*   `PUT /ontologies/:name`
+    *   **Description**: Updates an existing global ontology.
+    *   **Parameters**: `name` (path) - The name of the ontology to update.
+    *   **Request Body**:
+        ```json
+        {
+          "rules": "child(X,Y) :- parent(Y,X).\n% Updated rules"
+        }
+        ```
+    *   **Response**:
+        ```json
+        {
+          "name": "family_relations",
+          "rules": "child(X,Y) :- parent(Y,X).\n% Updated rules"
+        }
+        ```
+
+*   `DELETE /ontologies/:name`
+    *   **Description**: Deletes a global ontology by its name.
+    *   **Parameters**: `name` (path) - The name of the ontology.
+    *   **Response**:
+        ```json
+        {
+          "message": "Ontology family_relations deleted."
+        }
+        ```
+
+### 7. Utility & Debugging Endpoints
+
+*   `GET /prompts`
+    *   **Description**: Retrieves all raw prompt templates currently loaded by the MCR server. This is useful for understanding the base prompts used for LLM interactions.
+    *   **Response**:
+        ```json
+        {
+          "NL_TO_RULES": "You are an expert AI...",
+          "QUERY_TO_PROLOG": "Translate the natural language question...",
+          "...": "..."
+        }
+        ```
+
+*   `POST /debug/format-prompt`
+    *   **Description**: Allows you to see how a specific prompt template would be formatted with given input variables, without making an actual LLM call. This is a "dry run" for prompt formatting.
+    *   **Request Body**:
+        ```json
+        {
+          "templateName": "QUERY_TO_PROLOG",
+          "inputVariables": {
+            "question": "What is the capital of France?"
+          }
+        }
+        ```
+    *   **Response**:
+        ```json
+        {
+          "templateName": "QUERY_TO_PROLOG",
+          "rawTemplate": "Translate the natural language question...",
+          "inputVariables": {
+            "question": "What is the capital of France?"
+          },
+          "formattedPrompt": "Translate the natural language question into a single, valid Prolog query string. The query must end with a period.\n        Question: \"What is the capital of France?\"\n        Prolog Query:"
         }
         ```
 

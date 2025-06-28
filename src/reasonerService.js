@@ -23,30 +23,38 @@ const ReasonerService = {
                                     try {
                                       prologSession.answer(answerCallback);
                                     } catch (e) {
-                                      logger.error("Error processing Prolog answer: ", e);
+                                      logger.error("Error processing Prolog answer.", {
+                                          internalErrorCode: 'PROLOG_ANSWER_PROCESSING_ERROR',
+                                          originalError: e.message,
+                                          stack: e.stack
+                                      });
                                       reject(new ApiError(500, `Prolog answer processing error: ${e.message}`));
                                     }
                                 };
                                 try {
                                   prologSession.answer(answerCallback);
                                 } catch (e) {
-                                  logger.error("Error initiating Prolog answer callback: ", e);
+                                  logger.error("Error initiating Prolog answer callback.", {
+                                      internalErrorCode: 'PROLOG_ANSWER_INIT_ERROR',
+                                      originalError: e.message,
+                                      stack: e.stack
+                                  });
                                   reject(new ApiError(500, `Prolog answer initiation error: ${e.message}`));
                                 }
                             },
                             error: (err) => {
-                                logger.error(`Prolog query failed: ${err}`, { query });
-                                reject(new ApiError(422, `Prolog query failed: ${err}`))
+                                logger.error(`Prolog query failed.`, { internalErrorCode: 'PROLOG_QUERY_ERROR', query, details: err.toString() });
+                                reject(new ApiError(422, `Prolog query failed: ${err.toString()}`))
                             }
                         });
                     },
                     error: (err) => {
-                        logger.error(`Prolog knowledge base is invalid: ${err}`, { facts });
-                        reject(new ApiError(422, `Prolog knowledge base is invalid: ${err}`))
+                        logger.error(`Prolog knowledge base is invalid.`, { internalErrorCode: 'PROLOG_CONSULT_ERROR', factsCount: facts.length, details: err.toString() });
+                        reject(new ApiError(422, `Prolog knowledge base is invalid: ${err.toString()}`))
                     }
                 });
             } catch (e) {
-                logger.error(`Error during Prolog session setup: ${e.message}`, { facts, query });
+                logger.error(`Error during Prolog session setup.`, { internalErrorCode: 'PROLOG_SESSION_SETUP_ERROR', factsCount: facts.length, query, originalError: e.message, stack: e.stack });
                 reject(new ApiError(500, `Prolog session error: ${e.message}`));
             }
         });

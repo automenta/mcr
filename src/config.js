@@ -1,4 +1,5 @@
 const dotenv = require('dotenv');
+const logger = require('./logger').logger; // Import logger
 
 const ConfigManager = {
     load() {
@@ -30,7 +31,8 @@ const ConfigManager = {
             },
             ontology: {
                 storagePath: process.env.MCR_ONTOLOGY_STORAGE_PATH || './ontologies',
-            }
+            },
+            debugMode: (process.env.MCR_DEBUG_MODE === 'true' || false)
         };
         this.validate(config);
         return config;

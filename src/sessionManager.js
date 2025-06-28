@@ -33,7 +33,13 @@ const SessionManager = {
             fs.writeFileSync(filePath, JSON.stringify(session, null, 2));
             logger.debug(`Session ${session.sessionId} saved to ${filePath}`);
         } catch (error) {
-            logger.error(`Failed to save session ${session.sessionId}: ${error.message}`);
+            logger.error(`Failed to save session ${session.sessionId}.`, {
+                internalErrorCode: 'SESSION_SAVE_FAILED',
+                sessionId: session.sessionId,
+                filePath,
+                originalError: error.message,
+                stack: error.stack
+            });
         }
     },
 
@@ -47,7 +53,13 @@ const SessionManager = {
                 logger.debug(`Session ${sessionId} loaded from ${filePath}`);
                 return session;
             } catch (error) {
-                logger.error(`Failed to load session ${sessionId} from ${filePath}: ${error.message}`);
+                logger.error(`Failed to load session ${sessionId} from ${filePath}.`, {
+                    internalErrorCode: 'SESSION_LOAD_FAILED',
+                    sessionId,
+                    filePath,
+                    originalError: error.message,
+                    stack: error.stack
+                });
                 delete this._sessions[sessionId];
             }
         }
