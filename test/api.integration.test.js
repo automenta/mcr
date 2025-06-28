@@ -64,8 +64,8 @@ jest.mock('../src/logger', () => ({
 // 4. Mock LlmService (dependency for mcr.js through apiHandlers)
 jest.mock('../src/llmService', () => ({
     init: jest.fn(),
-    nlToRulesAsync: jest.fn().mockResolvedValue(['mock_rule(integration_test).']),
-    queryToPrologAsync: jest.fn().mockResolvedValue('mock_query_integration(Y).'),
+    nlToRulesAsync: jest.fn().mockResolvedValue(['mock_rule(integration_test).']), // Used by assert and nl-to-rules
+    queryToPrologAsync: jest.fn().mockResolvedValue('mock_query_integration(Y).'), // Used by query
     resultToNlAsync: jest.fn().mockImplementation((_query, logicResultJsonString, _style) => {
         if (logicResultJsonString === JSON.stringify('No solution found.')) {
             return Promise.resolve('No, there is no solution for integration test.');
@@ -74,7 +74,7 @@ jest.mock('../src/llmService', () => ({
     }),
     rulesToNlAsync: jest.fn().mockResolvedValue('Mock integration natural language explanation of rules.'),
     explainQueryAsync: jest.fn().mockResolvedValue('Mock integration explanation for the query.'),
-    getPromptTemplates: jest.fn().mockReturnValue({ INTEGRATION_TEMPLATE: 'mock integration template' }),
+    getPromptTemplates: jest.fn().mockReturnValue({ INTEGRATION_TEMPLATE: 'mock integration template' }), // Used by /prompts
 }));
 
 // 5. Mock package.json for the GET / endpoint
@@ -227,9 +227,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
         .send({ text: factText });
 
       expect(assertResponse.status).toBe(200);
-      expect(assertResponse.body.addedFacts).toEqual(['mock_rule(integration_test).']);
-      // totalFactsInSession can be tricky if other tests modified the same shared sessionId's session.
-      // It's better to check if it's a number >= 1 if we expect at least one fact.
+      expect(assertResponse.body.addedFacts).toEqual(['mock_rule(integration_test).']); // Aligned with mock
       expect(typeof assertResponse.body.totalFactsInSession).toBe('number');
       expect(assertResponse.body.totalFactsInSession).toBeGreaterThanOrEqual(1);
 
@@ -261,7 +259,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
       .send({ query: queryQuestion });
 
     expect(queryResponse.status).toBe(200);
-    expect(queryResponse.body.queryProlog).toBe('mock_query(X).');
+    expect(queryResponse.body.queryProlog).toBe('mock_query_integration(Y).'); // Aligned with mock
     expect(queryResponse.body.answer).toBeDefined();
   });
 
@@ -288,7 +286,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
       });
 
     expect(dynamicQueryResponse.status).toBe(200);
-    expect(dynamicQueryResponse.body.queryProlog).toBe('mock_query(X).');
+    expect(dynamicQueryResponse.body.queryProlog).toBe('mock_query_integration(Y).'); // Aligned with mock
     expect(dynamicQueryResponse.body.answer).toBeDefined();
   });
 
@@ -299,7 +297,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
       .send({ text });
 
     expect(response.status).toBe(200);
-    expect(response.body.rules).toEqual(['mock_rule(a).']);
+    expect(response.body.rules).toEqual(['mock_rule(integration_test).']); // Aligned with mock
   });
 
   test('should translate rules to natural language (mocked)', async () => {
@@ -320,7 +318,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
   test('should get prompts (mocked)', async () => {
     const response = await request(app).get('/prompts');
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ template1: 'mock' });
+    expect(response.body).toEqual({ INTEGRATION_TEMPLATE: 'mock integration template' }); // Aligned with mock
   });
 
   test('should explain query (mocked)', async () => {
@@ -446,15 +444,15 @@ describe('MCR API Integration Tests (with Supertest)', () => {
         .post('/debug/format-prompt')
         .send({
           templateName: 'NL_TO_RULES',
-          inputVariables: { text: 'test input' },
+          inputVariables: { existing_facts: "", ontology_context: "", text_to_translate: "test input" },
         });
       expect(response.status).toBe(200);
       expect(response.body.templateName).toBe('NL_TO_RULES');
-      expect(response.body.rawTemplate).toBe(Prompts.NL_TO_RULES); // Prompts.NL_TO_RULES might be undefined if prompts.js not structured for this access
-      // A better check might be expect(response.body.rawTemplate).toBeDefined(); or a snapshot.
-      // For now, assuming Prompts.NL_TO_RULES is accessible and correct.
-      expect(response.body.inputVariables).toEqual({ text_to_translate: 'test input' }); // Corrected based on actual prompt
+      expect(response.body.rawTemplate).toBe(Prompts.NL_TO_RULES);
+      expect(response.body.inputVariables).toEqual({ existing_facts: "", ontology_context: "", text_to_translate: "test input" });
       expect(response.body.formattedPrompt).toContain('test input');
+      expect(response.body.formattedPrompt).toContain('Existing facts:\n\n');
+      expect(response.body.formattedPrompt).toContain('Ontology context:\n\n');
     });
 
     test('POST /debug/format-prompt should return 404 for non-existent template name', async () => {

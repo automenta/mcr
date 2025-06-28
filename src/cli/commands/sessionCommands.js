@@ -1,22 +1,31 @@
 /* eslint-disable no-console */
 const { apiClient } = require('../api');
-const { printJson } = require('../utils');
+const { handleCliOutput } = require('../utils');
 
-async function createSession() {
+// Command has no arguments and no options of its own.
+// So, the 'command' object is passed as the first argument to the action handler.
+async function createSession(command) {
+  const programOpts = command.parent.opts(); // Access global options from parent (program)
   const response = await apiClient.post('/sessions');
-  console.log('Session created:');
-  printJson(response.data);
+  handleCliOutput(response.data, programOpts, null, 'Session created:\n');
 }
 
-async function getSession(sessionId) {
+// Command has one argument <sessionId>, no options of its own.
+// So, action handler is (arg1, command)
+async function getSession(sessionId, command) {
+  const programOpts = command.parent.opts();
   const response = await apiClient.get(`/sessions/${sessionId}`);
-  console.log('Session details:');
-  printJson(response.data);
+  handleCliOutput(response.data, programOpts, null, 'Session details:\n');
 }
 
-async function deleteSession(sessionId) {
+// Command has one argument <sessionId>, no options of its own.
+// So, action handler is (arg1, command)
+async function deleteSession(sessionId, command) {
+  const programOpts = command.parent.opts();
   const response = await apiClient.delete(`/sessions/${sessionId}`);
-  console.log(response.data.message);
+  // For delete, the API returns { "message": "Session ... terminated.", "sessionId": "..." }
+  // If not --json, we want to print the message. If --json, the whole object.
+  handleCliOutput(response.data, programOpts, 'message');
 }
 
 module.exports = (program) => {

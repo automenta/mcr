@@ -1,11 +1,15 @@
 /* eslint-disable no-console */
 const { apiClient } = require('../api');
-const { printJson } = require('../utils');
+const { handleCliOutput } = require('../utils'); // Use handleCliOutput
 
-async function getServerStatus() {
+// status command has no arguments or options of its own. Action: (command)
+async function getServerStatus(command) {
+  const programOpts = command.parent.opts();
   const response = await apiClient.get('/');
-  console.log('Server Status:');
-  printJson(response.data);
+  // API returns server status object.
+  // If not --json, print "Server Status:" then the object (pretty JSON).
+  // If --json, print the raw JSON object.
+  handleCliOutput(response.data, programOpts, null, 'Server Status:\n');
 }
 
 module.exports = (program) => {

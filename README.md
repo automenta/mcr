@@ -56,6 +56,7 @@ MCR is built with a "guitar pedal" philosophy: a single, plug-and-play unit that
     # PORT="8080"    # Defaults to 8080
     # LOG_LEVEL="info" # Defaults to info (options: error, warn, info, http, verbose, debug, silly)
     ```
+
     The server will validate this configuration on startup. If critical settings for the chosen `MCR_LLM_PROVIDER` (like API keys or Ollama URL) are missing or invalid, the server will log an error and exit.
 
 4.  **Run the Script**:
@@ -69,22 +70,27 @@ MCR is built with a "guitar pedal" philosophy: a single, plug-and-play unit that
 The MCR includes a Command Line Interface (CLI) for direct interaction. You can run it using `node mcr-cli.js --help` to see all available commands. The CLI executable is `mcr-cli.js` (or `node mcr-cli.js`).
 
 - **Check Server Status**:
+
   ```bash
   node mcr-cli.js status
   ```
 
 - **Create a Session**:
+
   ```bash
   node mcr-cli.js create-session
   ```
+
   (Save the `sessionId` from the output for subsequent commands)
 
 - **Assert a Fact**:
+
   ```bash
   node mcr-cli.js assert <sessionId> "The sky is blue."
   ```
 
 - **Query a Session**:
+
   ```bash
   node mcr-cli.js query <sessionId> "What color is the sky?"
   ```
@@ -105,7 +111,9 @@ MCR exposes a RESTful API for interaction. All requests and responses are JSON-b
 - **`X-Correlation-ID` Header**: All responses will include an `X-Correlation-ID` header, containing a unique ID for the request. This ID is also included in server logs and can be useful for debugging and tracing.
 
 - **Error Responses**: Errors are returned in a consistent JSON format.
+
   - **API Errors (Client-side or expected issues, e.g., 4xx status codes):**
+
     ```json
     {
       "error": {
@@ -116,7 +124,8 @@ MCR exposes a RESTful API for interaction. All requests and responses are JSON-b
       }
     }
     ```
-     The `code` field provides a specific identifier for the error, which can be useful for programmatic error handling if needed. Not all ApiErrors will have a `code`.
+
+    The `code` field provides a specific identifier for the error, which can be useful for programmatic error handling if needed. Not all ApiErrors will have a `code`.
 
   - **Internal Server Errors (Server-side unexpected issues, e.g., 5xx status codes):**
     ```json

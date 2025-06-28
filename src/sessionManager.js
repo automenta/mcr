@@ -65,7 +65,11 @@ const SessionManager = {
         stack: error.stack,
       });
       // Propagate error for consistent handling
-      throw new ApiError(500, `Failed to save session ${session.sessionId}: ${error.message}`, 'SESSION_SAVE_OPERATION_FAILED');
+      throw new ApiError(
+        500,
+        `Failed to save session ${session.sessionId}: ${error.message}`,
+        'SESSION_SAVE_OPERATION_FAILED'
+      );
     }
   },
 

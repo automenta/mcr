@@ -2,48 +2,51 @@
 const fs = require('fs');
 const path = require('path');
 const { apiClient } = require('../api');
-const { printJson } = require('../utils');
+const { handleCliOutput, readFileContent } = require('../utils'); // Added readFileContent
 
-async function addOntology(name, rulesFile) {
-  const rulesPath = path.resolve(rulesFile);
-  if (!fs.existsSync(rulesPath)) {
-    console.error(`Error: Rules file not found: ${rulesPath}`);
-    process.exit(1);
+async function addOntology(name, rulesFile, command) {
+  const programOpts = command.parent.opts();
+  // readFileContent will handle path.resolve and existsSync check
+  const rules = readFileContent(rulesFile, 'Rules file');
+
+  if (!programOpts.json) {
+    // path.resolve is done inside readFileContent, but for logging here we might want it too
+    // However, readFileContent exits on error, so if we are here, file was read.
+    // For cleaner logging, let's resolve path here once for the log message.
+    console.log(`Using rules file: ${path.resolve(rulesFile)}`);
   }
-  const rules = fs.readFileSync(rulesPath, 'utf8');
   const response = await apiClient.post('/ontologies', { name, rules });
-  console.log('Ontology added:');
-  printJson(response.data);
+  handleCliOutput(response.data, programOpts, null, 'Ontology added:\n');
 }
 
-async function updateOntology(name, rulesFile) {
-  const rulesPath = path.resolve(rulesFile);
-  if (!fs.existsSync(rulesPath)) {
-    console.error(`Error: Rules file not found: ${rulesPath}`);
-    process.exit(1);
+async function updateOntology(name, rulesFile, command) {
+  const programOpts = command.parent.opts();
+  const rules = readFileContent(rulesFile, 'Rules file');
+
+  if (!programOpts.json) {
+    console.log(`Using rules file: ${path.resolve(rulesFile)}`);
   }
-  const rules = fs.readFileSync(rulesPath, 'utf8');
   const response = await apiClient.put(`/ontologies/${name}`, { rules });
-  console.log('Ontology updated:');
-  printJson(response.data);
+  handleCliOutput(response.data, programOpts, null, 'Ontology updated:\n');
 }
 
-async function getOntologies() {
+async function getOntologies(command) {
+  const programOpts = command.parent.opts();
   const response = await apiClient.get('/ontologies');
-  console.log('Available Ontologies:');
-  printJson(response.data);
+  handleCliOutput(response.data, programOpts, null, 'Available Ontologies:\n');
 }
 
-async function getOntology(name) {
+async function getOntology(name, command) {
+  const programOpts = command.parent.opts();
   const response = await apiClient.get(`/ontologies/${name}`);
-  console.log('Ontology details:');
-  printJson(response.data);
+  handleCliOutput(response.data, programOpts, null, 'Ontology details:\n');
 }
 
-async function deleteOntology(name) {
+async function deleteOntology(name, command) {
+  const programOpts = command.parent.opts();
   const response = await apiClient.delete(`/ontologies/${name}`);
-  console.log('Ontology deleted:');
-  printJson(response.data);
+  // API returns { "message": "Ontology ... deleted.", "ontologyName": "..." }
+  handleCliOutput(response.data, programOpts, 'message', 'Ontology deleted: ');
 }
 
 module.exports = (program) => {
@@ -54,7 +57,9 @@ module.exports = (program) => {
 
   program
     .command('update-ontology <name> <rulesFile>')
-    .description('Update an existing ontology with rules from a Prolog rules file')
+    .description(
+      'Update an existing ontology with rules from a Prolog rules file'
+    )
     .action(updateOntology);
 
   program

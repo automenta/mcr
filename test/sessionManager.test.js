@@ -28,7 +28,6 @@ jest.mock('../src/errors', () => {
   });
 });
 
-
 const MOCK_SESSION_STORAGE_PATH = '/mocked_storage/sessions_data_sm_test';
 const MOCK_ONTOLOGY_STORAGE_PATH = '/mocked_storage/ontologies_data_sm_test';
 
@@ -43,14 +42,13 @@ jest.mock('../src/config', () => {
       llm: { provider: 'test-provider' },
     })),
     load: jest.fn(() => ({
-        session: { storagePath: MOCK_SESSION_STORAGE_PATH },
-        ontology: { storagePath: MOCK_ONTOLOGY_STORAGE_PATH },
-        logging: { level: 'info' },
-        llm: { provider: 'test-provider' },
-      })),
+      session: { storagePath: MOCK_SESSION_STORAGE_PATH },
+      ontology: { storagePath: MOCK_ONTOLOGY_STORAGE_PATH },
+      logging: { level: 'info' },
+      llm: { provider: 'test-provider' },
+    })),
   };
 });
-
 
 describe('SessionManager', () => {
   // let uuidv4; // Not needed here due to new mock style
@@ -103,7 +101,7 @@ describe('SessionManager', () => {
       fs.readdirSync.mockReturnValue(['family.pl', 'another.pl']);
       fs.readFileSync
         .mockReturnValueOnce('parent(X,Y).') // Content for family.pl
-        .mockReturnValueOnce('rule(A,B).');   // Content for another.pl
+        .mockReturnValueOnce('rule(A,B).'); // Content for another.pl
 
       jest.resetModules();
       // At this point, SessionManager is reloaded. If it imports uuid, it gets our top-level mock.
@@ -124,7 +122,9 @@ describe('SessionManager', () => {
         another: 'rule(A,B).',
       });
       expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining(`Loaded ${Object.keys(FreshSessionManager._ontologies).length} ontologies`)
+        expect.stringContaining(
+          `Loaded ${Object.keys(FreshSessionManager._ontologies).length} ontologies`
+        )
       );
     });
   });
@@ -173,7 +173,9 @@ describe('SessionManager', () => {
       } catch (e) {
         expect(e).toBeInstanceOf(ActualApiError); // Check it's an instance of the *actual* ApiError class due to mock
         expect(e.statusCode).toBe(500);
-        expect(e.message).toMatch(/Failed to save session save-fail-id: Disk full/);
+        expect(e.message).toMatch(
+          /Failed to save session save-fail-id: Disk full/
+        );
         expect(e.errorCode).toBe('SESSION_SAVE_OPERATION_FAILED');
       }
 
@@ -182,7 +184,9 @@ describe('SessionManager', () => {
       expect(() => SessionManager.create()).toThrow(ActualApiError);
 
       // To check the specific message with toThrow:
-      expect(() => SessionManager.create()).toThrow(/Failed to save session save-fail-id: Disk full/);
+      expect(() => SessionManager.create()).toThrow(
+        /Failed to save session save-fail-id: Disk full/
+      );
     });
 
     test('get should retrieve an existing session from memory', () => {

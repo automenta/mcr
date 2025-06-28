@@ -7,7 +7,8 @@ jest.mock('tau-prolog');
 jest.mock('../src/logger');
 jest.mock('../src/errors');
 
-describe.skip('ReasonerService', () => { // @TODO: Fix failing tests - disabling for now
+describe.skip('ReasonerService', () => {
+  // @TODO: Fix failing tests - disabling for now
   let mockPrologSession;
 
   beforeEach(() => {

@@ -1,76 +1,133 @@
 /* eslint-disable no-console */
 const readline = require('readline');
-const { apiClient, API_BASE_URL, handleApiError } = require('../api'); // handleApiError for readline
-const { readOntologyFile } = require('../utils');
-const axios = require('axios'); // For direct use in readline
+const { apiClient, API_BASE_URL, handleApiError } = require('../api');
+const { readOntologyFile, handleCliOutput } = require('../utils'); // Added handleCliOutput
+const axios = require('axios');
 
-async function startChat(options) {
+// chat command has options, no direct arguments. Action: (options, command)
+async function startChat(options, command) {
+  const programOpts = command.parent.opts(); // Global program options
   let sessionId = null;
-  let ontologyContent = readOntologyFile(options.ontology); // Read once at the start
+  let ontologyContent = null;
+
+  if (options.ontology) {
+    ontologyContent = readOntologyFile(options.ontology);
+    if (ontologyContent && !programOpts.json) {
+      console.log(`Using ontology for chat session: ${options.ontology}`);
+    }
+  }
 
   try {
     const sessionResponse = await apiClient.post('/sessions');
     sessionId = sessionResponse.data.sessionId;
-    console.log(`New chat session started. Session ID: ${sessionId}`);
-    if (ontologyContent) {
-        console.log(`Using ontology for this session: ${options.ontology}`);
+    if (!programOpts.json) {
+      console.log(`New chat session started. Session ID: ${sessionId}`);
+    } else {
+      // If --json, we should output the session creation details as JSON
+      // However, chat is interactive, so --json for the *entire chat flow* is weird.
+      // Let's assume --json primarily affects the output of each query *within* the chat.
+      // The initial session message could be conditional.
+      // For now, let's make chat output JSON for each response if --json is set.
     }
 
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
-      prompt: 'You> ',
+      prompt: programOpts.json ? '' : 'You> ', // No prompt if raw JSON output
     });
 
-    rl.prompt();
+    if (!programOpts.json) rl.prompt();
 
     rl.on('line', async (line) => {
       const question = line.trim();
-      if (question.toLowerCase() === 'exit' || question.toLowerCase() === 'quit') {
+      if (
+        question.toLowerCase() === 'exit' ||
+        question.toLowerCase() === 'quit'
+      ) {
         rl.close();
         return;
       }
       if (!question) {
-        rl.prompt();
+        if (!programOpts.json) rl.prompt();
         return;
       }
 
       try {
         const requestBody = {
           query: question,
-          options: { style: 'conversational' }, // Chat is always conversational
+          options: { style: 'conversational' },
         };
         if (ontologyContent) {
-          requestBody.ontology = ontologyContent; // Add ontology to every query in the chat session
+          requestBody.ontology = ontologyContent;
         }
 
-        // Use axios directly here for readline-specific error handling
-        const response = await axios.post(`${API_BASE_URL}/sessions/${sessionId}/query`, requestBody);
-        console.log(`MCR> ${response.data.answer}`);
+        const response = await axios.post(
+          `${API_BASE_URL}/sessions/${sessionId}/query`,
+          requestBody
+        );
+
+        // Pass programOpts to handleCliOutput
+        // For chat, messageKey is 'answer'. Prefix is 'MCR> ' only if not json.
+        const prefix = programOpts.json ? '' : 'MCR> ';
+        handleCliOutput(response.data, programOpts, 'answer', prefix);
       } catch (error) {
-        handleApiError(error); // Use the centralized API error handler
+        handleApiError(error, programOpts); // Pass programOpts
       }
-      rl.prompt();
+      if (!programOpts.json) rl.prompt();
     }).on('close', async () => {
       if (sessionId) {
         try {
-          await axios.delete(`${API_BASE_URL}/sessions/${sessionId}`);
-          console.log(`Session ${sessionId} terminated.`);
+          const deleteResponse = await axios.delete(
+            `${API_BASE_URL}/sessions/${sessionId}`
+          );
+          if (!programOpts.json) {
+            console.log(
+              deleteResponse.data.message || `Session ${sessionId} terminated.`
+            );
+          } else {
+            // Output a JSON message for session termination if --json was active
+            console.log(
+              JSON.stringify({
+                action: 'chat_session_terminated',
+                sessionId: sessionId,
+                details: deleteResponse.data,
+              })
+            );
+          }
         } catch (error) {
-          // Log simple message, as handleApiError would exit the process
-          console.error(`Failed to terminate session ${sessionId}: ${error.message}`);
+          if (!programOpts.json) {
+            console.error(
+              `Failed to terminate session ${sessionId}:`,
+              error.message
+            );
+          } else {
+            console.error(
+              JSON.stringify({
+                action: 'chat_session_termination_failed',
+                sessionId: sessionId,
+                error: error.message,
+              })
+            );
+          }
         }
       }
-      console.log('Exiting chat.');
+      if (!programOpts.json) {
+        console.log('Exiting chat.');
+      }
       process.exit(0);
     });
   } catch (error) {
-    // This catch is for errors outside the readline loop, e.g., initial session creation.
-    // apiClient calls handleApiError, which exits. If it's another type of error:
-     if (!error.response && !error.request) {
-        console.error(`An unexpected error occurred: ${error.message}`);
-        process.exit(1);
-     }
+    if (!error.response && !error.request && !programOpts.json) {
+      console.error(`An unexpected error occurred: ${error.message}`);
+    } else if (!error.response && !error.request && programOpts.json) {
+      console.error(
+        JSON.stringify({
+          error: 'chat_start_failed_unexpected',
+          message: error.message,
+        })
+      );
+    } // API errors from initial session creation are handled by apiClient
+    process.exit(1);
   }
 }
 
@@ -78,6 +135,9 @@ module.exports = (program) => {
   program
     .command('chat')
     .description('Start an interactive chat session with the MCR')
-    .option('-o, --ontology <file>', 'Specify an ontology file to use for the entire chat session')
+    .option(
+      '-o, --ontology <file>',
+      'Specify an ontology file to use for the entire chat session'
+    )
     .action(startChat);
 };

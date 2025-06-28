@@ -3,12 +3,14 @@ const mockLoggerWarn = jest.fn();
 const mockLoggerError = jest.fn();
 const mockLoggerFatal = jest.fn();
 const mockLoggerInfo = jest.fn();
-const mockProcessExit = jest.spyOn(process, 'exit').mockImplementation((code) => {
-  // throw new Error(`process.exit called with ${code}`); // Make it throw to stop execution
-  // Or just record the call if preferred, but throwing helps ensure the test stops there.
-  // For tests expecting exit, this is fine. For those not, it helps catch unexpected exits.
-  // console.log(`process.exit(${code}) called`);
-});
+const mockProcessExit = jest
+  .spyOn(process, 'exit')
+  .mockImplementation((code) => {
+    // throw new Error(`process.exit called with ${code}`); // Make it throw to stop execution
+    // Or just record the call if preferred, but throwing helps ensure the test stops there.
+    // For tests expecting exit, this is fine. For those not, it helps catch unexpected exits.
+    // console.log(`process.exit(${code}) called`);
+  });
 
 jest.mock('dotenv'); // Mock dotenv before any application code is required
 
@@ -107,7 +109,11 @@ describe('ConfigManager', () => {
       delete process.env.OPENAI_API_KEY;
       ConfigManager.get(); // Will call load() which calls validate()
       expect(mockProcessExit).toHaveBeenCalledWith(1);
-      expect(mockLoggerFatal).toHaveBeenCalledWith(expect.stringContaining('Application cannot start due to configuration errors. Exiting.'));
+      expect(mockLoggerFatal).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Application cannot start due to configuration errors. Exiting.'
+        )
+      );
     });
 
     test('should exit if Gemini provider is selected but API key is missing', () => {
@@ -122,7 +128,9 @@ describe('ConfigManager', () => {
       delete process.env.MCR_LLM_OLLAMA_BASE_URL;
       ConfigManager.get();
       expect(mockProcessExit).toHaveBeenCalledWith(1);
-       expect(mockLoggerError).toHaveBeenCalledWith(expect.stringContaining("MCR_LLM_OLLAMA_BASE_URL is missing or empty"));
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        expect.stringContaining('MCR_LLM_OLLAMA_BASE_URL is missing or empty')
+      );
     });
 
     test('should exit if Ollama base URL is invalid', () => {
@@ -130,28 +138,36 @@ describe('ConfigManager', () => {
       process.env.MCR_LLM_OLLAMA_BASE_URL = 'not-a-valid-url';
       ConfigManager.get();
       expect(mockProcessExit).toHaveBeenCalledWith(1);
-      expect(mockLoggerError).toHaveBeenCalledWith(expect.stringContaining("not a valid URL"));
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        expect.stringContaining('not a valid URL')
+      );
     });
 
     test('should exit for invalid MCR_LLM_PROVIDER', () => {
       process.env.MCR_LLM_PROVIDER = 'unknown_provider';
       ConfigManager.get();
       expect(mockProcessExit).toHaveBeenCalledWith(1);
-      expect(mockLoggerError).toHaveBeenCalledWith(expect.stringContaining("Invalid MCR_LLM_PROVIDER: 'unknown_provider'"));
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid MCR_LLM_PROVIDER: 'unknown_provider'")
+      );
     });
 
     test('should exit for invalid PORT (non-numeric)', () => {
       process.env.PORT = 'abc';
       ConfigManager.get();
       expect(mockProcessExit).toHaveBeenCalledWith(1);
-      expect(mockLoggerError).toHaveBeenCalledWith(expect.stringContaining("Invalid PORT: 'abc'"));
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid PORT: 'abc'")
+      );
     });
 
     test('should exit for invalid PORT (out of range)', () => {
       process.env.PORT = '70000';
       ConfigManager.get();
       expect(mockProcessExit).toHaveBeenCalledWith(1);
-      expect(mockLoggerError).toHaveBeenCalledWith(expect.stringContaining("Invalid PORT: '70000'"));
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid PORT: '70000'")
+      );
     });
   });
 
@@ -176,7 +192,7 @@ describe('ConfigManager', () => {
     test('should throw error if Ollama base URL is missing', () => {
       process.env.MCR_LLM_PROVIDER = 'ollama';
       delete process.env.MCR_LLM_OLLAMA_BASE_URL;
-       expect(() => ConfigManager.load({ exitOnFailure: false })).toThrow(
+      expect(() => ConfigManager.load({ exitOnFailure: false })).toThrow(
         /MCR_LLM_OLLAMA_BASE_URL is missing or empty/
       );
     });
@@ -184,7 +200,7 @@ describe('ConfigManager', () => {
     test('should throw error if Ollama base URL is invalid', () => {
       process.env.MCR_LLM_PROVIDER = 'ollama';
       process.env.MCR_LLM_OLLAMA_BASE_URL = 'invalid-url';
-       expect(() => ConfigManager.load({ exitOnFailure: false })).toThrow(
+      expect(() => ConfigManager.load({ exitOnFailure: false })).toThrow(
         /not a valid URL/
       );
     });
@@ -218,7 +234,11 @@ describe('ConfigManager', () => {
       process.env.LOG_LEVEL = 'invalid_level';
       config = ConfigManager.get();
       expect(config.logging.level).toBe('info'); // Defaults to info
-      expect(mockLoggerWarn).toHaveBeenCalledWith(expect.stringContaining("Invalid LOG_LEVEL: 'invalid_level'. Defaulting to 'info'."));
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        expect.stringContaining(
+          "Invalid LOG_LEVEL: 'invalid_level'. Defaulting to 'info'."
+        )
+      );
     });
 
     test('should load successfully with Ollama provider and valid URL', () => {

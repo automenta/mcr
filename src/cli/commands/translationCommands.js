@@ -2,25 +2,49 @@
 const fs = require('fs');
 const path = require('path');
 const { apiClient } = require('../api');
-const { printJson } = require('../utils');
+const {
+  handleCliOutput,
+  readOntologyFile,
+  readFileContent,
+} = require('../utils'); // Added readFileContent
 
-async function nlToRules(text, options) {
-  const response = await apiClient.post('/translate/nl-to-rules', {
+// nlToRules has <text> argument and options. Action: (text, options, command)
+async function nlToRules(text, options, command) {
+  const programOpts = command.parent.opts();
+  let ontologyContent = null;
+  if (options.ontology) {
+    // readOntologyFile already handles file reading errors
+    ontologyContent = readOntologyFile(options.ontology);
+    if (ontologyContent && !programOpts.json) {
+      // Log the original path provided by the user for clarity
+      console.log(`Using ontology for nl-to-rules: ${options.ontology}`);
+    }
+  }
+
+  const requestBody = {
     text,
     existing_facts: options.existingFacts,
-    ontology_context: options.ontologyContext,
-  });
-  console.log('Translated Rules:');
-  printJson(response.data.rules);
+  };
+
+  if (ontologyContent) {
+    requestBody.ontology_context = ontologyContent;
+  }
+
+  const response = await apiClient.post('/translate/nl-to-rules', requestBody);
+  handleCliOutput(response.data, programOpts, null, 'Translated Rules:\n');
 }
 
-async function rulesToNl(rulesFile, options) {
-  const rulesPath = path.resolve(rulesFile);
-  if (!fs.existsSync(rulesPath)) {
-    console.error(`Error: Rules file not found: ${rulesPath}`);
-    process.exit(1);
+// rulesToNl has <rulesFile> argument and options. Action: (rulesFile, options, command)
+async function rulesToNl(rulesFile, options, command) {
+  const programOpts = command.parent.opts();
+  // readFileContent will handle path resolution and existence check
+  const rulesContent = readFileContent(rulesFile, 'Rules file');
+
+  if (!programOpts.json) {
+    // Log the original path for consistency
+    console.log(`Using rules file: ${rulesFile}`);
   }
-  const rulesContent = fs.readFileSync(rulesPath, 'utf8');
+
   const rules = rulesContent
     .split(/\r?\n|\./)
     .filter((line) => line.trim() !== '')
@@ -30,21 +54,33 @@ async function rulesToNl(rulesFile, options) {
     rules,
     style: options.style,
   });
-  console.log('Translated Natural Language:');
-  console.log(response.data.text);
+  handleCliOutput(
+    response.data,
+    programOpts,
+    'text',
+    'Translated Natural Language:\n'
+  );
 }
 
 module.exports = (program) => {
   program
     .command('nl-to-rules <text>')
     .description('Translate natural language text to Prolog rules')
-    .option('-e, --existing-facts <facts>', 'Existing facts for context', '')
-    .option('-o, --ontology-context <ontology>', 'Ontology context for translation', '')
+    .option(
+      '-e, --existing-facts <facts>',
+      'Existing facts for context (string)',
+      ''
+    )
+    .option('-o, --ontology <file>', 'Path to an ontology file for context')
     .action(nlToRules);
 
   program
     .command('rules-to-nl <rulesFile>')
     .description('Translate Prolog rules from a file to natural language')
-    .option('-s, --style <style>', 'Output style (e.g., formal, conversational)', 'formal')
+    .option(
+      '-s, --style <style>',
+      'Output style (e.g., formal, conversational)',
+      'formal'
+    )
     .action(rulesToNl);
 };

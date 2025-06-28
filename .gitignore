@@ -11,6 +11,7 @@ logs/
 # Runtime data
 sessions/
 demo_session_id.txt
+ontologies_data/
 
 # Environment variables
 .env

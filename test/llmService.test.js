@@ -37,7 +37,8 @@ jest.mock('../src/config', () => ({
 }));
 jest.mock('../src/prompts');
 
-describe.skip('LlmService', () => { // @TODO: Fix failing tests - disabling for now
+describe.skip('LlmService', () => {
+  // @TODO: Fix failing tests - disabling for now
   let mockChatClient;
   let mockPipe;
   let mockInvoke;

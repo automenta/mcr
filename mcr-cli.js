@@ -14,7 +14,8 @@ const registerStatusCommand = require('./src/cli/commands/statusCommands');
 program
   .name('mcr-cli')
   .description('CLI for the Model Context Reasoner (MCR) API')
-  .version('2.1.0'); // Updated version after refactor
+  .version('2.1.0') // Updated version after refactor
+  .option('--json', 'Output raw JSON responses from the API');
 
 // Register commands from modules
 registerSessionCommands(program);

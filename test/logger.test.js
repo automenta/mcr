@@ -23,25 +23,33 @@ const mockFileTransportConstructor = jest.fn();
 const mockConsoleTransportConstructor = jest.fn();
 
 // Mocking winston.format and its properties
-const mockWinstonFormatCombine = jest.fn(
-  (...args) => ({ _isCombined: true, formats: args.map(f => f._formatName || 'unknown') })
-);
-const mockWinstonFormatTimestamp = jest.fn(() => ({ _formatName: 'timestamp' }));
+const mockWinstonFormatCombine = jest.fn((...args) => ({
+  _isCombined: true,
+  formats: args.map((f) => f._formatName || 'unknown'),
+}));
+const mockWinstonFormatTimestamp = jest.fn(() => ({
+  _formatName: 'timestamp',
+}));
 const mockWinstonFormatJson = jest.fn(() => ({ _formatName: 'json' }));
 const mockWinstonFormatColorize = jest.fn(() => ({ _formatName: 'colorize' }));
 const mockWinstonFormatSimple = jest.fn(() => ({ _formatName: 'simple' }));
-const mockWinstonFormatPrintf = jest.fn((callback) => ({ _formatName: 'printf', callback }));
+const mockWinstonFormatPrintf = jest.fn((callback) => ({
+  _formatName: 'printf',
+  callback,
+}));
 
 // winston.format itself is a function (FormatWrap) that can be called to create a new Format.
 // It also has properties like .combine(), .json(), etc.
-const mockFormatFunction = jest.fn(transform => ({ _formatName: 'custom', transform }));
+const mockFormatFunction = jest.fn((transform) => ({
+  _formatName: 'custom',
+  transform,
+}));
 mockFormatFunction.combine = mockWinstonFormatCombine;
 mockFormatFunction.timestamp = mockWinstonFormatTimestamp;
 mockFormatFunction.json = mockWinstonFormatJson;
 mockFormatFunction.colorize = mockWinstonFormatColorize;
 mockFormatFunction.simple = mockWinstonFormatSimple;
 mockFormatFunction.printf = mockWinstonFormatPrintf;
-
 
 jest.mock('winston', () => ({
   createLogger: jest.fn(() => mockActualWinstonLoggerInstance),
@@ -53,12 +61,18 @@ jest.mock('winston', () => ({
 }));
 
 // Now require the modules under test, they will get the mocks above
-const { logger, initializeLoggerContext, asyncLocalStorage } = require('../src/logger');
+const {
+  logger,
+  initializeLoggerContext,
+  asyncLocalStorage,
+} = require('../src/logger');
 
-describe.skip('Logger', () => { // @TODO: Fix failing tests - disabling for now
+describe.skip('Logger', () => {
+  // @TODO: Fix failing tests - disabling for now
   beforeEach(() => {
     jest.clearAllMocks();
-    mockConfigLoad.mockReturnValue({ // Reset config for each test run
+    mockConfigLoad.mockReturnValue({
+      // Reset config for each test run
       logging: {
         level: 'info',
         file: 'test-logger.log',
@@ -117,7 +131,9 @@ describe.skip('Logger', () => { // @TODO: Fix failing tests - disabling for now
 
   test('logger methods should call corresponding methods on the winston instance', () => {
     logger.info('Info test');
-    expect(mockActualWinstonLoggerInstance.info).toHaveBeenCalledWith('Info test');
+    expect(mockActualWinstonLoggerInstance.info).toHaveBeenCalledWith(
+      'Info test'
+    );
   });
 
   test('correlationIdFormat custom transform function (via mockFormatFunction) should add correlationId', () => {

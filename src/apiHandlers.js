@@ -125,9 +125,12 @@ const ApiHandlers = {
         validateOptionalString(requestOntology, 'ontology', 'QUERY');
       }
       if (options && typeof options !== 'object') {
-        throw new ApiError(400, "Invalid 'options' field. Must be an object.", 'QUERY_INVALID_OPTIONS_TYPE');
+        throw new ApiError(
+          400,
+          "Invalid 'options' field. Must be an object.",
+          'QUERY_INVALID_OPTIONS_TYPE'
+        );
       }
-
 
       const prologQuery = await LlmService.queryToPrologAsync(query);
       logger.info(
@@ -160,7 +163,11 @@ const ApiHandlers = {
           );
         }
         // Ensure it's an ApiError for consistent handling downstream
-        throw new ApiError(500, `Reasoner error: ${reasonerError.message}`, 'QUERY_REASONER_FAILED');
+        throw new ApiError(
+          500,
+          `Reasoner error: ${reasonerError.message}`,
+          'QUERY_REASONER_FAILED'
+        );
       }
 
       const simpleResult = ApiHandlers._simplifyPrologResults(
@@ -169,7 +176,8 @@ const ApiHandlers = {
       );
 
       logger.info(
-        `Session ${sessionId}: Prolog query returned: ${JSON.stringify(simpleResult)}`, { sessionId }
+        `Session ${sessionId}: Prolog query returned: ${JSON.stringify(simpleResult)}`,
+        { sessionId }
       );
       const finalAnswer = await LlmService.resultToNlAsync(
         query,
@@ -214,7 +222,11 @@ const ApiHandlers = {
       const { text, existing_facts, ontology_context } = req.body;
       validateNonEmptyString(text, 'text', 'NL_TO_RULES');
       validateOptionalString(existing_facts, 'existing_facts', 'NL_TO_RULES');
-      validateOptionalString(ontology_context, 'ontology_context', 'NL_TO_RULES');
+      validateOptionalString(
+        ontology_context,
+        'ontology_context',
+        'NL_TO_RULES'
+      );
 
       const rules = await LlmService.nlToRulesAsync(
         text,
@@ -395,7 +407,8 @@ const ApiHandlers = {
   },
 
   _simplifyPrologResults(rawResults, loggerInstance) {
-    if (!rawResults || rawResults.length === 0) { // Handle undefined or empty rawResults
+    if (!rawResults || rawResults.length === 0) {
+      // Handle undefined or empty rawResults
       return 'No solution found.';
     }
     if (rawResults.length === 1 && rawResults[0] === 'true.') {
@@ -418,12 +431,11 @@ const ApiHandlers = {
         }
         // Handle cases where results might already be objects/arrays from reasoner
         if (typeof r === 'object' || Array.isArray(r)) {
-            return r;
+          return r;
         }
         // Default to string, includes 'X = value.' cases
         return String(r);
       });
-
 
       if (processedResults.length === 1) {
         return processedResults[0];
@@ -439,7 +451,7 @@ const ApiHandlers = {
         }
       );
       // Return raw results as a fallback if any processing error occurs
-      return rawResults.map(r => String(r));
+      return rawResults.map((r) => String(r));
     }
   },
 };

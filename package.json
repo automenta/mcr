@@ -3,6 +3,19 @@
   "version": "2.0.0",
   "description": "A stateful, API-driven bridge between LLMs and a Prolog reasoner.",
   "main": "mcr.js",
+  "bin": {
+    "mcr-cli": "./mcr-cli.js"
+  },
+  "files": [
+    "mcr.js",
+    "mcr-cli.js",
+    "src/",
+    "ontologies/",
+    "README.md",
+    "LICENSE",
+    "ALPHA_TESTING_GUIDE.md",
+    ".env.example"
+  ],
   "scripts": {
     "start": "node mcr.js",
     "cli": "node mcr-cli.js",
@@ -21,7 +34,7 @@
   "author": "AI Agent (Jules)",
   "license": "MIT",
   "dependencies": {
-    "@langchain/community": "^0.2.0",
+    "@langchain/community": "^0.3.47",
     "@langchain/google-genai": "^0.0.15",
     "@langchain/openai": "^0.1.0",
     "axios": "^1.0.0",
