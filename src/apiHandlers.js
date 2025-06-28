@@ -51,6 +51,10 @@ const ApiHandlers = {
     try {
       const { sessionId } = req.params;
       const { text } = req.body;
+      logger.debug(`Attempting to assert facts for session ${sessionId}`, {
+        sessionId,
+        textLength: text?.length,
+      });
       validateNonEmptyString(text, 'text');
       const currentSession = SessionManager.get(sessionId);
       const currentFacts = currentSession.facts.join('\n');
@@ -76,10 +80,17 @@ const ApiHandlers = {
     try {
       const { sessionId } = req.params;
       const { query, options = {}, ontology: requestOntology } = req.body;
+      logger.debug(`Attempting to query session ${sessionId}`, {
+        sessionId,
+        queryLength: query?.length,
+        options,
+        requestOntologyProvided: !!requestOntology,
+      });
       validateNonEmptyString(query, 'query');
       const prologQuery = await LlmService.queryToPrologAsync(query);
       logger.info(
-        `Session ${sessionId}: Translated NL query to Prolog: "${prologQuery}"`
+        `Session ${sessionId}: Translated NL query to Prolog: "${prologQuery}"`,
+        { sessionId, prologQuery }
       );
       const facts = SessionManager.getFactsWithOntology(
         sessionId,

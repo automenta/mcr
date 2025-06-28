@@ -14,10 +14,22 @@ const OllamaProvider = require('./llmProviders/ollamaProvider');
 
 const config = ConfigManager.load();
 
+/**
+ * Service for interacting with Large Language Models (LLMs).
+ * It supports multiple providers (OpenAI, Gemini, Ollama) and handles
+ * prompt formatting, LLM invocation, and output parsing.
+ */
 const LlmService = {
   _client: null,
   _providerStrategies: {},
 
+  /**
+   * Registers an LLM provider strategy.
+   * @param {object} providerStrategy - The provider strategy object.
+   * @param {string} providerStrategy.name - Name of the provider (e.g., 'openai').
+   * @param {function} providerStrategy.initialize - Function to initialize the provider client.
+   * @private
+   */
   registerProvider(providerStrategy) {
     if (
       providerStrategy &&
@@ -35,6 +47,10 @@ const LlmService = {
     }
   },
 
+  /**
+   * Initializes the LLM service by selecting and configuring the LLM provider
+   * based on the application configuration.
+   */
   init() {
     this.registerProvider(OpenAiProvider);
     this.registerProvider(GeminiProvider);
@@ -76,6 +92,20 @@ const LlmService = {
     }
   },
 
+  /**
+   * A private helper to call the LLM with a specific prompt template and input variables.
+   * Handles template lookup, invocation, and basic error wrapping.
+   * @param {string} templateName - The name of the prompt template (key in PROMPT_TEMPLATES).
+   * @param {object} inputVariables - An object containing variables for the prompt template.
+   * @param {object} outputParser - An instance of a LangChain output parser.
+   * @param {object} errorContext - Context for error reporting.
+   * @param {string} errorContext.methodName - Name of the calling public method.
+   * @param {string} errorContext.internalErrorCode - Specific internal error code.
+   * @param {string} errorContext.customErrorMessage - User-facing error message for unhandled errors.
+   * @returns {Promise<any>} The parsed output from the LLM.
+   * @throws {ApiError} If template is not found or LLM invocation fails.
+   * @private
+   */
   async _callLlmAsync(
     templateName,
     inputVariables,
@@ -168,6 +198,15 @@ const LlmService = {
       );
     }
   },
+
+  /**
+   * Translates natural language text into a list of Prolog facts/rules.
+   * @param {string} text - The natural language text to translate.
+   * @param {string} [existing_facts=''] - Optional string of existing Prolog facts for context.
+   * @param {string} [ontology_context=''] - Optional string of ontology rules for context.
+   * @returns {Promise<string[]>} A promise that resolves to an array of Prolog rule strings.
+   * @throws {ApiError} If LLM processing fails or returns an invalid format.
+   */
   async nlToRulesAsync(text, existing_facts = '', ontology_context = '') {
     const result = await this._callLlmAsync(
       'NL_TO_RULES',
@@ -194,6 +233,13 @@ const LlmService = {
     }
     return result;
   },
+
+  /**
+   * Translates a natural language question into a Prolog query string.
+   * @param {string} question - The natural language question.
+   * @returns {Promise<string>} A promise that resolves to a Prolog query string.
+   * @throws {ApiError} If LLM processing fails.
+   */
   async queryToPrologAsync(question) {
     const result = await this._callLlmAsync(
       'QUERY_TO_PROLOG',
@@ -208,6 +254,15 @@ const LlmService = {
     );
     return result.trim();
   },
+
+  /**
+   * Translates a Prolog query result back into a natural language answer.
+   * @param {string} original_question - The original natural language question.
+   * @param {string} logic_result - The JSON stringified result from the Prolog engine.
+   * @param {string} [style='conversational'] - The desired style of the natural language answer.
+   * @returns {Promise<string>} A promise that resolves to a natural language answer.
+   * @throws {ApiError} If LLM processing fails.
+   */
   async resultToNlAsync(
     original_question,
     logic_result,
@@ -225,6 +280,14 @@ const LlmService = {
       }
     );
   },
+
+  /**
+   * Translates a list of Prolog rules into a natural language explanation.
+   * @param {string[]} rules - An array of Prolog rule strings.
+   * @param {string} [style='formal'] - The desired style of the explanation.
+   * @returns {Promise<string>} A promise that resolves to a natural language explanation.
+   * @throws {ApiError} If LLM processing fails.
+   */
   async rulesToNlAsync(rules, style = 'formal') {
     return this._callLlmAsync(
       'RULES_TO_NL',
@@ -238,6 +301,15 @@ const LlmService = {
       }
     );
   },
+
+  /**
+   * Generates a natural language explanation of how a Prolog query would be resolved.
+   * @param {string} query - The Prolog query string to explain.
+   * @param {string[]} facts - An array of existing Prolog facts for context.
+   * @param {string[]} ontology_context - An array of ontology rules for context.
+   * @returns {Promise<string>} A promise that resolves to a natural language explanation.
+   * @throws {ApiError} If LLM processing fails.
+   */
   async explainQueryAsync(query, facts, ontology_context) {
     return this._callLlmAsync(
       'EXPLAIN_QUERY',
@@ -251,6 +323,11 @@ const LlmService = {
       }
     );
   },
+
+  /**
+   * Retrieves a copy of all loaded prompt templates.
+   * @returns {object} A deep copy of the PROMPT_TEMPLATES object.
+   */
   getPromptTemplates() {
     return JSON.parse(JSON.stringify(PROMPT_TEMPLATES));
   },

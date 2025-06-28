@@ -1,0 +1,85 @@
+# Model Context Reasoner (MCR) - Alpha Testing Guide
+
+Thank you for helping test the Model Context Reasoner! This guide provides an overview of key functionalities, setup instructions, and known limitations for this alpha release.
+
+## What is MCR?
+
+The Model Context Reasoner (MCR) is a server application that bridges Large Language Models (LLMs) with formal logic reasoners (Prolog). It allows applications to perform complex logical reasoning by translating natural language into formal logic, managing knowledge in stateful sessions, and translating results back to natural language.
+
+## Key Functionalities to Test
+
+We encourage you to test the following core features:
+
+1.  **Server Operation**:
+    *   Starting the server (`node mcr.js`).
+    *   Checking server status (CLI: `node mcr-cli.js status`, API: `GET /`).
+
+2.  **Session Management**:
+    *   Creating new sessions (CLI: `create-session`, API: `POST /sessions`).
+    *   Retrieving session details (CLI: `get-session <id>`, API: `GET /sessions/:sessionId`).
+    *   Asserting facts into a session (CLI: `assert <id> "fact"`, API: `POST /sessions/:sessionId/assert`).
+        *   Test with simple and more complex statements.
+    *   Querying a session (CLI: `query <id> "question"`, API: `POST /sessions/:sessionId/query`).
+        *   Test with questions that should yield "yes", "no", or specific variable bindings.
+        *   Try the `debug` option in the API query.
+    *   Deleting sessions (CLI: `delete-session <id>`, API: `DELETE /sessions/:sessionId`).
+
+3.  **Ontology Management**:
+    *   The `family.pl` ontology is provided in the `ontologies/` directory.
+    *   Adding a new ontology (CLI: `add-ontology <name> <file.pl>`, API: `POST /ontologies`).
+    *   Listing ontologies (CLI: `get-ontologies`, API: `GET /ontologies`).
+    *   Retrieving a specific ontology (CLI: `get-ontology <name>`, API: `GET /ontologies/:name`).
+    *   Updating an ontology (CLI: `update-ontology <name> <file.pl>`, API: `PUT /ontologies/:name`).
+    *   Deleting an ontology (CLI: `delete-ontology <name>`, API: `DELETE /ontologies/:name`).
+    *   Querying with dynamic ontology content (see `ontology` field in `POST /sessions/:sessionId/query` API endpoint or `-o` flag in CLI `query` and `chat` commands).
+
+4.  **Direct Translation Utilities**:
+    *   NL-to-Rules (API: `POST /translate/nl-to-rules`).
+    *   Rules-to-NL (API: `POST /translate/rules-to-nl`).
+
+5.  **Debugging Utilities**:
+    *   Get prompt templates (API: `GET /prompts`).
+    *   Format prompt (dry run) (API: `POST /debug/format-prompt`).
+
+6.  **Command Line Interface (CLI)**:
+    *   Use `node mcr-cli.js --help` to see all commands.
+    *   The `demo.sh` script provides a guided tour of CLI functionalities.
+    *   Try the interactive chat: `node mcr-cli.js chat`.
+
+## Setup
+
+1.  **Prerequisites**: Node.js (version specified in `package.json` `engines` field, currently >=18.0.0).
+2.  **Installation**:
+    ```bash
+    git clone <repository_url>
+    cd model-context-reasoner
+    npm install
+    ```
+3.  **Configuration**:
+    *   Create a `.env` file in the root directory. See `README.md` for LLM provider API keys and other options (e.g., `OPENAI_API_KEY`, `GEMINI_API_KEY`).
+    *   Select your LLM provider in `.env` (e.g., `MCR_LLM_PROVIDER="openai"`).
+4.  **Running the Server**:
+    ```bash
+    node mcr.js
+    ```
+    The server will default to `http://localhost:8080`.
+
+## Known Limitations & Issues (Alpha)
+
+*   **LLM Translation Quality**: The accuracy of translating natural language to Prolog, and Prolog results back to natural language, depends heavily on the chosen LLM and the complexity of the language/query. Some translations might be imperfect.
+*   **Prolog Reasoner Limits**: Tau Prolog is powerful but may have limitations with extremely complex or large knowledge bases compared to some desktop Prolog systems.
+*   **Error Reporting**: While improved, some error messages from deep within LLM or Prolog interactions might still be generic. The `X-Correlation-ID` in logs and API responses is key for debugging.
+*   **Scalability**: The current session and ontology management is file-based and in-memory, suited for single-user or light load. It's not designed for high-concurrency production loads without further enhancements.
+*   **Security Vulnerability**: A low-severity SQL Injection vulnerability exists in a dependency (`@langchain/community <0.3.3`). This is noted for future update; the vulnerable component is not believed to be directly used by MCR's core features.
+*   **Ontology Storage**: Ontologies created via the API are stored in the `./ontologies` directory (by default). If this directory is version-controlled, user-created ontologies might appear as uncommitted changes. For alpha, manage this as you see fit (either commit them if they are useful base ontologies or add specific user ontology files to your own `.gitignore`).
+
+## Feedback
+
+Please report any bugs, issues, or feedback to [Specify Feedback Channel - e.g., GitHub Issues, email address].
+Include:
+*   Steps to reproduce the issue.
+*   Expected behavior vs. actual behavior.
+*   Relevant logs (especially messages with `X-Correlation-ID`).
+*   MCR version (from `package.json` or `GET /` API).
+
+Thank you for your time and effort in testing MCR!

@@ -51,6 +51,7 @@ MCR is built with a "guitar pedal" philosophy: a single, plug-and-play unit that
     # MCR_LLM_OLLAMA_BASE_URL="http://localhost:11434" # Optional, defaults to http://localhost:11434
 
     # --- OPTIONAL GENERAL SETTINGS ---
+    # MCR_API_URL="http://localhost:8080" # For CLI: defaults to http://localhost:8080 if server is local
     # HOST="0.0.0.0" # Defaults to 0.0.0.0
     # PORT="8080"    # Defaults to 8080
     # LOG_LEVEL="info" # Defaults to info (options: error, warn, info, http, verbose, debug, silly)
@@ -61,6 +62,38 @@ MCR is built with a "guitar pedal" philosophy: a single, plug-and-play unit that
     node mcr.js
     ```
     The script will then start the server, indicating which LLM provider is active.
+
+## CLI Usage Examples
+
+The MCR includes a Command Line Interface (CLI) for direct interaction. You can run it using `node mcr-cli.js --help` to see all available commands.
+
+- **Check Server Status**:
+  ```bash
+  node mcr-cli.js status
+  ```
+
+- **Create a Session**:
+  ```bash
+  node mcr-cli.js create-session
+  ```
+  (Save the `sessionId` from the output for subsequent commands)
+
+- **Assert a Fact**:
+  ```bash
+  node mcr-cli.js assert <sessionId> "The sky is blue."
+  ```
+
+- **Query a Session**:
+  ```bash
+  node mcr-cli.js query <sessionId> "What color is the sky?"
+  ```
+
+- **Interactive Chat**:
+  ```bash
+  node mcr-cli.js chat
+  ```
+
+Many other commands are available for managing ontologies, direct translations, etc. Use the `--help` flag on commands for more details (e.g., `node mcr-cli.js query --help`).
 
 ## API Reference
 
@@ -112,6 +145,7 @@ MCR exposes a RESTful API for interaction. All requests and responses are JSON-b
 Sessions are stateful contexts where facts are stored and reasoned upon.
 
 - `POST /sessions`
+
   - **Description**: Creates a new reasoning session.
   - **Response**:
     ```json
@@ -124,6 +158,7 @@ Sessions are stateful contexts where facts are stored and reasoned upon.
     ```
 
 - `GET /sessions/:sessionId`
+
   - **Description**: Retrieves the details of a specific session.
   - **Parameters**: `sessionId` (path) - The ID of the session.
   - **Response**: (Same as `POST /sessions` response, but with current facts)
@@ -173,6 +208,7 @@ Add natural language statements to a session's knowledge base. MCR uses an LLM t
 Ask natural language questions against a session's knowledge base. MCR translates the question to Prolog, runs the query, and translates the result back to natural language.
 
 - `POST /sessions/:sessionId/query`
+
   - **Description**: Translates a natural language question into a Prolog query, executes it against the session's knowledge base (including a common-sense ontology), and returns a natural language answer.
   - **Parameters**: `sessionId` (path) - The ID of the session.
   - **Request Body**:
@@ -235,6 +271,7 @@ Ask natural language questions against a session's knowledge base. MCR translate
 These endpoints allow direct translation without session management.
 
 - `POST /translate/nl-to-rules`
+
   - **Description**: Translates natural language text into a list of Prolog facts/rules.
   - **Request Body**:
     ```json
@@ -277,6 +314,7 @@ These endpoints allow direct translation without session management.
 MCR allows for the management of global ontologies (collections of Prolog facts and rules) that can be applied to reasoning tasks. These ontologies are stored by MCR and can be created, updated, listed, retrieved, and deleted via the API. Ontologies are identified by a unique `name`.
 
 - `POST /ontologies`
+
   - **Description**: Creates a new global ontology.
   - **Request Body**:
     ```json
@@ -294,6 +332,7 @@ MCR allows for the management of global ontologies (collections of Prolog facts 
     ```
 
 - `GET /ontologies`
+
   - **Description**: Retrieves a list of all global ontologies.
   - **Response**:
     ```json
@@ -304,6 +343,7 @@ MCR allows for the management of global ontologies (collections of Prolog facts 
     ```
 
 - `GET /ontologies/:name`
+
   - **Description**: Retrieves a specific global ontology by its name.
   - **Parameters**: `name` (path) - The name of the ontology.
   - **Response**:
@@ -315,6 +355,7 @@ MCR allows for the management of global ontologies (collections of Prolog facts 
     ```
 
 - `PUT /ontologies/:name`
+
   - **Description**: Updates an existing global ontology.
   - **Parameters**: `name` (path) - The name of the ontology to update.
   - **Request Body**:
@@ -344,6 +385,7 @@ MCR allows for the management of global ontologies (collections of Prolog facts 
 ### 7. Utility & Debugging Endpoints
 
 - `GET /prompts`
+
   - **Description**: Retrieves all raw prompt templates currently loaded by the MCR server. This is useful for understanding the base prompts used for LLM interactions.
   - **Response**:
     ```json

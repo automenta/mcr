@@ -1,8 +1,18 @@
 const pl = require('tau-prolog');
-const logger = require('./logger');
+const { logger } = require('./logger'); // Corrected import
 const ApiError = require('./errors');
 
+/**
+ * Service for interacting with the Tau Prolog reasoner.
+ */
 const ReasonerService = {
+  /**
+   * Runs a Prolog query against a given set of facts.
+   * @param {string[]} facts - An array of Prolog facts and rules to consult.
+   * @param {string} query - The Prolog query string to execute.
+   * @returns {Promise<string[]>} A promise that resolves to an array of formatted answer strings.
+   * @throws {ApiError} If there's an error during Prolog session setup, consultation, querying, or answer processing.
+   */
   runQuery(facts, query) {
     return new Promise((resolve, reject) => {
       const prologSession = pl.create();

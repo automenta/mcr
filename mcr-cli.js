@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-console */
 
 const { Command } = require('commander');
 const axios = require('axios');
@@ -7,7 +8,7 @@ const path = require('path');
 const readline = require('readline');
 
 const program = new Command();
-const API_BASE_URL = process.env.MCR_API_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.MCR_API_URL || 'http://localhost:8080';
 
 program
   .name('mcr')
@@ -40,7 +41,7 @@ program
   .action(async () => {
     try {
       const response = await axios.post(`${API_BASE_URL}/sessions`);
-      console.log('Session created:', response.data);
+      console.log('Session created:', JSON.stringify(response.data, null, 2));
     } catch (error) {
       handleApiError(error);
     }
@@ -52,7 +53,7 @@ program
   .action(async (sessionId) => {
     try {
       const response = await axios.get(`${API_BASE_URL}/sessions/${sessionId}`);
-      console.log('Session details:', response.data);
+      console.log('Session details:', JSON.stringify(response.data, null, 2));
     } catch (error) {
       handleApiError(error);
     }
@@ -82,7 +83,7 @@ program
         `${API_BASE_URL}/sessions/${sessionId}/assert`,
         { text }
       );
-      console.log('Facts asserted:', response.data);
+      console.log('Facts asserted:', JSON.stringify(response.data, null, 2));
     } catch (error) {
       handleApiError(error);
     }
@@ -327,7 +328,7 @@ program
         name,
         rules,
       });
-      console.log('Ontology added:', response.data);
+      console.log('Ontology added:', JSON.stringify(response.data, null, 2));
     } catch (error) {
       handleApiError(error);
     }
@@ -348,7 +349,7 @@ program
       const response = await axios.put(`${API_BASE_URL}/ontologies/${name}`, {
         rules,
       });
-      console.log('Ontology updated:', response.data);
+      console.log('Ontology updated:', JSON.stringify(response.data, null, 2));
     } catch (error) {
       handleApiError(error);
     }
@@ -360,7 +361,10 @@ program
   .action(async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/ontologies`);
-      console.log('Available Ontologies:', response.data);
+      console.log(
+        'Available Ontologies:',
+        JSON.stringify(response.data, null, 2)
+      );
     } catch (error) {
       handleApiError(error);
     }
@@ -372,7 +376,7 @@ program
   .action(async (name) => {
     try {
       const response = await axios.get(`${API_BASE_URL}/ontologies/${name}`);
-      console.log('Ontology details:', response.data);
+      console.log('Ontology details:', JSON.stringify(response.data, null, 2));
     } catch (error) {
       handleApiError(error);
     }
@@ -474,6 +478,19 @@ program
         console.log('Exiting chat.');
         process.exit(0);
       });
+    } catch (error) {
+      handleApiError(error);
+    }
+  });
+
+// --- Server Status Command ---
+program
+  .command('status')
+  .description('Get the MCR server status and information')
+  .action(async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/`);
+      console.log('Server Status:', JSON.stringify(response.data, null, 2));
     } catch (error) {
       handleApiError(error);
     }
