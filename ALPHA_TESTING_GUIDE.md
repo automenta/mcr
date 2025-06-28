@@ -68,10 +68,21 @@ We encourage you to test the following core features:
 
 *   **LLM Translation Quality**: The accuracy of translating natural language to Prolog, and Prolog results back to natural language, depends heavily on the chosen LLM and the complexity of the language/query. Some translations might be imperfect.
 *   **Prolog Reasoner Limits**: Tau Prolog is powerful but may have limitations with extremely complex or large knowledge bases compared to some desktop Prolog systems.
-*   **Error Reporting**: While improved, some error messages from deep within LLM or Prolog interactions might still be generic. The `X-Correlation-ID` in logs and API responses is key for debugging.
-*   **Scalability**: The current session and ontology management is file-based and in-memory, suited for single-user or light load. It's not designed for high-concurrency production loads without further enhancements.
+*   **Error Reporting**: While improved, some error messages from deep within LLM or Prolog interactions might still be generic. The `X-Correlation-ID` in logs and API responses is key for debugging. When reporting API errors, please include the `type` and `code` (if present) from the error response object, along with the `message`.
+    ```json
+    {
+      "error": {
+        "message": "Descriptive error message",
+        "type": "ApiError",
+        "code": "SPECIFIC_ERROR_CODE", // Include this if available
+        "correlationId": "a-unique-uuid"
+      }
+    }
+    ```
+*   **Configuration Validation**: The server now performs stricter validation of `.env` settings on startup. If critical settings for your chosen `MCR_LLM_PROVIDER` are missing (e.g., API key for OpenAI/Gemini, or a valid URL for Ollama), the server will log a detailed error and refuse to start. This is intentional to prevent runtime issues.
+*   **Scalability**: The current session and ontology management is file-based (defaulting to `./sessions_data` and `./ontologies_data`) and in-memory, suited for single-user or light load. It's not designed for high-concurrency production loads without further enhancements.
 *   **Security Vulnerability**: A low-severity SQL Injection vulnerability exists in a dependency (`@langchain/community <0.3.3`). This is noted for future update; the vulnerable component is not believed to be directly used by MCR's core features.
-*   **Ontology Storage**: Ontologies created via the API are stored in the `./ontologies` directory (by default). If this directory is version-controlled, user-created ontologies might appear as uncommitted changes. For alpha, manage this as you see fit (either commit them if they are useful base ontologies or add specific user ontology files to your own `.gitignore`).
+*   **Ontology Storage**: Ontologies created via the API are stored in the `./ontologies_data` directory (by default). If this directory is version-controlled, user-created ontologies might appear as uncommitted changes. For alpha, manage this as you see fit (either commit them if they are useful base ontologies or add specific user ontology files to your own `.gitignore`).
 
 ## Feedback
 
@@ -80,6 +91,6 @@ Include:
 *   Steps to reproduce the issue.
 *   Expected behavior vs. actual behavior.
 *   Relevant logs (especially messages with `X-Correlation-ID`).
-*   MCR version (from `package.json` or `GET /` API).
+*   MCR version (e.g., from `GET /` API, which should now show `2.1.0` or similar, or `package.json`).
 
 Thank you for your time and effort in testing MCR!

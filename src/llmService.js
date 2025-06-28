@@ -12,7 +12,8 @@ const OpenAiProvider = require('./llmProviders/openaiProvider');
 const GeminiProvider = require('./llmProviders/geminiProvider');
 const OllamaProvider = require('./llmProviders/ollamaProvider');
 
-const config = ConfigManager.load();
+// Remove top-level config load, it will be passed to init
+// const config = ConfigManager.load();
 
 /**
  * Service for interacting with Large Language Models (LLMs).
@@ -50,43 +51,57 @@ const LlmService = {
   /**
    * Initializes the LLM service by selecting and configuring the LLM provider
    * based on the application configuration.
+   * @param {object} appConfig - The application configuration object.
    */
-  init() {
+  init(appConfig) {
+    if (!appConfig || !appConfig.llm) {
+        logger.fatal('LLMService.init() called without valid application configuration. LLM Service cannot start.');
+        // This scenario should ideally be prevented by ConfigManager exiting on critical load failures.
+        // If it still happens, it's a programming error.
+        throw new Error('LLMService configuration error: Missing LLM config.');
+    }
+    this._appConfig = appConfig; // Store the config for later use if needed by other methods
+
     this.registerProvider(OpenAiProvider);
     this.registerProvider(GeminiProvider);
     this.registerProvider(OllamaProvider);
 
-    const providerName = config.llm.provider;
+    const providerName = this._appConfig.llm.provider;
     const providerStrategy = this._providerStrategies[providerName];
 
     if (providerStrategy) {
       try {
-        this._client = providerStrategy.initialize(config.llm);
+        this._client = providerStrategy.initialize(this._appConfig.llm);
         if (this._client) {
           logger.info(
-            `LLM Service initialized with provider: '${providerName}' and model: '${config.llm.model[providerName]}'`
+            `LLM Service initialized with provider: '${providerName}' and model: '${this._appConfig.llm.model[providerName]}'`
           );
         } else {
-          logger.warn(
-            `LLM client for provider '${providerName}' could not be initialized. LLM service may be impaired or unavailable.`
+          // Initialization function of provider should throw or log detailed error
+          logger.error( // Changed to error as this is a critical failure for the selected provider
+            `LLM client for provider '${providerName}' could not be initialized. LLM service will be impaired or unavailable.`
           );
         }
       } catch (error) {
         logger.error(
-          `Error during initialization of LLM provider '${providerName}': ${error.message}`,
+          `Critical error during initialization of LLM provider '${providerName}': ${error.message}`,
           {
-            internalErrorCode: 'LLM_PROVIDER_INIT_ERROR',
+            internalErrorCode: 'LLM_PROVIDER_INIT_CRITICAL_ERROR',
             providerName,
             originalError: error.message,
             stack: error.stack,
           }
         );
-        this._client = null;
+        this._client = null; // Ensure client is null on error
+        // Depending on policy, might re-throw to halt server startup if LLM is essential
+        // For now, it logs error and _client remains null, leading to 503s.
       }
     } else {
-      logger.error(
-        `Unsupported LLM provider configured: '${providerName}'. LLM service will not be available.`,
-        { internalErrorCode: 'LLM_UNSUPPORTED_PROVIDER', providerName }
+      // This case should be caught by ConfigManager.validate() now.
+      // If it still occurs, it's a more severe issue.
+      logger.fatal(
+        `Unsupported LLM provider configured: '${providerName}'. This should have been caught by config validation. LLM service will not be available.`,
+        { internalErrorCode: 'LLM_UNSUPPORTED_PROVIDER_UNCAUGHT', providerName }
       );
       this._client = null;
     }
@@ -146,7 +161,7 @@ const LlmService = {
     if (!this._client) {
       logger.error('LLM Service not available or not initialized correctly.', {
         internalErrorCode: 'LLM_SERVICE_UNAVAILABLE',
-        configuredProvider: config.llm.provider,
+        configuredProvider: this._appConfig ? this._appConfig.llm.provider : 'unknown',
       });
       throw new ApiError(
         503,
@@ -178,11 +193,12 @@ const LlmService = {
     } catch (error) {
       const responseData = error.response?.data;
       const cause = error.cause;
+      const providerName = this._appConfig ? this._appConfig.llm.provider : 'unknown';
       logger.error(
-        `LLM invocation error for provider ${config.llm.provider}.`,
+        `LLM invocation error for provider ${providerName}.`,
         {
           internalErrorCode: 'LLM_INVOCATION_ERROR',
-          provider: config.llm.provider,
+          provider: providerName,
           prompt: formattedPrompt,
           llmInput: input,
           errorMessage: error.message,

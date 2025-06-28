@@ -7,44 +7,59 @@ const ApiError = require('../src/errors');
 jest.mock('../src/sessionManager');
 jest.mock('../src/llmService');
 jest.mock('../src/reasonerService');
-jest.mock('../src/errors');
+const ActualApiError = jest.requireActual('../src/errors');
+jest.mock('../src/errors', () => {
+  return jest.fn().mockImplementation((status, message, code) => {
+    const err = new ActualApiError(status, message, code);
+    return err;
+  });
+});
 jest.mock('../src/logger'); // Auto-mocked
+
 jest.mock('../src/config', () => ({
-  // Factory mock for config
-  load: jest.fn(() => ({
-    // Provide minimal config structure needed by indirect dependencies like logger
-    logging: { level: 'info', file: 'test.log' },
-    session: { storagePath: '/tmp/sessions' }, // Dummy paths
-    ontology: { storagePath: '/tmp/ontologies' },
-    llm: { provider: 'openai', model: {}, apiKey: {} }, // Add other necessary fields
+  get: jest.fn(() => ({
+    logging: { level: 'info' },
+    session: { storagePath: '/tmp/sessions_api_handlers_test' },
+    ontology: { storagePath: '/tmp/ontologies_api_handlers_test' },
+    llm: { provider: 'openai', model: { openai: 'gpt-test' }, apiKey: { openai: 'testkey'} },
   })),
 }));
 
-describe.skip('ApiHandlers', () => { // @TODO: Fix failing tests - disabling for now
+// Mock package.json
+jest.mock('../package.json', () => ({
+  name: 'mcr-test-app',
+  version: '1.0.0-test',
+  description: 'Test App Description',
+}));
+
+
+describe('ApiHandlers', () => {
   let mockReq, mockRes, mockNext;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.clearAllMocks(); // Clears all mocks, including the class mock for ApiError
+
+    // Re-implement ApiError mock for each test if needed, or ensure it's robust.
+    // The top-level mock should persist unless jest.resetModules() is called.
+    // ApiError.mockClear(); // if ApiError itself is a jest.fn()
 
     mockRes = {
       json: jest.fn(),
       status: jest.fn().mockReturnThis(),
-      send: jest.fn(),
+      send: jest.fn(), // Though send is not typically used with JSON APIs
     };
-
-    mockReq = {};
+    mockReq = { params: {}, body: {}, query: {} }; // Initialize common request parts
     mockNext = jest.fn();
-    ApiError.mockImplementation((status, message) => ({ status, message }));
   });
 
   describe('getRoot', () => {
-    test('should return basic API status and info', () => {
+    test('should return basic API status and info from mocked package.json', () => {
       ApiHandlers.getRoot(mockReq, mockRes);
       expect(mockRes.json).toHaveBeenCalledWith({
         status: 'ok',
-        name: 'Model Context Reasoner',
-        version: '2.0.0',
-        description: 'MCR API',
+        name: 'mcr-test-app',
+        version: '1.0.0-test',
+        description: 'Test App Description',
       });
     });
   });
@@ -96,21 +111,23 @@ describe.skip('ApiHandlers', () => { // @TODO: Fix failing tests - disabling for
   });
 
   describe('deleteSession', () => {
-    test('should delete a session and return success message', () => {
-      mockReq.params = { sessionId: 'delete-id' };
-      SessionManager.delete.mockReturnValue(undefined);
+    test('should delete a session and return success message with sessionId', () => {
+      const sessionId = 'delete-id';
+      mockReq.params = { sessionId };
+      SessionManager.delete.mockReturnValue(undefined); // delete doesn't return a value
 
       ApiHandlers.deleteSession(mockReq, mockRes, mockNext);
 
-      expect(SessionManager.delete).toHaveBeenCalledWith('delete-id');
+      expect(SessionManager.delete).toHaveBeenCalledWith(sessionId);
       expect(mockRes.json).toHaveBeenCalledWith({
-        message: 'Session delete-id terminated.',
+        message: `Session ${sessionId} terminated.`,
+        sessionId: sessionId, // Verify sessionId is in the response
       });
       expect(mockNext).not.toHaveBeenCalled();
     });
 
     test('should call next with ApiError if session not found during deletion', () => {
-      const error = new ApiError(404, 'Session not found');
+      const error = new ActualApiError(404, 'Session not found');
       mockReq.params = { sessionId: 'non-existent-id' };
       SessionManager.delete.mockImplementation(() => {
         throw error;
@@ -124,74 +141,69 @@ describe.skip('ApiHandlers', () => { // @TODO: Fix failing tests - disabling for
     });
   });
 
-  describe('assert', () => {
+  describe('assertAsync', () => {
     test('should assert new facts and return added facts count', async () => {
       mockReq.params = { sessionId: 'assert-id' };
       mockReq.body = { text: 'The cat is on the mat.' };
-      const mockSession = { sessionId: 'assert-id', facts: ['initial_fact.'] };
+      const initialSession = { sessionId: 'assert-id', facts: ['initial_fact.'], factCount: 1 };
+      const updatedSession = { ...initialSession, facts: [...initialSession.facts, 'on(cat,mat).'], factCount: 2 };
       const newFacts = ['on(cat,mat).'];
+      const ontologyContextArr = ['ontology_fact.'];
 
-      SessionManager.get.mockReturnValue(mockSession);
-      SessionManager.getNonSessionOntologyFacts.mockReturnValue([
-        'ontology_fact.',
-      ]);
-      LlmService.nlToRules.mockResolvedValue(newFacts);
-      SessionManager.addFacts.mockReturnValue(undefined);
-      SessionManager.get.mockReturnValueOnce({
-        ...mockSession,
-        facts: [...mockSession.facts, ...newFacts],
-        factCount: 2,
-      });
+      SessionManager.get.mockReturnValueOnce(initialSession) // First call for pre-check and getting currentFacts
+                         .mockReturnValueOnce(updatedSession); // Second call to get updated factCount
+      SessionManager.getNonSessionOntologyFacts.mockReturnValue(ontologyContextArr);
+      LlmService.nlToRulesAsync.mockResolvedValue(newFacts);
+      // SessionManager.addFacts is called internally by SessionManager, not directly by handler after refactor
+      // The effect is checked by the second call to SessionManager.get()
 
-      await ApiHandlers.assert(mockReq, mockRes, mockNext);
+      await ApiHandlers.assertAsync(mockReq, mockRes, mockNext);
 
       expect(SessionManager.get).toHaveBeenCalledWith('assert-id');
-      expect(LlmService.nlToRules).toHaveBeenCalledWith(
+      expect(SessionManager.getNonSessionOntologyFacts).toHaveBeenCalledWith('assert-id');
+      expect(LlmService.nlToRulesAsync).toHaveBeenCalledWith(
         mockReq.body.text,
-        mockSession.facts.join('\n'),
-        SessionManager.getNonSessionOntologyFacts().join('\n')
+        initialSession.facts.join('\n'),
+        ontologyContextArr.join('\n')
       );
-      expect(SessionManager.addFacts).toHaveBeenCalledWith(
-        'assert-id',
-        newFacts
-      );
+      expect(SessionManager.addFacts).toHaveBeenCalledWith('assert-id', newFacts); // Assuming addFacts is still called
       expect(mockRes.json).toHaveBeenCalledWith({
         addedFacts: newFacts,
-        totalFactsInSession: 2,
+        totalFactsInSession: updatedSession.factCount,
         metadata: { success: true },
       });
       expect(mockNext).not.toHaveBeenCalled();
     });
 
-    test('should throw ApiError if text is missing or invalid', async () => {
+    test('should call next with ApiError if text is missing or invalid', async () => {
       mockReq.params = { sessionId: 'assert-id' };
-      mockReq.body = { text: '' };
+      mockReq.body = { text: '' }; // Empty text
 
-      await ApiHandlers.assert(mockReq, mockRes, mockNext);
+      await ApiHandlers.assertAsync(mockReq, mockRes, mockNext);
 
-      expect(ApiError).toHaveBeenCalledWith(
-        400,
-        "Missing or invalid required field 'text'. Must be a non-empty string."
-      );
-      expect(mockNext).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 400 })
-      );
+      expect(mockNext).toHaveBeenCalled();
+      const errorThrown = mockNext.mock.calls[0][0];
+      expect(errorThrown).toBeInstanceOf(ActualApiError);
+      expect(errorThrown.statusCode).toBe(400);
+      expect(errorThrown.message).toContain("Missing or invalid required field 'text'");
+      expect(errorThrown.errorCode).toBe('ASSERT_INVALID_TEXT');
     });
 
-    test('should call next with error if LLM service fails', async () => {
-      const error = new Error('LLM error');
+    test('should call next with error if LlmService.nlToRulesAsync fails', async () => {
+      const llmError = new Error('LLM processing failed');
       mockReq.params = { sessionId: 'assert-id' };
-      mockReq.body = { text: 'some text' };
-      SessionManager.get.mockReturnValue({ sessionId: 'assert-id', facts: [] });
-      LlmService.nlToRules.mockRejectedValue(error);
+      mockReq.body = { text: 'some valid text' };
+      SessionManager.get.mockReturnValue({ sessionId: 'assert-id', facts: [], factCount: 0 });
+      SessionManager.getNonSessionOntologyFacts.mockReturnValue([]);
+      LlmService.nlToRulesAsync.mockRejectedValue(llmError);
 
-      await ApiHandlers.assert(mockReq, mockRes, mockNext);
+      await ApiHandlers.assertAsync(mockReq, mockRes, mockNext);
 
-      expect(mockNext).toHaveBeenCalledWith(error);
+      expect(mockNext).toHaveBeenCalledWith(llmError);
     });
   });
 
-  describe('query', () => {
+  describe('queryAsync', () => {
     test('should query facts and return natural language answer', async () => {
       mockReq.params = { sessionId: 'query-id' };
       mockReq.body = {
@@ -199,179 +211,199 @@ describe.skip('ApiHandlers', () => { // @TODO: Fix failing tests - disabling for
         options: { style: 'conversational' },
       };
       const prologQuery = 'parent(john,mary)?';
-      const facts = ['parent(john,mary).'];
-      const rawResults = ['true.'];
+      const factsForReasoner = ['parent(john,mary).', 'ontology_rule.'];
+      const rawResults = ['true.']; // Prolog result
+      const simplifiedResult = 'Yes.'; // After _simplifyPrologResults
       const finalAnswer = 'Yes, John is a parent of Mary.';
 
-      LlmService.queryToProlog.mockResolvedValue(prologQuery);
-      SessionManager.getFactsWithOntology.mockReturnValue(facts);
+      SessionManager.get.mockReturnValue({ sessionId: 'query-id', facts: ['parent(john,mary).'] }); // For initial check
+      LlmService.queryToPrologAsync.mockResolvedValue(prologQuery);
+      SessionManager.getFactsWithOntology.mockReturnValue(factsForReasoner);
       ReasonerService.runQuery.mockResolvedValue(rawResults);
-      LlmService.resultToNl.mockResolvedValue(finalAnswer);
+      LlmService.resultToNlAsync.mockResolvedValue(finalAnswer);
 
-      await ApiHandlers.query(mockReq, mockRes, mockNext);
+      await ApiHandlers.queryAsync(mockReq, mockRes, mockNext);
 
-      expect(LlmService.queryToProlog).toHaveBeenCalledWith(mockReq.body.query);
-      expect(SessionManager.getFactsWithOntology).toHaveBeenCalledWith(
-        'query-id',
-        undefined
-      );
-      expect(ReasonerService.runQuery).toHaveBeenCalledWith(facts, prologQuery);
-      expect(LlmService.resultToNl).toHaveBeenCalledWith(
+      expect(LlmService.queryToPrologAsync).toHaveBeenCalledWith(mockReq.body.query);
+      expect(SessionManager.getFactsWithOntology).toHaveBeenCalledWith('query-id', undefined);
+      expect(ReasonerService.runQuery).toHaveBeenCalledWith(factsForReasoner, prologQuery);
+      expect(LlmService.resultToNlAsync).toHaveBeenCalledWith(
         mockReq.body.query,
-        JSON.stringify('Yes.'),
+        JSON.stringify(simplifiedResult), // _simplifyPrologResults is internal, so we test its expected output
         'conversational'
       );
       expect(mockRes.json).toHaveBeenCalledWith({
         queryProlog: prologQuery,
-        result: 'Yes.',
+        result: simplifiedResult,
         answer: finalAnswer,
-        metadata: { success: true, steps: 1 },
+        metadata: { success: true, steps: rawResults.length },
       });
       expect(mockNext).not.toHaveBeenCalled();
     });
 
-    test('should handle no solution found', async () => {
+    test('should handle no solution found from reasoner', async () => {
       mockReq.params = { sessionId: 'query-id' };
-      mockReq.body = { query: 'Is John a parent of Mary?' };
-      const prologQuery = 'parent(john,mary)?';
-      const facts = [];
-      const rawResults = [];
-      const finalAnswer = 'No solution found.';
+      mockReq.body = { query: 'Unknown query' };
+      const prologQuery = 'unknown_query?';
+      const factsForReasoner = ['ontology_rule.'];
+      const rawResults = []; // Empty result from Prolog
+      const simplifiedResult = 'No solution found.';
+      const finalAnswer = 'I could not find an answer to that.';
 
-      LlmService.queryToProlog.mockResolvedValue(prologQuery);
-      SessionManager.getFactsWithOntology.mockReturnValue(facts);
+      SessionManager.get.mockReturnValue({ sessionId: 'query-id', facts: [] });
+      LlmService.queryToPrologAsync.mockResolvedValue(prologQuery);
+      SessionManager.getFactsWithOntology.mockReturnValue(factsForReasoner);
       ReasonerService.runQuery.mockResolvedValue(rawResults);
-      LlmService.resultToNl.mockResolvedValue(finalAnswer);
+      LlmService.resultToNlAsync.mockResolvedValue(finalAnswer);
 
-      await ApiHandlers.query(mockReq, mockRes, mockNext);
+      await ApiHandlers.queryAsync(mockReq, mockRes, mockNext);
 
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          result: 'No solution found.',
+          result: simplifiedResult,
           answer: finalAnswer,
         })
       );
     });
 
-    test('should handle Prolog syntax error from reasoner', async () => {
+    test('should call next with ApiError for Prolog syntax error from reasoner', async () => {
       mockReq.params = { sessionId: 'query-id' };
-      mockReq.body = { query: 'Invalid query.' };
-      const prologQuery = 'invalid_syntax.';
+      mockReq.body = { query: 'Bad query leading to syntax error' };
+      const prologQuery = 'bad_syntax(error.'; // Assume LLM generated this
       const reasonerError = new Error('Prolog syntax error: unexpected token');
 
-      LlmService.queryToProlog.mockResolvedValue(prologQuery);
-      SessionManager.getFactsWithOntology.mockReturnValue([]);
+      SessionManager.get.mockReturnValue({ sessionId: 'query-id', facts: [] });
+      LlmService.queryToPrologAsync.mockResolvedValue(prologQuery);
+      SessionManager.getFactsWithOntology.mockReturnValue(['some_fact.']);
       ReasonerService.runQuery.mockRejectedValue(reasonerError);
 
-      await ApiHandlers.query(mockReq, mockRes, mockNext);
+      await ApiHandlers.queryAsync(mockReq, mockRes, mockNext);
 
-      expect(ApiError).toHaveBeenCalledWith(
-        400,
-        expect.stringContaining('The LLM generated an invalid Prolog query.')
-      );
-      expect(mockNext).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 400 })
-      );
+      expect(mockNext).toHaveBeenCalled();
+      const errorThrown = mockNext.mock.calls[0][0];
+      expect(errorThrown).toBeInstanceOf(ActualApiError);
+      expect(errorThrown.statusCode).toBe(400);
+      expect(errorThrown.message).toContain('The LLM generated an invalid Prolog query.');
+      expect(errorThrown.errorCode).toBe('QUERY_PROLOG_SYNTAX_ERROR');
     });
 
     test('should include debug info if options.debug is true', async () => {
-      mockReq.params = { sessionId: 'query-id' };
-      mockReq.body = {
-        query: 'Is John a parent of Mary?',
-        options: { debug: true },
-      };
-      const prologQuery = 'parent(john,mary)?';
-      const facts = ['parent(john,mary).'];
-      const rawResults = ['true.'];
-      const finalAnswer = 'Yes, John is a parent of Mary.';
-      const debugSession = {
-        sessionId: 'query-id',
-        facts: ['parent(john,mary).'],
-      };
-      const debugOntology = ['child(Y,X):-parent(X,Y).'];
+      mockReq.params = { sessionId: 'query-id-debug' };
+      mockReq.body = { query: 'Debug query?', options: { debug: true, style: 'formal' } };
+      const prologQuery = 'debug_query(X)?';
+      const factsInSession = ['session_debug_fact.'];
+      const ontologyContextUsed = ['ontology_debug_fact.'];
+      const fullKnowledgeBase = [...factsInSession, ...ontologyContextUsed];
+      const rawReasonerResults = ['X = value.'];
+      const simplifiedResult = 'X = value.';
+      const finalAnswer = 'The value of X is value.';
 
-      LlmService.queryToProlog.mockResolvedValue(prologQuery);
-      SessionManager.getFactsWithOntology.mockReturnValue(facts);
-      ReasonerService.runQuery.mockResolvedValue(rawResults);
-      LlmService.resultToNl.mockResolvedValue(finalAnswer);
-      SessionManager.get.mockReturnValue(debugSession);
-      SessionManager.getNonSessionOntologyFacts.mockReturnValue(debugOntology);
+      const mockSessionDetails = { sessionId: 'query-id-debug', facts: factsInSession, factCount: 1 };
 
-      await ApiHandlers.query(mockReq, mockRes, mockNext);
+      SessionManager.get.mockReturnValue(mockSessionDetails); // For session existence and debug info
+      LlmService.queryToPrologAsync.mockResolvedValue(prologQuery);
+      SessionManager.getFactsWithOntology.mockReturnValue(fullKnowledgeBase);
+      SessionManager.getNonSessionOntologyFacts.mockReturnValue(ontologyContextUsed);
+      ReasonerService.runQuery.mockResolvedValue(rawReasonerResults);
+      LlmService.resultToNlAsync.mockResolvedValue(finalAnswer);
+
+      await ApiHandlers.queryAsync(mockReq, mockRes, mockNext);
 
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({
+          answer: finalAnswer,
           debug: {
-            factsInSession: debugSession.facts,
-            ontologyContext: debugOntology,
+            factsInSession: factsInSession,
+            ontologyContextUsed: ontologyContextUsed,
+            fullKnowledgeBaseSentToReasoner: fullKnowledgeBase,
+            prologQueryGenerated: prologQuery,
+            rawReasonerResults: rawReasonerResults,
+            inputToNlAnswerGeneration: {
+              originalQuery: mockReq.body.query,
+              simplifiedLogicResult: simplifiedResult,
+              style: 'formal',
+            },
           },
         })
       );
     });
   });
 
-  describe('translateNlToRules', () => {
+  describe('translateNlToRulesAsync', () => {
     test('should translate natural language to rules', async () => {
       mockReq.body = {
         text: 'Birds can fly.',
-        existing_facts: '',
-        ontology_context: '',
+        existing_facts: 'bird(sparrow).',
+        ontology_context: 'animal(X) :- bird(X).',
       };
       const rules = ['can_fly(X):-bird(X).'];
-      LlmService.nlToRules.mockResolvedValue(rules);
+      LlmService.nlToRulesAsync.mockResolvedValue(rules);
 
-      await ApiHandlers.translateNlToRules(mockReq, mockRes, mockNext);
+      await ApiHandlers.translateNlToRulesAsync(mockReq, mockRes, mockNext);
 
-      expect(LlmService.nlToRules).toHaveBeenCalledWith(
+      expect(LlmService.nlToRulesAsync).toHaveBeenCalledWith(
         mockReq.body.text,
         mockReq.body.existing_facts,
         mockReq.body.ontology_context
       );
       expect(mockRes.json).toHaveBeenCalledWith({ rules });
+      expect(mockNext).not.toHaveBeenCalled();
     });
 
-    test('should throw ApiError if text is missing or invalid', async () => {
-      mockReq.body = { text: '' };
-      await ApiHandlers.translateNlToRules(mockReq, mockRes, mockNext);
-      expect(ApiError).toHaveBeenCalledWith(
-        400,
-        "Missing or invalid required field 'text'. Must be a non-empty string."
-      );
-      expect(mockNext).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 400 })
-      );
+    test('should call next with ApiError if text is missing', async () => {
+      mockReq.body = { text: '' }; // Empty text
+      await ApiHandlers.translateNlToRulesAsync(mockReq, mockRes, mockNext);
+
+      expect(mockNext).toHaveBeenCalled();
+      const errorThrown = mockNext.mock.calls[0][0];
+      expect(errorThrown).toBeInstanceOf(ActualApiError);
+      expect(errorThrown.statusCode).toBe(400);
+      expect(errorThrown.message).toContain("Missing or invalid required field 'text'");
+      expect(errorThrown.errorCode).toBe('NL_TO_RULES_INVALID_TEXT');
     });
   });
 
-  describe('translateRulesToNl', () => {
+  describe('translateRulesToNlAsync', () => {
     test('should translate rules to natural language', async () => {
       mockReq.body = { rules: ['parent(X,Y).'], style: 'formal' };
       const text = 'A parent is defined.';
-      LlmService.rulesToNl.mockResolvedValue(text);
+      LlmService.rulesToNlAsync.mockResolvedValue(text);
 
-      await ApiHandlers.translateRulesToNl(mockReq, mockRes, mockNext);
+      await ApiHandlers.translateRulesToNlAsync(mockReq, mockRes, mockNext);
 
-      expect(LlmService.rulesToNl).toHaveBeenCalledWith(
+      expect(LlmService.rulesToNlAsync).toHaveBeenCalledWith(
         mockReq.body.rules,
         mockReq.body.style
       );
       expect(mockRes.json).toHaveBeenCalledWith({ text });
+      expect(mockNext).not.toHaveBeenCalled();
     });
 
-    test('should throw ApiError if rules are missing or invalid', async () => {
+    test('should call next with ApiError if rules are invalid (not an array)', async () => {
       mockReq.body = { rules: 'not an array' };
-      await ApiHandlers.translateRulesToNl(mockReq, mockRes, mockNext);
-      expect(ApiError).toHaveBeenCalledWith(
-        400,
-        "Missing or invalid 'rules' field; must be an array of strings."
-      );
-      expect(mockNext).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 400 })
-      );
+      await ApiHandlers.translateRulesToNlAsync(mockReq, mockRes, mockNext);
+
+      expect(mockNext).toHaveBeenCalled();
+      const errorThrown = mockNext.mock.calls[0][0];
+      expect(errorThrown).toBeInstanceOf(ActualApiError);
+      expect(errorThrown.statusCode).toBe(400);
+      expect(errorThrown.message).toContain("Missing or invalid 'rules' field");
+      expect(errorThrown.errorCode).toBe('RULES_TO_NL_INVALID_RULES');
+    });
+     test('should call next with ApiError if rules array contains empty strings', async () => {
+      mockReq.body = { rules: ['parent(X,Y).', '  '] }; // Contains an empty string after trim
+      await ApiHandlers.translateRulesToNlAsync(mockReq, mockRes, mockNext);
+
+      expect(mockNext).toHaveBeenCalled();
+      const errorThrown = mockNext.mock.calls[0][0];
+      expect(errorThrown).toBeInstanceOf(ActualApiError);
+      expect(errorThrown.statusCode).toBe(400);
+      expect(errorThrown.message).toContain("array of non-empty strings");
+      expect(errorThrown.errorCode).toBe('RULES_TO_NL_INVALID_RULES');
     });
   });
 
-  describe('addOntology', () => {
+  describe('addOntology', () => { // This one is synchronous
     test('should add a new ontology and return 201 status', () => {
       mockReq.body = { name: 'new_onto', rules: 'rule1.' };
       const newOntology = { name: 'new_onto', rules: 'rule1.' };
@@ -387,32 +419,32 @@ describe.skip('ApiHandlers', () => { // @TODO: Fix failing tests - disabling for
       expect(mockRes.json).toHaveBeenCalledWith(newOntology);
     });
 
-    test('should throw ApiError if name is missing or invalid', () => {
+    test('should call next with ApiError if name is missing or invalid', () => {
       mockReq.body = { name: '', rules: 'rule1.' };
       ApiHandlers.addOntology(mockReq, mockRes, mockNext);
-      expect(ApiError).toHaveBeenCalledWith(
-        400,
-        "Missing or invalid required field 'name'. Must be a non-empty string."
-      );
-      expect(mockNext).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 400 })
-      );
+
+      expect(mockNext).toHaveBeenCalled();
+      const errorThrown = mockNext.mock.calls[0][0];
+      expect(errorThrown).toBeInstanceOf(ActualApiError);
+      expect(errorThrown.statusCode).toBe(400);
+      expect(errorThrown.message).toContain("Missing or invalid required field 'name'");
+      expect(errorThrown.errorCode).toBe('ONTOLOGY_ADD_INVALID_NAME');
     });
 
-    test('should throw ApiError if rules are missing or invalid', () => {
+    test('should call next with ApiError if rules are missing or invalid', () => {
       mockReq.body = { name: 'new_onto', rules: '' };
       ApiHandlers.addOntology(mockReq, mockRes, mockNext);
-      expect(ApiError).toHaveBeenCalledWith(
-        400,
-        "Missing or invalid required field 'rules'. Must be a non-empty string."
-      );
-      expect(mockNext).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 400 })
-      );
+
+      expect(mockNext).toHaveBeenCalled();
+      const errorThrown = mockNext.mock.calls[0][0];
+      expect(errorThrown).toBeInstanceOf(ActualApiError);
+      expect(errorThrown.statusCode).toBe(400);
+      expect(errorThrown.message).toContain("Missing or invalid required field 'rules'");
+      expect(errorThrown.errorCode).toBe('ONTOLOGY_ADD_INVALID_RULES');
     });
   });
 
-  describe('updateOntology', () => {
+  describe('updateOntology', () => { // Synchronous
     test('should update an existing ontology', () => {
       mockReq.params = { name: 'update_onto' };
       mockReq.body = { rules: 'updated_rule.' };
@@ -426,23 +458,24 @@ describe.skip('ApiHandlers', () => { // @TODO: Fix failing tests - disabling for
         mockReq.body.rules
       );
       expect(mockRes.json).toHaveBeenCalledWith(updatedOntology);
+      expect(mockNext).not.toHaveBeenCalled();
     });
 
-    test('should throw ApiError if rules are missing or invalid', () => {
+    test('should call next with ApiError if rules are missing or invalid', () => {
       mockReq.params = { name: 'update_onto' };
-      mockReq.body = { rules: '' };
+      mockReq.body = { rules: '' }; // Empty rules
       ApiHandlers.updateOntology(mockReq, mockRes, mockNext);
-      expect(ApiError).toHaveBeenCalledWith(
-        400,
-        "Missing or invalid required field 'rules'. Must be a non-empty string."
-      );
-      expect(mockNext).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 400 })
-      );
+
+      expect(mockNext).toHaveBeenCalled();
+      const errorThrown = mockNext.mock.calls[0][0];
+      expect(errorThrown).toBeInstanceOf(ActualApiError);
+      expect(errorThrown.statusCode).toBe(400);
+      expect(errorThrown.message).toContain("Missing or invalid required field 'rules'");
+      expect(errorThrown.errorCode).toBe('ONTOLOGY_UPDATE_INVALID_RULES');
     });
   });
 
-  describe('getOntologies', () => {
+  describe('getOntologies', () => { // Synchronous
     test('should return all ontologies', () => {
       const ontologies = [{ name: 'onto1', rules: 'r1.' }];
       SessionManager.getOntologies.mockReturnValue(ontologies);
@@ -451,10 +484,11 @@ describe.skip('ApiHandlers', () => { // @TODO: Fix failing tests - disabling for
 
       expect(SessionManager.getOntologies).toHaveBeenCalled();
       expect(mockRes.json).toHaveBeenCalledWith(ontologies);
+      expect(mockNext).not.toHaveBeenCalled();
     });
   });
 
-  describe('getOntology', () => {
+  describe('getOntology', () => { // Synchronous
     test('should return a specific ontology', () => {
       mockReq.params = { name: 'specific_onto' };
       const ontology = { name: 'specific_onto', rules: 'specific_r.' };
@@ -462,82 +496,72 @@ describe.skip('ApiHandlers', () => { // @TODO: Fix failing tests - disabling for
 
       ApiHandlers.getOntology(mockReq, mockRes, mockNext);
 
-      expect(SessionManager.getOntology).toHaveBeenCalledWith(
-        mockReq.params.name
-      );
+      expect(SessionManager.getOntology).toHaveBeenCalledWith(mockReq.params.name);
       expect(mockRes.json).toHaveBeenCalledWith(ontology);
+      expect(mockNext).not.toHaveBeenCalled();
     });
 
-    test('should call next with ApiError if ontology not found', () => {
-      const error = new ApiError(404, 'Ontology not found');
+    test('should call next with ApiError if SessionManager throws (ontology not found)', () => {
+      const error = new ActualApiError(404, 'Ontology not found by SessionManager');
       mockReq.params = { name: 'non_existent_onto' };
       SessionManager.getOntology.mockImplementation(() => {
         throw error;
       });
 
       ApiHandlers.getOntology(mockReq, mockRes, mockNext);
-
-      expect(SessionManager.getOntology).toHaveBeenCalledWith(
-        'non_existent_onto'
-      );
+      expect(SessionManager.getOntology).toHaveBeenCalledWith('non_existent_onto');
       expect(mockNext).toHaveBeenCalledWith(error);
     });
   });
 
-  describe('deleteOntology', () => {
-    test('should delete an ontology', () => {
-      mockReq.params = { name: 'delete_onto' };
-      const deleteResult = { message: 'Ontology delete_onto deleted.' };
-      SessionManager.deleteOntology.mockReturnValue(deleteResult);
+  describe('deleteOntology', () => { // Synchronous
+    test('should delete an ontology and return the correct response', () => {
+      const ontologyName = 'delete_onto';
+      mockReq.params = { name: ontologyName };
+      // SessionManager.deleteOntology now returns { message: `Ontology ${name} deleted.` }
+      // The handler uses this message and adds ontologyName to the response
+      const deleteMsgFromManager = { message: `Ontology ${ontologyName} deleted.` };
+      SessionManager.deleteOntology.mockReturnValue(deleteMsgFromManager);
 
       ApiHandlers.deleteOntology(mockReq, mockRes, mockNext);
 
-      expect(SessionManager.deleteOntology).toHaveBeenCalledWith(
-        mockReq.params.name
-      );
-      expect(mockRes.json).toHaveBeenCalledWith(deleteResult);
+      expect(SessionManager.deleteOntology).toHaveBeenCalledWith(ontologyName);
+      expect(mockRes.json).toHaveBeenCalledWith({
+        message: deleteMsgFromManager.message,
+        ontologyName: ontologyName,
+      });
+      expect(mockNext).not.toHaveBeenCalled();
     });
 
-    test('should call next with ApiError if ontology not found', () => {
-      const error = new ApiError(404, 'Ontology not found');
+    test('should call next with ApiError if SessionManager throws (ontology not found)', () => {
+      const error = new ActualApiError(404, 'Ontology not found by SessionManager for deletion');
       mockReq.params = { name: 'non_existent_onto' };
       SessionManager.deleteOntology.mockImplementation(() => {
         throw error;
       });
-
       ApiHandlers.deleteOntology(mockReq, mockRes, mockNext);
-
-      expect(SessionManager.deleteOntology).toHaveBeenCalledWith(
-        'non_existent_onto'
-      );
+      expect(SessionManager.deleteOntology).toHaveBeenCalledWith('non_existent_onto');
       expect(mockNext).toHaveBeenCalledWith(error);
     });
   });
 
-  describe('explainQuery', () => {
+  describe('explainQueryAsync', () => {
     test('should return an explanation for a query', async () => {
       mockReq.params = { sessionId: 'explain-id' };
       mockReq.body = { query: 'What is the capital of France?' };
-      const mockSession = {
-        sessionId: 'explain-id',
-        facts: ['capital(france,paris).'],
-      };
+      const mockSession = { sessionId: 'explain-id', facts: ['capital(france,paris).'] };
       const ontologyContext = ['country(france).'];
       const explanation = 'The capital of France is Paris because...';
 
       SessionManager.get.mockReturnValue(mockSession);
-      SessionManager.getNonSessionOntologyFacts.mockReturnValue(
-        ontologyContext
-      );
-      LlmService.explainQuery.mockResolvedValue(explanation);
+      SessionManager.getNonSessionOntologyFacts.mockReturnValue(ontologyContext);
+      LlmService.explainQueryAsync.mockResolvedValue(explanation);
 
-      await ApiHandlers.explainQuery(mockReq, mockRes, mockNext);
+      await ApiHandlers.explainQueryAsync(mockReq, mockRes, mockNext);
 
       expect(SessionManager.get).toHaveBeenCalledWith('explain-id');
-      expect(SessionManager.getNonSessionOntologyFacts).toHaveBeenCalledWith(
-        'explain-id'
-      );
-      expect(LlmService.explainQuery).toHaveBeenCalledWith(
+      expect(SessionManager.getNonSessionOntologyFacts).toHaveBeenCalledWith('explain-id');
+      expect(LlmService.explainQueryAsync).toHaveBeenCalledWith(
         mockReq.body.query,
         mockSession.facts,
         ontologyContext
@@ -546,33 +570,123 @@ describe.skip('ApiHandlers', () => { // @TODO: Fix failing tests - disabling for
         query: mockReq.body.query,
         explanation,
       });
+      expect(mockNext).not.toHaveBeenCalled();
     });
 
-    test('should throw ApiError if query is missing or invalid', async () => {
+    test('should call next with ApiError if query is missing or invalid', async () => {
       mockReq.params = { sessionId: 'explain-id' };
-      mockReq.body = { query: '' };
+      mockReq.body = { query: '' }; // Empty query
 
-      await ApiHandlers.explainQuery(mockReq, mockRes, mockNext);
+      await ApiHandlers.explainQueryAsync(mockReq, mockRes, mockNext);
 
-      expect(ApiError).toHaveBeenCalledWith(
-        400,
-        "Missing or invalid required field 'query'. Must be a non-empty string."
-      );
-      expect(mockNext).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 400 })
-      );
+      expect(mockNext).toHaveBeenCalled();
+      const errorThrown = mockNext.mock.calls[0][0];
+      expect(errorThrown).toBeInstanceOf(ActualApiError);
+      expect(errorThrown.statusCode).toBe(400);
+      expect(errorThrown.message).toContain("Missing or invalid required field 'query'");
+      expect(errorThrown.errorCode).toBe('EXPLAIN_QUERY_INVALID_QUERY');
     });
   });
 
-  describe('getPrompts', () => {
+  describe('getPrompts', () => { // Synchronous
     test('should return prompt templates', () => {
-      const mockPromptTemplates = { NL_TO_RULES: 'template1' };
+      const mockPromptTemplates = { NL_TO_RULES: 'template1', QUERY_TO_PROLOG: 'template2' };
       LlmService.getPromptTemplates.mockReturnValue(mockPromptTemplates);
 
-      ApiHandlers.getPrompts(mockReq, mockRes);
+      ApiHandlers.getPrompts(mockReq, mockRes); // No next for this one
 
       expect(LlmService.getPromptTemplates).toHaveBeenCalled();
       expect(mockRes.json).toHaveBeenCalledWith(mockPromptTemplates);
+    });
+  });
+
+  describe('debugFormatPromptAsync', () => {
+    test('should format a prompt and return details', async () => {
+        mockReq.body = { templateName: 'TEST_TEMPLATE', inputVariables: { key: 'value' } };
+        const mockTemplates = { TEST_TEMPLATE: 'Hello {{key}}' };
+        const formattedPrompt = 'Hello value';
+
+        LlmService.getPromptTemplates.mockReturnValue(mockTemplates);
+        // Mocking Langchain's PromptTemplate (this is a bit involved)
+        const mockFormat = jest.fn().mockResolvedValue(formattedPrompt);
+        const mockFromTemplate = jest.fn(() => ({ format: mockFormat }));
+        jest.doMock('@langchain/core/prompts', () => ({
+            PromptTemplate: { fromTemplate: mockFromTemplate },
+        }));
+        // Re-require ApiHandlers to get the new mock for PromptTemplate
+        const FreshApiHandlers = require('../src/apiHandlers');
+
+
+        await FreshApiHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
+
+        expect(LlmService.getPromptTemplates).toHaveBeenCalled();
+        expect(mockFromTemplate).toHaveBeenCalledWith(mockTemplates.TEST_TEMPLATE);
+        expect(mockFormat).toHaveBeenCalledWith(mockReq.body.inputVariables);
+        expect(mockRes.json).toHaveBeenCalledWith({
+            templateName: mockReq.body.templateName,
+            rawTemplate: mockTemplates.TEST_TEMPLATE,
+            inputVariables: mockReq.body.inputVariables,
+            formattedPrompt,
+        });
+        expect(mockNext).not.toHaveBeenCalled();
+        jest.dontMock('@langchain/core/prompts'); // Clean up mock
+    });
+
+    test('should call next with ApiError if templateName is missing', async () => {
+        mockReq.body = { inputVariables: { key: 'value' } }; // templateName missing
+        await ApiHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
+        expect(mockNext).toHaveBeenCalled();
+        const errorThrown = mockNext.mock.calls[0][0];
+        expect(errorThrown).toBeInstanceOf(ActualApiError);
+        expect(errorThrown.statusCode).toBe(400);
+        expect(errorThrown.message).toContain("Missing or invalid required field 'templateName'");
+        expect(errorThrown.errorCode).toBe('DEBUG_FORMAT_PROMPT_INVALID_TEMPLATENAME');
+    });
+
+     test('should call next with ApiError if inputVariables is missing or not an object', async () => {
+        mockReq.body = { templateName: 'TEST_TEMPLATE', inputVariables: 'not-an-object' };
+        await ApiHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
+        expect(mockNext).toHaveBeenCalled();
+        const errorThrown = mockNext.mock.calls[0][0];
+        expect(errorThrown).toBeInstanceOf(ActualApiError);
+        expect(errorThrown.statusCode).toBe(400);
+        expect(errorThrown.message).toContain("Missing or invalid required field 'inputVariables'. Must be an object.");
+        expect(errorThrown.errorCode).toBe('DEBUG_FORMAT_PROMPT_INVALID_INPUT_VARIABLES');
+    });
+
+    test('should call next with ApiError if template is not found', async () => {
+        mockReq.body = { templateName: 'NON_EXISTENT_TEMPLATE', inputVariables: { key: 'value' } };
+        LlmService.getPromptTemplates.mockReturnValue({ TEST_TEMPLATE: 'Hello {{key}}' }); // Does not contain NON_EXISTENT_TEMPLATE
+        await ApiHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
+        expect(mockNext).toHaveBeenCalled();
+        const errorThrown = mockNext.mock.calls[0][0];
+        expect(errorThrown).toBeInstanceOf(ActualApiError);
+        expect(errorThrown.statusCode).toBe(404);
+        expect(errorThrown.message).toContain("Prompt template with name 'NON_EXISTENT_TEMPLATE' not found.");
+        expect(errorThrown.errorCode).toBe('DEBUG_FORMAT_PROMPT_TEMPLATE_NOT_FOUND');
+    });
+
+    test('should call next with ApiError if prompt formatting fails', async () => {
+        mockReq.body = { templateName: 'TEST_TEMPLATE', inputVariables: { wrong_key: 'value' } };
+        const mockTemplates = { TEST_TEMPLATE: 'Hello {{key}}' }; // Requires 'key'
+        LlmService.getPromptTemplates.mockReturnValue(mockTemplates);
+
+        const mockFormat = jest.fn().mockRejectedValue(new Error("Missing key 'key'"));
+        const mockFromTemplate = jest.fn(() => ({ format: mockFormat }));
+        jest.doMock('@langchain/core/prompts', () => ({
+            PromptTemplate: { fromTemplate: mockFromTemplate },
+        }));
+        const FreshApiHandlers = require('../src/apiHandlers');
+
+        await FreshApiHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
+
+        expect(mockNext).toHaveBeenCalled();
+        const errorThrown = mockNext.mock.calls[0][0];
+        expect(errorThrown).toBeInstanceOf(ActualApiError);
+        expect(errorThrown.statusCode).toBe(400);
+        expect(errorThrown.message).toContain("Error formatting prompt 'TEST_TEMPLATE': Missing key 'key'. Check input variables.");
+        expect(errorThrown.errorCode).toBe('DEBUG_FORMAT_PROMPT_FORMATTING_FAILED');
+        jest.dontMock('@langchain/core/prompts');
     });
   });
 });

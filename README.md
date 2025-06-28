@@ -56,6 +56,7 @@ MCR is built with a "guitar pedal" philosophy: a single, plug-and-play unit that
     # PORT="8080"    # Defaults to 8080
     # LOG_LEVEL="info" # Defaults to info (options: error, warn, info, http, verbose, debug, silly)
     ```
+    The server will validate this configuration on startup. If critical settings for the chosen `MCR_LLM_PROVIDER` (like API keys or Ollama URL) are missing or invalid, the server will log an error and exit.
 
 4.  **Run the Script**:
     ```bash
@@ -65,7 +66,7 @@ MCR is built with a "guitar pedal" philosophy: a single, plug-and-play unit that
 
 ## CLI Usage Examples
 
-The MCR includes a Command Line Interface (CLI) for direct interaction. You can run it using `node mcr-cli.js --help` to see all available commands.
+The MCR includes a Command Line Interface (CLI) for direct interaction. You can run it using `node mcr-cli.js --help` to see all available commands. The CLI executable is `mcr-cli.js` (or `node mcr-cli.js`).
 
 - **Check Server Status**:
   ```bash
@@ -110,11 +111,13 @@ MCR exposes a RESTful API for interaction. All requests and responses are JSON-b
       "error": {
         "message": "Descriptive error message",
         "type": "ApiError", // Or a more specific type like 'SyntaxError' if applicable
+        "code": "SPECIFIC_ERROR_CODE", // Optional: A machine-readable error code
         "correlationId": "a-unique-uuid"
-        // "internalCode": "SPECIFIC_ERROR_CODE" // May be present in development/debug mode
       }
     }
     ```
+     The `code` field provides a specific identifier for the error, which can be useful for programmatic error handling if needed. Not all ApiErrors will have a `code`.
+
   - **Internal Server Errors (Server-side unexpected issues, e.g., 5xx status codes):**
     ```json
     {
@@ -135,8 +138,9 @@ MCR exposes a RESTful API for interaction. All requests and responses are JSON-b
     ```json
     {
       "status": "ok",
-      "name": "Model Context Reasoner",
-      "version": "2.0.0"
+      "name": "Model Context Reasoner", // Name from package.json
+      "version": "2.1.0", // Version from package.json
+      "description": "MCR API" // Description from package.json
     }
     ```
 
@@ -177,7 +181,8 @@ Sessions are stateful contexts where facts are stored and reasoned upon.
   - **Response**:
     ```json
     {
-      "message": "Session a-unique-uuid terminated."
+      "message": "Session a-unique-uuid terminated.",
+      "sessionId": "a-unique-uuid"
     }
     ```
 
@@ -378,7 +383,8 @@ MCR allows for the management of global ontologies (collections of Prolog facts 
   - **Response**:
     ```json
     {
-      "message": "Ontology family_relations deleted."
+      "message": "Ontology family_relations deleted.",
+      "ontologyName": "family_relations"
     }
     ```
 

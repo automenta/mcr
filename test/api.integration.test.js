@@ -2,122 +2,130 @@ const request = require('supertest');
 const path = require('path');
 const fs = require('fs');
 
-// Mock config and logger BEFORE requiring the app (mcr.js)
-jest.mock('../src/config', () => ({
-  load: jest.fn().mockReturnValue({
-    server: { host: '0.0.0.0', port: 8080 },
-    llm: {
-      provider: 'openai',
-      model: { openai: 'gpt-test', gemini: 'gemini-test', ollama: 'ollama-test' },
-      apiKey: { openai: 'testkey_integration' },
-      ollamaBaseUrl: 'http://localhost:11434',
-    },
-    logging: { level: 'error', file: 'test-integration-api.log' },
-    session: { storagePath: './test_data/sessions_integration_api' },
-    ontology: { storagePath: './test_data/ontologies_integration_api' },
-    debugMode: false,
-  }),
-}));
+// --- IMPORTANT: Mock setup needs to be very carefully ordered ---
 
-const actualLoggerModule = jest.requireActual('../src/logger');
-jest.mock('../src/logger', () => ({
-  logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
-    http: jest.fn(),
-    verbose: jest.fn(),
-    silly: jest.fn(),
-  },
-  initializeLoggerContext: jest.fn((req, res, next) => {
-    if (req) req.correlationId = req.correlationId || 'test-correlation-id-api';
-    if (next) next();
-  }),
-  asyncLocalStorage: { // Fully mock asyncLocalStorage methods
-    run: jest.fn((context, callback) => { if (callback) callback(); }), // Pass through for the callback
-    getStore: jest.fn(() => ({ correlationId: 'mock-als-id-api-integration' })), // Mock what getStore might return
-  },
-}));
+// 1. Define paths for test data FIRST
+const TEST_SESSION_STORAGE_PATH = path.resolve(__dirname, 'test_data_integration/sessions');
+const TEST_ONTOLOGY_STORAGE_PATH = path.resolve(__dirname, 'test_data_integration/ontologies');
 
-// Now require the app and other modules
-const { app } = require('../mcr');
-const ConfigManager = require('../src/config'); // Will get the mocked version
-const SessionManager = require('../src/sessionManager'); // Will use mocked config/logger
-
-// Mock llmService for API integration tests (focus on API flow, not LLM calls)
-jest.mock('../src/llmService', () => ({
-  init: jest.fn(), // init is called in mcr.js
-  nlToRulesAsync: jest.fn().mockResolvedValue(['mock_rule(a).']), // Adjusted to new LlmService method name
-  queryToPrologAsync: jest.fn().mockResolvedValue('mock_query(X).'), // Adjusted method name
-  resultToNlAsync: jest.fn().mockImplementation((_query, result, _style) => { // Adjusted method name
-    if (result === 'No solution found.')
-      return Promise.resolve('No, there is no solution.');
-    return Promise.resolve(`Yes, the mock answer is ${result}`);
-  }),
-  rulesToNlAsync: jest // Adjusted method name
-    .fn()
-    .mockResolvedValue('Mock natural language explanation of rules.'),
-  explainQueryAsync: jest.fn().mockResolvedValue('Mock explanation for the query.'), // Adjusted method name
-  getPromptTemplates: jest.fn().mockReturnValue({ template1: 'mock' }),
-}));
-
-test('should have app and logger defined', () => {
-  expect(app).toBeDefined();
-  const { logger: testLogger } = require('../src/logger'); // Get the mocked logger
-  expect(testLogger).toBeDefined();
+// 2. Mock ConfigManager: It's a dependency for SessionManager and the app (mcr.js)
+// Ensure this mock is in place before SessionManager or mcr.js is imported anywhere.
+jest.mock('../src/config', () => {
+    const actualConfig = jest.requireActual('../src/config');
+    return {
+        ...actualConfig, // Keep other methods if any, though get/load are primary
+        get: jest.fn().mockReturnValue({
+            server: { host: '0.0.0.0', port: 8080 }, // Port used by supertest
+            llm: {
+                provider: 'openai', // Mocked LLM service, so provider choice less critical here
+                model: { openai: 'gpt-test-int', gemini: 'gemini-test-int', ollama: 'ollama-test-int' },
+                apiKey: { openai: 'testkey_integration_suite' }, // Needs to be present for validation
+                ollamaBaseUrl: 'http://localhost:11434/integration',
+            },
+            logging: { level: 'error' }, // Keep logs quiet during tests
+            session: { storagePath: TEST_SESSION_STORAGE_PATH },
+            ontology: { storagePath: TEST_ONTOLOGY_STORAGE_PATH },
+            debugMode: false,
+        }),
+        // load is also used by some modules, ensure it returns the same test config
+        load: jest.fn().mockReturnValue({
+            server: { host: '0.0.0.0', port: 8080 },
+            llm: {
+                provider: 'openai',
+                model: { openai: 'gpt-test-int', gemini: 'gemini-test-int', ollama: 'ollama-test-int' },
+                apiKey: { openai: 'testkey_integration_suite' },
+                ollamaBaseUrl: 'http://localhost:11434/integration',
+            },
+            logging: { level: 'error' },
+            session: { storagePath: TEST_SESSION_STORAGE_PATH },
+            ontology: { storagePath: TEST_ONTOLOGY_STORAGE_PATH },
+            debugMode: false,
+        }),
+    };
 });
 
-describe.skip('MCR API Integration Tests (with Supertest)', () => { // @TODO: Fix failing tests - disabling for now
+// 3. Mock Logger (dependency for SessionManager and mcr.js)
+// const actualLoggerModule = jest.requireActual('../src/logger'); // Not needed if fully mocking
+jest.mock('../src/logger', () => ({
+    logger: {
+        info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(),
+        http: jest.fn(), verbose: jest.fn(), silly: jest.fn(), fatal: jest.fn(),
+    },
+    initializeLoggerContext: jest.fn((req, res, next) => {
+        if (req) req.correlationId = req.correlationId || 'test-correlation-id-api-integration';
+        if (next) next();
+    }),
+    asyncLocalStorage: {
+        run: jest.fn((context, callback) => { if (callback) callback(); }),
+        getStore: jest.fn(() => ({ correlationId: 'mock-als-id-api-integration' })),
+    },
+}));
+
+// 4. Mock LlmService (dependency for mcr.js through apiHandlers)
+jest.mock('../src/llmService', () => ({
+    init: jest.fn(),
+    nlToRulesAsync: jest.fn().mockResolvedValue(['mock_rule(integration_test).']),
+    queryToPrologAsync: jest.fn().mockResolvedValue('mock_query_integration(Y).'),
+    resultToNlAsync: jest.fn().mockImplementation((_query, logicResultJsonString, _style) => {
+        if (logicResultJsonString === JSON.stringify('No solution found.')) {
+            return Promise.resolve('No, there is no solution for integration test.');
+        }
+        return Promise.resolve(`Yes, the mock integration answer is based on: ${logicResultJsonString}`);
+    }),
+    rulesToNlAsync: jest.fn().mockResolvedValue('Mock integration natural language explanation of rules.'),
+    explainQueryAsync: jest.fn().mockResolvedValue('Mock integration explanation for the query.'),
+    getPromptTemplates: jest.fn().mockReturnValue({ INTEGRATION_TEMPLATE: 'mock integration template' }),
+}));
+
+// 5. Mock package.json for the GET / endpoint
+jest.mock('../package.json', () => ({
+  name: 'mcr-integration-test-app',
+  version: '1.0.0-integration-test',
+  description: 'Integration Test App Description',
+}));
+
+
+// --- Now, require the application and other modules ---
+// The order of requires matters if they have side effects or inter-dependencies affected by mocks.
+// mcr.js (app) should be required after its core dependencies (config, logger, LlmService) are mocked.
+const { app } = require('../mcr');
+// ConfigManager and SessionManager will pick up the mocked config/logger when they are imported by mcr.js or directly.
+// No need to require them separately here unless you need to access their mocked static methods directly.
+const SessionManager = require('../src/sessionManager');
+
+
+describe('MCR API Integration Tests (with Supertest)', () => {
   let sessionId = null;
   const familyOntologyPath = path.resolve(__dirname, '../ontologies/family.pl');
   let familyOntologyContent = null;
 
-  const config = ConfigManager.load();
-  const originalSessionStoragePath = config.session.storagePath;
-  const testSessionStoragePath = path.join(
-    __dirname,
-    'test_sessions_integration'
-  );
-  const originalOntologyStoragePath = config.ontology.storagePath;
-  const testOntologyStoragePath = path.join(
-    __dirname,
-    'test_ontologies_integration'
-  );
+  // Test storage paths are now defined by the ConfigManager mock.
 
-  beforeAll(async () => {
-    // Configure test storage paths
-    config.session.storagePath = testSessionStoragePath;
-    config.ontology.storagePath = testOntologyStoragePath;
-
-    // Clean up and create test directories
-    for (const p of [testSessionStoragePath, testOntologyStoragePath]) {
+  beforeAll(() => {
+    // Clean up and create test directories based on paths from ConfigManager mock
+    for (const p of [TEST_SESSION_STORAGE_PATH, TEST_ONTOLOGY_STORAGE_PATH]) {
       if (fs.existsSync(p)) {
         fs.rmSync(p, { recursive: true, force: true });
       }
       fs.mkdirSync(p, { recursive: true });
     }
 
-    SessionManager._initializeStorage(); // Re-initialize with new path
-    // Ontology service will use the path from config, no explicit init needed for it here
+    // SessionManager is initialized when mcr.js is loaded, using the mocked config.
+    // If a re-initialization with different paths were needed, it would be complex
+    // due to module caching. The current approach (mock config before app load) is better.
 
     if (fs.existsSync(familyOntologyPath)) {
       familyOntologyContent = fs.readFileSync(familyOntologyPath, 'utf8');
     }
   });
 
-  afterAll(async () => {
+  afterAll(() => {
     // Clean up test directories
-    for (const p of [testSessionStoragePath, testOntologyStoragePath]) {
+    for (const p of [TEST_SESSION_STORAGE_PATH, TEST_ONTOLOGY_STORAGE_PATH]) {
       if (fs.existsSync(p)) {
         fs.rmSync(p, { recursive: true, force: true });
       }
     }
-
-    // Restore original paths
-    config.session.storagePath = originalSessionStoragePath;
-    config.ontology.storagePath = originalOntologyStoragePath;
-    SessionManager._initializeStorage(); // Re-initialize with original path
   });
 
   beforeEach(async () => {
@@ -150,11 +158,13 @@ describe.skip('MCR API Integration Tests (with Supertest)', () => { // @TODO: Fi
     }
   });
 
-  test('GET / should return API status', async () => {
+  test('GET / should return API status from mocked package.json', async () => {
     const response = await request(app).get('/');
     expect(response.status).toBe(200);
     expect(response.body.status).toBe('ok');
-    expect(response.body.name).toBe('Model Context Reasoner');
+    expect(response.body.name).toBe('mcr-integration-test-app');
+    expect(response.body.version).toBe('1.0.0-integration-test');
+    expect(response.body.description).toBe('Integration Test App Description');
   });
 
   test('should create a new session, retrieve it, and then delete it', async () => {
@@ -183,6 +193,11 @@ describe.skip('MCR API Integration Tests (with Supertest)', () => { // @TODO: Fi
       `/sessions/${newSessionId}`
     );
     expect(getAfterDeleteResponse.status).toBe(404);
+    expect(getAfterDeleteResponse.body.error).toBeDefined();
+    expect(getAfterDeleteResponse.body.error.type).toBe('ApiError');
+    expect(getAfterDeleteResponse.body.error.message).toBe(`Session with ID '${newSessionId}' not found.`);
+    // No specific errorCode is set by SessionManager.get for "not found"
+    expect(getAfterDeleteResponse.body.error.code).toBeUndefined();
   });
 
   test('should create a new session and retrieve it', async () => {
@@ -204,22 +219,38 @@ describe.skip('MCR API Integration Tests (with Supertest)', () => { // @TODO: Fi
     expect(getSessionResponse.body.factCount).toBe(0);
   });
 
-  test('should assert a fact into the session', async () => {
-    const factText = 'John is a parent of Mary.';
-    const assertResponse = await request(app)
-      .post(`/sessions/${sessionId}/assert`)
-      .send({ text: factText });
+  describe('Session Assertions and Queries', () => {
+    test('should assert a fact into the session', async () => {
+      const factText = 'John is a parent of Mary.';
+      const assertResponse = await request(app)
+        .post(`/sessions/${sessionId}/assert`)
+        .send({ text: factText });
 
-    expect(assertResponse.status).toBe(200);
-    expect(assertResponse.body.addedFacts).toEqual(['mock_rule(a).']);
-    expect(assertResponse.body.totalFactsInSession).toBeGreaterThanOrEqual(1);
+      expect(assertResponse.status).toBe(200);
+      expect(assertResponse.body.addedFacts).toEqual(['mock_rule(integration_test).']);
+      // totalFactsInSession can be tricky if other tests modified the same shared sessionId's session.
+      // It's better to check if it's a number >= 1 if we expect at least one fact.
+      expect(typeof assertResponse.body.totalFactsInSession).toBe('number');
+      expect(assertResponse.body.totalFactsInSession).toBeGreaterThanOrEqual(1);
 
-    const getSessionResponse = await request(app).get(`/sessions/${sessionId}`);
-    expect(getSessionResponse.status).toBe(200);
-    expect(getSessionResponse.body.facts).toContain('mock_rule(a).');
-  });
+      const getSessionResponse = await request(app).get(`/sessions/${sessionId}`);
+      expect(getSessionResponse.status).toBe(200);
+      expect(getSessionResponse.body.facts).toContain('mock_rule(integration_test).');
+    });
 
-  test('should query a fact from the session', async () => {
+    test('should return 400 if asserting with empty text', async () => {
+      const assertResponse = await request(app)
+        .post(`/sessions/${sessionId}/assert`)
+        .send({ text: '' }); // Empty text
+
+      expect(assertResponse.status).toBe(400);
+      expect(assertResponse.body.error).toBeDefined();
+      expect(assertResponse.body.error.type).toBe('ApiError');
+      expect(assertResponse.body.error.message).toContain("Missing or invalid required field 'text'");
+      expect(assertResponse.body.error.code).toBe('ASSERT_INVALID_TEXT');
+    });
+
+    test('should query a fact from the session', async () => {
     await request(app)
       .post(`/sessions/${sessionId}/assert`)
       .send({ text: 'Some fact that leads to mock_rule(a).' });
@@ -419,22 +450,26 @@ describe.skip('MCR API Integration Tests (with Supertest)', () => { // @TODO: Fi
         });
       expect(response.status).toBe(200);
       expect(response.body.templateName).toBe('NL_TO_RULES');
-      expect(response.body.rawTemplate).toBe(Prompts.NL_TO_RULES);
-      expect(response.body.inputVariables).toEqual({ text: 'test input' });
+      expect(response.body.rawTemplate).toBe(Prompts.NL_TO_RULES); // Prompts.NL_TO_RULES might be undefined if prompts.js not structured for this access
+      // A better check might be expect(response.body.rawTemplate).toBeDefined(); or a snapshot.
+      // For now, assuming Prompts.NL_TO_RULES is accessible and correct.
+      expect(response.body.inputVariables).toEqual({ text_to_translate: 'test input' }); // Corrected based on actual prompt
       expect(response.body.formattedPrompt).toContain('test input');
     });
 
-    test('POST /debug/format-prompt should return 400 for invalid template name', async () => {
+    test('POST /debug/format-prompt should return 404 for non-existent template name', async () => {
+      const templateName = 'NON_EXISTENT_TEMPLATE_DEBUG';
       const response = await request(app)
         .post('/debug/format-prompt')
         .send({
-          templateName: 'NON_EXISTENT_TEMPLATE',
+          templateName: templateName,
           inputVariables: { text: 'test input' },
         });
-      expect(response.status).toBe(400);
-      expect(response.body.error.message).toContain(
-        'Invalid prompt template name'
-      );
+      expect(response.status).toBe(404); // Status code should be 404
+      expect(response.body.error).toBeDefined();
+      expect(response.body.error.type).toBe('ApiError');
+      expect(response.body.error.message).toBe(`Prompt template with name '${templateName}' not found.`);
+      expect(response.body.error.code).toBe('DEBUG_FORMAT_PROMPT_TEMPLATE_NOT_FOUND');
     });
   });
 });

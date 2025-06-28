@@ -13,8 +13,8 @@ const LlmService = require('./src/llmService');
 const ApiError = require('./src/errors');
 const setupRoutes = require('./src/routes');
 
-const config = ConfigManager.load();
-LlmService.init();
+const config = ConfigManager.get(); // Use get() to ensure config is loaded and validated
+LlmService.init(config); // Pass config to LlmService.init()
 
 const { v4: uuidv4 } = require('uuid');
 const { initializeLoggerContext } = require('./src/logger');
@@ -42,17 +42,22 @@ function setupApp(currentApp) {
           statusCode: err.statusCode,
           errorMessage: err.message,
           errorType: err.name,
+          errorCode: err.errorCode, // Log errorCode
           requestPath: req.path,
           requestMethod: req.method,
         }
       );
-      return res.status(err.statusCode).json({
+      const errorResponse = {
         error: {
           message: err.message,
           type: err.name,
           correlationId,
         },
-      });
+      };
+      if (err.errorCode) {
+        errorResponse.error.code = err.errorCode; // Add errorCode to response
+      }
+      return res.status(err.statusCode).json(errorResponse);
     }
     logger.error(
       `Internal Server Error: ${err.stack || err.message} for ${req.method} ${req.path}`,

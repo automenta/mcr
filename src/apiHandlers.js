@@ -9,12 +9,34 @@ const {
   description: appDescription,
 } = require('../package.json');
 
-function validateNonEmptyString(field, fieldName, errorCode) {
+const VALID_STYLES = ['conversational', 'formal'];
+
+function validateNonEmptyString(field, fieldName, errorCodePrefix) {
   if (!field || typeof field !== 'string' || field.trim() === '') {
     throw new ApiError(
       400,
       `Missing or invalid required field '${fieldName}'. Must be a non-empty string.`,
-      errorCode
+      `${errorCodePrefix}_INVALID_${fieldName.toUpperCase()}`
+    );
+  }
+}
+
+function validateOptionalString(field, fieldName, errorCodePrefix) {
+  if (field && (typeof field !== 'string' || field.trim() === '')) {
+    throw new ApiError(
+      400,
+      `Invalid optional field '${fieldName}'. Must be a non-empty string if provided.`,
+      `${errorCodePrefix}_INVALID_${fieldName.toUpperCase()}`
+    );
+  }
+}
+
+function validateStyle(style, fieldName, errorCodePrefix) {
+  if (style && !VALID_STYLES.includes(style.toLowerCase())) {
+    throw new ApiError(
+      400,
+      `Invalid '${fieldName}'. Must be one of ${VALID_STYLES.join(', ')}.`,
+      `${errorCodePrefix}_INVALID_${fieldName.toUpperCase()}`
     );
   }
 }
@@ -32,7 +54,8 @@ const ApiHandlers = {
 
   getSession: (req, res, next) => {
     try {
-      res.json(SessionManager.get(req.params.sessionId));
+      const session = SessionManager.get(req.params.sessionId);
+      res.json(session);
     } catch (err) {
       next(err);
     }
@@ -40,8 +63,12 @@ const ApiHandlers = {
 
   deleteSession: (req, res, next) => {
     try {
-      SessionManager.delete(req.params.sessionId);
-      res.json({ message: `Session ${req.params.sessionId} terminated.` });
+      const { sessionId } = req.params;
+      SessionManager.delete(sessionId);
+      res.json({
+        message: `Session ${sessionId} terminated.`,
+        sessionId,
+      });
     } catch (err) {
       next(err);
     }
@@ -55,20 +82,22 @@ const ApiHandlers = {
         sessionId,
         textLength: text?.length,
       });
-      validateNonEmptyString(text, 'text');
-      const currentSession = SessionManager.get(sessionId);
+      validateNonEmptyString(text, 'text', 'ASSERT');
+      const currentSession = SessionManager.get(sessionId); // Ensures session exists
       const currentFacts = currentSession.facts.join('\n');
       const ontologyContext =
         SessionManager.getNonSessionOntologyFacts(sessionId).join('\n');
+
       const newFacts = await LlmService.nlToRulesAsync(
         text,
         currentFacts,
         ontologyContext
       );
       SessionManager.addFacts(sessionId, newFacts);
+      const updatedSession = SessionManager.get(sessionId);
       res.json({
         addedFacts: newFacts,
-        totalFactsInSession: SessionManager.get(sessionId).factCount,
+        totalFactsInSession: updatedSession.factCount,
         metadata: { success: true },
       });
     } catch (err) {
@@ -80,18 +109,34 @@ const ApiHandlers = {
     try {
       const { sessionId } = req.params;
       const { query, options = {}, ontology: requestOntology } = req.body;
+
       logger.debug(`Attempting to query session ${sessionId}`, {
         sessionId,
         queryLength: query?.length,
         options,
         requestOntologyProvided: !!requestOntology,
       });
-      validateNonEmptyString(query, 'query');
+
+      validateNonEmptyString(query, 'query', 'QUERY');
+      if (options.style) {
+        validateStyle(options.style, 'options.style', 'QUERY');
+      }
+      if (requestOntology) {
+        validateOptionalString(requestOntology, 'ontology', 'QUERY');
+      }
+      if (options && typeof options !== 'object') {
+        throw new ApiError(400, "Invalid 'options' field. Must be an object.", 'QUERY_INVALID_OPTIONS_TYPE');
+      }
+
+
       const prologQuery = await LlmService.queryToPrologAsync(query);
       logger.info(
         `Session ${sessionId}: Translated NL query to Prolog: "${prologQuery}"`,
         { sessionId, prologQuery }
       );
+
+      SessionManager.get(sessionId); // Ensures session exists before proceeding
+
       const facts = SessionManager.getFactsWithOntology(
         sessionId,
         requestOntology
@@ -100,17 +145,22 @@ const ApiHandlers = {
       try {
         rawResults = await ReasonerService.runQuery(facts, prologQuery);
       } catch (reasonerError) {
-        logger.error(`Error running Prolog query: ${reasonerError.message}`);
+        logger.error(
+          `Error running Prolog query for session ${sessionId}: ${reasonerError.message}`,
+          { sessionId, prologQuery, factsUsed: facts }
+        );
         if (
           reasonerError.message.includes('Prolog syntax error') ||
           reasonerError.message.includes('error(syntax_error')
         ) {
           throw new ApiError(
             400,
-            `The LLM generated an invalid Prolog query. Please try rephrasing your question. Details: ${reasonerError.message}`
+            `The LLM generated an invalid Prolog query. Please try rephrasing your question. Details: ${reasonerError.message}`,
+            'QUERY_PROLOG_SYNTAX_ERROR'
           );
         }
-        throw reasonerError;
+        // Ensure it's an ApiError for consistent handling downstream
+        throw new ApiError(500, `Reasoner error: ${reasonerError.message}`, 'QUERY_REASONER_FAILED');
       }
 
       const simpleResult = ApiHandlers._simplifyPrologResults(
@@ -119,12 +169,12 @@ const ApiHandlers = {
       );
 
       logger.info(
-        `Session ${sessionId}: Prolog query returned: ${JSON.stringify(simpleResult)}`
+        `Session ${sessionId}: Prolog query returned: ${JSON.stringify(simpleResult)}`, { sessionId }
       );
       const finalAnswer = await LlmService.resultToNlAsync(
         query,
         JSON.stringify(simpleResult),
-        options.style
+        options.style // Already validated
       );
       const response = {
         queryProlog: prologQuery,
@@ -132,6 +182,7 @@ const ApiHandlers = {
         answer: finalAnswer,
         metadata: { success: true, steps: rawResults.length },
       };
+
       if (options.debug) {
         const currentSessionDebug = SessionManager.get(sessionId);
         response.debug = {
@@ -144,7 +195,7 @@ const ApiHandlers = {
           inputToNlAnswerGeneration: {
             originalQuery: query,
             simplifiedLogicResult: simpleResult,
-            style: options.style || 'conversational',
+            style: options.style || 'conversational', // Default if not provided
           },
         };
         logger.info(`Session ${sessionId}: Debug mode enabled for query.`, {
@@ -160,12 +211,15 @@ const ApiHandlers = {
 
   translateNlToRulesAsync: async (req, res, next) => {
     try {
-      const { text, existing_facts = '', ontology_context = '' } = req.body;
-      validateNonEmptyString(text, 'text');
+      const { text, existing_facts, ontology_context } = req.body;
+      validateNonEmptyString(text, 'text', 'NL_TO_RULES');
+      validateOptionalString(existing_facts, 'existing_facts', 'NL_TO_RULES');
+      validateOptionalString(ontology_context, 'ontology_context', 'NL_TO_RULES');
+
       const rules = await LlmService.nlToRulesAsync(
         text,
-        existing_facts,
-        ontology_context
+        existing_facts || '', // Default to empty string if undefined/null
+        ontology_context || '' // Default to empty string
       );
       res.json({ rules });
     } catch (err) {
@@ -179,12 +233,16 @@ const ApiHandlers = {
       if (
         !rules ||
         !Array.isArray(rules) ||
-        !rules.every((r) => typeof r === 'string')
+        !rules.every((r) => typeof r === 'string' && r.trim() !== '')
       ) {
         throw new ApiError(
           400,
-          "Missing or invalid 'rules' field; must be an array of strings."
+          "Missing or invalid 'rules' field; must be an array of non-empty strings.",
+          'RULES_TO_NL_INVALID_RULES'
         );
+      }
+      if (style) {
+        validateStyle(style, 'style', 'RULES_TO_NL');
       }
       const text = await LlmService.rulesToNlAsync(rules, style);
       res.json({ text });
@@ -196,8 +254,8 @@ const ApiHandlers = {
   addOntology: (req, res, next) => {
     try {
       const { name, rules } = req.body;
-      validateNonEmptyString(name, 'name');
-      validateNonEmptyString(rules, 'rules');
+      validateNonEmptyString(name, 'name', 'ONTOLOGY_ADD');
+      validateNonEmptyString(rules, 'rules', 'ONTOLOGY_ADD');
       const newOntology = SessionManager.addOntology(name, rules);
       res.status(201).json(newOntology);
     } catch (err) {
@@ -209,7 +267,7 @@ const ApiHandlers = {
     try {
       const { name } = req.params;
       const { rules } = req.body;
-      validateNonEmptyString(rules, 'rules');
+      validateNonEmptyString(rules, 'rules', 'ONTOLOGY_UPDATE');
       const updatedOntology = SessionManager.updateOntology(name, rules);
       res.json(updatedOntology);
     } catch (err) {
@@ -227,7 +285,8 @@ const ApiHandlers = {
 
   getOntology: (req, res, next) => {
     try {
-      res.json(SessionManager.getOntology(req.params.name));
+      const ontology = SessionManager.getOntology(req.params.name);
+      res.json(ontology);
     } catch (err) {
       next(err);
     }
@@ -235,7 +294,12 @@ const ApiHandlers = {
 
   deleteOntology: (req, res, next) => {
     try {
-      res.json(SessionManager.deleteOntology(req.params.name));
+      const { name } = req.params;
+      const result = SessionManager.deleteOntology(name); // Assuming this throws if not found
+      res.json({
+        message: result.message || `Ontology ${name} deleted.`, // Use message from manager if available
+        ontologyName: name,
+      });
     } catch (err) {
       next(err);
     }
@@ -245,8 +309,9 @@ const ApiHandlers = {
     try {
       const { sessionId } = req.params;
       const { query } = req.body;
-      validateNonEmptyString(query, 'query');
-      const currentSession = SessionManager.get(sessionId);
+      validateNonEmptyString(query, 'query', 'EXPLAIN_QUERY');
+
+      const currentSession = SessionManager.get(sessionId); // Ensures session exists
       const facts = currentSession.facts;
       const ontologyContext =
         SessionManager.getNonSessionOntologyFacts(sessionId);
@@ -272,7 +337,7 @@ const ApiHandlers = {
       validateNonEmptyString(
         templateName,
         'templateName',
-        'DEBUG_FORMAT_PROMPT_NO_TEMPLATE_NAME'
+        'DEBUG_FORMAT_PROMPT'
       );
       if (
         !inputVariables ||
@@ -282,7 +347,7 @@ const ApiHandlers = {
         throw new ApiError(
           400,
           "Missing or invalid required field 'inputVariables'. Must be an object.",
-          'DEBUG_FORMAT_PROMPT_NO_INPUT_VARIABLES'
+          'DEBUG_FORMAT_PROMPT_INVALID_INPUT_VARIABLES'
         );
       }
 
@@ -330,7 +395,7 @@ const ApiHandlers = {
   },
 
   _simplifyPrologResults(rawResults, loggerInstance) {
-    if (rawResults.length === 0) {
+    if (!rawResults || rawResults.length === 0) { // Handle undefined or empty rawResults
       return 'No solution found.';
     }
     if (rawResults.length === 1 && rawResults[0] === 'true.') {
@@ -340,9 +405,25 @@ const ApiHandlers = {
       return 'No.';
     }
     try {
-      const processedResults = rawResults.map((r) =>
-        r.includes('=') || typeof r !== 'string' ? r : JSON.parse(r)
-      );
+      // Attempt to parse results that look like they might be JSON
+      // but keep others (like variable bindings 'X = value') as strings.
+      const processedResults = rawResults.map((r) => {
+        if (typeof r === 'string' && (r.startsWith('{') || r.startsWith('['))) {
+          try {
+            return JSON.parse(r);
+          } catch (e) {
+            // Not valid JSON, keep as string
+            return r;
+          }
+        }
+        // Handle cases where results might already be objects/arrays from reasoner
+        if (typeof r === 'object' || Array.isArray(r)) {
+            return r;
+        }
+        // Default to string, includes 'X = value.' cases
+        return String(r);
+      });
+
 
       if (processedResults.length === 1) {
         return processedResults[0];
@@ -350,13 +431,15 @@ const ApiHandlers = {
       return processedResults;
     } catch (e) {
       loggerInstance.warn(
-        `Could not parse all Prolog results as JSON: ${rawResults}. Returning raw. Error: ${e.message}`,
+        `Could not fully process Prolog results: ${JSON.stringify(rawResults)}. Returning as best effort. Error: ${e.message}`,
         {
-          internalErrorCode: 'PROLOG_RESULT_JSON_PARSE_FAILED',
+          internalErrorCode: 'PROLOG_RESULT_PROCESSING_FAILED',
           rawResults,
+          error: e.toString(),
         }
       );
-      return rawResults;
+      // Return raw results as a fallback if any processing error occurs
+      return rawResults.map(r => String(r));
     }
   },
 };

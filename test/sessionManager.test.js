@@ -6,31 +6,58 @@ const logger = require('../src/logger');
 const ApiError = require('../src/errors');
 // const ConfigManager = require('../src/config'); // Unused import
 
-// @TODO: Fix failing tests - disabling for now
-// jest.mock('uuid');
-jest.mock('fs');
-jest.mock('path');
-jest.mock('../src/logger'); // Default mock: auto-mocked with jest.fn()
-jest.mock('../src/errors');
-
-// Hardcode paths in the mock factory to avoid hoisting issues with constants
-jest.mock('../src/config', () => ({
-  load: jest.fn(() => ({
-    session: { storagePath: '/mock_storage/sessions_sm_test' },
-    ontology: { storagePath: '/mock_storage/ontologies_sm_test' },
-    logging: { level: 'info', file: 'test.log' },
-  })),
+const mockUuidv4 = jest.fn();
+jest.mock('uuid', () => ({
+  v4: mockUuidv4,
 }));
 
-// These constants can still be used for assertions if their values match the hardcoded ones
-const MOCK_SESSION_STORAGE_PATH = '/mock_storage/sessions_sm_test';
-const MOCK_ONTOLOGY_STORAGE_PATH = '/mock_storage/ontologies_sm_test';
+jest.mock('fs');
+jest.mock('path');
+jest.mock('../src/logger');
+
+// Properly mock ApiError as a class constructor
+const ActualApiError = jest.requireActual('../src/errors');
+jest.mock('../src/errors', () => {
+  return jest.fn().mockImplementation((status, message, code) => {
+    const err = new ActualApiError(status, message, code); // Use the actual class for instanceof checks
+    // const err = new Error(message);
+    // err.statusCode = status;
+    // err.errorCode = code;
+    // err.name = 'ApiError'; // Important for some checks
+    return err;
+  });
+});
 
 
-describe.skip('SessionManager', () => { // @TODO: Fix failing tests - disabling for now
+const MOCK_SESSION_STORAGE_PATH = '/mocked_storage/sessions_data_sm_test';
+const MOCK_ONTOLOGY_STORAGE_PATH = '/mocked_storage/ontologies_data_sm_test';
+
+jest.mock('../src/config', () => {
+  const actualConfigManager = jest.requireActual('../src/config');
+  return {
+    ...actualConfigManager,
+    get: jest.fn(() => ({
+      session: { storagePath: MOCK_SESSION_STORAGE_PATH },
+      ontology: { storagePath: MOCK_ONTOLOGY_STORAGE_PATH },
+      logging: { level: 'info' },
+      llm: { provider: 'test-provider' },
+    })),
+    load: jest.fn(() => ({
+        session: { storagePath: MOCK_SESSION_STORAGE_PATH },
+        ontology: { storagePath: MOCK_ONTOLOGY_STORAGE_PATH },
+        logging: { level: 'info' },
+        llm: { provider: 'test-provider' },
+      })),
+  };
+});
+
+
+describe('SessionManager', () => {
+  // let uuidv4; // Not needed here due to new mock style
+
   beforeAll(() => {
-    // ConfigManager.load() is already globally mocked by the factory for this test file.
-    // The mock will be called when sessionManager.js (via logger.js) loads config.
+    // path.resolve and path.join are critical for SessionManager's file operations.
+    // Their mocks should correctly reflect how paths are constructed.
     // We can still re-assert its return value or clear mocks in beforeEach if needed.
     path.resolve.mockImplementation((p) => p);
     path.join.mockImplementation((...args) => args.join('/'));
@@ -75,35 +102,43 @@ describe.skip('SessionManager', () => { // @TODO: Fix failing tests - disabling 
     test('should load all ontologies on initialization', () => {
       fs.readdirSync.mockReturnValue(['family.pl', 'another.pl']);
       fs.readFileSync
-        .mockReturnValueOnce('parent(X,Y).')
-        .mockReturnValueOnce('rule(A,B).');
+        .mockReturnValueOnce('parent(X,Y).') // Content for family.pl
+        .mockReturnValueOnce('rule(A,B).');   // Content for another.pl
 
       jest.resetModules();
-      const NewSessionManager = require('../src/sessionManager');
+      // At this point, SessionManager is reloaded. If it imports uuid, it gets our top-level mock.
+      const FreshSessionManager = require('../src/sessionManager');
+      // mockUuidv4 is already defined and is the mock function for uuid.v4
 
       expect(fs.readdirSync).toHaveBeenCalledWith(MOCK_ONTOLOGY_STORAGE_PATH);
       expect(fs.readFileSync).toHaveBeenCalledWith(
-        '/mock/ontology/storage/family.pl',
+        `${MOCK_ONTOLOGY_STORAGE_PATH}/family.pl`,
         'utf8'
       );
       expect(fs.readFileSync).toHaveBeenCalledWith(
-        '/mock/ontology/storage/another.pl',
+        `${MOCK_ONTOLOGY_STORAGE_PATH}/another.pl`,
         'utf8'
       );
-      expect(NewSessionManager._ontologies).toEqual({
+      expect(FreshSessionManager._ontologies).toEqual({
         family: 'parent(X,Y).',
         another: 'rule(A,B).',
       });
       expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining('Loaded 2 ontologies')
+        expect.stringContaining(`Loaded ${Object.keys(FreshSessionManager._ontologies).length} ontologies`)
       );
     });
   });
 
   describe('Session Management', () => {
+    beforeEach(() => {
+      // Ensure uuidv4 is available for each test in this block
+      // No, uuid should be mocked at the top of the file once.
+      // uuidv4 = require('uuid').v4; // This is not needed here if mocked globally
+    });
+
     test('create should generate a new session and save it', () => {
       const mockUuid = 'test-session-id';
-      uuidv4.mockReturnValue(mockUuid);
+      mockUuidv4.mockReturnValue(mockUuid); // Use the imported mock function
 
       const session = SessionManager.create();
 
@@ -119,6 +154,35 @@ describe.skip('SessionManager', () => { // @TODO: Fix failing tests - disabling 
       expect(logger.info).toHaveBeenCalledWith(
         `Created new session: ${mockUuid}`
       );
+    });
+
+    test('_saveSession should throw ApiError if fs.writeFileSync fails', () => {
+      const mockUuid = 'save-fail-id';
+      mockUuidv4.mockReturnValue(mockUuid); // Use the imported mock function
+      // ApiError is already mocked as a class constructor mock at the top
+
+      fs.writeFileSync.mockImplementation(() => {
+        throw new Error('Disk full');
+      });
+
+      // We need to catch the error to inspect its properties if toThrow(ApiError) is not specific enough
+      try {
+        SessionManager.create();
+        // Should not reach here
+        expect(true).toBe(false);
+      } catch (e) {
+        expect(e).toBeInstanceOf(ActualApiError); // Check it's an instance of the *actual* ApiError class due to mock
+        expect(e.statusCode).toBe(500);
+        expect(e.message).toMatch(/Failed to save session save-fail-id: Disk full/);
+        expect(e.errorCode).toBe('SESSION_SAVE_OPERATION_FAILED');
+      }
+
+      // More direct way if `toThrow` works with the class mock correctly
+      // This checks if an error that is an instanceof ApiError (via the mock) is thrown.
+      expect(() => SessionManager.create()).toThrow(ActualApiError);
+
+      // To check the specific message with toThrow:
+      expect(() => SessionManager.create()).toThrow(/Failed to save session save-fail-id: Disk full/);
     });
 
     test('get should retrieve an existing session from memory', () => {
