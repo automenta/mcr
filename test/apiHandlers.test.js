@@ -9,7 +9,8 @@ jest.mock('../src/llmService');
 jest.mock('../src/reasonerService');
 jest.mock('../src/errors');
 jest.mock('../src/logger'); // Auto-mocked
-jest.mock('../src/config', () => ({ // Factory mock for config
+jest.mock('../src/config', () => ({
+  // Factory mock for config
   load: jest.fn(() => ({
     // Provide minimal config structure needed by indirect dependencies like logger
     logging: { level: 'info', file: 'test.log' },

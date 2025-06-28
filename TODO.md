@@ -83,7 +83,7 @@ MCR evolves into a robust, scalable, and highly extensible "reasoning fabric" th
 - Advanced error handling and debugging to diagnose translation and reasoner issues.
 - Prompt template editing and debugging.
 - Unit test framework.
-  - Investigate and fix phantom `jest/no-standalone-expect` errors in `test/basic.test.js`.
+  - Investigate and fix phantom `jest/no-standalone-expect` errors in `test/basic.test.js`. (Addressed by moving expects into tests during linting/test refactor)
 - Demo framework: try individual operations.
 - Extensibility.
 - Integrate RAG / datastores through dynamic Prolog assertions / overlay.

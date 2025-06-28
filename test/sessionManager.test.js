@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('../src/logger');
 const ApiError = require('../src/errors');
-const ConfigManager = require('../src/config');
+// const ConfigManager = require('../src/config'); // Unused import
 
 // Define constants used in mocks first
 const MOCK_SESSION_STORAGE_PATH_CONST = '/mock/session/storage';
@@ -15,7 +15,8 @@ jest.mock('fs');
 jest.mock('path');
 jest.mock('../src/logger'); // Default mock: auto-mocked with jest.fn()
 jest.mock('../src/errors');
-jest.mock('../src/config', () => ({ // Factory mock for config
+jest.mock('../src/config', () => ({
+  // Factory mock for config
   load: jest.fn(() => ({
     session: { storagePath: MOCK_SESSION_STORAGE_PATH_CONST },
     ontology: { storagePath: MOCK_ONTOLOGY_STORAGE_PATH_CONST },
@@ -149,11 +150,11 @@ describe('SessionManager', () => {
 
       expect(() => SessionManager.get('non-existent-id')).toThrow(ApiError);
       expect(() => SessionManager.get('non-existent-id')).toThrow(
-        'Session with ID \'non-existent-id\' not found.'
+        "Session with ID 'non-existent-id' not found."
       );
       expect(ApiError).toHaveBeenCalledWith(
         404,
-        'Session with ID \'non-existent-id\' not found.'
+        "Session with ID 'non-existent-id' not found."
       );
     });
 
@@ -234,10 +235,10 @@ rule2.`;
       ).toThrow(ApiError);
       expect(() =>
         SessionManager.addOntology('existing_ontology', 'new_rules.')
-      ).toThrow('Ontology with name \'existing_ontology\' already exists.');
+      ).toThrow("Ontology with name 'existing_ontology' already exists.");
       expect(ApiError).toHaveBeenCalledWith(
         409,
-        'Ontology with name \'existing_ontology\' already exists.'
+        "Ontology with name 'existing_ontology' already exists."
       );
     });
 
@@ -268,10 +269,10 @@ updated_rule2.`;
       ).toThrow(ApiError);
       expect(() =>
         SessionManager.updateOntology('non_existent_ontology', 'rules.')
-      ).toThrow('Ontology with name \'non_existent_ontology\' not found.');
+      ).toThrow("Ontology with name 'non_existent_ontology' not found.");
       expect(ApiError).toHaveBeenCalledWith(
         404,
-        'Ontology with name \'non_existent_ontology\' not found.'
+        "Ontology with name 'non_existent_ontology' not found."
       );
     });
 
@@ -302,11 +303,11 @@ updated_rule2.`;
         ApiError
       );
       expect(() => SessionManager.getOntology('non_existent_onto')).toThrow(
-        'Ontology with name \'non_existent_onto\' not found.'
+        "Ontology with name 'non_existent_onto' not found."
       );
       expect(ApiError).toHaveBeenCalledWith(
         404,
-        'Ontology with name \'non_existent_onto\' not found.'
+        "Ontology with name 'non_existent_onto' not found."
       );
     });
 

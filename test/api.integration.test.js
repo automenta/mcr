@@ -67,9 +67,18 @@ describe('MCR API Integration Tests (with Supertest)', () => {
 
   beforeEach(async () => {
     const createSessionResponse = await request(app).post('/sessions');
-    expect(createSessionResponse.status).toBe(201);
-    sessionId = createSessionResponse.body.sessionId;
-    expect(sessionId).toBeDefined();
+    // Expectations moved to 'should create a new session and retrieve it'
+    if (
+      createSessionResponse.status === 201 &&
+      createSessionResponse.body.sessionId
+    ) {
+      sessionId = createSessionResponse.body.sessionId;
+    } else {
+      // Throw an error to fail tests if session creation fails in beforeEach
+      throw new Error(
+        `Failed to create session in beforeEach: Status ${createSessionResponse.status}, Body: ${JSON.stringify(createSessionResponse.body)}`
+      );
+    }
   });
 
   afterEach(async () => {
@@ -77,9 +86,10 @@ describe('MCR API Integration Tests (with Supertest)', () => {
       try {
         await request(app).delete(`/sessions/${sessionId}`);
       } catch (error) {
-        console.error(
+        logger.error(
+          // Replaced console.error with logger.error
           `Integration Test: Failed to delete session ${sessionId} during cleanup:`,
-          error.message
+          { errorMessage: error.message }
         );
       }
     }
@@ -93,9 +103,20 @@ describe('MCR API Integration Tests (with Supertest)', () => {
   });
 
   test('should create a new session and retrieve it', async () => {
-    const getSessionResponse = await request(app).get(`/sessions/${sessionId}`);
+    // Verify session creation from beforeEach
+    expect(sessionId).toBeDefined();
+    const createSessionResponse = await request(app)
+      .post('/sessions')
+      .redirects(0); // Make a new one for this test to check status
+    expect(createSessionResponse.status).toBe(201);
+    const newTestSessionId = createSessionResponse.body.sessionId;
+    expect(newTestSessionId).toBeDefined();
+
+    const getSessionResponse = await request(app).get(
+      `/sessions/${newTestSessionId}`
+    );
     expect(getSessionResponse.status).toBe(200);
-    expect(getSessionResponse.body.sessionId).toBe(sessionId);
+    expect(getSessionResponse.body.sessionId).toBe(newTestSessionId);
     expect(getSessionResponse.body.facts).toEqual([]);
     expect(getSessionResponse.body.factCount).toBe(0);
   });

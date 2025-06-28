@@ -14,8 +14,8 @@ const ReasonerService = {
                 const results = [];
                 const answerCallback = (answer) => {
                   if (!answer || answer.indicator === 'the_end/0') {
-                  resolve(results);
-                  return;
+                    resolve(results);
+                    return;
                   }
                   if (pl.is_substitution(answer)) {
                     results.push(

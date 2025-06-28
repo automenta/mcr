@@ -76,7 +76,12 @@ const LlmService = {
     }
   },
 
-  async _callLlm(templateName, inputVariables, outputParser, errorContext) {
+  async _callLlmAsync(
+    templateName,
+    inputVariables,
+    outputParser,
+    errorContext
+  ) {
     const template = PROMPT_TEMPLATES[templateName];
     if (!template) {
       logger.error(`Prompt template '${templateName}' not found.`, {
@@ -89,7 +94,11 @@ const LlmService = {
       );
     }
     try {
-      return await this._invokeChain(template, inputVariables, outputParser);
+      return await this._invokeChainAsync(
+        template,
+        inputVariables,
+        outputParser
+      );
     } catch (error) {
       if (error instanceof ApiError) throw error;
       logger.error(`Unhandled error in ${errorContext.methodName}.`, {
@@ -103,8 +112,7 @@ const LlmService = {
     }
   },
 
-  // eslint-disable-next-line no-restricted-syntax
-  async _invokeChain(promptTemplate, input, outputParser) {
+  async _invokeChainAsync(promptTemplate, input, outputParser) {
     if (!this._client) {
       logger.error('LLM Service not available or not initialized correctly.', {
         internalErrorCode: 'LLM_SERVICE_UNAVAILABLE',
@@ -161,7 +169,7 @@ const LlmService = {
     }
   },
   async nlToRulesAsync(text, existing_facts = '', ontology_context = '') {
-    const result = await this._callLlm(
+    const result = await this._callLlmAsync(
       'NL_TO_RULES',
       { existing_facts, ontology_context, text_to_translate: text },
       new JsonOutputParser(),
@@ -187,7 +195,7 @@ const LlmService = {
     return result;
   },
   async queryToPrologAsync(question) {
-    const result = await this._callLlm(
+    const result = await this._callLlmAsync(
       'QUERY_TO_PROLOG',
       { question },
       new StringOutputParser(),
@@ -205,7 +213,7 @@ const LlmService = {
     logic_result,
     style = 'conversational'
   ) {
-    return this._callLlm(
+    return this._callLlmAsync(
       'RESULT_TO_NL',
       { style, original_question, logic_result },
       new StringOutputParser(),
@@ -218,7 +226,7 @@ const LlmService = {
     );
   },
   async rulesToNlAsync(rules, style = 'formal') {
-    return this._callLlm(
+    return this._callLlmAsync(
       'RULES_TO_NL',
       { style, prolog_rules: rules.join('\n') },
       new StringOutputParser(),
@@ -231,7 +239,7 @@ const LlmService = {
     );
   },
   async explainQueryAsync(query, facts, ontology_context) {
-    return this._callLlm(
+    return this._callLlmAsync(
       'EXPLAIN_QUERY',
       { query, facts, ontology_context },
       new StringOutputParser(),

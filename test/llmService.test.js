@@ -19,11 +19,16 @@ jest.mock('@langchain/core/output_parsers');
 jest.mock('@langchain/core/prompts');
 jest.mock('../src/logger'); // Auto-mocked
 jest.mock('../src/errors');
-jest.mock('../src/config', () => ({ // Factory mock for config
+jest.mock('../src/config', () => ({
+  // Factory mock for config
   load: jest.fn(() => ({
     llm: {
       provider: 'openai', // Default for tests
-      model: { openai: 'gpt-test', gemini: 'gemini-test', ollama: 'ollama-test' },
+      model: {
+        openai: 'gpt-test',
+        gemini: 'gemini-test',
+        ollama: 'ollama-test',
+      },
       apiKey: { openai: 'sk-test', gemini: 'gem-test' },
       ollamaBaseUrl: 'http://localhost:11434',
     },
@@ -197,7 +202,7 @@ describe('LlmService', () => {
     });
   });
 
-  describe('LLM Invocation (_invokeChain)', () => {
+  describe('LLM Invocation (_invokeChainAsync)', () => {
     beforeEach(() => {
       ConfigManager.load.mockReturnValue({
         llm: {
@@ -212,7 +217,7 @@ describe('LlmService', () => {
     test('should throw ApiError if LLM client is not initialized', async () => {
       LlmService._client = null;
       await expect(
-        LlmService._invokeChain('template', {}, new StringOutputParser())
+        LlmService._invokeChainAsync('template', {}, new StringOutputParser())
       ).rejects.toEqual(
         expect.objectContaining({
           status: 503,
@@ -233,7 +238,7 @@ describe('LlmService', () => {
       const mockInput = { key: 'value' };
       const mockOutputParser = { type: 'test-parser' };
 
-      const result = await LlmService._invokeChain(
+      const result = await LlmService._invokeChainAsync(
         'TEST_TEMPLATE',
         mockInput,
         mockOutputParser
@@ -254,7 +259,7 @@ describe('LlmService', () => {
       mockInvoke.mockRejectedValue(new Error('LLM API error'));
 
       await expect(
-        LlmService._invokeChain('template', {}, new StringOutputParser())
+        LlmService._invokeChainAsync('template', {}, new StringOutputParser())
       ).rejects.toEqual(
         expect.objectContaining({
           status: 502,
@@ -289,7 +294,7 @@ describe('LlmService', () => {
       const existingFacts = 'fact1.';
       const ontologyContext = 'onto1.';
 
-      const result = await LlmService.nlToRules(
+      const result = await LlmService.nlToRulesAsync(
         text,
         existingFacts,
         ontologyContext
@@ -306,9 +311,9 @@ describe('LlmService', () => {
       expect(result).toEqual(['rule1.', 'rule2.']);
     });
 
-    test('nlToRules should throw ApiError if LLM does not return an array', async () => {
+    test('nlToRulesAsync should throw ApiError if LLM does not return an array', async () => {
       mockInvoke.mockResolvedValue('not an array');
-      await expect(LlmService.nlToRules('text')).rejects.toEqual(
+      await expect(LlmService.nlToRulesAsync('text')).rejects.toEqual(
         expect.objectContaining({ status: 422 })
       );
       expect(logger.error).toHaveBeenCalledWith(
@@ -326,7 +331,7 @@ describe('LlmService', () => {
       mockInvoke.mockResolvedValue('prolog_query.');
       const question = 'Is this true?';
 
-      const result = await LlmService.queryToProlog(question);
+      const result = await LlmService.queryToPrologAsync(question);
 
       expect(mockPipe).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'string' })
@@ -343,7 +348,7 @@ describe('LlmService', () => {
       const logicResult = 'true.';
       const style = 'formal';
 
-      const result = await LlmService.resultToNl(
+      const result = await LlmService.resultToNlAsync(
         originalQuestion,
         logicResult,
         style
@@ -365,7 +370,7 @@ describe('LlmService', () => {
       const rules = ['rule1.', 'rule2.'];
       const style = 'conversational';
 
-      const result = await LlmService.rulesToNl(rules, style);
+      const result = await LlmService.rulesToNlAsync(rules, style);
 
       expect(mockPipe).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'string' })
@@ -383,7 +388,7 @@ describe('LlmService', () => {
       const facts = 'fact(a).';
       const ontologyContext = 'ontology(b).';
 
-      const result = await LlmService.explainQuery(
+      const result = await LlmService.explainQueryAsync(
         query,
         facts,
         ontologyContext

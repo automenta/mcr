@@ -297,7 +297,7 @@ program
       const rules = rulesContent
         .split(/\r?\n|\./)
         .filter((line) => line.trim() !== '')
-        .map((line) => `${line.trim()  }.`);
+        .map((line) => `${line.trim()}.`);
 
       const response = await axios.post(
         `${API_BASE_URL}/translate/rules-to-nl`,

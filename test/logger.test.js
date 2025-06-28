@@ -50,7 +50,8 @@ jest.mock('winston', () => ({
 
 // Now require the modules under test, they will get the mocks above
 const ConfigManager = require('../src/config'); // Will be the mocked version
-const { logger, initializeLoggerContext, asyncLocalStorage } = require('../src/logger');
+const { logger } = require('../src/logger');
+// initializeLoggerContext, asyncLocalStorage are unused
 
 describe('Logger', () => {
   // mockCreateLogger, mockFileTransport, mockConsoleTransport are not needed here
@@ -104,14 +105,21 @@ describe('Logger', () => {
 
   test('should call logger methods correctly', () => {
     logger.info('Test info message');
-    expect(mockCreateLogger.info).toHaveBeenCalledWith('Test info message');
+    expect(mockCreateLoggerInstance.info).toHaveBeenCalledWith(
+      'Test info message'
+    );
 
     logger.error('Test error message', { detail: 'some detail' });
-    expect(mockCreateLogger.error).toHaveBeenCalledWith('Test error message', {
-      detail: 'some detail',
-    });
+    expect(mockCreateLoggerInstance.error).toHaveBeenCalledWith(
+      'Test error message',
+      {
+        detail: 'some detail',
+      }
+    );
 
     logger.debug('Test debug message');
-    expect(mockCreateLogger.debug).toHaveBeenCalledWith('Test debug message');
+    expect(mockCreateLoggerInstance.debug).toHaveBeenCalledWith(
+      'Test debug message'
+    );
   });
 });

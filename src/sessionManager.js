@@ -184,8 +184,9 @@ const SessionManager = {
     if (additionalOntology) {
       ontologyFacts = this._parseOntologyRules(additionalOntology);
     } else {
-      ontologyFacts = Object.values(this._ontologies)
-        .flatMap((rulesString) => this._parseOntologyRules(rulesString));
+      ontologyFacts = Object.values(this._ontologies).flatMap((rulesString) =>
+        this._parseOntologyRules(rulesString)
+      );
     }
 
     return [...session.facts, ...ontologyFacts];

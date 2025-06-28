@@ -1,6 +1,6 @@
 const ConfigManager = require('../src/config');
 const dotenv = require('dotenv');
-const logger = require('../src/logger');
+// const logger = require('../src/logger'); // Unused import
 
 jest.mock('dotenv');
 // Provide a specific mock for logger to avoid it trying to load config during config's own test
