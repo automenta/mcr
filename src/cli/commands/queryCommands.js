@@ -4,9 +4,9 @@ const { apiClient, API_BASE_URL, handleApiError } = require('../api');
 const { readOntologyFile, handleCliOutput, printJson } = require('../utils'); // Added handleCliOutput
 const axios = require('axios');
 
-// assertFact has arguments, no options. Action: (arg1, arg2, command)
-async function assertFact(sessionId, text, command) {
-  const programOpts = command.parent.opts();
+// Action signature: (arg1, ..., options, commandInstance)
+async function assertFact(sessionId, text, options, commandInstance) {
+  const programOpts = commandInstance.parent.opts();
   const response = await apiClient.post(`/sessions/${sessionId}/assert`, {
     text,
   });
@@ -174,9 +174,9 @@ async function querySession(sessionIdArg, questionArg, options, programOpts) {
   }
 }
 
-// explainQuery has arguments, no options. Action: (arg1, arg2, command)
-async function explainQuery(sessionId, question, command) {
-  const programOpts = command.parent.opts();
+// Action signature: (arg1, ..., options, commandInstance)
+async function explainQuery(sessionId, question, options, commandInstance) {
+  const programOpts = commandInstance.parent.opts();
   const response = await apiClient.post(
     `/sessions/${sessionId}/explain-query`,
     { query: question }
@@ -213,7 +213,8 @@ module.exports = (program) => {
     );
 
   queryCmd.action(async (sessionId, question, options, command) => {
-    const programOpts = command.parent.parent.opts(); // Global opts from program
+    // command is the 'query' command instance. Its parent is the main 'program'.
+    const programOpts = command.parent.opts();
     await querySession(sessionId, question, options, programOpts);
   });
 

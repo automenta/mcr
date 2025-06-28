@@ -8,16 +8,16 @@
 
 const express = require('express');
 const ConfigManager = require('./src/config');
-const logger = require('./src/logger');
+const { logger, reconfigureLogger, initializeLoggerContext } = require('./src/logger');
 const LlmService = require('./src/llmService');
 const ApiError = require('./src/errors');
 const setupRoutes = require('./src/routes');
 
 const config = ConfigManager.get(); // Use get() to ensure config is loaded and validated
+reconfigureLogger(config); // Reconfigure logger with loaded config
 LlmService.init(config); // Pass config to LlmService.init()
 
 const { v4: uuidv4 } = require('uuid');
-const { initializeLoggerContext } = require('./src/logger'); // Ensure logger is the actual winston instance
 // const appLogger = require('./src/logger').logger; // This was unused, req.log is preferred
 
 const app = express();

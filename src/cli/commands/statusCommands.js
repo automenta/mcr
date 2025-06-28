@@ -2,9 +2,12 @@
 const { apiClient } = require('../api');
 const { handleCliOutput } = require('../utils'); // Use handleCliOutput
 
-// status command has no arguments or options of its own. Action: (command)
-async function getServerStatus(command) {
-  const programOpts = command.parent.opts();
+// Action handler receives (options, commandInstance)
+// options: command-specific options
+// commandInstance: the command object itself
+async function getServerStatus(options, commandInstance) {
+  // Global options are on the parent (the main program instance)
+  const programOpts = commandInstance.parent.opts();
   const response = await apiClient.get('/');
   // API returns server status object.
   // If not --json, print "Server Status:" then the object (pretty JSON).

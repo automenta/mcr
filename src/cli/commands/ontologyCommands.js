@@ -4,8 +4,8 @@ const path = require('path');
 const { apiClient } = require('../api');
 const { handleCliOutput, readFileContent } = require('../utils'); // Added readFileContent
 
-async function addOntology(name, rulesFile, command) {
-  const programOpts = command.parent.opts();
+async function addOntology(name, rulesFile, options, commandInstance) {
+  const programOpts = commandInstance.parent.opts();
   // readFileContent will handle path.resolve and existsSync check
   const rules = readFileContent(rulesFile, 'Rules file');
 
@@ -19,8 +19,8 @@ async function addOntology(name, rulesFile, command) {
   handleCliOutput(response.data, programOpts, null, 'Ontology added:\n');
 }
 
-async function updateOntology(name, rulesFile, command) {
-  const programOpts = command.parent.opts();
+async function updateOntology(name, rulesFile, options, commandInstance) {
+  const programOpts = commandInstance.parent.opts();
   const rules = readFileContent(rulesFile, 'Rules file');
 
   if (!programOpts.json) {
@@ -30,20 +30,20 @@ async function updateOntology(name, rulesFile, command) {
   handleCliOutput(response.data, programOpts, null, 'Ontology updated:\n');
 }
 
-async function getOntologies(command) {
-  const programOpts = command.parent.opts();
+async function getOntologies(options, commandInstance) {
+  const programOpts = commandInstance.parent.opts();
   const response = await apiClient.get('/ontologies');
   handleCliOutput(response.data, programOpts, null, 'Available Ontologies:\n');
 }
 
-async function getOntology(name, command) {
-  const programOpts = command.parent.opts();
+async function getOntology(name, options, commandInstance) {
+  const programOpts = commandInstance.parent.opts();
   const response = await apiClient.get(`/ontologies/${name}`);
   handleCliOutput(response.data, programOpts, null, 'Ontology details:\n');
 }
 
-async function deleteOntology(name, command) {
-  const programOpts = command.parent.opts();
+async function deleteOntology(name, options, commandInstance) {
+  const programOpts = commandInstance.parent.opts();
   const response = await apiClient.delete(`/ontologies/${name}`);
   // API returns { "message": "Ontology ... deleted.", "ontologyName": "..." }
   handleCliOutput(response.data, programOpts, 'message', 'Ontology deleted: ');

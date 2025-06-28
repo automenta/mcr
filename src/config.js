@@ -1,5 +1,5 @@
 const dotenv = require('dotenv');
-const logger = require('./logger').logger; // Use the logger instance directly
+const { logger } = require('./logger'); // Use the destructured logger instance
 
 const SUPPORTED_PROVIDERS = ['openai', 'gemini', 'ollama'];
 

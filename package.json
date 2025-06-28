@@ -1,6 +1,6 @@
 {
   "name": "model-context-reasoner",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "A stateful, API-driven bridge between LLMs and a Prolog reasoner.",
   "main": "mcr.js",
   "bin": {
