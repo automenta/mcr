@@ -1,101 +1,117 @@
-const winston = require('winston');
-
-// Mock ConfigManager before requiring the logger module
+// Mock ConfigManager first, as logger.js depends on it at the module level
+const mockConfigLoad = jest.fn(() => ({
+  logging: {
+    level: 'debug', // Default for tests, can be overridden in specific tests if needed
+    file: 'test.log',
+  },
+}));
 jest.mock('../src/config', () => ({
-    load: jest.fn(() => ({
-        logging: {
-            level: 'debug',
-            file: 'test.log',
-        },
-    })),
+  load: mockConfigLoad,
 }));
 
-const ConfigManager = require('../src/config');
-const logger = require('../src/logger'); // Now logger will use the mocked config
+// Fully mock winston before logger is imported
+const mockCreateLoggerInstance = {
+  error: jest.fn(),
+  warn: jest.fn(),
+  info: jest.fn(),
+  http: jest.fn(),
+  verbose: jest.fn(),
+  debug: jest.fn(),
+  silly: jest.fn(),
+};
+const mockFileTransportInstance = jest.fn();
+const mockConsoleTransportInstance = jest.fn();
 
-jest.mock('winston');
+// Rename vars to be prefixed with 'mock' for use in jest.mock factory
+const mockWinstonFormatCombine = jest.fn(
+  (...args) => `combined(${args.map((a) => a.name || 'format').join(',')})`
+);
+const mockWinstonFormatTimestamp = jest.fn(() => ({ name: 'timestamp' }));
+const mockWinstonFormatJson = jest.fn(() => ({ name: 'json' }));
+const mockWinstonFormatColorize = jest.fn(() => ({ name: 'colorize' }));
+const mockWinstonFormatSimple = jest.fn(() => ({ name: 'simple' }));
+const mockWinstonFormatPrintf = jest.fn((cb) => ({ name: 'printf', cb }));
+
+jest.mock('winston', () => ({
+  createLogger: jest.fn(() => mockCreateLoggerInstance),
+  format: {
+    combine: mockWinstonFormatCombine,
+    timestamp: mockWinstonFormatTimestamp,
+    json: mockWinstonFormatJson,
+    colorize: mockWinstonFormatColorize,
+    simple: mockWinstonFormatSimple,
+    printf: mockWinstonFormatPrintf,
+  },
+  transports: {
+    File: jest.fn(() => mockFileTransportInstance),
+    Console: jest.fn(() => mockConsoleTransportInstance),
+  },
+}));
+
+// Now require the modules under test, they will get the mocks above
+const ConfigManager = require('../src/config'); // Will be the mocked version
+const { logger, initializeLoggerContext, asyncLocalStorage } = require('../src/logger');
 
 describe('Logger', () => {
-    let mockCreateLogger;
-    let mockFileTransport;
-    let mockConsoleTransport;
+  // mockCreateLogger, mockFileTransport, mockConsoleTransport are not needed here
+  // as the instances are directly from the mock.
 
-    beforeEach(() => {
-        jest.clearAllMocks();
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // Reset ConfigManager.load mock for each test to ensure clean state if needed by a test.
+    // It's already called once when logger.js is imported.
+    mockConfigLoad.mockClear().mockReturnValue({
+      logging: {
+        level: 'debug',
+        file: 'test.log',
+      },
+    });
+    // If logger needs to be "re-initialized" for a test, that's more complex
+    // as it's created at module scope. For now, assume initial load is what we test for config.
+  });
 
-        // Mock winston.transports
-        mockFileTransport = jest.fn();
-        mockConsoleTransport = jest.fn();
-        winston.transports.File = jest.fn(() => mockFileTransport);
-        winston.transports.Console = jest.fn(() => mockConsoleTransport);
+  test('should initialize winston logger with correct configuration on module load', () => {
+    // Check that ConfigManager.load was called during the initial import of logger.js
+    expect(ConfigManager.load).toHaveBeenCalledTimes(1);
 
-        // Mock winston.format
-        winston.format = {
-            combine: jest.fn((...args) => `combined-format(${args.map(f => f.name).join(',')}`),
-            timestamp: jest.fn(() => ({ name: 'timestamp' })),
-            json: jest.fn(() => ({ name: 'json' })),
-            colorize: jest.fn(() => ({ name: 'colorize' })),
-            simple: jest.fn(() => ({ name: 'simple' })),
-        };
-
-        // Mock winston.createLogger
-        mockCreateLogger = {
-            error: jest.fn(),
-            warn: jest.fn(),
-            info: jest.fn(),
-            http: jest.fn(),
-            verbose: jest.fn(),
-            debug: jest.fn(),
-            silly: jest.fn(),
-        };
-        winston.createLogger.mockReturnValue(mockCreateLogger);
-
-        // Ensure ConfigManager.load is called with the correct mock value
-        ConfigManager.load.mockReturnValue({
-            logging: {
-                level: 'debug',
-                file: 'test.log',
-            },
-        });
-
-        // No need for jest.resetModules() and re-require here, as logger is already required above
+    // Check that winston.createLogger was called with data from the mocked ConfigManager
+    expect(require('winston').createLogger).toHaveBeenCalledWith({
+      level: 'debug', // From the mocked config
+      format: expect.stringMatching(/^combined\(.+timestamp.+json\)$/), // Simplified check for format
+      transports: [mockFileTransportInstance, mockConsoleTransportInstance],
     });
 
-    test('should initialize winston logger with correct configuration', () => {
-        expect(ConfigManager.load).toHaveBeenCalled();
-        expect(winston.createLogger).toHaveBeenCalledWith({
-            level: 'debug',
-            format: expect.any(String), // This will be the result of winston.format.combine
-            transports: [
-                mockFileTransport,
-                mockConsoleTransport,
-            ],
-        });
-
-        expect(winston.transports.File).toHaveBeenCalledWith({ filename: 'test.log' });
-        expect(winston.transports.Console).toHaveBeenCalledWith({
-            format: expect.any(String), // This will be the result of winston.format.combine
-        });
-
-        expect(winston.format.combine).toHaveBeenCalledTimes(2);
-        expect(winston.format.timestamp).toHaveBeenCalled();
-        expect(winston.format.json).toHaveBeenCalled();
-        expect(winston.format.colorize).toHaveBeenCalled();
-        expect(winston.format.simple).toHaveBeenCalled();
+    expect(require('winston').transports.File).toHaveBeenCalledWith({
+      filename: 'test.log', // From the mocked config
+    });
+    expect(require('winston').transports.Console).toHaveBeenCalledWith({
+      format: expect.stringMatching(/^combined\(.+colorize.+simple.+printf\)$/), // Simplified check
     });
 
-    test('should export the created logger instance', () => {
-        expect(logger).toBe(mockCreateLogger);
+    // Check if format functions were called
+    expect(mockWinstonFormatTimestamp).toHaveBeenCalled();
+    expect(mockWinstonFormatJson).toHaveBeenCalled();
+    expect(mockWinstonFormatColorize).toHaveBeenCalled();
+    expect(mockWinstonFormatSimple).toHaveBeenCalled();
+    expect(mockWinstonFormatPrintf).toHaveBeenCalled();
+    // mockWinstonFormatCombine is called twice (once for file, once for console)
+    expect(mockWinstonFormatCombine).toHaveBeenCalledTimes(2);
+  });
+
+  test('should export the created logger instance', () => {
+    expect(logger).toBe(mockCreateLoggerInstance);
+  });
+
+  test('should call logger methods correctly', () => {
+    logger.info('Test info message');
+    expect(mockCreateLogger.info).toHaveBeenCalledWith('Test info message');
+
+    logger.error('Test error message', { detail: 'some detail' });
+    expect(mockCreateLogger.error).toHaveBeenCalledWith('Test error message', {
+      detail: 'some detail',
     });
 
-    test('should call logger methods correctly', () => {
-        logger.info('Test info message');
-        expect(mockCreateLogger.info).toHaveBeenCalledWith('Test info message');
-
-        logger.error('Test error message', { detail: 'some detail' });
-        expect(mockCreateLogger.error).toHaveBeenCalledWith('Test error message', { detail: 'some detail' });
-
-        logger.debug('Test debug message');
-        expect(mockCreateLogger.debug).toHaveBeenCalledWith('Test debug message');
-    });
+    logger.debug('Test debug message');
+    expect(mockCreateLogger.debug).toHaveBeenCalledWith('Test debug message');
+  });
 });

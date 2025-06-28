@@ -1,0 +1,11 @@
+# Ignore artifacts:
+package-lock.json
+coverage/
+node_modules/
+
+# Ignore data/config files if any specific formatting is required
+.env
+ontologies/
+
+# Ignore specific files if needed
+# example.js

@@ -3,7 +3,9 @@ module.exports = {
     [
       '@babel/preset-env',
       {
-        targets: { node: 'current' },
+        targets: {
+          node: '18', // Align with package.json "engines"
+        },
       },
     ],
   ],
