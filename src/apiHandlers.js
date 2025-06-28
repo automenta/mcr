@@ -1,5 +1,3 @@
-
-
 const SessionManager = require('./sessionManager');
 const LlmService = require('./llmService');
 const ReasonerService = require('./reasonerService');
@@ -31,9 +29,9 @@ const ApiHandlers = {
             if (!text || typeof text !== 'string' || text.trim() === '') {
                 throw new ApiError(400, "Missing or invalid required field 'text'. Must be a non-empty string.");
             }
-            const currentSession = SessionManager.get(sessionId); // Ensures session exists
+            const currentSession = SessionManager.get(sessionId);
             const currentFacts = currentSession.facts.join('\n');
-            const ontologyContext = SessionManager.getFactsWithOntology(sessionId).filter(f => !currentSession.facts.includes(f)).join('\n');
+            const ontologyContext = SessionManager.getNonSessionOntologyFacts(sessionId).join('\n');
             const newFacts = await LlmService.nlToRules(text, currentFacts, ontologyContext);
             SessionManager.addFacts(sessionId, newFacts);
             res.json({
@@ -47,14 +45,24 @@ const ApiHandlers = {
     query: async (req, res, next) => {
         try {
             const { sessionId } = req.params;
-            const { query, options = {} } = req.body;
+            const { query, options = {}, ontology: requestOntology } = req.body;
             if (!query || typeof query !== 'string' || query.trim() === '') {
                  throw new ApiError(400, "Missing or invalid required field 'query'. Must be a non-empty string.");
             }
             const prologQuery = await LlmService.queryToProlog(query);
             logger.info(`Session ${sessionId}: Translated NL query to Prolog: "${prologQuery}"`);
-            const facts = SessionManager.getFactsWithOntology(sessionId);
-            const rawResults = await ReasonerService.runQuery(facts, prologQuery);
+            const facts = SessionManager.getFactsWithOntology(sessionId, requestOntology);
+            let rawResults;
+            try {
+                rawResults = await ReasonerService.runQuery(facts, prologQuery);
+            } catch (reasonerError) {
+                logger.error(`Error running Prolog query: ${reasonerError.message}`);
+                if (reasonerError.message.includes('Prolog syntax error') || reasonerError.message.includes('error(syntax_error')) {
+                    throw new ApiError(400, `The LLM generated an invalid Prolog query. Please try rephrasing your question. Details: ${reasonerError.message}`);
+                }
+                throw reasonerError;
+            }
+
             let simpleResult;
             if (rawResults.length === 0) {
                 simpleResult = "No solution found.";
@@ -79,10 +87,7 @@ const ApiHandlers = {
             };
             if (options.debug) {
                  const currentSessionDebug = SessionManager.get(sessionId);
-                 response.debug = {
-                    factsInSession: currentSessionDebug.facts,
-                    ontologyApplied: SessionManager.getFactsWithOntology(sessionId).filter(f => !currentSessionDebug.facts.includes(f))
-                 };
+                 const ontologyContext = SessionManager.getNonSessionOntologyFacts(sessionId);
             }
             res.json(response);
         } catch (err) { next(err); }
@@ -124,6 +129,18 @@ const ApiHandlers = {
         } catch (err) { next(err); }
     },
 
+    updateOntology: (req, res, next) => {
+        try {
+            const { name } = req.params;
+            const { rules } = req.body;
+            if (!rules || typeof rules !== 'string' || rules.trim() === '') {
+                throw new ApiError(400, "Missing or invalid required field 'rules'. Must be a non-empty string.");
+            }
+            const updatedOntology = SessionManager.updateOntology(name, rules);
+            res.json(updatedOntology);
+        } catch (err) { next(err); }
+    },
+
     getOntologies: (req, res, next) => {
         try {
             res.json(SessionManager.getOntologies());
@@ -151,10 +168,14 @@ const ApiHandlers = {
             }
             const currentSession = SessionManager.get(sessionId);
             const facts = currentSession.facts;
-            const ontologyContext = SessionManager.getFactsWithOntology(sessionId).filter(f => !currentSession.facts.includes(f));
+            const ontologyContext = SessionManager.getNonSessionOntologyFacts(sessionId);
             const explanation = await LlmService.explainQuery(query, facts, ontologyContext);
             res.json({ query, explanation });
         } catch (err) { next(err); }
+    },
+
+    getPrompts: (req, res) => {
+        res.json(LlmService.getPromptTemplates());
     }
 };
 

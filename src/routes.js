@@ -19,8 +19,12 @@ const setupRoutes = (app) => {
     app.post('/translate/nl-to-rules', ApiHandlers.translateNlToRules);
     app.post('/translate/rules-to-nl', ApiHandlers.translateRulesToNl);
 
+    // Prompt Management
+    app.get('/prompts', ApiHandlers.getPrompts);
+
     // Ontology Management
     app.post('/ontologies', ApiHandlers.addOntology);
+    app.put('/ontologies/:name', ApiHandlers.updateOntology);
     app.get('/ontologies', ApiHandlers.getOntologies);
     app.get('/ontologies/:name', ApiHandlers.getOntology);
     app.delete('/ontologies/:name', ApiHandlers.deleteOntology);

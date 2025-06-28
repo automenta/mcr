@@ -1,5 +1,3 @@
-
-
 const { ChatOpenAI } = require("@langchain/openai");
 const { ChatGoogleGenerativeAI } = require("@langchain/google-genai");
 const { ChatOllama } = require("@langchain/community/chat_models/ollama");
@@ -8,6 +6,7 @@ const { PromptTemplate } = require("@langchain/core/prompts");
 const logger = require('./logger');
 const ApiError = require('./errors');
 const ConfigManager = require('./config');
+const PROMPT_TEMPLATES = require('./prompts');
 
 const config = ConfigManager.load();
 
@@ -59,18 +58,7 @@ const LlmService = {
         }
     },
     async nlToRules(text, existing_facts = '', ontology_context = '') {
-        const template = `You are an expert AI that translates natural language into a list of Prolog facts/rules. Your output MUST be a valid JSON array of strings, where each string is a single, complete Prolog statement ending with a period.
-        CONTEXTUAL KNOWLEDGE BASE (existing facts):
-        ```prolog
-        ${existing_facts}
-        ```
-        PRE-DEFINED ONTOLOGY (for context):
-        ```prolog
-        ${ontology_context}
-        ```
-        Based on ALL the context above, translate ONLY the following new text. Do not repeat facts from the knowledge base.
-        TEXT TO TRANSLATE: "{text_to_translate}"
-        JSON OUTPUT:`;
+        const template = PROMPT_TEMPLATES.NL_TO_RULES;
         const result = await this._invokeChain(template, { existing_facts, ontology_context, text_to_translate: text }, new JsonOutputParser());
         if (!Array.isArray(result)) {
             logger.error("LLM failed to produce a valid JSON array of rules. Result:", result);
@@ -79,44 +67,21 @@ const LlmService = {
         return result;
     },
     async queryToProlog(question) {
-        const template = `Translate the natural language question into a single, valid Prolog query string. The query must end with a period.
-        Question: "{question}"
-        Prolog Query:`;
+        const template = PROMPT_TEMPLATES.QUERY_TO_PROLOG;
         return (await this._invokeChain(template, { question }, new StringOutputParser())).trim();
     },
     async resultToNl(original_question, logic_result, style = 'conversational') {
-        const template = `You are a helpful AI assistant. Given an original question and a result from a logic engine, provide a simple, conversational answer.
-        Style: {style}
-        Original Question: "{original_question}"
-        Logic Engine Result: {logic_result}
-        Conversational Answer:`;
+        const template = PROMPT_TEMPLATES.RESULT_TO_NL;
         return this._invokeChain(template, { style, original_question, logic_result }, new StringOutputParser());
     },
     async rulesToNl(rules, style = 'formal') {
-        const template = `Translate the following list of Prolog rules into a single, cohesive natural language explanation.
-        Style: {style}
-        RULES:
-        ```prolog
-        ${rules.join('\n')}
-        ```
-        Natural Language Explanation:`;
+        const template = PROMPT_TEMPLATES.RULES_TO_NL;
         return this._invokeChain(template, { style, prolog_rules: rules.join('\n') }, new StringOutputParser());
     },
     async explainQuery(query, facts, ontology_context) {
-        const template = `You are an expert AI that explains Prolog queries in natural language. Given a Prolog query, existing facts, and ontology context, explain what the query is asking and what kind of result to expect.
-        EXISTING FACTS:
-        ```prolog
-        ${facts.join('\n')}
-        ```
-        ONTOLOGY CONTEXT:
-        ```prolog
-        ${ontology_context.join('\n')}
-        ```
-        PROLOG QUERY TO EXPLAIN: "{query}"
-        EXPLANATION:`;
+        const template = PROMPT_TEMPLATES.EXPLAIN_QUERY;
         return this._invokeChain(template, { query, facts, ontology_context }, new StringOutputParser());
     }
 };
 
 module.exports = LlmService;
-
