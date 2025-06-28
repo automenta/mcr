@@ -493,3 +493,11 @@ function main() {
     });
 }
 ```
+
+## TODO ?
+ - advanced error handling and debugging to diagnose translation and reasoner issues
+ - prompt template editing and debugging
+ - unit test framework
+ - demo framework: try individual operations
+ - extensibility
+ - integrate RAG / datastores through dynamic Prolog assertions / overlay
