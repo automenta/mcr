@@ -11,6 +11,7 @@ const registerQueryCommands = require('./src/cli/commands/queryCommands');
 const registerChatCommand = require('./src/cli/commands/chatCommand');
 const registerStatusCommand = require('./src/cli/commands/statusCommands');
 const { registerPromptCommands } = require('./src/cli/commands/promptCommands');
+const { registerAgentCommand } = require('./src/cli/commands/agentCommand'); // Import the new command
 
 program
   .name('mcr-cli')
@@ -26,6 +27,7 @@ registerQueryCommands(program);
 registerChatCommand(program);
 registerStatusCommand(program);
 registerPromptCommands(program);
+registerAgentCommand(program); // Register the new agent command
 
 // Global options can be defined here if needed, for example:
 // program.option('-v, --verbose', 'Enable verbose output');

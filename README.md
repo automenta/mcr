@@ -101,6 +101,13 @@ The MCR includes a Command Line Interface (CLI) for direct interaction. You can 
   node mcr-cli.js chat
   ```
 
+- **Interactive Agent Mode**:
+  This mode provides an interactive way to explore MCR's capabilities through prescripted demos or a free-form chat interface that shows system interactions.
+  ```bash
+  node mcr-cli.js agent
+  ```
+  You will be prompted to enter a Gemini API key if one is not found in your environment variables. The agent mode will then offer a menu to run demos (like simple Q&A or a family ontology showcase) or engage in a chat that displays LLM translations and Prolog outputs.
+
 - **Prompt Template Management (CLI)**:
   - List available prompt templates:
     ```bash

@@ -130,11 +130,19 @@ MCR evolves into a robust, scalable, and highly extensible "reasoning fabric" th
 - **Considerations**: Keep rules simple; add safeguards for harmful changes; document ontology.
 
 ## 6. Enable Agent Modes
-- Design agents: Reasoning (suggests facts/ontologies), Debug (detects issues), Learning (evolves ontologies), Collaboration (shares ontologies).
-- Build main loop to trigger API calls based on agent goals.
+- **DONE: Initial Agent Mode CLI (`mcr-cli agent`)**
+  - Defaults to `gemini-2.5-flash` (configurable via standard MCR LLM env vars).
+  - Asks for Gemini API key if not provided.
+  - Provides a choice of prescripted demos (Simple Q&A, Family Ontology) generating real outputs.
+  - Includes a free chat mode that interacts with MCR's query endpoint.
+  - Clearly shows API interactions, NL-to-Prolog translations, and Prolog outputs.
+  - Loops allowing the user to try another demo or exit.
+  - Replaces the old `demo.sh` script.
+- Design other agents: Reasoning (suggests facts/ontologies), Debug (detects issues), Learning (evolves ontologies), Collaboration (shares ontologies).
+- Build main loop to trigger API calls based on *specific agent goals* (beyond current demo/chat loop).
 - Implement Reasoning Agent to monitor queries and suggest facts.
 - Test with sample task (e.g., building small ontology).
-- **Considerations**: Define clear triggers/goals; start with one agent; ensure logging.
+- **Considerations**: Define clear triggers/goals for more advanced agents; ensure logging.
 
 ## 7. Build Peer-to-Peer Ontology Network
 - Use off-the-shelf DHT (e.g., IPFS, Kademlia) for sharing.
