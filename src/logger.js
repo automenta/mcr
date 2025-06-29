@@ -16,13 +16,13 @@ const logger = winston.createLogger({
   level: 'info', // Default level
   format: winston.format.combine(
     winston.format.timestamp(),
-    correlationIdFormat(),
+    correlationIdFormat, // Removed parentheses
     winston.format.json()
   ),
   transports: [
     new winston.transports.Console({
       format: winston.format.combine(
-        correlationIdFormat(),
+        correlationIdFormat, // Removed parentheses
         winston.format.colorize(),
         winston.format.printf((info) => {
           let logMessage = `${info.timestamp} ${info.level}: ${info.message}`;
