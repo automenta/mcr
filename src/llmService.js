@@ -55,7 +55,7 @@ const LlmService = {
    */
   init(appConfig) {
     if (!appConfig || !appConfig.llm) {
-      logger.fatal(
+      logger.error(
         'LLMService.init() called without valid application configuration. LLM Service cannot start.'
       );
       // This scenario should ideally be prevented by ConfigManager exiting on critical load failures.
@@ -102,7 +102,7 @@ const LlmService = {
     } else {
       // This case should be caught by ConfigManager.validate() now.
       // If it still occurs, it's a more severe issue.
-      logger.fatal(
+      logger.error(
         `Unsupported LLM provider configured: '${providerName}'. This should have been caught by config validation. LLM service will not be available.`,
         { internalErrorCode: 'LLM_UNSUPPORTED_PROVIDER_UNCAUGHT', providerName }
       );
