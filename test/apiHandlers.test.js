@@ -21,8 +21,8 @@ const ActualApiError = jest.requireActual('../src/errors');
 
 jest.mock('../src/logger'); // Auto-mocked
 
-jest.mock('../src/config', () => ({
-  get: jest.fn(() => ({
+jest.mock('../src/config', () => {
+  const mockConfig = {
     logging: { level: 'info' },
     session: { storagePath: '/tmp/sessions_api_handlers_test' },
     ontology: { storagePath: '/tmp/ontologies_api_handlers_test' },
@@ -31,8 +31,12 @@ jest.mock('../src/config', () => ({
       model: { openai: 'gpt-test' },
       apiKey: { openai: 'testkey' },
     },
-  })),
-}));
+  };
+  return {
+    get: jest.fn(() => mockConfig),
+    load: jest.fn(() => mockConfig), // Add load function
+  };
+});
 
 // Mock package.json
 jest.mock('../package.json', () => ({
