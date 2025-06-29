@@ -3,6 +3,50 @@ const path = require('path');
 const fs = require('fs');
 const Prompts = require('../src/prompts'); // Moved to top
 
+// Define path constants inside the mock factory or ensure they are accessible
+// if they need to be used elsewhere in the test file at the top level.
+// For this specific fix, we move them inside the mock.
+
+jest.mock('../src/config', () => {
+  // Define these constants inside the factory function
+  const TEST_SESSION_STORAGE_PATH_MOCK = path.resolve(
+    __dirname,
+    'test_data_integration/sessions'
+  );
+  const TEST_ONTOLOGY_STORAGE_PATH_MOCK = path.resolve(
+    __dirname,
+    'test_data_integration/ontologies'
+  );
+  const actualConfig = jest.requireActual('../src/config');
+
+  const mockConfigData = {
+    server: { host: '0.0.0.0', port: 8080 },
+    llm: {
+      provider: 'openai',
+      model: {
+        openai: 'gpt-test-int',
+        gemini: 'gemini-test-int',
+        ollama: 'ollama-test-int',
+      },
+      apiKey: { openai: 'testkey_integration_suite' },
+      ollamaBaseUrl: 'http://localhost:11434/integration',
+    },
+    logging: { level: 'error' },
+    session: { storagePath: TEST_SESSION_STORAGE_PATH_MOCK },
+    ontology: { storagePath: TEST_ONTOLOGY_STORAGE_PATH_MOCK },
+    debugMode: false,
+  };
+
+  return {
+    ...actualConfig,
+    get: jest.fn().mockReturnValue(mockConfigData),
+    load: jest.fn().mockReturnValue(mockConfigData),
+  };
+});
+
+// If these constants are needed elsewhere at the top level, they must be defined here too.
+// Otherwise, their definition can be solely within the mock factory.
+// For now, assuming they might be used by beforeAll/afterAll, let's keep them here too.
 const TEST_SESSION_STORAGE_PATH = path.resolve(
   __dirname,
   'test_data_integration/sessions'
@@ -11,47 +55,6 @@ const TEST_ONTOLOGY_STORAGE_PATH = path.resolve(
   __dirname,
   'test_data_integration/ontologies'
 );
-
-jest.mock('../src/config', () => {
-  const actualConfig = jest.requireActual('../src/config');
-  return {
-    ...actualConfig,
-    get: jest.fn().mockReturnValue({
-      server: { host: '0.0.0.0', port: 8080 },
-      llm: {
-        provider: 'openai',
-        model: {
-          openai: 'gpt-test-int',
-          gemini: 'gemini-test-int',
-          ollama: 'ollama-test-int',
-        },
-        apiKey: { openai: 'testkey_integration_suite' },
-        ollamaBaseUrl: 'http://localhost:11434/integration',
-      },
-      logging: { level: 'error' },
-      session: { storagePath: TEST_SESSION_STORAGE_PATH },
-      ontology: { storagePath: TEST_ONTOLOGY_STORAGE_PATH },
-      debugMode: false,
-    }),
-    load: jest.fn().mockReturnValue({
-      server: { host: '0.0.0.0', port: 8080 },
-      llm: {
-        provider: 'openai',
-        model: {
-          openai: 'gpt-test-int',
-          gemini: 'gemini-test-int',
-          ollama: 'ollama-test-int',
-        },
-        apiKey: { openai: 'testkey_integration_suite' },
-        ollamaBaseUrl: 'http://localhost:11434/integration',
-      },
-      logging: { level: 'error' },
-      session: { storagePath: TEST_SESSION_STORAGE_PATH },
-      ontology: { storagePath: TEST_ONTOLOGY_STORAGE_PATH },
-      debugMode: false,
-    }),
-  };
-});
 
 jest.mock('../src/logger', () => ({
   logger: {

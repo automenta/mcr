@@ -126,7 +126,7 @@ describe('ConfigManager', () => {
 
     test('should exit if Ollama provider is selected but base URL is missing', () => {
       process.env.MCR_LLM_PROVIDER = 'ollama';
-      delete process.env.MCR_LLM_OLLAMA_BASE_URL;
+      process.env.MCR_LLM_OLLAMA_BASE_URL = ''; // Set to empty to bypass default
       ConfigManager.get();
       expect(mockProcessExit).toHaveBeenCalledWith(1);
       expect(mockLoggerError).toHaveBeenCalledWith(
@@ -146,6 +146,7 @@ describe('ConfigManager', () => {
 
     test('should exit for invalid MCR_LLM_PROVIDER', () => {
       process.env.MCR_LLM_PROVIDER = 'unknown_provider';
+      // No need to set API keys as this check comes first for provider
       ConfigManager.get();
       expect(mockProcessExit).toHaveBeenCalledWith(1);
       expect(mockLoggerError).toHaveBeenCalledWith(
@@ -154,6 +155,8 @@ describe('ConfigManager', () => {
     });
 
     test('should exit for invalid PORT (non-numeric)', () => {
+      process.env.MCR_LLM_PROVIDER = 'ollama'; // Satisfy LLM provider validation
+      process.env.MCR_LLM_OLLAMA_BASE_URL = 'http://localhost:11434'; // Satisfy LLM provider validation
       process.env.PORT = 'abc';
       ConfigManager.get();
       expect(mockProcessExit).toHaveBeenCalledWith(1);
@@ -163,6 +166,8 @@ describe('ConfigManager', () => {
     });
 
     test('should exit for invalid PORT (out of range)', () => {
+      process.env.MCR_LLM_PROVIDER = 'ollama'; // Satisfy LLM provider validation
+      process.env.MCR_LLM_OLLAMA_BASE_URL = 'http://localhost:11434'; // Satisfy LLM provider validation
       process.env.PORT = '70000';
       ConfigManager.get();
       expect(mockProcessExit).toHaveBeenCalledWith(1);
@@ -176,6 +181,7 @@ describe('ConfigManager', () => {
     test('should throw error if OpenAI API key is missing', () => {
       process.env.MCR_LLM_PROVIDER = 'openai';
       delete process.env.OPENAI_API_KEY;
+      // process.env.PORT = '1234'; // Ensure PORT is valid if that check comes first
       expect(() => ConfigManager.load({ exitOnFailure: false })).toThrow(
         /OPENAI_API_KEY is missing or empty/
       );
@@ -185,6 +191,7 @@ describe('ConfigManager', () => {
     test('should throw error if Gemini API key is missing', () => {
       process.env.MCR_LLM_PROVIDER = 'gemini';
       delete process.env.GEMINI_API_KEY;
+      // process.env.PORT = '1234';
       expect(() => ConfigManager.load({ exitOnFailure: false })).toThrow(
         /GEMINI_API_KEY is missing or empty/
       );
@@ -192,7 +199,8 @@ describe('ConfigManager', () => {
 
     test('should throw error if Ollama base URL is missing', () => {
       process.env.MCR_LLM_PROVIDER = 'ollama';
-      delete process.env.MCR_LLM_OLLAMA_BASE_URL;
+      process.env.MCR_LLM_OLLAMA_BASE_URL = ''; // Set to empty to bypass default
+      // process.env.PORT = '1234';
       expect(() => ConfigManager.load({ exitOnFailure: false })).toThrow(
         /MCR_LLM_OLLAMA_BASE_URL is missing or empty/
       );
@@ -201,6 +209,7 @@ describe('ConfigManager', () => {
     test('should throw error if Ollama base URL is invalid', () => {
       process.env.MCR_LLM_PROVIDER = 'ollama';
       process.env.MCR_LLM_OLLAMA_BASE_URL = 'invalid-url';
+      // process.env.PORT = '1234';
       expect(() => ConfigManager.load({ exitOnFailure: false })).toThrow(
         /not a valid URL/
       );
@@ -209,6 +218,10 @@ describe('ConfigManager', () => {
 
   describe('specific value handling', () => {
     test('should correctly parse MCR_DEBUG_MODE', () => {
+      // Satisfy provider checks to ensure debugMode parsing is reached
+      process.env.MCR_LLM_PROVIDER = 'ollama';
+      process.env.MCR_LLM_OLLAMA_BASE_URL = 'http://localhost:11434';
+
       process.env.MCR_DEBUG_MODE = 'true';
       expect(ConfigManager.get().debugMode).toBe(true);
 
