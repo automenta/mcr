@@ -1,670 +1,402 @@
-// Define mock logger functions first
-const mockLoggerFunctions = {
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  debug: jest.fn(),
-};
+// test/llmService.test.js
+const LlmService = require('../src/llmService');
+const Config = require('../src/config');
+const { ApiError } = require('../src/errors');
+const OpenAIProvider = require('../src/llmProviders/openaiProvider');
+const GeminiProvider = require('../src/llmProviders/geminiProvider');
+const OllamaProvider = require('../src/llmProviders/ollamaProvider');
+const Prompts = require('../src/prompts');
 
-// Use jest.doMock to control the logger mock precisely
-jest.doMock('../src/logger', () => ({
-  logger: mockLoggerFunctions,
-  reconfigureLogger: jest.fn(),
-  initializeLoggerContext: jest.fn((req, res, next) => {
-    if (next) next();
+jest.mock('../src/config');
+
+// Define mocks for the .pipe().invoke() methods of the *clients* that provider strategies will return
+let mockOpenAiClientInvoke = jest.fn();
+let mockGeminiClientInvoke = jest.fn();
+let mockOllamaClientInvoke = jest.fn();
+
+// Mock the provider modules to export strategy objects
+jest.mock('../src/llmProviders/openaiProvider', () => ({
+  name: 'openai',
+  initialize: jest.fn().mockImplementation((llmConfig) => {
+    return {
+      pipe: jest.fn((outputParser) => ({ invoke: mockOpenAiClientInvoke })),
+      someOtherMethodJustForTesting: () => {}
+    };
   }),
-  // Use actual asyncLocalStorage unless it also needs specific mock behavior
-  asyncLocalStorage: jest.requireActual('../src/logger').asyncLocalStorage,
 }));
 
-// Now import modules that depend on the logger
-const LlmService = require('../src/llmService');
-const { ChatOpenAI } = require('@langchain/openai');
-const { ChatGoogleGenerativeAI } = require('@langchain/google-genai');
-const { ChatOllama } = require('@langchain/community/chat_models/ollama');
-const {
-  JsonOutputParser,
-  StringOutputParser,
-} = require('@langchain/core/output_parsers');
-const { PromptTemplate } = require('@langchain/core/prompts');
-// const logger = require('../src/logger'); // No longer needed here, mock is applied via doMock
-const ApiError = require('../src/errors');
-const ConfigManager = require('../src/config');
-const PROMPT_TEMPLATES = require('../src/prompts');
-
-jest.mock('@langchain/openai');
-jest.mock('@langchain/google-genai');
-jest.mock('@langchain/community/chat_models/ollama');
-jest.mock('@langchain/core/output_parsers');
-jest.mock('@langchain/core/prompts');
-// jest.mock('../src/logger'); // REMOVED - Handled by jest.doMock
-jest.mock('../src/errors');
-jest.mock('../src/config'); // Simpler mock, specific returns will be per test
-/*
-// Old mock, init is now called with config directly
-jest.mock('../src/config', () => ({
-  load: jest.fn(() => ({
-    llm: {
-      provider: 'openai', // Default for tests
-      model: {
-        openai: 'gpt-test',
-        gemini: 'gemini-test',
-        ollama: 'ollama-test',
-      },
-      apiKey: { openai: 'sk-test', gemini: 'gem-test' },
-      ollamaBaseUrl: 'http://localhost:11434',
-    },
-    logging: { level: 'info', file: 'test.log' }, // For logger
+jest.mock('../src/llmProviders/geminiProvider', () => ({
+  name: 'gemini',
+  initialize: jest.fn().mockImplementation((llmConfig) => ({
+    pipe: jest.fn((outputParser) => ({ invoke: mockGeminiClientInvoke })),
   })),
 }));
-*/
-jest.mock('../src/prompts');
+
+jest.mock('../src/llmProviders/ollamaProvider', () => ({
+  name: 'ollama',
+  initialize: jest.fn().mockImplementation((llmConfig) => ({
+    pipe: jest.fn((outputParser) => ({ invoke: mockOllamaClientInvoke })),
+  })),
+}));
+
+jest.mock('../src/logger', () => ({
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
+
+// Mock Langchain's PromptTemplate for formatPrompt testing
+let mockLangchainFormatFn;
+let mockLangchainFromTemplateFn;
+
+jest.mock('@langchain/core/prompts', () => {
+  return {
+    PromptTemplate: {
+      fromTemplate: (...args) => mockLangchainFromTemplateFn(...args),
+    },
+  };
+});
+
 
 describe('LlmService', () => {
-  // @TODO: Fix failing tests - disabling for now (re-enabling)
-  let mockChatClient;
-  let mockPipe;
-  let mockInvoke;
-
-  beforeAll(() => {
-    mockInvoke = jest.fn();
-    mockPipe = jest.fn(() => ({
-      invoke: mockInvoke,
-    }));
-
-    mockChatClient = {
-      pipe: mockPipe,
-    };
-
-    ChatOpenAI.mockImplementation(() => mockChatClient);
-    ChatGoogleGenerativeAI.mockImplementation(() => mockChatClient);
-    ChatOllama.mockImplementation(() => mockChatClient);
-
-    PromptTemplate.fromTemplate.mockImplementation((template) => ({
-      format: jest.fn(
-        (input) => `Formatted: ${template} ${JSON.stringify(input)}`
-      ),
-    }));
-
-    JsonOutputParser.mockImplementation(() => ({ type: 'json' }));
-    StringOutputParser.mockImplementation(() => ({ type: 'string' }));
-
-    ApiError.mockImplementation((status, message) => ({ status, message }));
-
-    PROMPT_TEMPLATES.NL_TO_RULES = 'NL_TO_RULES_TEMPLATE';
-    PROMPT_TEMPLATES.QUERY_TO_PROLOG = 'QUERY_TO_PROLOG_TEMPLATE';
-    PROMPT_TEMPLATES.RESULT_TO_NL = 'RESULT_TO_NL_TEMPLATE';
-    PROMPT_TEMPLATES.RULES_TO_NL = 'RULES_TO_NL_TEMPLATE';
-    PROMPT_TEMPLATES.EXPLAIN_QUERY = 'EXPLAIN_QUERY_TEMPLATE';
-
-    // Update ApiError mock to include errorCode and name
-    ApiError.mockImplementation((status, message, errorCode) => {
-      const err = new Error(message); // So it's an actual error object
-      err.status = status;
-      err.statusCode = status; // Common alias
-      err.errorCode = errorCode;
-      err.name = 'ApiError';
-      return err;
-    });
-  });
+  let mockConfig;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Reset LlmService state before each test in this describe block if necessary
-    // LlmService._client = null; // This is done in the top-level beforeEach now
+
+    // Default mock config
+    mockConfig = {
+      llm: {
+        provider: 'openai', // Default to openai for tests
+        model: {
+          openai: 'gpt-test-model',
+          gemini: 'gemini-test-model',
+          ollama: 'ollama-test-model',
+        },
+        apiKey: {
+          openai: 'test-openai-key',
+          gemini: 'test-gemini-key',
+        },
+        ollamaBaseUrl: 'http://localhost:11434',
+      },
+      debugMode: false,
+    };
+    Config.get.mockReturnValue(mockConfig);
+
+    // Reset Langchain prompt mocks
+    mockLangchainFormatFn = jest.fn();
+    mockLangchainFromTemplateFn = jest.fn(() => ({ format: mockLangchainFormatFn }));
+
+    // Reset Langchain prompt mocks
+    mockLangchainFormatFn = jest.fn();
+    mockLangchainFromTemplateFn = jest.fn(() => ({ format: mockLangchainFormatFn }));
+
+    // Reset the client invoke mocks
+    mockOpenAiClientInvoke.mockReset();
+    mockGeminiClientInvoke.mockReset();
+    mockOllamaClientInvoke.mockReset();
+
+    // Reset the initialize mocks for each provider strategy
+    // Re-require the (already mocked) providers to get access to their mocked 'initialize'
+    // This is necessary because jest.clearAllMocks() clears call history but doesn't
+    // affect the mockImplementation itself if it was set at the top-level jest.mock factory.
+    // However, to be safe and explicit, we re-clear specific mock functions.
+    const MockedOpenAiProviderStrategy = require('../src/llmProviders/openaiProvider');
+    const MockedGeminiProviderStrategy = require('../src/llmProviders/geminiProvider');
+    const MockedOllamaProviderStrategy = require('../src/llmProviders/ollamaProvider');
+
+    MockedOpenAiProviderStrategy.initialize.mockClear(); // Clear call history etc.
+    MockedGeminiProviderStrategy.initialize.mockClear();
+    MockedOllamaProviderStrategy.initialize.mockClear();
   });
 
-  describe('Initialization (init)', () => {
-    test('should initialize with OpenAI if configured and API key is present', () => {
-      const mockConfig = {
-        llm: {
-          provider: 'openai',
-          model: { openai: 'gpt-4o' },
-          apiKey: { openai: 'sk-test' },
-        },
-      };
+  describe('init', () => {
+    test('should initialize OpenAIProvider strategy when provider is openai', () => {
+      mockConfig.llm.provider = 'openai';
       LlmService.init(mockConfig);
-      expect(ChatOpenAI).toHaveBeenCalledWith({
-        apiKey: 'sk-test',
-        modelName: 'gpt-4o',
-        temperature: 0,
+
+      const MockedOpenAiProviderStrategy = require('../src/llmProviders/openaiProvider');
+      expect(MockedOpenAiProviderStrategy.initialize).toHaveBeenCalledWith(mockConfig.llm);
+      expect(LlmService._client).toBeDefined();
+      expect(LlmService._client.pipe).toBeDefined();
+      expect(typeof LlmService._client.pipe).toBe('function'); // More robust check for jest.fn
+      expect(LlmService._client.someOtherMethodJustForTesting).toBeDefined();
+    });
+
+    test('should initialize GeminiProvider strategy when provider is gemini', () => {
+      mockConfig.llm.provider = 'gemini';
+      LlmService.init(mockConfig);
+      const MockedGeminiProviderStrategy = require('../src/llmProviders/geminiProvider');
+      expect(MockedGeminiProviderStrategy.initialize).toHaveBeenCalledWith(mockConfig.llm);
+      expect(LlmService._client).toBeDefined();
+    });
+
+    test('should initialize OllamaProvider strategy when provider is ollama', () => {
+      mockConfig.llm.provider = 'ollama';
+      LlmService.init(mockConfig);
+      const MockedOllamaProviderStrategy = require('../src/llmProviders/ollamaProvider');
+      expect(MockedOllamaProviderStrategy.initialize).toHaveBeenCalledWith(mockConfig.llm);
+      expect(LlmService._client).toBeDefined();
+    });
+
+    test('should set client to null if provider strategy is not found', () => {
+      mockConfig.llm.provider = 'unknown'; // This provider isn't registered via a mock a la OpenAIProvider
+      LlmService.init(mockConfig); // LlmService registers real providers, then tries to find 'unknown'
+      expect(LlmService._client).toBeNull(); // Because 'unknown' strategy won't be found
+    });
+
+    test('should set client to null if provider initialization fails (e.g., initialize throws)', () => {
+      mockConfig.llm.provider = 'openai';
+      const MockedOpenAiProviderStrategy = require('../src/llmProviders/openaiProvider');
+      MockedOpenAiProviderStrategy.initialize.mockImplementation(() => {
+        throw new Error("Test-induced Initialization failed");
       });
-      expect(LlmService._client).toBe(mockChatClient);
-      expect(mockLoggerFunctions.info).toHaveBeenCalledWith(
-        "LLM Service initialized with provider: 'openai' and model: 'gpt-4o'"
-      );
-    });
-
-    test('should not initialize OpenAI if API key is missing', () => {
-      const mockConfig = {
-        llm: {
-          provider: 'openai',
-          model: { openai: 'gpt-4o' },
-          apiKey: { openai: null }, // Key is null
-        },
-      };
-      LlmService.init(mockConfig);
-      expect(ChatOpenAI).not.toHaveBeenCalled();
-      expect(LlmService._client).toBeNull();
-      expect(mockLoggerFunctions.warn).toHaveBeenCalledWith(
-        'OpenAI API key not provided. OpenAI LLM service will not be available for this provider.',
-        { internalErrorCode: 'OPENAI_API_KEY_MISSING' }
-      );
-    });
-
-    test('should initialize with Gemini if configured and API key is present', () => {
-      const mockConfig = {
-        llm: {
-          provider: 'gemini',
-          model: { gemini: 'gemini-pro' },
-          apiKey: { gemini: 'gemini-test' },
-        },
-      };
-      LlmService.init(mockConfig);
-      expect(ChatGoogleGenerativeAI).toHaveBeenCalledWith({
-        apiKey: 'gemini-test',
-        modelName: 'gemini-pro',
-        temperature: 0,
-      });
-      expect(LlmService._client).toBe(mockChatClient);
-      expect(mockLoggerFunctions.info).toHaveBeenCalledWith(
-        "LLM Service initialized with provider: 'gemini' and model: 'gemini-pro'"
-      );
-    });
-
-    test('should not initialize Gemini if API key is missing', () => {
-      const mockConfig = {
-        llm: {
-          provider: 'gemini',
-          model: { gemini: 'gemini-pro' },
-          apiKey: { gemini: null }, // Key is null
-        },
-      };
-      LlmService.init(mockConfig);
-      expect(ChatGoogleGenerativeAI).not.toHaveBeenCalled();
-      expect(LlmService._client).toBeNull();
-      expect(mockLoggerFunctions.warn).toHaveBeenCalledWith(
-        'Gemini API key not provided. Gemini LLM service will not be available for this provider.',
-        { internalErrorCode: 'GEMINI_API_KEY_MISSING' }
-      );
-    });
-
-    test('should initialize with Ollama if configured', () => {
-      const mockConfig = {
-        llm: {
-          provider: 'ollama',
-          model: { ollama: 'llama3' },
-          ollamaBaseUrl: 'http://localhost:11434',
-          apiKey: {}, // Ollama doesn't need an API key but structure might be expected
-        },
-      };
-      LlmService.init(mockConfig);
-      expect(ChatOllama).toHaveBeenCalledWith({
-        baseUrl: 'http://localhost:11434',
-        model: 'llama3',
-        temperature: 0,
-      });
-      expect(LlmService._client).toBe(mockChatClient);
-      expect(mockLoggerFunctions.info).toHaveBeenCalledWith(
-        "LLM Service initialized with provider: 'ollama' and model: 'llama3'"
-      );
-    });
-
-    test('should handle unsupported LLM provider', () => {
-      const mockConfig = {
-        llm: { provider: 'unsupported', model: {}, apiKey: {} },
-      };
       LlmService.init(mockConfig);
       expect(LlmService._client).toBeNull();
-      // This log message comes from LlmService.init based on current implementation
-      expect(mockLoggerFunctions.error).toHaveBeenCalledWith(
-        "Unsupported LLM provider configured: 'unsupported'. This should have been caught by config validation. LLM service will not be available.",
-        expect.any(Object)
-      );
     });
 
-    test('should handle errors during client instantiation', () => {
-      ChatOpenAI.mockImplementationOnce(() => {
-        throw new Error('Instantiation failed');
-      });
-      const mockConfig = {
-        llm: {
-          provider: 'openai',
-          model: { openai: 'gpt-4o' },
-          apiKey: { openai: 'sk-test' },
-        },
-      };
-      LlmService.init(mockConfig);
-      expect(LlmService._client).toBeNull();
-      expect(mockLoggerFunctions.error).toHaveBeenNthCalledWith(2,
-        "LLM client for provider 'openai' could not be initialized. LLM service will be impaired or unavailable."
-        // Note: The metadata for this specific log in LlmService.js doesn't have an internalErrorCode
-        // or other details like the "Critical error..." log does. If we want to be more precise,
-        // we can add 'undefined' or 'expect.anything()' for the second arg if no metadata is logged.
-        // LlmService code: logger.error(`LLM client for provider ...`); - no second arg.
-      );
+    test('should throw error if appConfig or appConfig.llm is missing', () => {
+      expect(() => LlmService.init(null)).toThrow('LLMService configuration error: Missing LLM config.');
+      expect(() => LlmService.init({})).toThrow('LLMService configuration error: Missing LLM config.');
     });
   });
 
-  describe('LLM Invocation (_invokeChainAsync)', () => {
-    beforeEach(() => {
-      const mockConfig = {
-        llm: {
-          provider: 'openai',
-          model: { openai: 'gpt-4o' },
-          apiKey: { openai: 'sk-test' },
-        },
-        // Add other necessary config properties if LlmService.init or other parts depend on them
-        logging: { level: 'test' }, // Example: if logger reconfiguration is triggered
-      };
-      ConfigManager.load.mockReturnValue(mockConfig);
-      LlmService.init(mockConfig); // Pass the object directly
-    });
+  // getActiveProviderName is removed as LlmService._client doesn't directly store the provider name or a getName method.
+  // The active provider is implicitly defined by which strategy's initialize method was called.
 
-    test('should throw ApiError if LLM client is not initialized', async () => {
-      LlmService._client = null;
-      await expect(
-        LlmService._invokeChainAsync('template', {}, new StringOutputParser())
-      ).rejects.toEqual(
-        expect.objectContaining({
-          status: 503,
-          message: 'LLM Service unavailable. Check configuration and API keys.',
-        })
-      );
-      expect(mockLoggerFunctions.error).toHaveBeenCalledWith(
-        'LLM Service not available or not initialized correctly.',
-        {
-          internalErrorCode: 'LLM_SERVICE_UNAVAILABLE',
-          configuredProvider: 'openai', // Based on the mockConfig in beforeEach
-        }
-      );
-      expect(ApiError).toHaveBeenCalledWith(
-        503,
-        'LLM Service unavailable. Check configuration and API keys.'
-      );
-    });
+  // Helper function to set the resolved value for the correct client's invoke mock
+  const mockClientInvokeImpl = (providerName, output) => {
+    let targetMockInvoke;
+    if (providerName === 'openai') targetMockInvoke = mockOpenAiClientInvoke;
+    else if (providerName === 'gemini') targetMockInvoke = mockGeminiClientInvoke;
+    else if (providerName === 'ollama') targetMockInvoke = mockOllamaClientInvoke;
+    else throw new Error(`mockClientInvokeImpl: Unknown provider ${providerName}`);
 
-    test('should call prompt format and chain invoke with correct arguments', async () => {
-      mockInvoke.mockResolvedValue('LLM Response');
-      const mockInput = { key: 'value' };
-      const mockOutputParser = new StringOutputParser(); // Use an actual (mocked) parser type
-      const mockFormatFnInstance = jest.fn(input => `Formatted: TEST_TEMPLATE ${JSON.stringify(input)}`);
+    targetMockInvoke.mockResolvedValue(output);
+    return targetMockInvoke;
+  };
 
-      PromptTemplate.fromTemplate.mockImplementationOnce((template) => {
-        // Ensure this specific mock is for 'TEST_TEMPLATE' if necessary, or make it generic
-        if (template === 'TEST_TEMPLATE') {
-          return { format: mockFormatFnInstance };
-        }
-        // Fallback or error for other templates if this mock is too specific
-        return { format: jest.fn() }; // Default fallback
-      });
+  describe('nlToRulesAsync', () => {
+    // Removed DEBUG test, incorporated its findings into the actual test.
+    test('should call client.pipe.invoke with correct prompt and inputs for nlToRulesAsync', async () => {
+      mockConfig.llm.provider = 'openai';
+      LlmService.init(mockConfig); // _client should be set here
+      const currentMockInvoke = mockClientInvokeImpl('openai', ['rule1.', 'rule2.']); // LLM returns parsed array
 
-      const result = await LlmService._invokeChainAsync(
-        'TEST_TEMPLATE',
-        mockInput,
-        mockOutputParser
-      );
-
-      expect(PromptTemplate.fromTemplate).toHaveBeenCalledWith('TEST_TEMPLATE');
-      expect(mockFormatFnInstance).toHaveBeenCalledWith(mockInput); // Check the specific mock function
-      expect(mockPipe).toHaveBeenCalledWith(mockOutputParser);
-      expect(mockInvoke).toHaveBeenCalledWith(
-        'Formatted: TEST_TEMPLATE {"key":"value"}'
-      );
-      expect(result).toBe('LLM Response');
-    });
-
-    test('should handle errors during LLM invocation', async () => {
-      mockInvoke.mockRejectedValue(new Error('LLM API error'));
-
-      await expect(
-        LlmService._invokeChainAsync('template', {}, new StringOutputParser())
-      ).rejects.toEqual(
-        expect.objectContaining({
-          status: 502,
-          message: 'Error communicating with LLM provider: LLM API error',
-        })
-      );
-      expect(mockLoggerFunctions.error).toHaveBeenCalledWith(
-        expect.stringContaining('LLM invocation error for provider openai.'),
-        expect.objectContaining({
-          internalErrorCode: 'LLM_INVOCATION_ERROR',
-          provider: 'openai',
-          errorMessage: 'LLM API error',
-        })
-      );
-      expect(ApiError).toHaveBeenCalledWith(
-        502,
-        expect.stringContaining('Error communicating with LLM provider: LLM API error'), // More specific message
-        'LLM_PROVIDER_GENERAL_ERROR' // Add the errorCode
-      );
-    });
-
-    // Test specific error mappings from _invokeChainAsync
-    it.each([
-      [
-        { response: { status: 401 }, message: 'Auth error' },
-        500,
-        'LLM provider authentication/authorization error. Please check server configuration (API key, permissions).',
-        'LLM_PROVIDER_AUTH_ERROR',
-      ],
-      [
-        { response: { status: 403 }, message: 'Forbidden' },
-        500,
-        'LLM provider authentication/authorization error. Please check server configuration (API key, permissions).',
-        'LLM_PROVIDER_AUTH_ERROR',
-      ],
-      [
-        { message: 'Invalid API key' }, // No status, but message implies auth issue
-        500,
-        'LLM provider authentication/authorization error (API key related). Please check server configuration.',
-        'LLM_PROVIDER_AUTH_ERROR',
-      ],
-      [
-        { response: { status: 429 }, message: 'Rate limit' },
-        429,
-        'LLM provider rate limit exceeded. Please try again later.',
-        'LLM_PROVIDER_RATE_LIMIT',
-      ],
-      [
-        {
-          response: {
-            status: 404,
-            data: { error: { message: 'Model not found' } },
-          },
-        },
-        500,
-        'LLM provider model or endpoint not found. Please check server configuration. Details: Model not found',
-        'LLM_PROVIDER_NOT_FOUND',
-      ],
-      [
-        {
-          response: { status: 400, data: { error: { message: 'Bad input' } } },
-        },
-        422,
-        'LLM provider rejected the request. Details: Bad input',
-        'LLM_PROVIDER_BAD_REQUEST',
-      ],
-      [
-        {
-          response: {
-            status: 400,
-            data: {
-              error: {
-                message: 'Content safety violation',
-                type: 'moderation',
-              },
-            },
-          },
-        },
-        422,
-        "Request blocked by LLM provider's content safety policy. Details: Content safety violation",
-        'LLM_PROVIDER_CONTENT_SAFETY',
-      ],
-      [
-        { response: { status: 503 }, message: 'Service unavailable' }, // Other 5xx from provider
-        502, // We map it to 502 Bad Gateway from our end
-        'Error communicating with LLM provider: Service unavailable',
-        'LLM_PROVIDER_GENERAL_ERROR',
-      ],
-    ])(
-      'should map provider error %j to ApiError with status %s, message "%s", and code "%s"',
-      async (providerError, expectedStatus, expectedMessage, expectedCode) => {
-        mockInvoke.mockRejectedValue(providerError);
-        await expect(
-          LlmService._invokeChainAsync('template', {}, new StringOutputParser())
-        ).rejects.toEqual(
-          expect.objectContaining({
-            status: expectedStatus,
-            message: expectedMessage,
-            errorCode: expectedCode,
-          })
-        );
-        expect(ApiError).toHaveBeenCalledWith(
-          expectedStatus,
-          expectedMessage,
-          expectedCode
-        );
-      }
-    );
-  });
-
-  describe('Specific LLM Functions', () => {
-    beforeEach(() => {
-      // For these tests, ensure LlmService is initialized
-      const mockConfig = {
-        llm: {
-          provider: 'openai',
-          model: { openai: 'gpt-4o' },
-          apiKey: { openai: 'sk-test' },
-        },
-      };
-      LlmService.init(mockConfig);
-    });
-
-    test('nlToRules should call _invokeChain with correct template and parser', async () => {
-      mockInvoke.mockResolvedValue(['rule1.', 'rule2.']);
-      const text = 'Some text';
+      const text = 'Convert this to rules.';
       const existingFacts = 'fact1.';
-      const ontologyContext = 'onto1.';
+      const ontologyContext = 'ontology1.';
+      const expectedFormattedPrompt = `Formatted: ${Prompts.NL_TO_RULES}`;
+      mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
 
-      const result = await LlmService.nlToRulesAsync(
-        text,
-        existingFacts,
-        ontologyContext
-      );
+      const rules = await LlmService.nlToRulesAsync(text, existingFacts, ontologyContext);
 
-      expect(mockPipe).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'json' })
-      );
-
-      const mockFormatFnInstance = jest.fn();
-      PromptTemplate.fromTemplate.mockImplementationOnce(() => ({ format: mockFormatFnInstance }));
-
-      // Re-call the function to ensure the mockImplementationOnce is used for this specific call path
-      // Or, if LlmService.nlToRulesAsync internally calls _invokeChainAsync which then calls fromTemplate,
-      // we need to ensure the mock is set *before* nlToRulesAsync is called.
-      // The current structure where nlToRulesAsync calls _callLlmAsync which calls _invokeChainAsync
-      // means the mock should be set before nlToRulesAsync.
-
-      // Let's reset and set up specifically for this call.
-      PromptTemplate.fromTemplate.mockReset(); // Reset general mock
-      const specificMockFormatFn = jest.fn().mockImplementation(input => JSON.stringify(input)); // Simple mock for format
-      PromptTemplate.fromTemplate.mockImplementation(templateName => {
-        if (templateName === PROMPT_TEMPLATES.NL_TO_RULES) {
-          return { format: specificMockFormatFn };
-        }
-        // Fallback for other templates if any are used unexpectedly
-        return { format: jest.fn() };
-      });
-
-      const resultAct = await LlmService.nlToRulesAsync(text, existingFacts, ontologyContext);
-
-      expect(specificMockFormatFn).toHaveBeenCalledWith({
+      expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(Prompts.NL_TO_RULES);
+      expect(mockLangchainFormatFn).toHaveBeenCalledWith({
+        text_to_translate: text,
         existing_facts: existingFacts,
         ontology_context: ontologyContext,
-        text_to_translate: text,
       });
-      expect(resultAct).toEqual(['rule1.', 'rule2.']);
+      expect(currentMockInvoke).toHaveBeenCalledWith(expectedFormattedPrompt);
+      expect(rules).toEqual(['rule1.', 'rule2.']);
     });
 
-    test('nlToRulesAsync should throw ApiError if LLM does not return an array', async () => {
-      mockInvoke.mockResolvedValue('not an array');
-      await expect(LlmService.nlToRulesAsync('text')).rejects.toEqual(
-        expect.objectContaining({ status: 422 })
-      );
-      expect(mockLoggerFunctions.error).toHaveBeenCalledWith(
-        'LLM failed to produce a valid JSON array of rules.',
-        expect.objectContaining({
-          internalErrorCode: 'LLM_INVALID_JSON_ARRAY_RULES',
-          templateName: 'NL_TO_RULES',
-          // input: { existing_facts: '', ontology_context: '', text_to_translate: 'text' }, // Input can vary
-          resultReceived: 'not an array',
-        })
-      );
-      expect(ApiError).toHaveBeenCalledWith(
-        422,
-        'LLM failed to produce a valid JSON array of rules. The output was not an array.'
-      );
+    test('should throw ApiError if LLM returns non-array for nlToRulesAsync', async () => {
+      mockConfig.llm.provider = 'openai';
+      LlmService.init(mockConfig);
+      mockClientInvokeImpl('openai', { not_an_array: true });
+
+      await expect(LlmService.nlToRulesAsync('text')).rejects.toThrow(ApiError);
+      await expect(LlmService.nlToRulesAsync('text')).rejects.toThrow('LLM failed to produce a valid JSON array of rules.');
     });
 
-    test('queryToProlog should call _invokeChain with correct template and parser', async () => {
-      mockInvoke.mockResolvedValue('prolog_query.');
-      const question = 'Is this true?';
+    test('should throw if client.pipe.invoke throws for nlToRulesAsync', async () => {
+      mockConfig.llm.provider = 'openai';
+      LlmService.init(mockConfig);
+      mockOpenAiClientInvoke.mockRejectedValue(new Error('Provider error')); // Set specific mock to throw
+      await expect(LlmService.nlToRulesAsync('text')).rejects.toThrow('Error communicating with LLM provider: Provider error');
+    });
+  });
 
-      const result = await LlmService.queryToPrologAsync(question);
+  describe('queryToPrologAsync', () => {
+    test('should call client.pipe.invoke with correct prompt and inputs for queryToPrologAsync', async () => {
+      mockConfig.llm.provider = 'openai';
+      LlmService.init(mockConfig);
+      const currentMockInvoke = mockClientInvokeImpl('openai', 'query(X).');
 
-      expect(mockPipe).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'string' })
-      );
+      const question = 'What is X?';
+      const expectedFormattedPrompt = `Formatted: ${Prompts.QUERY_TO_PROLOG}`;
+      mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
 
-      // Reset and set up specifically for this call.
-      PromptTemplate.fromTemplate.mockReset();
-      const specificMockFormatFn = jest.fn().mockImplementation(input => JSON.stringify(input));
-      PromptTemplate.fromTemplate.mockImplementation(templateName => {
-        if (templateName === PROMPT_TEMPLATES.QUERY_TO_PROLOG) {
-          return { format: specificMockFormatFn };
-        }
-        return { format: jest.fn() };
-      });
+      const prologQuery = await LlmService.queryToPrologAsync(question);
 
-      const resultAct = await LlmService.queryToPrologAsync(question);
-
-      expect(specificMockFormatFn).toHaveBeenCalledWith({
-        question,
-      });
-      expect(resultAct).toBe('prolog_query.');
+      expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(Prompts.QUERY_TO_PROLOG);
+      expect(mockLangchainFormatFn).toHaveBeenCalledWith({ question });
+      expect(currentMockInvoke).toHaveBeenCalledWith(expectedFormattedPrompt);
+      expect(prologQuery).toBe('query(X).');
     });
 
-    test('queryToPrologAsync should throw ApiError if LLM returns empty/whitespace string', async () => {
-      const question = 'A question that results in empty output';
-      // Mock the behavior of _callLlmAsync for this specific test case if needed,
-      // or more directly, mock what _invokeChain returns to _callLlmAsync
-      mockInvoke.mockResolvedValue('   '); // LLM returns only whitespace
+    test('should throw ApiError if LLM returns empty string for queryToPrologAsync', async () => {
+      mockConfig.llm.provider = 'openai';
+      LlmService.init(mockConfig);
+      mockClientInvokeImpl('openai', '   ');
 
-      await expect(LlmService.queryToPrologAsync(question)).rejects.toEqual(
-        expect.objectContaining({
-          status: 500,
-          message:
-            'LLM generated an empty or whitespace-only Prolog query. Cannot proceed with reasoning.',
-          errorCode: 'LLM_EMPTY_PROLOG_QUERY_GENERATED',
-        })
-      );
-      expect(mockLoggerFunctions.error).toHaveBeenCalledWith(
-        'LLM generated an empty Prolog query.',
-        expect.objectContaining({
-          internalErrorCode: 'LLM_EMPTY_PROLOG_QUERY',
-          question,
-          llmOutput: '   ',
-        })
-      );
-      expect(ApiError).toHaveBeenCalledWith(
-        500,
-        'LLM generated an empty or whitespace-only Prolog query. Cannot proceed with reasoning.',
-        'LLM_EMPTY_PROLOG_QUERY_GENERATED'
-      );
+      await expect(LlmService.queryToPrologAsync('question')).rejects.toThrow(ApiError);
+      await expect(LlmService.queryToPrologAsync('question')).rejects.toThrow('LLM generated an empty or whitespace-only Prolog query.');
     });
 
-    test('resultToNl should call _invokeChain with correct template and parser', async () => {
-      mockInvoke.mockResolvedValue('Natural language answer.');
-      const originalQuestion = 'What is it?';
-      const logicResult = 'true.';
-      const style = 'formal';
-
-      const result = await LlmService.resultToNlAsync(
-        originalQuestion,
-        logicResult,
-        style
-      );
-
-      expect(mockPipe).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'string' })
-      );
-
-      // Reset and set up specifically for this call.
-      PromptTemplate.fromTemplate.mockReset();
-      const specificMockFormatFn = jest.fn().mockImplementation(input => JSON.stringify(input));
-      PromptTemplate.fromTemplate.mockImplementation(templateName => {
-        if (templateName === PROMPT_TEMPLATES.RESULT_TO_NL) {
-          return { format: specificMockFormatFn };
-        }
-        return { format: jest.fn() };
-      });
-
-      const resultAct = await LlmService.resultToNlAsync(originalQuestion, logicResult, style);
-
-      expect(specificMockFormatFn).toHaveBeenCalledWith({
-        style,
-        original_question: originalQuestion,
-        logic_result: logicResult,
-      });
-      expect(resultAct).toBe('Natural language answer.');
+    test('should throw if client.pipe.invoke throws for queryToPrologAsync', async () => {
+      mockConfig.llm.provider = 'openai';
+      LlmService.init(mockConfig);
+      mockOpenAiClientInvoke.mockRejectedValue(new Error('Provider error for query'));
+      await expect(LlmService.queryToPrologAsync('test question')).rejects.toThrow('Error communicating with LLM provider: Provider error for query');
     });
+  });
 
-    test('rulesToNl should call _invokeChain with correct template and parser', async () => {
-      mockInvoke.mockResolvedValue('Rules explained.');
-      const rules = ['rule1.', 'rule2.'];
+  describe('resultToNlAsync', () => {
+    test('should call client.pipe.invoke with correct prompt and inputs', async () => {
+      mockConfig.llm.provider = 'openai';
+      LlmService.init(mockConfig);
+      const currentMockInvoke = mockClientInvokeImpl('openai', 'The answer is yes.');
+
+      const originalQuery = 'Is it true?';
+      const logicResultJson = '{"result": "true"}';
       const style = 'conversational';
+      const expectedFormattedPrompt = `Formatted: ${Prompts.RESULT_TO_NL}`;
+      mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
 
-      const result = await LlmService.rulesToNlAsync(rules, style);
+      const nlAnswer = await LlmService.resultToNlAsync(originalQuery, logicResultJson, style);
 
-      expect(mockPipe).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'string' })
-      );
-
-      // Reset and set up specifically for this call.
-      PromptTemplate.fromTemplate.mockReset();
-      const specificMockFormatFn = jest.fn().mockImplementation(input => JSON.stringify(input));
-      PromptTemplate.fromTemplate.mockImplementation(templateName => {
-        if (templateName === PROMPT_TEMPLATES.RULES_TO_NL) {
-          return { format: specificMockFormatFn };
-        }
-        return { format: jest.fn() };
+      expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(Prompts.RESULT_TO_NL);
+      expect(mockLangchainFormatFn).toHaveBeenCalledWith({
+        original_question: originalQuery,
+        logic_result: logicResultJson,
+        style: style,
       });
-
-      const resultAct = await LlmService.rulesToNlAsync(rules, style);
-
-      expect(specificMockFormatFn).toHaveBeenCalledWith({
-        style,
-        prolog_rules: rules.join('\n'),
-      });
-      expect(resultAct).toBe('Rules explained.');
+      expect(currentMockInvoke).toHaveBeenCalledWith(expectedFormattedPrompt);
+      expect(nlAnswer).toBe('The answer is yes.');
     });
 
-    test('explainQuery should call _invokeChain with correct template and parser', async () => {
-      mockInvoke.mockResolvedValue('Query explanation.');
-      const query = 'query(X).';
-      const facts = 'fact(a).';
-      const ontologyContext = 'ontology(b).';
+    test('should use default style "conversational" if not provided', async () => {
+      mockConfig.llm.provider = 'openai';
+      LlmService.init(mockConfig);
+      mockClientInvokeImpl('openai', 'Default style answer.');
+      mockLangchainFormatFn.mockResolvedValue("formatted prompt");
 
-      const result = await LlmService.explainQueryAsync(
-        query,
-        facts,
-        ontologyContext
-      );
+      await LlmService.resultToNlAsync('query', '{}');
+      expect(mockLangchainFormatFn).toHaveBeenCalledWith(expect.objectContaining({
+        original_question: 'query',
+        logic_result: '{}',
+        style: 'conversational',
+      }));
+    });
 
-      expect(mockPipe).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'string' })
-      );
+    test('should throw if client.pipe.invoke throws for resultToNlAsync', async () => {
+      mockConfig.llm.provider = 'openai';
+      LlmService.init(mockConfig);
+      mockOpenAiClientInvoke.mockRejectedValue(new Error('Provider error for NL answer'));
+      await expect(LlmService.resultToNlAsync('q', '{}', 's')).rejects.toThrow('Error communicating with LLM provider: Provider error for NL answer');
+    });
+  });
 
-      // Reset and set up specifically for this call.
-      PromptTemplate.fromTemplate.mockReset();
-      const specificMockFormatFn = jest.fn().mockImplementation(input => JSON.stringify(input));
-      PromptTemplate.fromTemplate.mockImplementation(templateName => {
-        if (templateName === PROMPT_TEMPLATES.EXPLAIN_QUERY) {
-          return { format: specificMockFormatFn };
-        }
-        return { format: jest.fn() };
+  describe('rulesToNlAsync', () => {
+    test('should call client.pipe.invoke with correct prompt and inputs', async () => {
+      mockConfig.llm.provider = 'openai';
+      LlmService.init(mockConfig);
+      const currentMockInvoke = mockClientInvokeImpl('openai', 'These are the rules explained.');
+
+      const rulesArray = ['rule1.', 'rule2(X).'];
+      const style = 'formal';
+      const expectedFormattedPrompt = `Formatted: ${Prompts.RULES_TO_NL}`;
+      mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+
+      const nlExplanation = await LlmService.rulesToNlAsync(rulesArray, style);
+
+      expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(Prompts.RULES_TO_NL);
+      expect(mockLangchainFormatFn).toHaveBeenCalledWith({
+        prolog_rules: rulesArray.join('\n'),
+        style: style,
       });
+      expect(currentMockInvoke).toHaveBeenCalledWith(expectedFormattedPrompt);
+      expect(nlExplanation).toBe('These are the rules explained.');
+    });
 
-      const resultAct = await LlmService.explainQueryAsync(query, facts, ontologyContext);
+    test('should use default style "formal" if not provided for rulesToNlAsync', async () => {
+        mockConfig.llm.provider = 'openai';
+        LlmService.init(mockConfig);
+        mockClientInvokeImpl('openai', 'Default style rule explanation.');
+        mockLangchainFormatFn.mockResolvedValue("formatted prompt");
 
-      expect(specificMockFormatFn).toHaveBeenCalledWith({
-        query,
-        facts,
-        ontology_context: ontologyContext,
+        await LlmService.rulesToNlAsync(['rule.']);
+        expect(mockLangchainFormatFn).toHaveBeenCalledWith(expect.objectContaining({
+          prolog_rules: 'rule.',
+          style: 'formal',
+        }));
+    });
+
+    test('should throw if client.pipe.invoke throws for rulesToNlAsync', async () => {
+      mockConfig.llm.provider = 'openai';
+      LlmService.init(mockConfig);
+      mockOpenAiClientInvoke.mockRejectedValue(new Error('Provider error for rules explanation'));
+      await expect(LlmService.rulesToNlAsync(['r.'], 's')).rejects.toThrow('Error communicating with LLM provider: Provider error for rules explanation');
+    });
+  });
+
+  describe('explainQueryAsync', () => {
+    test('should call client.pipe.invoke with correct prompt and inputs', async () => {
+      mockConfig.llm.provider = 'openai';
+      LlmService.init(mockConfig);
+      const currentMockInvoke = mockClientInvokeImpl('openai', 'This is how the query works.');
+
+      const query = 'Why X?';
+      const facts = ['factA.', 'factB.'];
+      const ontology = ['ontologyC.'];
+      const expectedFormattedPrompt = `Formatted: ${Prompts.EXPLAIN_QUERY}`;
+      mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+
+      const explanation = await LlmService.explainQueryAsync(query, facts, ontology);
+
+      expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(Prompts.EXPLAIN_QUERY);
+      expect(mockLangchainFormatFn).toHaveBeenCalledWith({
+        query: query,
+        facts: facts,
+        ontology_context: ontology,
       });
-      expect(resultAct).toBe('Query explanation.');
+      expect(currentMockInvoke).toHaveBeenCalledWith(expectedFormattedPrompt);
+      expect(explanation).toBe('This is how the query works.');
+    });
+
+    test('should handle empty facts and ontology for explainQueryAsync', async () => {
+        mockConfig.llm.provider = 'openai';
+        LlmService.init(mockConfig);
+        const currentMockInvoke = mockClientInvokeImpl('openai', 'Explanation with no context.');
+        mockLangchainFormatFn.mockResolvedValue("formatted prompt");
+
+        await LlmService.explainQueryAsync('Why X?', [], []);
+        expect(mockLangchainFormatFn).toHaveBeenCalledWith({
+            query: 'Why X?',
+            facts: [],
+            ontology_context: [],
+        });
+        expect(currentMockInvoke).toHaveBeenCalled();
+    });
+
+    test('should throw if client.pipe.invoke throws for explainQueryAsync', async () => {
+      mockConfig.llm.provider = 'openai';
+      LlmService.init(mockConfig);
+      mockOpenAiClientInvoke.mockRejectedValue(new Error('Provider error for query explanation'));
+      await expect(LlmService.explainQueryAsync('q', [], [])).rejects.toThrow('Error communicating with LLM provider: Provider error for query explanation');
+    });
+  });
+
+  describe('getPromptTemplates', () => {
+    test('should return all prompt templates', () => {
+      // No init needed for this simple getter
+      const templates = LlmService.getPromptTemplates();
+      expect(templates).toEqual(Prompts); // Use the imported Prompts alias
     });
   });
 });

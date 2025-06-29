@@ -23,9 +23,8 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "langchain": "^0.3.29",
-    "@langchain/core": "0.3.61",
     "@langchain/community": "^0.3.47",
+    "@langchain/core": "0.3.61",
     "@langchain/google-genai": "^0.2.14",
     "@langchain/openai": "^0.5.16",
     "axios": "^1.10.0",
@@ -33,6 +32,7 @@
     "dotenv": "^16.1.0-rc2",
     "express": "^5.1.0",
     "fs-extra": "^11.3.0",
+    "langchain": "^0.3.29",
     "tau-prolog": "^0.3.4",
     "uuid": "^9.0.0",
     "winston": "^3.17.0"

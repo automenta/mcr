@@ -50,7 +50,36 @@ const ApiHandlers = {
       description: appDescription || 'MCR API',
     }),
 
-  createSession: (req, res) => res.status(201).json(SessionManager.create()),
+  createSession: (req, res, next) => {
+    let session; // Define session outside try to log it in catch if needed
+    try {
+      logger.debug('Attempting SessionManager.create() in createSession handler');
+      session = SessionManager.create();
+      logger.debug('SessionManager.create() successful', { sessionId: session ? session.sessionId : 'undefined' });
+
+      if (!session) {
+        logger.error('SessionManager.create() returned undefined/null unexpectedly.');
+        // Explicitly throw to go to error handler
+        throw new Error('SessionManager.create() returned undefined/null.');
+      }
+
+      logger.debug('Attempting res.status(201).json(session)');
+      res.status(201).json(session);
+      logger.debug('res.status(201).json(session) completed');
+
+    } catch (err) {
+      // Temporary direct console log for immediate feedback in test output
+      console.error("RAW ERROR in createSession handler (explicit catch):", err, err.stack);
+      logger.error('RAW ERROR in createSession handler (explicit catch)', {
+        error: err,
+        message: err.message,
+        stack: err.stack,
+        isApiError: err instanceof ApiError,
+        sessionObject: session // Log the session if available
+      });
+      next(err); // Pass to the main error handler in mcr.js
+    }
+  },
 
   getSession: (req, res, next) => {
     try {
@@ -401,6 +430,12 @@ const ApiHandlers = {
         inputVariables,
         formattedPrompt,
       });
+
+      // Removed temporary debug logging for NL_TO_RULES
+      // if (templateName === 'NL_TO_RULES') {
+      //   logger.error('DEBUG: Full formattedPrompt for NL_TO_RULES:', { prompt: formattedPrompt });
+      // }
+
     } catch (err) {
       next(err);
     }
