@@ -3,6 +3,51 @@ const path = require('path');
 const fs = require('fs');
 const Prompts = require('../src/prompts'); // Moved to top
 
+// Define path constants inside the mock factory or ensure they are accessible
+// if they need to be used elsewhere in the test file at the top level.
+// For this specific fix, we move them inside the mock.
+
+jest.mock('../src/config', () => {
+  const path = require('path'); // Require path inside the mock factory
+  // Define these constants inside the factory function
+  const TEST_SESSION_STORAGE_PATH_MOCK = path.resolve(
+    __dirname,
+    'test_data_integration/sessions'
+  );
+  const TEST_ONTOLOGY_STORAGE_PATH_MOCK = path.resolve(
+    __dirname,
+    'test_data_integration/ontologies'
+  );
+  const actualConfig = jest.requireActual('../src/config');
+
+  const mockConfigData = {
+    server: { host: '0.0.0.0', port: 8080 },
+    llm: {
+      provider: 'openai',
+      model: {
+        openai: 'gpt-test-int',
+        gemini: 'gemini-test-int',
+        ollama: 'ollama-test-int',
+      },
+      apiKey: { openai: 'testkey_integration_suite' },
+      ollamaBaseUrl: 'http://localhost:11434/integration',
+    },
+    logging: { level: 'error' },
+    session: { storagePath: TEST_SESSION_STORAGE_PATH_MOCK },
+    ontology: { storagePath: TEST_ONTOLOGY_STORAGE_PATH_MOCK },
+    debugMode: false,
+  };
+
+  return {
+    ...actualConfig,
+    get: jest.fn().mockReturnValue(mockConfigData),
+    load: jest.fn().mockReturnValue(mockConfigData),
+  };
+});
+
+// If these constants are needed elsewhere at the top level, they must be defined here too.
+// Otherwise, their definition can be solely within the mock factory.
+// For now, assuming they might be used by beforeAll/afterAll, let's keep them here too.
 const TEST_SESSION_STORAGE_PATH = path.resolve(
   __dirname,
   'test_data_integration/sessions'
@@ -12,71 +57,31 @@ const TEST_ONTOLOGY_STORAGE_PATH = path.resolve(
   'test_data_integration/ontologies'
 );
 
-jest.mock('../src/config', () => {
-  const actualConfig = jest.requireActual('../src/config');
-  return {
-    ...actualConfig,
-    get: jest.fn().mockReturnValue({
-      server: { host: '0.0.0.0', port: 8080 },
-      llm: {
-        provider: 'openai',
-        model: {
-          openai: 'gpt-test-int',
-          gemini: 'gemini-test-int',
-          ollama: 'ollama-test-int',
-        },
-        apiKey: { openai: 'testkey_integration_suite' },
-        ollamaBaseUrl: 'http://localhost:11434/integration',
-      },
-      logging: { level: 'error' },
-      session: { storagePath: TEST_SESSION_STORAGE_PATH },
-      ontology: { storagePath: TEST_ONTOLOGY_STORAGE_PATH },
-      debugMode: false,
-    }),
-    load: jest.fn().mockReturnValue({
-      server: { host: '0.0.0.0', port: 8080 },
-      llm: {
-        provider: 'openai',
-        model: {
-          openai: 'gpt-test-int',
-          gemini: 'gemini-test-int',
-          ollama: 'ollama-test-int',
-        },
-        apiKey: { openai: 'testkey_integration_suite' },
-        ollamaBaseUrl: 'http://localhost:11434/integration',
-      },
-      logging: { level: 'error' },
-      session: { storagePath: TEST_SESSION_STORAGE_PATH },
-      ontology: { storagePath: TEST_ONTOLOGY_STORAGE_PATH },
-      debugMode: false,
-    }),
-  };
-});
-
-jest.mock('../src/logger', () => ({
-  logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
-    http: jest.fn(),
-    verbose: jest.fn(),
-    silly: jest.fn(),
-    fatal: jest.fn(),
-  },
-  initializeLoggerContext: jest.fn((req, res, next) => {
-    if (req)
-      req.correlationId =
-        req.correlationId || 'test-correlation-id-api-integration';
-    if (next) next();
-  }),
-  asyncLocalStorage: {
-    run: jest.fn((context, callback) => {
-      if (callback) callback();
-    }),
-    getStore: jest.fn(() => ({ correlationId: 'mock-als-id-api-integration' })),
-  },
-}));
+// jest.mock('../src/logger', () => ({
+//   logger: {
+//     info: jest.fn(),
+//     warn: jest.fn(),
+//     error: jest.fn(),
+//     debug: jest.fn(),
+//     http: jest.fn(),
+//     verbose: jest.fn(),
+//     silly: jest.fn(),
+//     fatal: jest.fn(),
+//   },
+//   initializeLoggerContext: jest.fn((req, res, next) => {
+//     if (req)
+//       req.correlationId =
+//         req.correlationId || 'test-correlation-id-api-integration';
+//     if (next) next();
+//   }),
+//   asyncLocalStorage: {
+//     run: jest.fn((context, callback) => {
+//       if (callback) callback();
+//     }),
+//     getStore: jest.fn(() => ({ correlationId: 'mock-als-id-api-integration' })),
+//   },
+//   reconfigureLogger: jest.fn(), // Add mock for reconfigureLogger
+// }));
 
 jest.mock('../src/llmService', () => ({
   init: jest.fn(),
@@ -97,14 +102,23 @@ jest.mock('../src/llmService', () => ({
   rulesToNlAsync: jest
     .fn()
     .mockResolvedValue(
-      'Mock integration natural language explanation of rules.'
+      'Mock natural language explanation of rules.' // Corrected value
     ),
   explainQueryAsync: jest
     .fn()
-    .mockResolvedValue('Mock integration explanation for the query.'),
-  getPromptTemplates: jest
-    .fn()
-    .mockReturnValue({ INTEGRATION_TEMPLATE: 'mock integration template' }),
+    .mockResolvedValue('Mock explanation for the query.'), // Corrected value
+  getPromptTemplates: jest.fn().mockImplementation(() => {
+    const ActualPrompts = jest.requireActual('../src/prompts');
+    return {
+      INTEGRATION_TEMPLATE: 'mock integration template',
+      NL_TO_RULES: ActualPrompts.NL_TO_RULES,
+      QUERY_TO_PROLOG: ActualPrompts.QUERY_TO_PROLOG, // Add others if needed by tests
+      RESULT_TO_NL: ActualPrompts.RESULT_TO_NL,
+      EXPLAIN_QUERY: ActualPrompts.EXPLAIN_QUERY,
+      RULES_TO_NL: ActualPrompts.RULES_TO_NL
+      // Add any other prompts that might be formatted via this debug endpoint
+    };
+  }),
 }));
 
 jest.mock('../package.json', () => ({
@@ -170,7 +184,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
   });
 
   test('GET / should return API status from mocked package.json', async () => {
-    const response = request(app).get('/');
+    const response = await request(app).get('/'); // Added await
     expect(response.status).toBe(200);
     expect(response.body.status).toBe('ok');
     expect(response.body.name).toBe('mcr-integration-test-app');
@@ -184,7 +198,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
     const newSessionId = createResponse.body.sessionId;
     expect(newSessionId).toBeDefined();
 
-    const getResponse = request(app).get(`/sessions/${newSessionId}`);
+    const getResponse = await request(app).get(`/sessions/${newSessionId}`); // Added await
     expect(getResponse.status).toBe(200);
     expect(getResponse.body.sessionId).toBe(newSessionId);
 
@@ -196,7 +210,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
       `Session ${newSessionId} terminated.`
     );
 
-    const getAfterDeleteResponse = request(app).get(
+    const getAfterDeleteResponse = await request(app).get( // Added await
       `/sessions/${newSessionId}`
     );
     expect(getAfterDeleteResponse.status).toBe(404);
@@ -205,7 +219,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
     expect(getAfterDeleteResponse.body.error.message).toBe(
       `Session with ID '${newSessionId}' not found.`
     );
-    expect(getAfterDeleteResponse.body.error.code).toBeUndefined();
+    expect(getAfterDeleteResponse.body.error.code).toBe('SESSION_NOT_FOUND'); // Corrected assertion
   });
 
   test('should create a new session and retrieve it', async () => {
@@ -217,7 +231,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
     const newTestSessionId = createSessionResponse.body.sessionId;
     expect(newTestSessionId).toBeDefined();
 
-    const getSessionResponse = request(app).get(
+    const getSessionResponse = await request(app).get( // Added await
       `/sessions/${newTestSessionId}`
     );
     expect(getSessionResponse.status).toBe(200);
@@ -240,7 +254,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
       expect(typeof assertResponse.body.totalFactsInSession).toBe('number');
       expect(assertResponse.body.totalFactsInSession).toBeGreaterThanOrEqual(1);
 
-      const getSessionResponse = request(app).get(
+      const getSessionResponse = await request(app).get( // Added await
         `/sessions/${sessionId}`
       );
       expect(getSessionResponse.status).toBe(200);
@@ -332,10 +346,17 @@ describe('MCR API Integration Tests (with Supertest)', () => {
     });
 
     test('should get prompts (mocked)', async () => {
-      const response = request(app).get('/prompts');
+      const response = await request(app).get('/prompts'); // Added await
       expect(response.status).toBe(200);
+      // Expect the full set of prompts now returned by the mock
+      const ActualPrompts = jest.requireActual('../src/prompts');
       expect(response.body).toEqual({
-        INTEGRATION_TEMPLATE: 'mock integration template',
+        INTEGRATION_TEMPLATE: 'mock integration template', // This one is specific to the mock
+        NL_TO_RULES: ActualPrompts.NL_TO_RULES,
+        QUERY_TO_PROLOG: ActualPrompts.QUERY_TO_PROLOG,
+        RESULT_TO_NL: ActualPrompts.RESULT_TO_NL,
+        EXPLAIN_QUERY: ActualPrompts.EXPLAIN_QUERY,
+        RULES_TO_NL: ActualPrompts.RULES_TO_NL
       });
     });
 
@@ -367,7 +388,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
           .post('/ontologies')
           .send({ name: ontologyName, rules: ontologyRules });
 
-        const response = request(app).get(`/ontologies/${ontologyName}`);
+        const response = await request(app).get(`/ontologies/${ontologyName}`); // Added await
         expect(response.status).toBe(200);
         expect(response.body.name).toBe(ontologyName);
         expect(response.body.rules).toBe(ontologyRules);
@@ -378,7 +399,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
           .post('/ontologies')
           .send({ name: `${ontologyName}_2`, rules: 'another(rule).' });
 
-        const response = request(app).get('/ontologies');
+        const response = await request(app).get('/ontologies'); // Added await
         expect(response.status).toBe(200);
         expect(Array.isArray(response.body)).toBe(true);
         const found = response.body.find((o) => o.name === ontologyName);
@@ -405,7 +426,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
         expect(response.body.name).toBe(ontologyName);
         expect(response.body.rules).toBe(updatedOntologyRules);
 
-        const getResponse = request(app).get(
+        const getResponse = await request(app).get( // Added await
           `/ontologies/${ontologyName}`
         );
         expect(getResponse.body.rules).toBe(updatedOntologyRules);
@@ -424,14 +445,14 @@ describe('MCR API Integration Tests (with Supertest)', () => {
           `Ontology ${ontologyName} deleted.`
         );
 
-        const getResponse = request(app).get(
+        const getResponse = await request(app).get( // Added await
           `/ontologies/${ontologyName}`
         );
         expect(getResponse.status).toBe(404);
       });
 
       test('should return 404 when trying to get a non-existent ontology', async () => {
-        const response = request(app).get(
+        const response = await request(app).get( // Added await
           '/ontologies/non_existent_ontology'
         );
         expect(response.status).toBe(404);
@@ -474,10 +495,12 @@ describe('MCR API Integration Tests (with Supertest)', () => {
           ontology_context: '',
           text_to_translate: 'test input',
         });
-        expect(response.body.formattedPrompt).toContain('test input');
-        expect(response.body.formattedPrompt).toContain('Existing facts:\n\n');
-        expect(response.body.formattedPrompt).toContain(
-          'Ontology context:\n\n'
+        expect(response.body.formattedPrompt).toContain('TEXT TO TRANSLATE: "test input"'); // More specific
+        expect(response.body.formattedPrompt).toMatch(
+          /CONTEXTUAL KNOWLEDGE BASE \(existing facts\):\s*```prolog\s*\n\s*\n\s*```/
+        );
+        expect(response.body.formattedPrompt).toMatch(
+          /PRE-DEFINED ONTOLOGY \(for context\):\s*```prolog\s*\n\s*\n\s*```/
         );
       });
 

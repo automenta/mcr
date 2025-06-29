@@ -1,21 +1,11 @@
 {
   "name": "model-context-reasoner",
   "version": "2.1.0",
-  "description": "A stateful, API-driven bridge between LLMs and a Prolog reasoner.",
+  "description": "Connect LLMs and Logic",
   "main": "mcr.js",
   "bin": {
     "mcr-cli": "./mcr-cli.js"
   },
-  "files": [
-    "mcr.js",
-    "mcr-cli.js",
-    "src/",
-    "ontologies/",
-    "README.md",
-    "LICENSE",
-    "ALPHA_TESTING_GUIDE.md",
-    ".env.example"
-  ],
   "scripts": {
     "start": "node mcr.js",
     "cli": "node mcr-cli.js",
@@ -31,21 +21,21 @@
     "api",
     "ai"
   ],
-  "author": "AI Agent (Jules)",
   "license": "MIT",
   "dependencies": {
     "@langchain/community": "^0.3.47",
-    "@langchain/google-genai": "^0.0.15",
-    "@langchain/openai": "^0.1.0",
-    "axios": "^1.0.0",
-    "commander": "^12.0.0",
-    "dotenv": "^16.0.0",
-    "express": "^4.17.1",
-    "fs-extra": "^11.1.0",
-    "langchain": "^0.2.0",
-    "tau-prolog": "^0.3.0",
+    "@langchain/core": "0.3.61",
+    "@langchain/google-genai": "^0.2.14",
+    "@langchain/openai": "^0.5.16",
+    "axios": "^1.10.0",
+    "commander": "^14.0.0",
+    "dotenv": "^16.1.0-rc2",
+    "express": "^5.1.0",
+    "fs-extra": "^11.3.0",
+    "langchain": "^0.3.29",
+    "tau-prolog": "^0.3.4",
     "uuid": "^9.0.0",
-    "winston": "^3.3.3"
+    "winston": "^3.17.0"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -6,10 +6,16 @@ const SUPPORTED_PROVIDERS = ['openai', 'gemini', 'ollama'];
 const ConfigManager = {
   _config: null,
 
-  load(options = { exitOnFailure: true }) {
-    if (this._config) {
-      // Return cached config if already loaded and validated,
-      // unless forceReload is implemented and true.
+  load(options) {
+    const effectiveOptions = {
+      // Default exitOnFailure to false if in test environment, true otherwise.
+      // User-provided options can override this.
+      exitOnFailure: process.env.NODE_ENV === 'test' ? false : true,
+      forceReload: false, // Default forceReload to false
+      ...options,
+    };
+
+    if (this._config && !effectiveOptions.forceReload) {
       return this._config;
     }
 
@@ -53,7 +59,7 @@ const ConfigManager = {
       return this._config;
     } catch (error) {
       logger.error(`Configuration validation failed: ${error.message}`);
-      if (options.exitOnFailure) {
+      if (effectiveOptions.exitOnFailure) { // Use effectiveOptions
         logger.fatal(
           'Application cannot start due to configuration errors. Exiting.'
         );
@@ -62,7 +68,7 @@ const ConfigManager = {
         throw error; // Re-throw if not exiting, e.g., for tests
       }
     }
-    return undefined; // Should be unreachable, but satisfies consistent-return
+    // No explicit return undefined needed here as all paths either return or throw.
   },
 
   validate(configToValidate) {
@@ -149,9 +155,11 @@ const ConfigManager = {
   },
 
   // Getter to access the cached config, ensuring it's loaded first.
-  get() {
-    if (!this._config) {
-      return this.load(); // Load with default (exitOnFailure=true)
+  get(options) { // Allow passing options to get, which passes to load
+    if (!this._config || (options && options.forceReload)) {
+      // Pass options to load, which will include handling for exitOnFailure
+      // and forceReload based on effectiveOptions within load().
+      return this.load(options);
     }
     return this._config;
   },

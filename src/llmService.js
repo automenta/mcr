@@ -12,9 +12,6 @@ const OpenAiProvider = require('./llmProviders/openaiProvider');
 const GeminiProvider = require('./llmProviders/geminiProvider');
 const OllamaProvider = require('./llmProviders/ollamaProvider');
 
-// Remove top-level config load, it will be passed to init
-// const config = ConfigManager.load();
-
 /**
  * Service for interacting with Large Language Models (LLMs).
  * It supports multiple providers (OpenAI, Gemini, Ollama) and handles
@@ -22,7 +19,9 @@ const OllamaProvider = require('./llmProviders/ollamaProvider');
  */
 const LlmService = {
   _client: null,
-  _providerStrategies: {},
+  _providerStrategies: {}, // Internal storage if not using optional map
+  _appConfig: null, // To store appConfig
+  _activeProviderName: null, // To store the name of the active provider
 
   /**
    * Registers an LLM provider strategy.
@@ -52,42 +51,58 @@ const LlmService = {
    * Initializes the LLM service by selecting and configuring the LLM provider
    * based on the application configuration.
    * @param {object} appConfig - The application configuration object.
+   * @param {object} [optionalProviderStrategies=null] - Optional object mapping provider names to strategies, for testing.
    */
-  init(appConfig) {
+  init(appConfig, optionalProviderStrategies = null) {
     if (!appConfig || !appConfig.llm) {
       logger.error(
         'LLMService.init() called without valid application configuration. LLM Service cannot start.'
       );
-      // This scenario should ideally be prevented by ConfigManager exiting on critical load failures.
-      // If it still happens, it's a programming error.
       throw new Error('LLMService configuration error: Missing LLM config.');
     }
-    this._appConfig = appConfig; // Store the config for later use if needed by other methods
+    this._appConfig = appConfig;
 
-    this.registerProvider(OpenAiProvider);
-    this.registerProvider(GeminiProvider);
-    this.registerProvider(OllamaProvider);
-
+    let providerStrategy;
     const providerName = this._appConfig.llm.provider;
-    const providerStrategy = this._providerStrategies[providerName];
+    let currentStrategies = this._providerStrategies;
 
-    if (providerStrategy) {
+    if (optionalProviderStrategies) {
+      currentStrategies = optionalProviderStrategies;
+      providerStrategy = currentStrategies[providerName];
+      if (!providerStrategy) {
+        logger.warn(
+          `LLM provider '${providerName}' not found in optionalProviderStrategies. LLM service may be impaired.`,
+          { providerName }
+        );
+      }
+    } else {
+      // Default behavior: register known providers and look up from internal storage
+      this._providerStrategies = {}; // Clear previous internal strategies
+      this.registerProvider(OpenAiProvider);
+      this.registerProvider(GeminiProvider);
+      this.registerProvider(OllamaProvider);
+      providerStrategy = this._providerStrategies[providerName];
+    }
+
+    this._client = null;
+    this._activeProviderName = null;
+
+    if (providerStrategy && typeof providerStrategy.initialize === 'function') {
       try {
         this._client = providerStrategy.initialize(this._appConfig.llm);
         if (this._client) {
+          this._activeProviderName = providerStrategy.name; // Set active provider name
           logger.info(
-            `LLM Service initialized with provider: '${providerName}' and model: '${this._appConfig.llm.model[providerName]}'`
+            `LLM Service initialized with provider: '${this._activeProviderName}' and model: '${this._appConfig.llm.model[this._activeProviderName]}'`
           );
         } else {
-          // Initialization function of provider should throw or log detailed error
           logger.error(
-            // Changed to error as this is a critical failure for the selected provider
-            `LLM client for provider '${providerName}' could not be initialized. LLM service will be impaired or unavailable.`
+            `LLM client for provider '${providerName}' could not be initialized (initialize returned null/undefined). LLM service will be impaired or unavailable.`
           );
         }
       } catch (error) {
         logger.error(
-          `Critical error during initialization of LLM provider '${providerName}': ${error.message}`,
+          `Critical error during initialization of LLM provider '${providerName}' (using ${optionalProviderStrategies ? 'optional strategies' : 'internal registration'}): ${error.message}`,
           {
             internalErrorCode: 'LLM_PROVIDER_INIT_CRITICAL_ERROR',
             providerName,
@@ -95,35 +110,17 @@ const LlmService = {
             stack: error.stack,
           }
         );
-        this._client = null; // Ensure client is null on error
-        // Depending on policy, might re-throw to halt server startup if LLM is essential
-        // For now, it logs error and _client remains null, leading to 503s.
+        this._client = null;
       }
     } else {
-      // This case should be caught by ConfigManager.validate() now.
-      // If it still occurs, it's a more severe issue.
       logger.error(
-        `Unsupported LLM provider configured: '${providerName}'. This should have been caught by config validation. LLM service will not be available.`,
-        { internalErrorCode: 'LLM_UNSUPPORTED_PROVIDER_UNCAUGHT', providerName }
+        `Unsupported or missing LLM provider strategy for '${providerName}' (using ${optionalProviderStrategies ? 'optional strategies' : 'internal registration'}). LLM service will not be available.`,
+        { internalErrorCode: 'LLM_PROVIDER_STRATEGY_NOT_FOUND', providerName, usingOptionalStrategies: !!optionalProviderStrategies }
       );
       this._client = null;
     }
   },
 
-  /**
-   * A private helper to call the LLM with a specific prompt template and input variables.
-   * Handles template lookup, invocation, and basic error wrapping.
-   * @param {string} templateName - The name of the prompt template (key in PROMPT_TEMPLATES).
-   * @param {object} inputVariables - An object containing variables for the prompt template.
-   * @param {object} outputParser - An instance of a LangChain output parser.
-   * @param {object} errorContext - Context for error reporting.
-   * @param {string} errorContext.methodName - Name of the calling public method.
-   * @param {string} errorContext.internalErrorCode - Specific internal error code.
-   * @param {string} errorContext.customErrorMessage - User-facing error message for unhandled errors.
-   * @returns {Promise<any>} The parsed output from the LLM.
-   * @throws {ApiError} If template is not found or LLM invocation fails.
-   * @private
-   */
   async _callLlmAsync(
     templateName,
     inputVariables,
@@ -167,6 +164,7 @@ const LlmService = {
         configuredProvider: this._appConfig
           ? this._appConfig.llm.provider
           : 'unknown',
+        activeProviderName: this._activeProviderName || 'none',
       });
       throw new ApiError(
         503,
@@ -196,18 +194,15 @@ const LlmService = {
     try {
       return await chain.invoke(formattedPrompt);
     } catch (error) {
-      const responseData = error.response?.data; // For axios-like errors
-      const errorStatus = error.response?.status || error.status; // HTTP status if available
-      const cause = error.cause; // Potential underlying error
-      const providerName = this._appConfig
-        ? this._appConfig.llm.provider
-        : 'unknown';
+      const responseData = error.response?.data;
+      const errorStatus = error.response?.status || error.status;
+      const cause = error.cause;
+      const providerName = this._activeProviderName || (this._appConfig ? this._appConfig.llm.provider : 'unknown');
 
       logger.error(`LLM invocation error for provider ${providerName}.`, {
         internalErrorCode: 'LLM_INVOCATION_ERROR',
         provider: providerName,
-        // prompt: formattedPrompt, // Potentially too verbose for general error log
-        llmInputKeys: Object.keys(input || {}), // Log keys instead of full input
+        llmInputKeys: Object.keys(input || {}),
         errorMessage: error.message,
         errorStack: error.stack,
         errorStatus,
@@ -215,29 +210,25 @@ const LlmService = {
         cause,
       });
 
-      // Default error
-      let statusCode = 502; // Bad Gateway (general error talking to upstream)
+      let statusCode = 502;
       let message = `Error communicating with LLM provider: ${error.message}`;
       let errorCode = 'LLM_PROVIDER_GENERAL_ERROR';
 
-      // Try to get more specific based on status or error content
       if (errorStatus) {
         if (errorStatus === 401 || errorStatus === 403) {
-          statusCode = 500; // Internal Server Error because API key is a server config
+          statusCode = 500;
           message = `LLM provider authentication/authorization error. Please check server configuration (API key, permissions).`;
           errorCode = 'LLM_PROVIDER_AUTH_ERROR';
         } else if (errorStatus === 429) {
-          statusCode = 429; // Too Many Requests
+          statusCode = 429;
           message = `LLM provider rate limit exceeded. Please try again later.`;
           errorCode = 'LLM_PROVIDER_RATE_LIMIT';
         } else if (errorStatus === 404) {
-          // Could be model not found or endpoint not found
-          statusCode = 500; // Internal, as model is server config
+          statusCode = 500;
           message = `LLM provider model or endpoint not found. Please check server configuration. Details: ${responseData?.error?.message || error.message}`;
           errorCode = 'LLM_PROVIDER_NOT_FOUND';
         } else if (errorStatus >= 400 && errorStatus < 500) {
-          // Other 4xx errors (e.g., bad request to LLM due to input, content filtering)
-          statusCode = 422; // Unprocessable Entity (LLM couldn't process the request)
+          statusCode = 422;
           message = `LLM provider rejected the request. Details: ${responseData?.error?.message || error.message}`;
           errorCode = 'LLM_PROVIDER_BAD_REQUEST';
           if (
@@ -254,20 +245,10 @@ const LlmService = {
         message = `LLM provider authentication/authorization error (API key related). Please check server configuration.`;
         errorCode = 'LLM_PROVIDER_AUTH_ERROR';
       }
-      // Add more specific checks based on error.message or responseData.error.code if known for providers
-
       throw new ApiError(statusCode, message, errorCode);
     }
   },
 
-  /**
-   * Translates natural language text into a list of Prolog facts/rules.
-   * @param {string} text - The natural language text to translate.
-   * @param {string} [existing_facts=''] - Optional string of existing Prolog facts for context.
-   * @param {string} [ontology_context=''] - Optional string of ontology rules for context.
-   * @returns {Promise<string[]>} A promise that resolves to an array of Prolog rule strings.
-   * @throws {ApiError} If LLM processing fails or returns an invalid format.
-   */
   async nlToRulesAsync(text, existing_facts = '', ontology_context = '') {
     const result = await this._callLlmAsync(
       'NL_TO_RULES',
@@ -295,12 +276,6 @@ const LlmService = {
     return result;
   },
 
-  /**
-   * Translates a natural language question into a Prolog query string.
-   * @param {string} question - The natural language question.
-   * @returns {Promise<string>} A promise that resolves to a Prolog query string.
-   * @throws {ApiError} If LLM processing fails.
-   */
   async queryToPrologAsync(question) {
     const result = await this._callLlmAsync(
       'QUERY_TO_PROLOG',
@@ -318,10 +293,10 @@ const LlmService = {
       logger.error('LLM generated an empty Prolog query.', {
         internalErrorCode: 'LLM_EMPTY_PROLOG_QUERY',
         question,
-        llmOutput: result, // Log original output from LLM
+        llmOutput: result,
       });
       throw new ApiError(
-        500, // Or 422 if we consider it a "malformed output" from LLM
+        500,
         'LLM generated an empty or whitespace-only Prolog query. Cannot proceed with reasoning.',
         'LLM_EMPTY_PROLOG_QUERY_GENERATED'
       );
@@ -329,14 +304,6 @@ const LlmService = {
     return trimmedResult;
   },
 
-  /**
-   * Translates a Prolog query result back into a natural language answer.
-   * @param {string} original_question - The original natural language question.
-   * @param {string} logic_result - The JSON stringified result from the Prolog engine.
-   * @param {string} [style='conversational'] - The desired style of the natural language answer.
-   * @returns {Promise<string>} A promise that resolves to a natural language answer.
-   * @throws {ApiError} If LLM processing fails.
-   */
   async resultToNlAsync(
     original_question,
     logic_result,
@@ -355,13 +322,6 @@ const LlmService = {
     );
   },
 
-  /**
-   * Translates a list of Prolog rules into a natural language explanation.
-   * @param {string[]} rules - An array of Prolog rule strings.
-   * @param {string} [style='formal'] - The desired style of the explanation.
-   * @returns {Promise<string>} A promise that resolves to a natural language explanation.
-   * @throws {ApiError} If LLM processing fails.
-   */
   async rulesToNlAsync(rules, style = 'formal') {
     return this._callLlmAsync(
       'RULES_TO_NL',
@@ -376,14 +336,6 @@ const LlmService = {
     );
   },
 
-  /**
-   * Generates a natural language explanation of how a Prolog query would be resolved.
-   * @param {string} query - The Prolog query string to explain.
-   * @param {string[]} facts - An array of existing Prolog facts for context.
-   * @param {string[]} ontology_context - An array of ontology rules for context.
-   * @returns {Promise<string>} A promise that resolves to a natural language explanation.
-   * @throws {ApiError} If LLM processing fails.
-   */
   async explainQueryAsync(query, facts, ontology_context) {
     return this._callLlmAsync(
       'EXPLAIN_QUERY',
@@ -398,10 +350,6 @@ const LlmService = {
     );
   },
 
-  /**
-   * Retrieves a copy of all loaded prompt templates.
-   * @returns {object} A deep copy of the PROMPT_TEMPLATES object.
-   */
   getPromptTemplates() {
     return JSON.parse(JSON.stringify(PROMPT_TEMPLATES));
   },

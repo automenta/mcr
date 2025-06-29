@@ -1,17 +1,13 @@
 /* eslint-disable no-console */
 const axios = require('axios');
 
-const API_BASE_URL = process.env.MCR_API_URL || 'http://localhost:8080';
+const API_URL = process.env.MCR_API_URL || 'http://localhost:8080';
 
 // Updated handleApiError to be aware of --json flag
 const handleApiError = (error, programOptions) => {
-  let isJsonOutput = false;
-  if (programOptions && typeof programOptions.json === 'boolean') {
-    isJsonOutput = programOptions.json;
-  } else {
-    // Fallback for calls from apiClient where programOptions might not be available
-    isJsonOutput = process.argv.includes('--json');
-  }
+  const isJsonOutput = programOptions && typeof programOptions.json === 'boolean'
+      ? programOptions.json
+      : process.argv.includes('--json');
 
   if (error.response) {
     const errorData = error.response.data?.error || {
@@ -52,7 +48,7 @@ const handleApiError = (error, programOptions) => {
         JSON.stringify(
           {
             error: {
-              message: `No response received from MCR API at ${API_BASE_URL}. Is the server running?`,
+              message: `No response received from MCR API at ${API_URL}. Is the server running?`,
               type: 'ConnectionError',
             },
           },
@@ -62,7 +58,7 @@ const handleApiError = (error, programOptions) => {
       );
     } else {
       console.error(
-        `Error: No response received from MCR API at ${API_BASE_URL}. Is the server running?`
+        `Error: No response received from MCR API at ${API_URL}. Is the server running?`
       );
     }
   } else {
@@ -93,16 +89,16 @@ const handleApiError = (error, programOptions) => {
 
 const apiClient = {
   get: (url, params) =>
-    axios.get(`${API_BASE_URL}${url}`, { params }).catch(handleApiError),
+    axios.get(`${API_URL}${url}`, { params }).catch(handleApiError),
   post: (url, data) =>
-    axios.post(`${API_BASE_URL}${url}`, data).catch(handleApiError),
+    axios.post(`${API_URL}${url}`, data).catch(handleApiError),
   put: (url, data) =>
-    axios.put(`${API_BASE_URL}${url}`, data).catch(handleApiError),
-  delete: (url) => axios.delete(`${API_BASE_URL}${url}`).catch(handleApiError),
+    axios.put(`${API_URL}${url}`, data).catch(handleApiError),
+  delete: (url) => axios.delete(`${API_URL}${url}`).catch(handleApiError),
 };
 
 module.exports = {
   handleApiError, // Exporting this is still useful for commands that call it directly
   apiClient,
-  API_BASE_URL,
+  API_BASE_URL: API_URL,
 };
