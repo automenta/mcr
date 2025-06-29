@@ -62,6 +62,7 @@ const ConfigManager = {
         throw error; // Re-throw if not exiting, e.g., for tests
       }
     }
+    return undefined; // Should be unreachable, but satisfies consistent-return
   },
 
   validate(configToValidate) {
@@ -109,9 +110,8 @@ const ConfigManager = {
       }
       // Basic URL validation for Ollama
       try {
-        // eslint-disable-next-line no-new
         new URL(ollamaBaseUrl);
-      } catch (e) {
+      } catch (_e) {
         throw new Error(
           `Configuration Error: MCR_LLM_OLLAMA_BASE_URL ('${ollamaBaseUrl}') is not a valid URL.`
         );

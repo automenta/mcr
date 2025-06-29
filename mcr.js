@@ -8,7 +8,11 @@
 
 const express = require('express');
 const ConfigManager = require('./src/config');
-const { logger, reconfigureLogger, initializeLoggerContext } = require('./src/logger');
+const {
+  logger,
+  reconfigureLogger,
+  initializeLoggerContext,
+} = require('./src/logger');
 const LlmService = require('./src/llmService');
 const ApiError = require('./src/errors');
 const setupRoutes = require('./src/routes');
@@ -61,7 +65,7 @@ function setupApp(currentApp) {
         );
       }
     });
-    next();
+    return next(); // Explicitly return next()
   });
 
   currentApp.use(express.json({ limit: '1mb' }));
@@ -120,8 +124,10 @@ function setupApp(currentApp) {
         res.status(500).json({
           error: {
             message: 'An internal server error occurred.',
-            // Avoid leaking stack trace in production response by default for security
-            // details: process.env.NODE_ENV === 'development' ? err.message : undefined,
+            details:
+              process.env.NODE_ENV === 'development'
+                ? err.stack || err.message
+                : undefined,
             type: 'InternalServerError',
             correlationId,
           },

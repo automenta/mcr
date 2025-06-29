@@ -1,10 +1,9 @@
 /* eslint-disable no-console */
-const fs = require('fs');
 const path = require('path');
 const { apiClient } = require('../api');
 const { handleCliOutput, readFileContent } = require('../utils'); // Added readFileContent
 
-async function addOntology(name, rulesFile, options, commandInstance) {
+async function addOntologyAsync(name, rulesFile, options, commandInstance) { // Renamed
   const programOpts = commandInstance.parent.opts();
   // readFileContent will handle path.resolve and existsSync check
   const rules = readFileContent(rulesFile, 'Rules file');
@@ -19,7 +18,7 @@ async function addOntology(name, rulesFile, options, commandInstance) {
   handleCliOutput(response.data, programOpts, null, 'Ontology added:\n');
 }
 
-async function updateOntology(name, rulesFile, options, commandInstance) {
+async function updateOntologyAsync(name, rulesFile, options, commandInstance) { // Renamed
   const programOpts = commandInstance.parent.opts();
   const rules = readFileContent(rulesFile, 'Rules file');
 
@@ -30,19 +29,19 @@ async function updateOntology(name, rulesFile, options, commandInstance) {
   handleCliOutput(response.data, programOpts, null, 'Ontology updated:\n');
 }
 
-async function getOntologies(options, commandInstance) {
+async function getOntologiesAsync(options, commandInstance) { // Renamed
   const programOpts = commandInstance.parent.opts();
   const response = await apiClient.get('/ontologies');
   handleCliOutput(response.data, programOpts, null, 'Available Ontologies:\n');
 }
 
-async function getOntology(name, options, commandInstance) {
+async function getOntologyAsync(name, options, commandInstance) { // Renamed
   const programOpts = commandInstance.parent.opts();
   const response = await apiClient.get(`/ontologies/${name}`);
   handleCliOutput(response.data, programOpts, null, 'Ontology details:\n');
 }
 
-async function deleteOntology(name, options, commandInstance) {
+async function deleteOntologyAsync(name, options, commandInstance) { // Renamed
   const programOpts = commandInstance.parent.opts();
   const response = await apiClient.delete(`/ontologies/${name}`);
   // API returns { "message": "Ontology ... deleted.", "ontologyName": "..." }
@@ -53,27 +52,27 @@ module.exports = (program) => {
   program
     .command('add-ontology <name> <rulesFile>')
     .description('Add a new ontology from a Prolog rules file')
-    .action(addOntology);
+    .action(addOntologyAsync);
 
   program
     .command('update-ontology <name> <rulesFile>')
     .description(
       'Update an existing ontology with rules from a Prolog rules file'
     )
-    .action(updateOntology);
+    .action(updateOntologyAsync);
 
   program
     .command('get-ontologies')
     .description('List all available ontologies')
-    .action(getOntologies);
+    .action(getOntologiesAsync);
 
   program
     .command('get-ontology <name>')
     .description('Get details of a specific ontology')
-    .action(getOntology);
+    .action(getOntologyAsync);
 
   program
     .command('delete-ontology <name>')
     .description('Delete an ontology')
-    .action(deleteOntology);
+    .action(deleteOntologyAsync);
 };

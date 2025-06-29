@@ -5,7 +5,7 @@ const { readOntologyFile, handleCliOutput } = require('../utils'); // Added hand
 const axios = require('axios');
 
 // chat command has options, no direct arguments. Action: (options, command)
-async function startChat(options, command) {
+async function startChatAsync(options, command) { // Renamed
   const programOpts = command.parent.opts(); // Global program options
   let sessionId = null;
   let ontologyContent = null;
@@ -139,5 +139,5 @@ module.exports = (program) => {
       '-o, --ontology <file>',
       'Specify an ontology file to use for the entire chat session'
     )
-    .action(startChat);
+    .action(startChatAsync); // Renamed
 };

@@ -10,6 +10,7 @@ const registerTranslationCommands = require('./src/cli/commands/translationComma
 const registerQueryCommands = require('./src/cli/commands/queryCommands');
 const registerChatCommand = require('./src/cli/commands/chatCommand');
 const registerStatusCommand = require('./src/cli/commands/statusCommands');
+const { registerPromptCommands } = require('./src/cli/commands/promptCommands');
 
 program
   .name('mcr-cli')
@@ -24,6 +25,7 @@ registerTranslationCommands(program);
 registerQueryCommands(program);
 registerChatCommand(program);
 registerStatusCommand(program);
+registerPromptCommands(program);
 
 // Global options can be defined here if needed, for example:
 // program.option('-v, --verbose', 'Enable verbose output');

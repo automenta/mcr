@@ -424,7 +424,7 @@ const ApiHandlers = {
         if (typeof r === 'string' && (r.startsWith('{') || r.startsWith('['))) {
           try {
             return JSON.parse(r);
-          } catch (e) {
+          } catch (_e) { // Prefixed e
             // Not valid JSON, keep as string
             return r;
           }
@@ -441,13 +441,13 @@ const ApiHandlers = {
         return processedResults[0];
       }
       return processedResults;
-    } catch (e) {
+    } catch (_e) { // Prefixed e
       loggerInstance.warn(
-        `Could not fully process Prolog results: ${JSON.stringify(rawResults)}. Returning as best effort. Error: ${e.message}`,
+        `Could not fully process Prolog results: ${JSON.stringify(rawResults)}. Returning as best effort. Error: ${_e.message}`,
         {
           internalErrorCode: 'PROLOG_RESULT_PROCESSING_FAILED',
           rawResults,
-          error: e.toString(),
+          error: _e.toString(),
         }
       );
       // Return raw results as a fallback if any processing error occurs

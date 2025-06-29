@@ -44,7 +44,8 @@ const ReasonerService = {
                     reject(
                       new ApiError(
                         500,
-                        `Prolog answer processing error: ${e.message}`
+                        `Prolog answer processing error: ${e.message}`,
+                        'PROLOG_ANSWER_ERROR'
                       )
                     );
                     return; // Explicit return
@@ -61,7 +62,8 @@ const ReasonerService = {
                   reject(
                     new ApiError(
                       500,
-                      `Prolog answer initiation error: ${e.message}`
+                      `Prolog answer initiation error: ${e.message}`,
+                      'PROLOG_ANSWER_INIT_ERROR'
                     )
                   );
                   return; // Explicit return for consistent-return
@@ -74,7 +76,11 @@ const ReasonerService = {
                   details: err.toString(),
                 });
                 reject(
-                  new ApiError(422, `Prolog query failed: ${err.toString()}`)
+                  new ApiError(
+                    422,
+                    `Prolog query failed: ${err.toString()}`,
+                    'PROLOG_QUERY_FAILED'
+                  )
                 );
               },
             });
@@ -88,7 +94,8 @@ const ReasonerService = {
             reject(
               new ApiError(
                 422,
-                `Prolog knowledge base is invalid: ${err.toString()}`
+                `Prolog knowledge base is invalid: ${err.toString()}`,
+                'PROLOG_CONSULT_FAILED'
               )
             );
           },
@@ -101,7 +108,13 @@ const ReasonerService = {
           originalError: e.message,
           stack: e.stack,
         });
-        reject(new ApiError(500, `Prolog session error: ${e.message}`));
+        reject(
+          new ApiError(
+            500,
+            `Prolog session error: ${e.message}`,
+            'PROLOG_SESSION_ERROR'
+          )
+        );
       }
     });
   },

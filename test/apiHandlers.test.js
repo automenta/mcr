@@ -2,18 +2,24 @@ const ApiHandlers = require('../src/apiHandlers');
 const SessionManager = require('../src/sessionManager');
 const LlmService = require('../src/llmService');
 const ReasonerService = require('../src/reasonerService');
-const ApiError = require('../src/errors');
+// const ApiError = require('../src/errors'); // No longer needed here
 
 jest.mock('../src/sessionManager');
 jest.mock('../src/llmService');
 jest.mock('../src/reasonerService');
-const ActualApiError = jest.requireActual('../src/errors');
+
+// Properly mock ApiError as a class constructor
 jest.mock('../src/errors', () => {
+  const ActualApiErrorInsideMock = jest.requireActual('../src/errors'); // Require it inside
   return jest.fn().mockImplementation((status, message, code) => {
-    const err = new ActualApiError(status, message, code);
+    const err = new ActualApiErrorInsideMock(status, message, code); // Use the inside-mock version
     return err;
   });
 });
+
+// For instanceof checks in tests
+const ActualApiError = jest.requireActual('../src/errors');
+
 jest.mock('../src/logger'); // Auto-mocked
 
 jest.mock('../src/config', () => ({
@@ -99,7 +105,7 @@ describe('ApiHandlers', () => {
     });
 
     test('should call next with ApiError if session not found', () => {
-      const error = new ApiError(404, 'Session not found');
+      const error = new ActualApiError(404, 'Session not found'); // Use ActualApiError
       mockReq.params = { sessionId: 'non-existent-id' };
       SessionManager.get.mockImplementation(() => {
         throw error;

@@ -39,7 +39,8 @@ const logger = winston.createLogger({
 
           const remainingMetadata = Object.fromEntries(
             Object.entries(metadata).filter(
-              ([key, value]) => value !== undefined && key !== 'splat' && key !== 'stack' // Remove common noise
+              ([key, value]) =>
+                value !== undefined && key !== 'splat' && key !== 'stack' // Remove common noise
             )
           );
 
@@ -49,7 +50,7 @@ const logger = winston.createLogger({
               if (metadataString !== '{}') {
                 logMessage += ` ${metadataString}`;
               }
-            } catch (e) {
+            } catch (_e) { // Prefixed 'e'
               logMessage += ' (metadata not serializable)';
             }
           }

@@ -96,9 +96,24 @@ The MCR includes a Command Line Interface (CLI) for direct interaction. You can 
   ```
 
 - **Interactive Chat**:
+
   ```bash
   node mcr-cli.js chat
   ```
+
+- **Prompt Template Management (CLI)**:
+  - List available prompt templates:
+    ```bash
+    node mcr-cli.js prompt list
+    ```
+  - Show a specific template:
+    ```bash
+    node mcr-cli.js prompt show NL_TO_RULES
+    ```
+  - Debug/format a template with variables:
+    ```bash
+    node mcr-cli.js prompt debug QUERY_TO_PROLOG "{\"question\":\"What is the capital of France?\"}"
+    ```
 
 Many other commands are available for managing ontologies, direct translations, etc. Use the `--help` flag on commands for more details (e.g., `node mcr-cli.js query --help`).
 
@@ -262,6 +277,21 @@ Ask natural language questions against a session's knowledge base. MCR translate
       "options": { "debug": true }
     }
     ```
+
+  - **Implementing Retrieval Augmented Generation (RAG) with Dynamic Knowledge Injection**:
+    The `ontology` field is key to implementing RAG with MCR. The workflow is typically as follows:
+
+    1.  **User Query**: The user submits a natural language query to your application.
+    2.  **Context Retrieval (Application Responsibility)**: Your application preprocesses the user's query (e.g., identifies keywords, entities). It then queries an external knowledge source (vector database, document store, knowledge graph, etc.) to retrieve relevant contextual information.
+    3.  **Context Transformation (Application Responsibility)**: The retrieved context (which might be text chunks, structured data, etc.) needs to be transformed into Prolog facts or rules. This transformation can be done programmatically by your application or by using an LLM to convert natural language context into Prolog statements.
+        _Example_: If retrieved context is "The P1 particle has a half-life of 10 seconds, and particles with half-lives under 1 minute are considered unstable," your application might transform this into Prolog:
+        `has_half_life(p1, 10).`
+        `unit_half_life(p1, seconds).`
+        `is_unstable(Particle) :- has_half_life(Particle, Value), unit_half_life(Particle, seconds), Value < 60.`
+    4.  **MCR Query with Dynamic Knowledge**: Your application then calls the MCR `/sessions/:sessionId/query` endpoint, providing the original user query and the dynamically generated Prolog facts/rules in the `ontology` field of the request body.
+    5.  **MCR Reasoning**: MCR uses these dynamically injected facts/rules (along with any facts already in the session) to reason about the user's query and generate an answer. The dynamic knowledge in the `ontology` field is used _only for this specific query_ and does not persist in the session or global ontologies.
+
+    This approach allows MCR to leverage up-to-date, external information for its reasoning process without needing to permanently store vast amounts of contextual data within its own session management.
 
 - `POST /sessions/:sessionId/explain-query`
   - **Description**: Uses an LLM to generate a natural language explanation of how a given query would be resolved against the session's current knowledge base (including facts and ontologies). This does not execute the query but explains the reasoning steps.

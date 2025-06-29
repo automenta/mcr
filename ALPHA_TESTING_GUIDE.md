@@ -50,6 +50,10 @@ We encourage you to test the following core features:
     - Use `node mcr-cli.js --help` to see all commands.
     - The `demo.sh` script provides a guided tour of CLI functionalities.
     - Try the interactive chat: `node mcr-cli.js chat`.
+    - **Prompt Template Management (New CLI Commands)**:
+      - List available prompt templates: `node mcr-cli.js prompt list`
+      - Show a specific template: `node mcr-cli.js prompt show <templateName>` (e.g., `node mcr-cli.js prompt show NL_TO_RULES`)
+      - Debug a template with variables: `node mcr-cli.js prompt debug <templateName> '<jsonInputVariables>'` (e.g., `node mcr-cli.js prompt debug QUERY_TO_PROLOG '{"question":"What is X?"}'`)
     - **Raw JSON Output**: For scripting or detailed inspection, all CLI commands support a global `--json` flag (e.g., `node mcr-cli.js status --json`). This will output the raw JSON response from the API.
 
 ## Setup

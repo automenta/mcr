@@ -19,8 +19,10 @@ jest.mock('@langchain/core/output_parsers');
 jest.mock('@langchain/core/prompts');
 jest.mock('../src/logger'); // Auto-mocked
 jest.mock('../src/errors');
+jest.mock('../src/config'); // Simpler mock, specific returns will be per test
+/*
+// Old mock, init is now called with config directly
 jest.mock('../src/config', () => ({
-  // Factory mock for config
   load: jest.fn(() => ({
     llm: {
       provider: 'openai', // Default for tests
@@ -35,10 +37,11 @@ jest.mock('../src/config', () => ({
     logging: { level: 'info', file: 'test.log' }, // For logger
   })),
 }));
+*/
 jest.mock('../src/prompts');
 
-describe.skip('LlmService', () => {
-  // @TODO: Fix failing tests - disabling for now
+describe('LlmService', () => {
+  // @TODO: Fix failing tests - disabling for now (re-enabling)
   let mockChatClient;
   let mockPipe;
   let mockInvoke;
@@ -82,14 +85,14 @@ describe.skip('LlmService', () => {
 
   describe('Initialization (init)', () => {
     test('should initialize with OpenAI if configured and API key is present', () => {
-      ConfigManager.load.mockReturnValue({
+      const mockConfig = {
         llm: {
           provider: 'openai',
           model: { openai: 'gpt-4o' },
           apiKey: { openai: 'sk-test' },
         },
-      });
-      LlmService.init();
+      };
+      LlmService.init(mockConfig);
       expect(ChatOpenAI).toHaveBeenCalledWith({
         apiKey: 'sk-test',
         modelName: 'gpt-4o',
@@ -102,14 +105,14 @@ describe.skip('LlmService', () => {
     });
 
     test('should not initialize OpenAI if API key is missing', () => {
-      ConfigManager.load.mockReturnValue({
+      const mockConfig = {
         llm: {
           provider: 'openai',
           model: { openai: 'gpt-4o' },
-          apiKey: { openai: null },
+          apiKey: { openai: null }, // Key is null
         },
-      });
-      LlmService.init();
+      };
+      LlmService.init(mockConfig);
       expect(ChatOpenAI).not.toHaveBeenCalled();
       expect(LlmService._client).toBeNull();
       expect(logger.warn).toHaveBeenCalledWith(
@@ -118,14 +121,14 @@ describe.skip('LlmService', () => {
     });
 
     test('should initialize with Gemini if configured and API key is present', () => {
-      ConfigManager.load.mockReturnValue({
+      const mockConfig = {
         llm: {
           provider: 'gemini',
           model: { gemini: 'gemini-pro' },
           apiKey: { gemini: 'gemini-test' },
         },
-      });
-      LlmService.init();
+      };
+      LlmService.init(mockConfig);
       expect(ChatGoogleGenerativeAI).toHaveBeenCalledWith({
         apiKey: 'gemini-test',
         modelName: 'gemini-pro',
@@ -138,14 +141,14 @@ describe.skip('LlmService', () => {
     });
 
     test('should not initialize Gemini if API key is missing', () => {
-      ConfigManager.load.mockReturnValue({
+      const mockConfig = {
         llm: {
           provider: 'gemini',
           model: { gemini: 'gemini-pro' },
-          apiKey: { gemini: null },
+          apiKey: { gemini: null }, // Key is null
         },
-      });
-      LlmService.init();
+      };
+      LlmService.init(mockConfig);
       expect(ChatGoogleGenerativeAI).not.toHaveBeenCalled();
       expect(LlmService._client).toBeNull();
       expect(logger.warn).toHaveBeenCalledWith(
@@ -154,14 +157,15 @@ describe.skip('LlmService', () => {
     });
 
     test('should initialize with Ollama if configured', () => {
-      ConfigManager.load.mockReturnValue({
+      const mockConfig = {
         llm: {
           provider: 'ollama',
           model: { ollama: 'llama3' },
           ollamaBaseUrl: 'http://localhost:11434',
+          apiKey: {}, // Ollama doesn't need an API key but structure might be expected
         },
-      });
-      LlmService.init();
+      };
+      LlmService.init(mockConfig);
       expect(ChatOllama).toHaveBeenCalledWith({
         baseUrl: 'http://localhost:11434',
         model: 'llama3',
@@ -174,13 +178,15 @@ describe.skip('LlmService', () => {
     });
 
     test('should handle unsupported LLM provider', () => {
-      ConfigManager.load.mockReturnValue({
+      const mockConfig = {
         llm: { provider: 'unsupported', model: {}, apiKey: {} },
-      });
-      LlmService.init();
+      };
+      LlmService.init(mockConfig);
       expect(LlmService._client).toBeNull();
-      expect(logger.error).toHaveBeenCalledWith(
-        'Unsupported LLM provider: unsupported. LLM service will not be available.'
+      // This log message comes from LlmService.init based on current implementation
+      expect(logger.fatal).toHaveBeenCalledWith(
+        "Unsupported LLM provider configured: 'unsupported'. This should have been caught by config validation. LLM service will not be available.",
+        expect.any(Object)
       );
     });
 
@@ -188,14 +194,14 @@ describe.skip('LlmService', () => {
       ChatOpenAI.mockImplementationOnce(() => {
         throw new Error('Instantiation failed');
       });
-      ConfigManager.load.mockReturnValue({
+      const mockConfig = {
         llm: {
           provider: 'openai',
           model: { openai: 'gpt-4o' },
           apiKey: { openai: 'sk-test' },
         },
-      });
-      LlmService.init();
+      };
+      LlmService.init(mockConfig);
       expect(LlmService._client).toBeNull();
       expect(logger.error).toHaveBeenCalledWith(
         "Failed to initialize LLM provider 'openai': Instantiation failed"
@@ -275,18 +281,107 @@ describe.skip('LlmService', () => {
         expect.stringContaining('Error communicating with LLM provider')
       );
     });
+
+    // Test specific error mappings from _invokeChainAsync
+    it.each([
+      [
+        { response: { status: 401 }, message: 'Auth error' },
+        500,
+        'LLM provider authentication/authorization error. Please check server configuration (API key, permissions).',
+        'LLM_PROVIDER_AUTH_ERROR',
+      ],
+      [
+        { response: { status: 403 }, message: 'Forbidden' },
+        500,
+        'LLM provider authentication/authorization error. Please check server configuration (API key, permissions).',
+        'LLM_PROVIDER_AUTH_ERROR',
+      ],
+      [
+        { message: 'Invalid API key' }, // No status, but message implies auth issue
+        500,
+        'LLM provider authentication/authorization error (API key related). Please check server configuration.',
+        'LLM_PROVIDER_AUTH_ERROR',
+      ],
+      [
+        { response: { status: 429 }, message: 'Rate limit' },
+        429,
+        'LLM provider rate limit exceeded. Please try again later.',
+        'LLM_PROVIDER_RATE_LIMIT',
+      ],
+      [
+        {
+          response: {
+            status: 404,
+            data: { error: { message: 'Model not found' } },
+          },
+        },
+        500,
+        'LLM provider model or endpoint not found. Please check server configuration. Details: Model not found',
+        'LLM_PROVIDER_NOT_FOUND',
+      ],
+      [
+        {
+          response: { status: 400, data: { error: { message: 'Bad input' } } },
+        },
+        422,
+        'LLM provider rejected the request. Details: Bad input',
+        'LLM_PROVIDER_BAD_REQUEST',
+      ],
+      [
+        {
+          response: {
+            status: 400,
+            data: {
+              error: {
+                message: 'Content safety violation',
+                type: 'moderation',
+              },
+            },
+          },
+        },
+        422,
+        "Request blocked by LLM provider's content safety policy. Details: Content safety violation",
+        'LLM_PROVIDER_CONTENT_SAFETY',
+      ],
+      [
+        { response: { status: 503 }, message: 'Service unavailable' }, // Other 5xx from provider
+        502, // We map it to 502 Bad Gateway from our end
+        'Error communicating with LLM provider: Service unavailable',
+        'LLM_PROVIDER_GENERAL_ERROR',
+      ],
+    ])(
+      'should map provider error %j to ApiError with status %s, message "%s", and code "%s"',
+      async (providerError, expectedStatus, expectedMessage, expectedCode) => {
+        mockInvoke.mockRejectedValue(providerError);
+        await expect(
+          LlmService._invokeChainAsync('template', {}, new StringOutputParser())
+        ).rejects.toEqual(
+          expect.objectContaining({
+            status: expectedStatus,
+            message: expectedMessage,
+            errorCode: expectedCode,
+          })
+        );
+        expect(ApiError).toHaveBeenCalledWith(
+          expectedStatus,
+          expectedMessage,
+          expectedCode
+        );
+      }
+    );
   });
 
   describe('Specific LLM Functions', () => {
     beforeEach(() => {
-      ConfigManager.load.mockReturnValue({
+      // For these tests, ensure LlmService is initialized
+      const mockConfig = {
         llm: {
           provider: 'openai',
           model: { openai: 'gpt-4o' },
           apiKey: { openai: 'sk-test' },
         },
-      });
-      LlmService.init();
+      };
+      LlmService.init(mockConfig);
     });
 
     test('nlToRules should call _invokeChain with correct template and parser', async () => {
@@ -341,6 +436,35 @@ describe.skip('LlmService', () => {
         question,
       });
       expect(result).toBe('prolog_query.');
+    });
+
+    test('queryToPrologAsync should throw ApiError if LLM returns empty/whitespace string', async () => {
+      const question = 'A question that results in empty output';
+      // Mock the behavior of _callLlmAsync for this specific test case if needed,
+      // or more directly, mock what _invokeChain returns to _callLlmAsync
+      mockInvoke.mockResolvedValue('   '); // LLM returns only whitespace
+
+      await expect(LlmService.queryToPrologAsync(question)).rejects.toEqual(
+        expect.objectContaining({
+          status: 500,
+          message:
+            'LLM generated an empty or whitespace-only Prolog query. Cannot proceed with reasoning.',
+          errorCode: 'LLM_EMPTY_PROLOG_QUERY_GENERATED',
+        })
+      );
+      expect(logger.error).toHaveBeenCalledWith(
+        'LLM generated an empty Prolog query.',
+        expect.objectContaining({
+          internalErrorCode: 'LLM_EMPTY_PROLOG_QUERY',
+          question,
+          llmOutput: '   ',
+        })
+      );
+      expect(ApiError).toHaveBeenCalledWith(
+        500,
+        'LLM generated an empty or whitespace-only Prolog query. Cannot proceed with reasoning.',
+        'LLM_EMPTY_PROLOG_QUERY_GENERATED'
+      );
     });
 
     test('resultToNl should call _invokeChain with correct template and parser', async () => {

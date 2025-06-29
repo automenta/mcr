@@ -1,11 +1,11 @@
-/* eslint-disable no-console */
+
 const { apiClient } = require('../api');
 const { handleCliOutput } = require('../utils'); // Use handleCliOutput
 
 // Action handler receives (options, commandInstance)
 // options: command-specific options
 // commandInstance: the command object itself
-async function getServerStatus(options, commandInstance) {
+async function getServerStatusAsync(options, commandInstance) { // Renamed
   // Global options are on the parent (the main program instance)
   const programOpts = commandInstance.parent.opts();
   const response = await apiClient.get('/');
@@ -19,5 +19,5 @@ module.exports = (program) => {
   program
     .command('status')
     .description('Get the MCR server status and information')
-    .action(getServerStatus);
+    .action(getServerStatusAsync); // Renamed
 };

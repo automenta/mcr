@@ -5,7 +5,7 @@ const { readOntologyFile, handleCliOutput, printJson } = require('../utils'); //
 const axios = require('axios');
 
 // Action signature: (arg1, ..., options, commandInstance)
-async function assertFact(sessionId, text, options, commandInstance) {
+async function assertFactAsync(sessionId, text, options, commandInstance) { // Renamed
   const programOpts = commandInstance.parent.opts();
   const response = await apiClient.post(`/sessions/${sessionId}/assert`, {
     text,
@@ -14,7 +14,7 @@ async function assertFact(sessionId, text, options, commandInstance) {
 }
 
 // querySession is called by an action. It needs programOpts.
-async function querySession(sessionIdArg, questionArg, options, programOpts) {
+async function querySessionAsync(sessionIdArg, questionArg, options, programOpts) { // Renamed
   let currentSessionId = sessionIdArg;
   let ontologyContent = null;
   if (options.ontology) {
@@ -175,7 +175,7 @@ async function querySession(sessionIdArg, questionArg, options, programOpts) {
 }
 
 // Action signature: (arg1, ..., options, commandInstance)
-async function explainQuery(sessionId, question, options, commandInstance) {
+async function explainQueryAsync(sessionId, question, options, commandInstance) { // Renamed
   const programOpts = commandInstance.parent.opts();
   const response = await apiClient.post(
     `/sessions/${sessionId}/explain-query`,
@@ -194,7 +194,7 @@ module.exports = (program) => {
   program
     .command('assert <sessionId> <text>')
     .description('Assert natural language facts into a session')
-    .action(assertFact);
+    .action(assertFactAsync);
 
   const queryCmd = program
     .command('query [sessionId] [question]')
@@ -215,11 +215,11 @@ module.exports = (program) => {
   queryCmd.action(async (sessionId, question, options, command) => {
     // command is the 'query' command instance. Its parent is the main 'program'.
     const programOpts = command.parent.opts();
-    await querySession(sessionId, question, options, programOpts);
+    await querySessionAsync(sessionId, question, options, programOpts); // Renamed
   });
 
   program
     .command('explain-query <sessionId> <question>')
     .description('Get an explanation for a natural language query')
-    .action(explainQuery);
+    .action(explainQueryAsync); // Renamed
 };

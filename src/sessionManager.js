@@ -90,10 +90,16 @@ const SessionManager = {
           originalError: error.message,
           stack: error.stack,
         });
-        delete this._sessions[sessionId];
+        // Instead of just deleting from memory and returning null, throw a specific error.
+        // delete this._sessions[sessionId]; // No longer needed here as we throw.
+        throw new ApiError(
+          500,
+          `Failed to read or parse session file ${sessionId}: ${error.message}`,
+          'SESSION_DATA_CORRUPT_OR_UNREADABLE'
+        );
       }
     }
-    return null;
+    return null; // File does not exist
   },
 
   _getOntologyFilePath(name) {
@@ -109,7 +115,8 @@ const SessionManager = {
       logger.error(`Failed to save ontology ${name}: ${error.message}`);
       throw new ApiError(
         500,
-        `Failed to save ontology ${name}: ${error.message}`
+        `Failed to save ontology ${name}: ${error.message}`,
+        'ONTOLOGY_SAVE_FAILED'
       );
     }
   },
@@ -126,10 +133,15 @@ const SessionManager = {
         logger.error(
           `Failed to load ontology ${name} from ${filePath}: ${error.message}`
         );
-        delete this._ontologies[name];
+        // delete this._ontologies[name]; // No longer needed here
+        throw new ApiError(
+          500,
+          `Failed to read or parse ontology file ${name}: ${error.message}`,
+          'ONTOLOGY_DATA_CORRUPT_OR_UNREADABLE'
+        );
       }
     }
-    return null;
+    return null; // File does not exist
   },
 
   /**
@@ -183,7 +195,11 @@ const SessionManager = {
       session = this._loadSession(sessionId);
     }
     if (!session) {
-      throw new ApiError(404, `Session with ID '${sessionId}' not found.`);
+      throw new ApiError(
+        404,
+        `Session with ID '${sessionId}' not found.`,
+        'SESSION_NOT_FOUND'
+      );
     }
     return session;
   },
@@ -204,7 +220,20 @@ const SessionManager = {
         logger.debug(`Session file ${filePath} deleted.`);
       } catch (error) {
         logger.error(
-          `Failed to delete session file ${filePath}: ${error.message}`
+          `Failed to delete session file ${filePath}: ${error.message}`,
+          {
+            internalErrorCode: 'SESSION_FILE_DELETE_ERROR',
+            sessionId,
+            filePath,
+            originalError: error.message,
+          }
+        );
+        // Decide if this should be a critical error that stops the operation or informs the user.
+        // For now, re-throwing as a 500, as the session is removed from memory but file is orphaned.
+        throw new ApiError(
+          500,
+          `Failed to delete session file ${filePath}: ${error.message}`,
+          'SESSION_FILE_DELETE_FAILED'
         );
       }
     }
@@ -270,7 +299,11 @@ const SessionManager = {
    */
   addOntology(name, rules) {
     if (this._ontologies[name]) {
-      throw new ApiError(409, `Ontology with name '${name}' already exists.`);
+      throw new ApiError(
+        409,
+        `Ontology with name '${name}' already exists.`,
+        'ONTOLOGY_ALREADY_EXISTS'
+      );
     }
     this._ontologies[name] = rules;
     this._saveOntology(name, rules);
@@ -286,8 +319,13 @@ const SessionManager = {
    * @throws {ApiError} If the ontology is not found or if saving fails.
    */
   updateOntology(name, rules) {
-    if (!this._ontologies[name]) {
-      throw new ApiError(404, `Ontology with name '${name}' not found.`);
+    if (!this._ontologies[name] && !this._loadOntology(name)) {
+      // Attempt to load if not in memory
+      throw new ApiError(
+        404,
+        `Ontology with name '${name}' not found.`,
+        'ONTOLOGY_NOT_FOUND'
+      );
     }
     this._ontologies[name] = rules;
     this._saveOntology(name, rules);
@@ -313,11 +351,18 @@ const SessionManager = {
    * @throws {ApiError} If the ontology is not found.
    */
   getOntology(name) {
-    const ontology = this._ontologies[name];
+    let ontology = this._ontologies[name];
     if (!ontology) {
-      throw new ApiError(404, `Ontology with name '${name}' not found.`);
+      ontology = this._loadOntology(name); // Attempt to load if not in memory
     }
-    return { name, rules: ontology };
+    if (!ontology) {
+      throw new ApiError(
+        404,
+        `Ontology with name '${name}' not found.`,
+        'ONTOLOGY_NOT_FOUND'
+      );
+    }
+    return { name, rules: ontology }; // _loadOntology returns rules string, this._ontologies stores rules string
   },
 
   /**
@@ -327,10 +372,15 @@ const SessionManager = {
    * @throws {ApiError} If the ontology is not found.
    */
   deleteOntology(name) {
-    if (!this._ontologies[name]) {
-      throw new ApiError(404, `Ontology with name '${name}' not found.`);
+    if (!this._ontologies[name] && !this._loadOntology(name)) {
+      // Attempt to load if not in memory to check existence
+      throw new ApiError(
+        404,
+        `Ontology with name '${name}' not found.`,
+        'ONTOLOGY_NOT_FOUND'
+      );
     }
-    delete this._ontologies[name];
+    delete this._ontologies[name]; // Delete from memory
     const filePath = this._getOntologyFilePath(name);
     if (fs.existsSync(filePath)) {
       try {
@@ -338,7 +388,18 @@ const SessionManager = {
         logger.debug(`Ontology file ${filePath} deleted.`);
       } catch (error) {
         logger.error(
-          `Failed to delete ontology file ${filePath}: ${error.message}`
+          `Failed to delete ontology file ${filePath}: ${error.message}`,
+          {
+            internalErrorCode: 'ONTOLOGY_FILE_DELETE_ERROR',
+            ontologyName: name,
+            filePath,
+            originalError: error.message,
+          }
+        );
+        throw new ApiError(
+          500,
+          `Failed to delete ontology file ${filePath}: ${error.message}`,
+          'ONTOLOGY_FILE_DELETE_FAILED'
         );
       }
     }

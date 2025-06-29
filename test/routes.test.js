@@ -90,12 +90,12 @@ jest.mock('../src/apiHandlers', () => ({
 }));
 
 // Now, require the app AFTER mocks are set up
-const { app } = require('../mcr'); // This line was missing from the previous diff target
-const request = require('supertest'); // This line was missing
-// const ApiHandlers = require('../src/apiHandlers'); // This is correctly mocked above
+const { app } = require('../mcr');
+const request = require('supertest');
+const ApiHandlers = require('../src/apiHandlers'); // This will be the mock object
 
-describe.skip('API Routes (src/routes.js)', () => {
-  // @TODO: Fix failing tests - disabling for now
+describe('API Routes (src/routes.js)', () => {
+  // @TODO: Fix failing tests - disabling for now (re-enabling)
   afterEach(() => {
     jest.clearAllMocks();
   });

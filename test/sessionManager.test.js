@@ -1,14 +1,15 @@
 const SessionManager = require('../src/sessionManager');
-const { v4: uuidv4 } = require('uuid');
+// const { v4: uuidv4 } = require('uuid'); // Unused import
 const fs = require('fs');
 const path = require('path');
 const logger = require('../src/logger');
-const ApiError = require('../src/errors');
+// const ApiError = require('../src/errors'); // No longer needed here
 // const ConfigManager = require('../src/config'); // Unused import
 
-const mockUuidv4 = jest.fn();
+// Remove const mockUuidv4 = jest.fn(); from here
+
 jest.mock('uuid', () => ({
-  v4: mockUuidv4,
+  v4: jest.fn(), // Directly make v4 a jest.fn
 }));
 
 jest.mock('fs');
@@ -16,10 +17,10 @@ jest.mock('path');
 jest.mock('../src/logger');
 
 // Properly mock ApiError as a class constructor
-const ActualApiError = jest.requireActual('../src/errors');
 jest.mock('../src/errors', () => {
+  const ActualApiErrorInsideMock = jest.requireActual('../src/errors'); // Require it inside
   return jest.fn().mockImplementation((status, message, code) => {
-    const err = new ActualApiError(status, message, code); // Use the actual class for instanceof checks
+    const err = new ActualApiErrorInsideMock(status, message, code); // Use the inside-mock version
     // const err = new Error(message);
     // err.statusCode = status;
     // err.errorCode = code;
@@ -28,27 +29,40 @@ jest.mock('../src/errors', () => {
   });
 });
 
-const MOCK_SESSION_STORAGE_PATH = '/mocked_storage/sessions_data_sm_test';
-const MOCK_ONTOLOGY_STORAGE_PATH = '/mocked_storage/ontologies_data_sm_test';
+// For instanceof checks in tests
+const ActualApiError = jest.requireActual('../src/errors');
+
+// Define these constants before they are used in the config mock
+// const MOCK_SESSION_STORAGE_PATH = '/mocked_storage/sessions_data_sm_test'; // Will be defined after mock
+// const MOCK_ONTOLOGY_STORAGE_PATH = '/mocked_storage/ontologies_data_sm_test'; // Will be defined after mock
 
 jest.mock('../src/config', () => {
-  const actualConfigManager = jest.requireActual('../src/config');
+  // Inline paths for the mock factory
+  const mockSessionPathForFactory =
+    '/mocked_storage/sessions_data_sm_test_for_factory';
+  const mockOntologyPathForFactory =
+    '/mocked_storage/ontologies_data_sm_test_for_factory';
   return {
-    ...actualConfigManager,
     get: jest.fn(() => ({
-      session: { storagePath: MOCK_SESSION_STORAGE_PATH },
-      ontology: { storagePath: MOCK_ONTOLOGY_STORAGE_PATH },
+      session: { storagePath: mockSessionPathForFactory },
+      ontology: { storagePath: mockOntologyPathForFactory },
       logging: { level: 'info' },
       llm: { provider: 'test-provider' },
     })),
     load: jest.fn(() => ({
-      session: { storagePath: MOCK_SESSION_STORAGE_PATH },
-      ontology: { storagePath: MOCK_ONTOLOGY_STORAGE_PATH },
+      session: { storagePath: mockSessionPathForFactory },
+      ontology: { storagePath: mockOntologyPathForFactory },
       logging: { level: 'info' },
       llm: { provider: 'test-provider' },
     })),
   };
 });
+
+// Define constants for use within the test descriptions/assertions
+const MOCK_SESSION_STORAGE_PATH =
+  '/mocked_storage/sessions_data_sm_test_for_factory';
+const MOCK_ONTOLOGY_STORAGE_PATH =
+  '/mocked_storage/ontologies_data_sm_test_for_factory';
 
 describe('SessionManager', () => {
   // let uuidv4; // Not needed here due to new mock style
@@ -137,8 +151,9 @@ describe('SessionManager', () => {
     });
 
     test('create should generate a new session and save it', () => {
+      const { v4: mockUuidv4 } = require('uuid');
       const mockUuid = 'test-session-id';
-      mockUuidv4.mockReturnValue(mockUuid); // Use the imported mock function
+      mockUuidv4.mockReturnValue(mockUuid);
 
       const session = SessionManager.create();
 
@@ -157,36 +172,24 @@ describe('SessionManager', () => {
     });
 
     test('_saveSession should throw ApiError if fs.writeFileSync fails', () => {
+      const { v4: mockUuidv4 } = require('uuid');
       const mockUuid = 'save-fail-id';
-      mockUuidv4.mockReturnValue(mockUuid); // Use the imported mock function
+      mockUuidv4.mockReturnValue(mockUuid);
       // ApiError is already mocked as a class constructor mock at the top
 
       fs.writeFileSync.mockImplementation(() => {
         throw new Error('Disk full');
       });
 
-      // We need to catch the error to inspect its properties if toThrow(ApiError) is not specific enough
-      try {
-        SessionManager.create();
-        // Should not reach here
-        expect(true).toBe(false);
-      } catch (e) {
-        expect(e).toBeInstanceOf(ActualApiError); // Check it's an instance of the *actual* ApiError class due to mock
-        expect(e.statusCode).toBe(500);
-        expect(e.message).toMatch(
-          /Failed to save session save-fail-id: Disk full/
-        );
-        expect(e.errorCode).toBe('SESSION_SAVE_OPERATION_FAILED');
-      }
-
-      // More direct way if `toThrow` works with the class mock correctly
-      // This checks if an error that is an instanceof ApiError (via the mock) is thrown.
-      expect(() => SessionManager.create()).toThrow(ActualApiError);
-
-      // To check the specific message with toThrow:
       expect(() => SessionManager.create()).toThrow(
-        /Failed to save session save-fail-id: Disk full/
+        expect.objectContaining({
+          name: 'ApiError',
+          statusCode: 500,
+          message: expect.stringMatching(/Failed to save session save-fail-id: Disk full/),
+          errorCode: 'SESSION_SAVE_OPERATION_FAILED',
+        })
       );
+      expect(() => SessionManager.create()).toThrow(ActualApiError);
     });
 
     test('get should retrieve an existing session from memory', () => {
@@ -213,16 +216,18 @@ describe('SessionManager', () => {
 
     test('get should throw ApiError if session not found', () => {
       fs.existsSync.mockReturnValue(false);
-      ApiError.mockImplementation((status, message) => ({ status, message }));
+      fs.existsSync.mockReturnValue(false); // Ensure it attempts to load then fails
 
-      expect(() => SessionManager.get('non-existent-id')).toThrow(ApiError);
       expect(() => SessionManager.get('non-existent-id')).toThrow(
-        "Session with ID 'non-existent-id' not found."
+        expect.objectContaining({
+          name: 'ApiError', // ActualApiError constructor sets this name
+          statusCode: 404,
+          message: "Session with ID 'non-existent-id' not found.",
+          errorCode: 'SESSION_NOT_FOUND',
+        })
       );
-      expect(ApiError).toHaveBeenCalledWith(
-        404,
-        "Session with ID 'non-existent-id' not found."
-      );
+      // Also ensure it's an instance of the correct class
+      expect(() => SessionManager.get('non-existent-id')).toThrow(ActualApiError);
     });
 
     test('delete should remove session from memory and delete its file', () => {
@@ -295,18 +300,17 @@ rule2.`;
 
     test('addOntology should throw ApiError if ontology already exists', () => {
       SessionManager._ontologies['existing_ontology'] = 'some_rules.';
-      ApiError.mockImplementation((status, message) => ({ status, message }));
+      SessionManager._ontologies['existing_ontology'] = 'some_rules.';
 
-      expect(() =>
-        SessionManager.addOntology('existing_ontology', 'new_rules.')
-      ).toThrow(ApiError);
-      expect(() =>
-        SessionManager.addOntology('existing_ontology', 'new_rules.')
-      ).toThrow("Ontology with name 'existing_ontology' already exists.");
-      expect(ApiError).toHaveBeenCalledWith(
-        409,
-        "Ontology with name 'existing_ontology' already exists."
+      expect(() => SessionManager.addOntology('existing_ontology', 'new_rules.')).toThrow(
+        expect.objectContaining({
+          name: 'ApiError',
+          statusCode: 409,
+          message: "Ontology with name 'existing_ontology' already exists.",
+          errorCode: 'ONTOLOGY_ALREADY_EXISTS',
+        })
       );
+      expect(() => SessionManager.addOntology('existing_ontology', 'new_rules.')).toThrow(ActualApiError);
     });
 
     test('updateOntology should update an existing ontology and save it', () => {
@@ -329,18 +333,19 @@ updated_rule2.`;
     });
 
     test('updateOntology should throw ApiError if ontology not found', () => {
-      ApiError.mockImplementation((status, message) => ({ status, message }));
+      // Ensure the ontology is not in memory and _loadOntology will return null for it
+      delete SessionManager._ontologies['non_existent_ontology'];
+      fs.existsSync.mockReturnValue(false); // Mock that the file doesn't exist for _loadOntology
 
-      expect(() =>
-        SessionManager.updateOntology('non_existent_ontology', 'rules.')
-      ).toThrow(ApiError);
-      expect(() =>
-        SessionManager.updateOntology('non_existent_ontology', 'rules.')
-      ).toThrow("Ontology with name 'non_existent_ontology' not found.");
-      expect(ApiError).toHaveBeenCalledWith(
-        404,
-        "Ontology with name 'non_existent_ontology' not found."
+      expect(() => SessionManager.updateOntology('non_existent_ontology', 'rules.')).toThrow(
+        expect.objectContaining({
+          name: 'ApiError',
+          statusCode: 404,
+          message: "Ontology with name 'non_existent_ontology' not found.",
+          errorCode: 'ONTOLOGY_NOT_FOUND',
+        })
       );
+      expect(() => SessionManager.updateOntology('non_existent_ontology', 'rules.')).toThrow(ActualApiError);
     });
 
     test('getOntologies should return all loaded ontologies', () => {
@@ -365,17 +370,19 @@ updated_rule2.`;
     });
 
     test('getOntology should throw ApiError if ontology not found', () => {
-      ApiError.mockImplementation((status, message) => ({ status, message }));
+      // Ensure the ontology is not in memory and _loadOntology will return null for it
+      delete SessionManager._ontologies['non_existent_onto'];
+      fs.existsSync.mockReturnValue(false); // Mock that the file doesn't exist for _loadOntology
+
       expect(() => SessionManager.getOntology('non_existent_onto')).toThrow(
-        ApiError
+        expect.objectContaining({
+          name: 'ApiError',
+          statusCode: 404,
+          message: "Ontology with name 'non_existent_onto' not found.",
+          errorCode: 'ONTOLOGY_NOT_FOUND',
+        })
       );
-      expect(() => SessionManager.getOntology('non_existent_onto')).toThrow(
-        "Ontology with name 'non_existent_onto' not found."
-      );
-      expect(ApiError).toHaveBeenCalledWith(
-        404,
-        "Ontology with name 'non_existent_onto' not found."
-      );
+      expect(() => SessionManager.getOntology('non_existent_onto')).toThrow(ActualApiError);
     });
 
     test('deleteOntology should remove ontology from memory and delete its file', () => {

@@ -7,8 +7,8 @@ jest.mock('tau-prolog');
 jest.mock('../src/logger');
 jest.mock('../src/errors');
 
-describe.skip('ReasonerService', () => {
-  // @TODO: Fix failing tests - disabling for now
+describe('ReasonerService', () => {
+  // @TODO: Fix failing tests - disabling for now (re-enabling)
   let mockPrologSession;
 
   beforeEach(() => {
@@ -100,15 +100,20 @@ describe.skip('ReasonerService', () => {
       expect.objectContaining({
         status: 422,
         message: `Prolog knowledge base is invalid: ${consultError}`,
+        errorCode: 'PROLOG_CONSULT_FAILED',
       })
     );
     expect(logger.error).toHaveBeenCalledWith(
-      `Prolog knowledge base is invalid: ${consultError}`,
-      { facts }
+      'Prolog knowledge base is invalid.', // Updated to match actual log message in reasonerService
+      expect.objectContaining({
+        details: consultError,
+        internalErrorCode: 'PROLOG_CONSULT_ERROR',
+      })
     );
     expect(ApiError).toHaveBeenCalledWith(
       422,
-      `Prolog knowledge base is invalid: ${consultError}`
+      `Prolog knowledge base is invalid: ${consultError}`,
+      'PROLOG_CONSULT_FAILED'
     );
   });
 
@@ -128,15 +133,21 @@ describe.skip('ReasonerService', () => {
       expect.objectContaining({
         status: 422,
         message: `Prolog query failed: ${queryError}`,
+        errorCode: 'PROLOG_QUERY_FAILED',
       })
     );
     expect(logger.error).toHaveBeenCalledWith(
-      `Prolog query failed: ${queryError}`,
-      { query }
+      'Prolog query failed.', // Updated to match actual log message
+      expect.objectContaining({
+        query,
+        details: queryError,
+        internalErrorCode: 'PROLOG_QUERY_ERROR',
+      })
     );
     expect(ApiError).toHaveBeenCalledWith(
       422,
-      `Prolog query failed: ${queryError}`
+      `Prolog query failed: ${queryError}`,
+      'PROLOG_QUERY_FAILED'
     );
   });
 
@@ -159,15 +170,20 @@ describe.skip('ReasonerService', () => {
       expect.objectContaining({
         status: 500,
         message: 'Prolog answer processing error: Answer processing error',
+        errorCode: 'PROLOG_ANSWER_ERROR',
       })
     );
     expect(logger.error).toHaveBeenCalledWith(
-      'Error processing Prolog answer: ',
-      expect.any(Error)
+      'Error processing Prolog answer.', // Updated to match actual log message
+      expect.objectContaining({
+        internalErrorCode: 'PROLOG_ANSWER_PROCESSING_ERROR',
+        originalError: 'Answer processing error',
+      })
     );
     expect(ApiError).toHaveBeenCalledWith(
       500,
-      'Prolog answer processing error: Answer processing error'
+      'Prolog answer processing error: Answer processing error',
+      'PROLOG_ANSWER_ERROR'
     );
   });
 
@@ -178,7 +194,14 @@ describe.skip('ReasonerService', () => {
     mockPrologSession.consult.mockImplementation((kb, callbacks) =>
       callbacks.success()
     );
-    mockPrologSession.query.mockImplementation((_q, _callbacks) => {
+    mockPrologSession.query.mockImplementation(
+      (
+        _q,
+        callbacks // Make query itself succeed
+      ) => callbacks.success()
+    );
+    // First call to prologSession.answer (inside the query success callback) will throw
+    mockPrologSession.answer.mockImplementationOnce(() => {
       throw new Error('Answer initiation error');
     });
 
@@ -186,15 +209,20 @@ describe.skip('ReasonerService', () => {
       expect.objectContaining({
         status: 500,
         message: 'Prolog answer initiation error: Answer initiation error',
+        errorCode: 'PROLOG_ANSWER_INIT_ERROR',
       })
     );
     expect(logger.error).toHaveBeenCalledWith(
-      'Error initiating Prolog answer callback: ',
-      expect.any(Error)
+      'Error initiating Prolog answer callback.', // Updated to match actual log message
+      expect.objectContaining({
+        internalErrorCode: 'PROLOG_ANSWER_INIT_ERROR',
+        originalError: 'Answer initiation error',
+      })
     );
     expect(ApiError).toHaveBeenCalledWith(
       500,
-      'Prolog answer initiation error: Answer initiation error'
+      'Prolog answer initiation error: Answer initiation error',
+      'PROLOG_ANSWER_INIT_ERROR'
     );
   });
 
@@ -210,15 +238,22 @@ describe.skip('ReasonerService', () => {
       expect.objectContaining({
         status: 500,
         message: 'Prolog session error: Session setup error',
+        errorCode: 'PROLOG_SESSION_ERROR',
       })
     );
     expect(logger.error).toHaveBeenCalledWith(
-      'Error during Prolog session setup: Session setup error',
-      { facts, query }
+      'Error during Prolog session setup.', // Updated to match actual log message
+      expect.objectContaining({
+        internalErrorCode: 'PROLOG_SESSION_SETUP_ERROR',
+        originalError: 'Session setup error',
+        factsCount: facts.length,
+        query,
+      })
     );
     expect(ApiError).toHaveBeenCalledWith(
       500,
-      'Prolog session error: Session setup error'
+      'Prolog session error: Session setup error',
+      'PROLOG_SESSION_ERROR'
     );
   });
 });

@@ -5,8 +5,8 @@ const mockLoggerFatal = jest.fn();
 const mockLoggerInfo = jest.fn();
 const mockProcessExit = jest
   .spyOn(process, 'exit')
-  .mockImplementation((code) => {
-    // throw new Error(`process.exit called with ${code}`); // Make it throw to stop execution
+  .mockImplementation((_code) => { // Prefixed code
+    // throw new Error(`process.exit called with ${_code}`); // Make it throw to stop execution
     // Or just record the call if preferred, but throwing helps ensure the test stops there.
     // For tests expecting exit, this is fine. For those not, it helps catch unexpected exits.
     // console.log(`process.exit(${code}) called`);

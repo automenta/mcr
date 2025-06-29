@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
-const fs = require('fs');
-const path = require('path');
+// const fs = require('fs'); // Unused
+// const path = require('path'); // Unused
 const { apiClient } = require('../api');
 const {
   handleCliOutput,
@@ -9,7 +9,7 @@ const {
 } = require('../utils'); // Added readFileContent
 
 // nlToRules has <text> argument and options. Action: (text, options, command)
-async function nlToRules(text, options, command) {
+async function nlToRulesAsync(text, options, command) { // Renamed
   const programOpts = command.parent.opts();
   let ontologyContent = null;
   if (options.ontology) {
@@ -35,7 +35,7 @@ async function nlToRules(text, options, command) {
 }
 
 // rulesToNl has <rulesFile> argument and options. Action: (rulesFile, options, command)
-async function rulesToNl(rulesFile, options, command) {
+async function rulesToNlAsync(rulesFile, options, command) { // Renamed
   const programOpts = command.parent.opts();
   // readFileContent will handle path resolution and existence check
   const rulesContent = readFileContent(rulesFile, 'Rules file');
@@ -72,7 +72,7 @@ module.exports = (program) => {
       ''
     )
     .option('-o, --ontology <file>', 'Path to an ontology file for context')
-    .action(nlToRules);
+    .action(nlToRulesAsync);
 
   program
     .command('rules-to-nl <rulesFile>')
@@ -82,5 +82,5 @@ module.exports = (program) => {
       'Output style (e.g., formal, conversational)',
       'formal'
     )
-    .action(rulesToNl);
+    .action(rulesToNlAsync);
 };

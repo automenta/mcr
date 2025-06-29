@@ -5,7 +5,7 @@ const {
 const { PromptTemplate } = require('@langchain/core/prompts');
 const logger = require('./logger').logger;
 const ApiError = require('./errors');
-const ConfigManager = require('./config');
+// const ConfigManager = require('./config'); // Unused import
 const PROMPT_TEMPLATES = require('./prompts');
 
 const OpenAiProvider = require('./llmProviders/openaiProvider');
@@ -196,26 +196,67 @@ const LlmService = {
     try {
       return await chain.invoke(formattedPrompt);
     } catch (error) {
-      const responseData = error.response?.data;
-      const cause = error.cause;
+      const responseData = error.response?.data; // For axios-like errors
+      const errorStatus = error.response?.status || error.status; // HTTP status if available
+      const cause = error.cause; // Potential underlying error
       const providerName = this._appConfig
         ? this._appConfig.llm.provider
         : 'unknown';
+
       logger.error(`LLM invocation error for provider ${providerName}.`, {
         internalErrorCode: 'LLM_INVOCATION_ERROR',
         provider: providerName,
-        prompt: formattedPrompt,
-        llmInput: input,
+        // prompt: formattedPrompt, // Potentially too verbose for general error log
+        llmInputKeys: Object.keys(input || {}), // Log keys instead of full input
         errorMessage: error.message,
         errorStack: error.stack,
-        responseData: responseData,
-        cause: cause,
+        errorStatus,
+        responseData,
+        cause,
       });
-      const userMessage = responseData?.error?.message || error.message;
-      throw new ApiError(
-        502,
-        `Error communicating with LLM provider: ${userMessage}`
-      );
+
+      // Default error
+      let statusCode = 502; // Bad Gateway (general error talking to upstream)
+      let message = `Error communicating with LLM provider: ${error.message}`;
+      let errorCode = 'LLM_PROVIDER_GENERAL_ERROR';
+
+      // Try to get more specific based on status or error content
+      if (errorStatus) {
+        if (errorStatus === 401 || errorStatus === 403) {
+          statusCode = 500; // Internal Server Error because API key is a server config
+          message = `LLM provider authentication/authorization error. Please check server configuration (API key, permissions).`;
+          errorCode = 'LLM_PROVIDER_AUTH_ERROR';
+        } else if (errorStatus === 429) {
+          statusCode = 429; // Too Many Requests
+          message = `LLM provider rate limit exceeded. Please try again later.`;
+          errorCode = 'LLM_PROVIDER_RATE_LIMIT';
+        } else if (errorStatus === 404) {
+          // Could be model not found or endpoint not found
+          statusCode = 500; // Internal, as model is server config
+          message = `LLM provider model or endpoint not found. Please check server configuration. Details: ${responseData?.error?.message || error.message}`;
+          errorCode = 'LLM_PROVIDER_NOT_FOUND';
+        } else if (errorStatus >= 400 && errorStatus < 500) {
+          // Other 4xx errors (e.g., bad request to LLM due to input, content filtering)
+          statusCode = 422; // Unprocessable Entity (LLM couldn't process the request)
+          message = `LLM provider rejected the request. Details: ${responseData?.error?.message || error.message}`;
+          errorCode = 'LLM_PROVIDER_BAD_REQUEST';
+          if (
+            responseData?.error?.type?.includes('moderation') ||
+            responseData?.error?.code?.includes(' bezpieczeństwa') ||
+            responseData?.error?.message?.toLowerCase().includes('safety')
+          ) {
+            errorCode = 'LLM_PROVIDER_CONTENT_SAFETY';
+            message = `Request blocked by LLM provider's content safety policy. Details: ${responseData?.error?.message || error.message}`;
+          }
+        }
+      } else if (error.message?.toLowerCase().includes('api key')) {
+        statusCode = 500;
+        message = `LLM provider authentication/authorization error (API key related). Please check server configuration.`;
+        errorCode = 'LLM_PROVIDER_AUTH_ERROR';
+      }
+      // Add more specific checks based on error.message or responseData.error.code if known for providers
+
+      throw new ApiError(statusCode, message, errorCode);
     }
   },
 
@@ -272,7 +313,20 @@ const LlmService = {
           'An unexpected error occurred during query to Prolog translation.',
       }
     );
-    return result.trim();
+    const trimmedResult = result.trim();
+    if (!trimmedResult) {
+      logger.error('LLM generated an empty Prolog query.', {
+        internalErrorCode: 'LLM_EMPTY_PROLOG_QUERY',
+        question,
+        llmOutput: result, // Log original output from LLM
+      });
+      throw new ApiError(
+        500, // Or 422 if we consider it a "malformed output" from LLM
+        'LLM generated an empty or whitespace-only Prolog query. Cannot proceed with reasoning.',
+        'LLM_EMPTY_PROLOG_QUERY_GENERATED'
+      );
+    }
+    return trimmedResult;
   },
 
   /**

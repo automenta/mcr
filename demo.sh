@@ -96,10 +96,23 @@ else
     echo "-----------------------"
 fi
 
-
-# 8. Interactive Chat Mode (Informational)
+# NEW: Demonstrate Prompt Commands
 echo ""
-echo "8. Interactive Chat Mode (Example - Manual Interaction Required)"
+echo "NEW: Demonstrating Prompt CLI commands..."
+echo "Listing available prompt templates:"
+$BASE_CLI_COMMAND prompt list
+echo ""
+echo "Showing content of 'NL_TO_RULES' template:"
+$BASE_CLI_COMMAND prompt show NL_TO_RULES
+echo ""
+echo "Debugging 'QUERY_TO_PROLOG' template with example variables:"
+$BASE_CLI_COMMAND prompt debug QUERY_TO_PROLOG "{\"question\":\"What is the capital of France?\"}"
+echo "-----------------------"
+sleep 1
+
+# 9. Interactive Chat Mode (Informational) - Renumbered
+echo ""
+echo "9. Interactive Chat Mode (Example - Manual Interaction Required)"
 echo "You can try interactive chat with:"
 echo "$BASE_CLI_COMMAND chat"
 echo "Or with the family ontology (if added):"

@@ -67,8 +67,8 @@ const {
   asyncLocalStorage,
 } = require('../src/logger');
 
-describe.skip('Logger', () => {
-  // @TODO: Fix failing tests - disabling for now
+describe('Logger', () => {
+  // @TODO: Fix failing tests - disabling for now (re-enabling)
   beforeEach(() => {
     jest.clearAllMocks();
     mockConfigLoad.mockReturnValue({
@@ -119,14 +119,32 @@ describe.skip('Logger', () => {
     expect(logger).toBe(mockActualWinstonLoggerInstance);
   });
 
-  test('initializeLoggerContext should set correlationId in asyncLocalStorage', (done) => {
-    const mockReq = { correlationId: 'test-corr-id' };
-    const mockNext = jest.fn(() => {
-      expect(asyncLocalStorage.getStore().correlationId).toBe('test-corr-id');
-      done();
+  test('initializeLoggerContext should set correlationId in asyncLocalStorage and call next', async () => {
+    const mockReq = { correlationId: 'test-corr-id-req' };
+    const mockRes = {}; // Mock response object, not used by initializeLoggerContext itself
+
+    let capturedStore;
+    asyncLocalStorage.run.mockImplementationOnce((store, callback) => {
+      capturedStore = store; // Capture the store that was run
+      callback(); // Execute the original callback (which calls next)
     });
-    initializeLoggerContext(mockReq, {}, mockNext);
-    expect(mockNext).toHaveBeenCalled();
+    // This mock ensures that when getStore is called *within the callback of run*, it gets the correct store
+    asyncLocalStorage.getStore.mockImplementation(() => capturedStore);
+
+    await new Promise((resolve) => {
+      const mockNext = jest.fn(() => {
+        // This assertion is now made *after* next() is called.
+        // The key is that asyncLocalStorage.run has completed its synchronous callback.
+        // And our getStore mock is set up to return what run had.
+        expect(asyncLocalStorage.getStore().correlationId).toBe('test-corr-id-req');
+        resolve();
+      });
+      initializeLoggerContext(mockReq, mockRes, mockNext);
+      // Check that next was indeed called by initializeLoggerContext's logic
+      expect(mockNext).toHaveBeenCalledTimes(1);
+    });
+     // Reset getStore mock if it's too broad for other tests
+    asyncLocalStorage.getStore.mockReset();
   });
 
   test('logger methods should call corresponding methods on the winston instance', () => {
