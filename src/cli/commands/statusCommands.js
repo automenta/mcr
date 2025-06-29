@@ -1,11 +1,11 @@
-
 const { apiClient } = require('../api');
 const { handleCliOutput } = require('../utils'); // Use handleCliOutput
 
 // Action handler receives (options, commandInstance)
 // options: command-specific options
 // commandInstance: the command object itself
-async function getServerStatusAsync(options, commandInstance) { // Renamed
+async function getServerStatusAsync(options, commandInstance) {
+  // Renamed
   // Global options are on the parent (the main program instance)
   const programOpts = commandInstance.parent.opts();
   const response = await apiClient.get('/');

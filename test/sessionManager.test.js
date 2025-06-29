@@ -185,7 +185,9 @@ describe('SessionManager', () => {
         expect.objectContaining({
           name: 'ApiError',
           statusCode: 500,
-          message: expect.stringMatching(/Failed to save session save-fail-id: Disk full/),
+          message: expect.stringMatching(
+            /Failed to save session save-fail-id: Disk full/
+          ),
           errorCode: 'SESSION_SAVE_OPERATION_FAILED',
         })
       );
@@ -227,7 +229,9 @@ describe('SessionManager', () => {
         })
       );
       // Also ensure it's an instance of the correct class
-      expect(() => SessionManager.get('non-existent-id')).toThrow(ActualApiError);
+      expect(() => SessionManager.get('non-existent-id')).toThrow(
+        ActualApiError
+      );
     });
 
     test('delete should remove session from memory and delete its file', () => {
@@ -302,7 +306,9 @@ rule2.`;
       SessionManager._ontologies['existing_ontology'] = 'some_rules.';
       SessionManager._ontologies['existing_ontology'] = 'some_rules.';
 
-      expect(() => SessionManager.addOntology('existing_ontology', 'new_rules.')).toThrow(
+      expect(() =>
+        SessionManager.addOntology('existing_ontology', 'new_rules.')
+      ).toThrow(
         expect.objectContaining({
           name: 'ApiError',
           statusCode: 409,
@@ -310,7 +316,9 @@ rule2.`;
           errorCode: 'ONTOLOGY_ALREADY_EXISTS',
         })
       );
-      expect(() => SessionManager.addOntology('existing_ontology', 'new_rules.')).toThrow(ActualApiError);
+      expect(() =>
+        SessionManager.addOntology('existing_ontology', 'new_rules.')
+      ).toThrow(ActualApiError);
     });
 
     test('updateOntology should update an existing ontology and save it', () => {
@@ -337,7 +345,9 @@ updated_rule2.`;
       delete SessionManager._ontologies['non_existent_ontology'];
       fs.existsSync.mockReturnValue(false); // Mock that the file doesn't exist for _loadOntology
 
-      expect(() => SessionManager.updateOntology('non_existent_ontology', 'rules.')).toThrow(
+      expect(() =>
+        SessionManager.updateOntology('non_existent_ontology', 'rules.')
+      ).toThrow(
         expect.objectContaining({
           name: 'ApiError',
           statusCode: 404,
@@ -345,7 +355,9 @@ updated_rule2.`;
           errorCode: 'ONTOLOGY_NOT_FOUND',
         })
       );
-      expect(() => SessionManager.updateOntology('non_existent_ontology', 'rules.')).toThrow(ActualApiError);
+      expect(() =>
+        SessionManager.updateOntology('non_existent_ontology', 'rules.')
+      ).toThrow(ActualApiError);
     });
 
     test('getOntologies should return all loaded ontologies', () => {
@@ -382,7 +394,9 @@ updated_rule2.`;
           errorCode: 'ONTOLOGY_NOT_FOUND',
         })
       );
-      expect(() => SessionManager.getOntology('non_existent_onto')).toThrow(ActualApiError);
+      expect(() => SessionManager.getOntology('non_existent_onto')).toThrow(
+        ActualApiError
+      );
     });
 
     test('deleteOntology should remove ontology from memory and delete its file', () => {

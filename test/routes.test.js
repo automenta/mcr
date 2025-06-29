@@ -7,7 +7,7 @@ jest.mock('../src/config', () => ({
     session: { storagePath: './test_sessions_routes' },
     ontology: { storagePath: './test_ontologies_routes' },
     debugMode: false,
-  }),
+  })
 }));
 
 // Mock logger as mcr.js will load it.
@@ -101,7 +101,7 @@ describe('API Routes (src/routes.js)', () => {
   });
 
   test('GET / should call ApiHandlers.getRoot', async () => {
-    const response = await request(app).get('/');
+    const response = request(app).get('/');
     expect(response.statusCode).toBe(200);
     expect(ApiHandlers.getRoot).toHaveBeenCalledTimes(1);
     expect(response.body.message).toBe('mock getRoot');
@@ -115,7 +115,7 @@ describe('API Routes (src/routes.js)', () => {
   });
 
   test('GET /sessions/:sessionId should call ApiHandlers.getSession', async () => {
-    const response = await request(app).get('/sessions/test-id');
+    const response = request(app).get('/sessions/test-id');
     expect(response.statusCode).toBe(200);
     expect(ApiHandlers.getSession).toHaveBeenCalledTimes(1);
     expect(ApiHandlers.getSession.mock.calls[0][0].params.sessionId).toBe(
@@ -183,7 +183,7 @@ describe('API Routes (src/routes.js)', () => {
 
   // Prompt Management
   test('GET /prompts should call ApiHandlers.getPrompts', async () => {
-    const response = await request(app).get('/prompts');
+    const response = request(app).get('/prompts');
     expect(response.statusCode).toBe(200);
     expect(ApiHandlers.getPrompts).toHaveBeenCalledTimes(1);
   });
@@ -209,13 +209,13 @@ describe('API Routes (src/routes.js)', () => {
   });
 
   test('GET /ontologies should call ApiHandlers.getOntologies', async () => {
-    const response = await request(app).get('/ontologies');
+    const response = request(app).get('/ontologies');
     expect(response.statusCode).toBe(200);
     expect(ApiHandlers.getOntologies).toHaveBeenCalledTimes(1);
   });
 
   test('GET /ontologies/:name should call ApiHandlers.getOntology', async () => {
-    const response = await request(app).get('/ontologies/onto-name');
+    const response = request(app).get('/ontologies/onto-name');
     expect(response.statusCode).toBe(200);
     expect(ApiHandlers.getOntology).toHaveBeenCalledTimes(1);
     expect(ApiHandlers.getOntology.mock.calls[0][0].params.name).toBe(

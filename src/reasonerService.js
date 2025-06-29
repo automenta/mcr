@@ -34,7 +34,7 @@ const ReasonerService = {
                   }
                   try {
                     prologSession.answer(answerCallback);
-                    return; // Explicit return
+                     // Explicit return
                   } catch (e) {
                     logger.error('Error processing Prolog answer.', {
                       internalErrorCode: 'PROLOG_ANSWER_PROCESSING_ERROR',
@@ -48,7 +48,7 @@ const ReasonerService = {
                         'PROLOG_ANSWER_ERROR'
                       )
                     );
-                    return; // Explicit return
+                     // Explicit return
                   }
                 };
                 try {
@@ -66,7 +66,7 @@ const ReasonerService = {
                       'PROLOG_ANSWER_INIT_ERROR'
                     )
                   );
-                  return; // Explicit return for consistent-return
+                   // Explicit return for consistent-return
                 }
               },
               error: (err) => {

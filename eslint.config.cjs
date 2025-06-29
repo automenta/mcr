@@ -20,6 +20,7 @@ module.exports = [
       // Custom rules from the old config
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       'no-console': 'warn', // Keep as warn for CLI, override for server if needed
+      //'no-conditional-expect': 'warn',
       'consistent-return': 'warn',
       'no-undef': 'error',
       semi: ['error', 'always'],

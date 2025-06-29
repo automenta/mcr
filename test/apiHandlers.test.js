@@ -12,8 +12,7 @@ jest.mock('../src/reasonerService');
 jest.mock('../src/errors', () => {
   const ActualApiErrorInsideMock = jest.requireActual('../src/errors'); // Require it inside
   return jest.fn().mockImplementation((status, message, code) => {
-    const err = new ActualApiErrorInsideMock(status, message, code); // Use the inside-mock version
-    return err;
+    return new ActualApiErrorInsideMock(status, message, code); // Use the inside-mock version
   });
 });
 

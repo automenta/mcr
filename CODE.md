@@ -26,7 +26,6 @@ The system supports multiple LLM providers (e.g., OpenAI, Gemini, Ollama) via a 
 **To add a new LLM provider (e.g., "MyNewProvider"):**
 
 1.  **Create Provider Module:**
-
     - Add a new file, for example, `src/llmProviders/myNewProvider.js`.
     - This module must export an object with at least two properties:
       - `name` (string): The unique identifier for the provider (e.g., `'mynewprovider'`). This name will be used in the configuration.
@@ -68,13 +67,11 @@ The system supports multiple LLM providers (e.g., OpenAI, Gemini, Ollama) via a 
       ```
 
 2.  **Register Provider in `LlmService`:**
-
     - Open `src/llmService.js`.
     - Import your new provider module: `const MyNewProvider = require('./llmProviders/myNewProvider');`
     - In the `LlmService.init()` method, add a call to register your provider: `this.registerProvider(MyNewProvider);`
 
 3.  **Update Configuration Management (`src/config.js`):**
-
     - Add `'mynewprovider'` to the `VALID_LLM_PROVIDERS` array.
     - Update the configuration validation logic within `ConfigManager.validateConfig(config)` to check for necessary settings when `MCR_LLM_PROVIDER` is `'mynewprovider'`. This typically involves ensuring `config.llm.apiKey.mynewprovider` and `config.llm.model.mynewprovider` are present.
     - Add default model name for your provider in `defaultConfig.llm.model`.
@@ -94,17 +91,14 @@ The MCR is currently designed specifically for a **Prolog reasoner**, using the 
 **Extending to other types of reasoners (e.g., Datalog, Answer Set Programming) would be a major architectural change and would involve:**
 
 1.  **Abstracting the Reasoner Interface:**
-
     - Defining a common interface (e.g., `initialize(config)`, `assert(data)`, `query(queryString)`, `getName()`) that different reasoner services would implement.
     - Refactoring `src/reasonerService.js` to either become this interface or a dispatcher that loads a specific reasoner implementation based on configuration.
 
 2.  **Modifying LLM Translation:**
-
     - `LlmService` and its associated prompts (in `src/prompts.js`) are currently geared towards generating Prolog facts, rules, and queries.
     - These would need to be adapted or made configurable to generate syntax compatible with the new reasoner type. This is a significant task, as prompt engineering is crucial.
 
 3.  **Data Format Changes:**
-
     - The structure of "facts" asserted into sessions and the "query" language would change based on the reasoner.
 
 4.  **Configuration Changes:**

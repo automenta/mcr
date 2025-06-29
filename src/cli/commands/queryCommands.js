@@ -5,7 +5,8 @@ const { readOntologyFile, handleCliOutput, printJson } = require('../utils'); //
 const axios = require('axios');
 
 // Action signature: (arg1, ..., options, commandInstance)
-async function assertFactAsync(sessionId, text, options, commandInstance) { // Renamed
+async function assertFactAsync(sessionId, text, options, commandInstance) {
+  // Renamed
   const programOpts = commandInstance.parent.opts();
   const response = await apiClient.post(`/sessions/${sessionId}/assert`, {
     text,
@@ -14,13 +15,40 @@ async function assertFactAsync(sessionId, text, options, commandInstance) { // R
 }
 
 // querySession is called by an action. It needs programOpts.
-async function querySessionAsync(sessionIdArg, questionArg, options, programOpts) { // Renamed
+async function querySessionAsync(
+  sessionIdArg,
+  questionArg,
+  options,
+  programOpts
+) {
+  // Renamed
   let currentSessionId = sessionIdArg;
   let ontologyContent = null;
   if (options.ontology) {
     ontologyContent = readOntologyFile(options.ontology);
     if (ontologyContent && !programOpts.json) {
       console.log(`Using ontology for query: ${options.ontology}`);
+    }
+  }
+
+
+  function handleResponseCli(programOpts, response) {
+    if (programOpts.json) {
+      handleCliOutput(response.data, programOpts);
+    } else {
+      handleResponse(response);
+    }
+  }
+
+  function handleResponse(response) {
+    console.log('Query Result:');
+    console.log(`  Prolog Query: ${response.data.queryProlog}`);
+    process.stdout.write(`  Raw Result: `); // printJson adds newline, so use process.stdout.write for prefix
+    printJson(response.data.result); // Pretty print if not raw json
+    console.log(`  Answer: ${response.data.answer}`);
+    if (response.data.debug) {
+      process.stdout.write('  Debug Info: ');
+      printJson(response.data.debug);
     }
   }
 
@@ -65,6 +93,7 @@ async function querySessionAsync(sessionIdArg, questionArg, options, programOpts
           return;
         }
 
+
         try {
           const requestBody = {
             query: questionInput,
@@ -81,19 +110,7 @@ async function querySessionAsync(sessionIdArg, questionArg, options, programOpts
             requestBody
           );
 
-          if (programOpts.json) {
-            handleCliOutput(response.data, programOpts);
-          } else {
-            console.log('Query Result:');
-            console.log(`  Prolog Query: ${response.data.queryProlog}`);
-            process.stdout.write(`  Raw Result: `); // printJson adds newline, so use process.stdout.write for prefix
-            printJson(response.data.result); // Pretty print if not raw json
-            console.log(`  Answer: ${response.data.answer}`);
-            if (response.data.debug) {
-              process.stdout.write('  Debug Info: ');
-              printJson(response.data.debug);
-            }
-          }
+          handleResponseCli(programOpts, response);
         } catch (error) {
           handleApiError(error, programOpts); // Pass programOpts
         }
@@ -148,19 +165,7 @@ async function querySessionAsync(sessionIdArg, questionArg, options, programOpts
         `/sessions/${currentSessionId}/query`,
         requestBody
       );
-      if (programOpts.json) {
-        handleCliOutput(response.data, programOpts);
-      } else {
-        console.log('Query Result:');
-        console.log(`  Prolog Query: ${response.data.queryProlog}`);
-        process.stdout.write(`  Raw Result: `);
-        printJson(response.data.result);
-        console.log(`  Answer: ${response.data.answer}`);
-        if (response.data.debug) {
-          process.stdout.write('  Debug Info: ');
-          printJson(response.data.debug);
-        }
-      }
+      handleResponseCli(programOpts, response);
     }
   } catch (error) {
     if (!error.response && !error.request && !programOpts.json) {
@@ -175,7 +180,13 @@ async function querySessionAsync(sessionIdArg, questionArg, options, programOpts
 }
 
 // Action signature: (arg1, ..., options, commandInstance)
-async function explainQueryAsync(sessionId, question, options, commandInstance) { // Renamed
+async function explainQueryAsync(
+  sessionId,
+  question,
+  options,
+  commandInstance
+) {
+  // Renamed
   const programOpts = commandInstance.parent.opts();
   const response = await apiClient.post(
     `/sessions/${sessionId}/explain-query`,

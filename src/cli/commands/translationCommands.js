@@ -9,7 +9,8 @@ const {
 } = require('../utils'); // Added readFileContent
 
 // nlToRules has <text> argument and options. Action: (text, options, command)
-async function nlToRulesAsync(text, options, command) { // Renamed
+async function nlToRulesAsync(text, options, command) {
+  // Renamed
   const programOpts = command.parent.opts();
   let ontologyContent = null;
   if (options.ontology) {
@@ -35,7 +36,8 @@ async function nlToRulesAsync(text, options, command) { // Renamed
 }
 
 // rulesToNl has <rulesFile> argument and options. Action: (rulesFile, options, command)
-async function rulesToNlAsync(rulesFile, options, command) { // Renamed
+async function rulesToNlAsync(rulesFile, options, command) {
+  // Renamed
   const programOpts = command.parent.opts();
   // readFileContent will handle path resolution and existence check
   const rulesContent = readFileContent(rulesFile, 'Rules file');

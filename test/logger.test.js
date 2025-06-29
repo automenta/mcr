@@ -136,14 +136,16 @@ describe('Logger', () => {
         // This assertion is now made *after* next() is called.
         // The key is that asyncLocalStorage.run has completed its synchronous callback.
         // And our getStore mock is set up to return what run had.
-        expect(asyncLocalStorage.getStore().correlationId).toBe('test-corr-id-req');
+        expect(asyncLocalStorage.getStore().correlationId).toBe(
+          'test-corr-id-req'
+        );
         resolve();
       });
       initializeLoggerContext(mockReq, mockRes, mockNext);
       // Check that next was indeed called by initializeLoggerContext's logic
       expect(mockNext).toHaveBeenCalledTimes(1);
     });
-     // Reset getStore mock if it's too broad for other tests
+    // Reset getStore mock if it's too broad for other tests
     asyncLocalStorage.getStore.mockReset();
   });
 

@@ -3,7 +3,8 @@ const path = require('path');
 const { apiClient } = require('../api');
 const { handleCliOutput, readFileContent } = require('../utils'); // Added readFileContent
 
-async function addOntologyAsync(name, rulesFile, options, commandInstance) { // Renamed
+async function addOntologyAsync(name, rulesFile, options, commandInstance) {
+  // Renamed
   const programOpts = commandInstance.parent.opts();
   // readFileContent will handle path.resolve and existsSync check
   const rules = readFileContent(rulesFile, 'Rules file');
@@ -18,7 +19,8 @@ async function addOntologyAsync(name, rulesFile, options, commandInstance) { // 
   handleCliOutput(response.data, programOpts, null, 'Ontology added:\n');
 }
 
-async function updateOntologyAsync(name, rulesFile, options, commandInstance) { // Renamed
+async function updateOntologyAsync(name, rulesFile, options, commandInstance) {
+  // Renamed
   const programOpts = commandInstance.parent.opts();
   const rules = readFileContent(rulesFile, 'Rules file');
 
@@ -29,19 +31,22 @@ async function updateOntologyAsync(name, rulesFile, options, commandInstance) { 
   handleCliOutput(response.data, programOpts, null, 'Ontology updated:\n');
 }
 
-async function getOntologiesAsync(options, commandInstance) { // Renamed
+async function getOntologiesAsync(options, commandInstance) {
+  // Renamed
   const programOpts = commandInstance.parent.opts();
   const response = await apiClient.get('/ontologies');
   handleCliOutput(response.data, programOpts, null, 'Available Ontologies:\n');
 }
 
-async function getOntologyAsync(name, options, commandInstance) { // Renamed
+async function getOntologyAsync(name, options, commandInstance) {
+  // Renamed
   const programOpts = commandInstance.parent.opts();
   const response = await apiClient.get(`/ontologies/${name}`);
   handleCliOutput(response.data, programOpts, null, 'Ontology details:\n');
 }
 
-async function deleteOntologyAsync(name, options, commandInstance) { // Renamed
+async function deleteOntologyAsync(name, options, commandInstance) {
+  // Renamed
   const programOpts = commandInstance.parent.opts();
   const response = await apiClient.delete(`/ontologies/${name}`);
   // API returns { "message": "Ontology ... deleted.", "ontologyName": "..." }

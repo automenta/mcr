@@ -1,7 +1,8 @@
 const apiClient = require('../api');
 const { printError, printSuccess, printJson, printBold } = require('../utils');
 
-async function listPromptsCommandAsync() { // Renamed
+async function listPromptsCommandAsync() {
+  // Renamed
   try {
     const templates = await apiClient.getPrompts();
     if (Object.keys(templates).length === 0) {
@@ -20,7 +21,8 @@ async function listPromptsCommandAsync() { // Renamed
   }
 }
 
-async function showPromptCommandAsync(templateName) { // Renamed
+async function showPromptCommandAsync(templateName) {
+  // Renamed
   if (!templateName) {
     printError('Error: Template name is required.');
     console.log('Usage: mcr-cli show-prompt <templateName>');
@@ -44,7 +46,8 @@ async function showPromptCommandAsync(templateName) { // Renamed
   }
 }
 
-async function debugPromptCommandAsync(templateName, inputVariablesJson) { // Renamed
+async function debugPromptCommandAsync(templateName, inputVariablesJson) {
+  // Renamed
   if (!templateName) {
     printError('Error: Template name is required.');
     console.log(
