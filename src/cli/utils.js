@@ -66,9 +66,17 @@ const handleCliOutput = (
   }
 };
 
+/**
+ * A simple promise-based delay function.
+ * @param {number} ms - The number of milliseconds to delay.
+ * @returns {Promise<void>}
+ */
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 module.exports = {
   readFileContent, // Added
   readOntologyFile,
   printJson,
   handleCliOutput,
+  delay, // Export the new delay function
 };
