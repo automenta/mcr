@@ -5,25 +5,30 @@ const { logger } = require('./logger');
 const ApiError = require('./errors');
 const ConfigManager = require('./config');
 
-const config = ConfigManager.load();
-const sessionStoragePath = path.resolve(config.session.storagePath);
-const ontologyStoragePath = path.resolve(
-  config.ontology.storagePath || './ontologies'
-);
-
-if (!fs.existsSync(sessionStoragePath)) {
-  fs.mkdirSync(sessionStoragePath, { recursive: true });
-  logger.info(`Created session storage directory: ${sessionStoragePath}`);
-}
-
-if (!fs.existsSync(ontologyStoragePath)) {
-  fs.mkdirSync(ontologyStoragePath, { recursive: true });
-  logger.info(`Created ontology storage directory: ${ontologyStoragePath}`);
-}
+// Eager path resolution and directory creation removed.
+// These will be handled lazily by new helper methods.
 
 const SessionManager = {
   _sessions: {},
   _ontologies: {},
+
+  _getSessionStoragePath() {
+    const currentConfig = ConfigManager.get();
+    return path.resolve(currentConfig.session.storagePath);
+  },
+
+  _getOntologyStoragePath() {
+    const currentConfig = ConfigManager.get();
+    // Ensure default matches what's in config.js if process.env is not set
+    return path.resolve(currentConfig.ontology.storagePath || './ontologies_data');
+  },
+
+  _ensurePathExists(pathToEnsure, type) {
+    if (!fs.existsSync(pathToEnsure)) {
+      fs.mkdirSync(pathToEnsure, { recursive: true });
+      logger.info(`Created ${type} storage directory: ${pathToEnsure}`);
+    }
+  },
 
   _parseOntologyRules(rulesString) {
     if (!rulesString || typeof rulesString !== 'string') return [];
@@ -34,10 +39,11 @@ const SessionManager = {
   },
 
   _getSessionFilePath(sessionId) {
-    return path.join(sessionStoragePath, `${sessionId}.json`);
+    return path.join(this._getSessionStoragePath(), `${sessionId}.json`);
   },
 
   _saveSession(session) {
+    this._ensurePathExists(this._getSessionStoragePath(), 'session');
     const filePath = this._getSessionFilePath(session.sessionId);
     try {
       fs.writeFileSync(filePath, JSON.stringify(session, null, 2));
@@ -61,6 +67,8 @@ const SessionManager = {
   },
 
   _loadSession(sessionId) {
+    // No need to ensure path for read, if it doesn't exist, fs.existsSync will be false.
+    // However, _getSessionFilePath will use _getSessionStoragePath which gets config.
     const filePath = this._getSessionFilePath(sessionId);
     if (fs.existsSync(filePath)) {
       try {
@@ -88,10 +96,11 @@ const SessionManager = {
   },
 
   _getOntologyFilePath(name) {
-    return path.join(ontologyStoragePath, `${name}.pl`);
+    return path.join(this._getOntologyStoragePath(), `${name}.pl`);
   },
 
   _saveOntology(name, rules) {
+    this._ensurePathExists(this._getOntologyStoragePath(), 'ontology');
     const filePath = this._getOntologyFilePath(name);
     try {
       fs.writeFileSync(filePath, rules);
@@ -107,6 +116,7 @@ const SessionManager = {
   },
 
   _loadOntology(name) {
+    // No need to ensure path for read.
     const filePath = this._getOntologyFilePath(name);
     if (fs.existsSync(filePath)) {
       try {
@@ -129,25 +139,28 @@ const SessionManager = {
   },
 
   _loadAllOntologies() {
+    this._ensurePathExists(this._getOntologyStoragePath(), 'ontology');
     try {
-      const files = fs.readdirSync(ontologyStoragePath);
+      const currentOntologyPath = this._getOntologyStoragePath();
+      const files = fs.readdirSync(currentOntologyPath);
       files.forEach((file) => {
         if (file.endsWith('.pl')) {
           const name = path.basename(file, '.pl');
-          this._loadOntology(name);
+          this._loadOntology(name); // _loadOntology uses _getOntologyFilePath which is fine
         }
       });
       logger.info(
-        `Loaded ${Object.keys(this._ontologies).length} ontologies from ${ontologyStoragePath}`
+        `Loaded ${Object.keys(this._ontologies).length} ontologies from ${currentOntologyPath}`
       );
     } catch (error) {
       logger.error(
-        `Failed to load ontologies from ${ontologyStoragePath}: ${error.message}`
+        `Failed to load ontologies from ${this._getOntologyStoragePath()}: ${error.message}`
       );
     }
   },
 
   create() {
+    // this._ensurePathExists(this._getSessionStoragePath(), 'session'); // Removed: _saveSession will handle it.
     const sessionId = uuidv4();
     const now = new Date().toISOString();
     const newSession = { sessionId, createdAt: now, facts: [], factCount: 0 };

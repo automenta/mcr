@@ -101,7 +101,7 @@ describe('SessionManager', () => {
   });
 
   describe('Module Initialization', () => {
-    test('should create session and ontology storage directories if they do not exist', () => {
+    test('should create ontology directory on load and session directory on first use if they do not exist', () => {
       jest.resetModules();
       mockFsExistsSync.mockImplementation(p => {
         if (p === MOCK_SESSION_STORAGE_PATH || p === MOCK_ONTOLOGY_STORAGE_PATH) return false;
@@ -109,17 +109,36 @@ describe('SessionManager', () => {
       });
       mockFsMkdirSync.mockClear();
       mockLoggerInfo.mockClear();
+
+      // Local mock for path for this test
+      // const mockPath = require('path'); // Not needed, global mocks are fine if reset
       mockPathResolve.mockImplementation(p => p);
-      mockPathJoin.mockImplementation((...args) => args.filter(Boolean).join('/'));
+      mockPathJoin.mockImplementation((...args) => args.filter(a => typeof a === 'string').join('/'));
+
       jest.mock('../src/config', () => ({
         get: () => ({ session: { storagePath: MOCK_SESSION_STORAGE_PATH }, ontology: { storagePath: MOCK_ONTOLOGY_STORAGE_PATH }, logging: {level: 'info'}, llm: {provider: 'test'} }),
         load: () => ({ session: { storagePath: MOCK_SESSION_STORAGE_PATH }, ontology: { storagePath: MOCK_ONTOLOGY_STORAGE_PATH }, logging: {level: 'info'}, llm: {provider: 'test'} })
       }));
-      require('../src/sessionManager');
-      expect(mockFsMkdirSync).toHaveBeenCalledWith(MOCK_SESSION_STORAGE_PATH, { recursive: true });
+
+      const CurrentSessionManager = require('../src/sessionManager');
+
+      // Assertions for ontology directory (created on load via _loadAllOntologies)
       expect(mockFsMkdirSync).toHaveBeenCalledWith(MOCK_ONTOLOGY_STORAGE_PATH, { recursive: true });
-      expect(mockLoggerInfo).toHaveBeenCalledWith(expect.stringContaining('Created session storage directory'));
       expect(mockLoggerInfo).toHaveBeenCalledWith(expect.stringContaining('Created ontology storage directory'));
+
+      // Ensure session directory wasn't created yet by just loading the module
+      expect(mockFsMkdirSync).not.toHaveBeenCalledWith(MOCK_SESSION_STORAGE_PATH, { recursive: true });
+
+      // Trigger session directory creation by calling a method that uses it
+      mockUuidV4.mockReturnValue('test-uuid-for-dir-creation'); // create() needs a uuid
+      CurrentSessionManager.create();
+
+      // Assertions for session directory (created on first use)
+      expect(mockFsMkdirSync).toHaveBeenCalledWith(MOCK_SESSION_STORAGE_PATH, { recursive: true });
+      expect(mockLoggerInfo).toHaveBeenCalledWith(expect.stringContaining('Created session storage directory'));
+
+      // Check total calls to mkdirSync - should be one for ontology, one for session
+      expect(mockFsMkdirSync).toHaveBeenCalledTimes(2);
     });
 
     test('should not create directories if they already exist', () => {
