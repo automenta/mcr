@@ -8,6 +8,7 @@ const Prompts = require('../src/prompts'); // Moved to top
 // For this specific fix, we move them inside the mock.
 
 jest.mock('../src/config', () => {
+  const path = require('path'); // Require path inside the mock factory
   // Define these constants inside the factory function
   const TEST_SESSION_STORAGE_PATH_MOCK = path.resolve(
     __dirname,
@@ -79,6 +80,7 @@ jest.mock('../src/logger', () => ({
     }),
     getStore: jest.fn(() => ({ correlationId: 'mock-als-id-api-integration' })),
   },
+  reconfigureLogger: jest.fn(), // Add mock for reconfigureLogger
 }));
 
 jest.mock('../src/llmService', () => ({

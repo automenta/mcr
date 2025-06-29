@@ -45,23 +45,40 @@ jest.mock('../package.json', () => ({
   description: 'Test App Description',
 }));
 
+// Define these at a scope accessible by the jest.mock factory for Langchain
+let mockLangchainFormatFn;
+let mockLangchainFromTemplateFn;
+
+jest.mock('@langchain/core/prompts', () => {
+  // This factory is called once when setting up mocks.
+  // It needs to return the structure that ApiHandlers.js expects when it requires this module.
+  // mockLangchainFromTemplateFn will be assigned later in beforeEach or specific tests.
+  // So, the mock needs to call the function reference.
+  return {
+    PromptTemplate: {
+      fromTemplate: (...args) => mockLangchainFromTemplateFn(...args),
+    },
+  };
+});
+
+
 describe('ApiHandlers', () => {
   let mockReq, mockRes, mockNext;
 
   beforeEach(() => {
-    jest.clearAllMocks(); // Clears all mocks, including the class mock for ApiError
-
-    // Re-implement ApiError mock for each test if needed, or ensure it's robust.
-    // The top-level mock should persist unless jest.resetModules() is called.
-    // ApiError.mockClear(); // if ApiError itself is a jest.fn()
+    jest.clearAllMocks();
 
     mockRes = {
       json: jest.fn(),
       status: jest.fn().mockReturnThis(),
-      send: jest.fn(), // Though send is not typically used with JSON APIs
+      send: jest.fn(),
     };
-    mockReq = { params: {}, body: {}, query: {} }; // Initialize common request parts
+    mockReq = { params: {}, body: {}, query: {} };
     mockNext = jest.fn();
+
+    // Reset the implementations for each test
+    mockLangchainFormatFn = jest.fn();
+    mockLangchainFromTemplateFn = jest.fn(() => ({ format: mockLangchainFormatFn }));
   });
 
   describe('getRoot', () => {
@@ -706,22 +723,17 @@ describe('ApiHandlers', () => {
       const formattedPrompt = 'Hello value';
 
       LlmService.getPromptTemplates.mockReturnValue(mockTemplates);
-      // Mocking Langchain's PromptTemplate (this is a bit involved)
-      const mockFormat = jest.fn().mockResolvedValue(formattedPrompt);
-      const mockFromTemplate = jest.fn(() => ({ format: mockFormat }));
-      jest.doMock('@langchain/core/prompts', () => ({
-        PromptTemplate: { fromTemplate: mockFromTemplate },
-      }));
-      // Re-require ApiHandlers to get the new mock for PromptTemplate
-      const FreshApiHandlers = require('../src/apiHandlers');
+      mockLangchainFormatFn.mockResolvedValue(formattedPrompt);
+      // mockLangchainFromTemplateFn is already set up in beforeEach to return { format: mockLangchainFormatFn }
 
-      await FreshApiHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
+      // ApiHandlers is required at the top of the file and uses the globally mocked Langchain
+      await ApiHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
 
       expect(LlmService.getPromptTemplates).toHaveBeenCalled();
-      expect(mockFromTemplate).toHaveBeenCalledWith(
+      expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(
         mockTemplates.TEST_TEMPLATE
       );
-      expect(mockFormat).toHaveBeenCalledWith(mockReq.body.inputVariables);
+      expect(mockLangchainFormatFn).toHaveBeenCalledWith(mockReq.body.inputVariables);
       expect(mockRes.json).toHaveBeenCalledWith({
         templateName: mockReq.body.templateName,
         rawTemplate: mockTemplates.TEST_TEMPLATE,
@@ -729,7 +741,6 @@ describe('ApiHandlers', () => {
         formattedPrompt,
       });
       expect(mockNext).not.toHaveBeenCalled();
-      jest.dontMock('@langchain/core/prompts'); // Clean up mock
     });
 
     test('should call next with ApiError if templateName is missing', async () => {
@@ -794,17 +805,14 @@ describe('ApiHandlers', () => {
       const mockTemplates = { TEST_TEMPLATE: 'Hello {{key}}' }; // Requires 'key'
       LlmService.getPromptTemplates.mockReturnValue(mockTemplates);
 
-      const mockFormat = jest
-        .fn()
-        .mockRejectedValue(new Error("Missing key 'key'"));
-      const mockFromTemplate = jest.fn(() => ({ format: mockFormat }));
-      jest.doMock('@langchain/core/prompts', () => ({
-        PromptTemplate: { fromTemplate: mockFromTemplate },
-      }));
-      const FreshApiHandlers = require('../src/apiHandlers');
+      mockLangchainFormatFn.mockRejectedValue(new Error("Missing key 'key'"));
+      // mockLangchainFromTemplateFn is already set up in beforeEach
 
-      await FreshApiHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
+      // ApiHandlers is required at the top of the file and uses the globally mocked Langchain
+      await ApiHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
 
+      expect(mockLangchainFromTemplateFn).toHaveBeenCalled();
+      expect(mockLangchainFormatFn).toHaveBeenCalled();
       expect(mockNext).toHaveBeenCalled();
       const errorThrown = mockNext.mock.calls[0][0];
       expect(errorThrown).toBeInstanceOf(ActualApiError);
@@ -815,7 +823,6 @@ describe('ApiHandlers', () => {
       expect(errorThrown.errorCode).toBe(
         'DEBUG_FORMAT_PROMPT_FORMATTING_FAILED'
       );
-      jest.dontMock('@langchain/core/prompts');
     });
   });
 });

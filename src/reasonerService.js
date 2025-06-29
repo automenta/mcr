@@ -15,8 +15,8 @@ const ReasonerService = {
    */
   runQuery(facts, query) {
     return new Promise((resolve, reject) => {
-      const prologSession = pl.create();
       try {
+        const prologSession = pl.create();
         prologSession.consult(facts.join(' '), {
           success: () => {
             prologSession.query(query, {

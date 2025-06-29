@@ -1,23 +1,9 @@
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
-const { logger } = require('./logger'); // Corrected import
+const { logger } = require('./logger');
 const ApiError = require('./errors');
 const ConfigManager = require('./config');
-
-/**
- * @typedef {object} Session
- * @property {string} sessionId - Unique identifier for the session.
- * @property {string} createdAt - ISO string timestamp of when the session was created.
- * @property {string[]} facts - Array of Prolog facts asserted in the session.
- * @property {number} factCount - Number of facts in the session.
- */
-
-/**
- * @typedef {object} Ontology
- * @property {string} name - The name of the ontology.
- * @property {string} rules - The Prolog rules defining the ontology.
- */
 
 const config = ConfigManager.load();
 const sessionStoragePath = path.resolve(config.session.storagePath);
@@ -57,17 +43,18 @@ const SessionManager = {
       fs.writeFileSync(filePath, JSON.stringify(session, null, 2));
       logger.debug(`Session ${session.sessionId} saved to ${filePath}`);
     } catch (error) {
-      logger.error(`Failed to save session ${session.sessionId}.`, {
+      logger.error(`Failed to save session ${session.sessionId}. Error: ${error.message} (Code: ${error.code}, Errno: ${error.errno})`, {
         internalErrorCode: 'SESSION_SAVE_FAILED',
         sessionId: session.sessionId,
         filePath,
         originalError: error.message,
+        errorCode: error.code,
+        errno: error.errno,
         stack: error.stack,
       });
-      // Propagate error for consistent handling
       throw new ApiError(
         500,
-        `Failed to save session ${session.sessionId}: ${error.message}`,
+        `Failed to save session ${session.sessionId}: ${error.message} (FS Code: ${error.code})`,
         'SESSION_SAVE_OPERATION_FAILED'
       );
     }
@@ -90,8 +77,6 @@ const SessionManager = {
           originalError: error.message,
           stack: error.stack,
         });
-        // Instead of just deleting from memory and returning null, throw a specific error.
-        // delete this._sessions[sessionId]; // No longer needed here as we throw.
         throw new ApiError(
           500,
           `Failed to read or parse session file ${sessionId}: ${error.message}`,
@@ -99,7 +84,7 @@ const SessionManager = {
         );
       }
     }
-    return null; // File does not exist
+    return null;
   },
 
   _getOntologyFilePath(name) {
@@ -133,7 +118,6 @@ const SessionManager = {
         logger.error(
           `Failed to load ontology ${name} from ${filePath}: ${error.message}`
         );
-        // delete this._ontologies[name]; // No longer needed here
         throw new ApiError(
           500,
           `Failed to read or parse ontology file ${name}: ${error.message}`,
@@ -141,14 +125,9 @@ const SessionManager = {
         );
       }
     }
-    return null; // File does not exist
+    return null;
   },
 
-  /**
-   * Loads all ontologies from the ontology storage path into memory.
-   * This is typically called once at startup.
-   * @private
-   */
   _loadAllOntologies() {
     try {
       const files = fs.readdirSync(ontologyStoragePath);
@@ -168,10 +147,6 @@ const SessionManager = {
     }
   },
 
-  /**
-   * Creates a new session.
-   * @returns {Session} The newly created session object.
-   */
   create() {
     const sessionId = uuidv4();
     const now = new Date().toISOString();
@@ -182,13 +157,6 @@ const SessionManager = {
     return newSession;
   },
 
-  /**
-   * Retrieves a session by its ID.
-   * Loads from disk if not already in memory.
-   * @param {string} sessionId - The ID of the session to retrieve.
-   * @returns {Session} The session object.
-   * @throws {ApiError} If the session is not found.
-   */
   get(sessionId) {
     let session = this._sessions[sessionId];
     if (!session) {
@@ -204,14 +172,8 @@ const SessionManager = {
     return session;
   },
 
-  /**
-   * Deletes a session by its ID.
-   * Removes from memory and deletes the corresponding session file.
-   * @param {string} sessionId - The ID of the session to delete.
-   * @throws {ApiError} If the session is not found (implicitly via this.get).
-   */
   delete(sessionId) {
-    this.get(sessionId); // Ensures session exists before attempting deletion
+    this.get(sessionId);
     delete this._sessions[sessionId];
     const filePath = this._getSessionFilePath(sessionId);
     if (fs.existsSync(filePath)) {
@@ -228,8 +190,6 @@ const SessionManager = {
             originalError: error.message,
           }
         );
-        // Decide if this should be a critical error that stops the operation or informs the user.
-        // For now, re-throwing as a 500, as the session is removed from memory but file is orphaned.
         throw new ApiError(
           500,
           `Failed to delete session file ${filePath}: ${error.message}`,
@@ -240,12 +200,6 @@ const SessionManager = {
     logger.info(`Terminated session: ${sessionId}`);
   },
 
-  /**
-   * Adds new facts to an existing session.
-   * @param {string} sessionId - The ID of the session.
-   * @param {string[]} newFacts - An array of new Prolog facts to add.
-   * @throws {ApiError} If the session is not found.
-   */
   addFacts(sessionId, newFacts) {
     const session = this.get(sessionId);
     session.facts.push(...newFacts);
@@ -254,18 +208,9 @@ const SessionManager = {
     logger.info(`Session ${sessionId}: Asserted ${newFacts.length} new facts.`);
   },
 
-  /**
-   * Combines facts from a session with global ontologies or a provided additional ontology.
-   * If additionalOntology is provided, global ontologies are ignored for this call.
-   * @param {string} sessionId - The ID of the session.
-   * @param {string} [additionalOntology=null] - Optional string containing Prolog rules to use instead of global ontologies.
-   * @returns {string[]} An array of combined Prolog facts and rules.
-   * @throws {ApiError} If the session is not found.
-   */
   getFactsWithOntology(sessionId, additionalOntology = null) {
     const session = this.get(sessionId);
     let ontologyFacts = [];
-
     if (additionalOntology) {
       ontologyFacts = this._parseOntologyRules(additionalOntology);
     } else {
@@ -273,16 +218,9 @@ const SessionManager = {
         this._parseOntologyRules(rulesString)
       );
     }
-
     return [...session.facts, ...ontologyFacts];
   },
 
-  /**
-   * Retrieves global ontology facts that are not already present in the specified session's facts.
-   * @param {string} sessionId - The ID of the session to compare against.
-   * @returns {string[]} An array of ontology rules not present in the session.
-   * @throws {ApiError} If the session is not found.
-   */
   getNonSessionOntologyFacts(sessionId) {
     const session = this.get(sessionId);
     return Object.values(this._ontologies)
@@ -290,13 +228,6 @@ const SessionManager = {
       .filter((rule) => !session.facts.includes(rule));
   },
 
-  /**
-   * Adds a new global ontology.
-   * @param {string} name - The name of the ontology.
-   * @param {string} rules - The Prolog rules for the ontology.
-   * @returns {Ontology} The added ontology object.
-   * @throws {ApiError} If an ontology with the same name already exists or if saving fails.
-   */
   addOntology(name, rules) {
     if (this._ontologies[name]) {
       throw new ApiError(
@@ -311,16 +242,8 @@ const SessionManager = {
     return { name, rules };
   },
 
-  /**
-   * Updates an existing global ontology.
-   * @param {string} name - The name of the ontology to update.
-   * @param {string} rules - The new Prolog rules for the ontology.
-   * @returns {Ontology} The updated ontology object.
-   * @throws {ApiError} If the ontology is not found or if saving fails.
-   */
   updateOntology(name, rules) {
     if (!this._ontologies[name] && !this._loadOntology(name)) {
-      // Attempt to load if not in memory
       throw new ApiError(
         404,
         `Ontology with name '${name}' not found.`,
@@ -333,10 +256,6 @@ const SessionManager = {
     return { name, rules };
   },
 
-  /**
-   * Retrieves a list of all global ontologies.
-   * @returns {Ontology[]} An array of ontology objects.
-   */
   getOntologies() {
     return Object.keys(this._ontologies).map((name) => ({
       name,
@@ -344,16 +263,10 @@ const SessionManager = {
     }));
   },
 
-  /**
-   * Retrieves a specific global ontology by its name.
-   * @param {string} name - The name of the ontology to retrieve.
-   * @returns {Ontology} The ontology object.
-   * @throws {ApiError} If the ontology is not found.
-   */
   getOntology(name) {
     let ontology = this._ontologies[name];
     if (!ontology) {
-      ontology = this._loadOntology(name); // Attempt to load if not in memory
+      ontology = this._loadOntology(name);
     }
     if (!ontology) {
       throw new ApiError(
@@ -362,25 +275,18 @@ const SessionManager = {
         'ONTOLOGY_NOT_FOUND'
       );
     }
-    return { name, rules: ontology }; // _loadOntology returns rules string, this._ontologies stores rules string
+    return { name, rules: ontology };
   },
 
-  /**
-   * Deletes a global ontology by its name.
-   * @param {string} name - The name of the ontology to delete.
-   * @returns {{message: string}} A confirmation message.
-   * @throws {ApiError} If the ontology is not found.
-   */
   deleteOntology(name) {
     if (!this._ontologies[name] && !this._loadOntology(name)) {
-      // Attempt to load if not in memory to check existence
       throw new ApiError(
         404,
         `Ontology with name '${name}' not found.`,
         'ONTOLOGY_NOT_FOUND'
       );
     }
-    delete this._ontologies[name]; // Delete from memory
+    delete this._ontologies[name];
     const filePath = this._getOntologyFilePath(name);
     if (fs.existsSync(filePath)) {
       try {
