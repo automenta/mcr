@@ -300,8 +300,18 @@ const LlmService = {
       }
     );
     let trimmedResult = result.trim();
+
+    // Remove Markdown code fences if present
+    trimmedResult = trimmedResult.replace(/^```prolog\n/, '').replace(/\n```$/, '');
+    trimmedResult = trimmedResult.replace(/^```/, '').replace(/```$/, '');
+
+    // Remove "?-" prefix if present
+    if (trimmedResult.startsWith('?-')) {
+      trimmedResult = trimmedResult.substring(2).trim();
+    }
+
     if (!trimmedResult) {
-      logger.error('LLM generated an empty Prolog query.', {
+      logger.error('LLM generated an empty Prolog query after cleaning.', {
         internalErrorCode: 'LLM_EMPTY_PROLOG_QUERY',
         question,
         llmOutput: result,
@@ -333,6 +343,20 @@ const LlmService = {
         internalErrorCode: 'RESULT_TO_NL_UNHANDLED_ERROR',
         customErrorMessage:
           'An unexpected error occurred during result to natural language translation.',
+      }
+    );
+  },
+
+  async getZeroShotAnswerAsync(question) {
+    return this._callLlmAsync(
+      'ZERO_SHOT_QUERY', // New prompt template name
+      { question },
+      new StringOutputParser(),
+      {
+        methodName: 'getZeroShotAnswerAsync',
+        internalErrorCode: 'ZERO_SHOT_QUERY_UNHANDLED_ERROR',
+        customErrorMessage:
+          'An unexpected error occurred during zero-shot query processing.',
       }
     );
   },

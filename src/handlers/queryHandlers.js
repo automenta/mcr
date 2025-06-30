@@ -92,6 +92,13 @@ const queryHandlers = {
         requestOntology
       );
       let rawResults;
+
+      // Jules: Added detailed logging for facts and query before calling reasoner
+      logger.debug(
+        `Session ${sessionId}: About to run Prolog query. Query: "${prologQuery}". Facts: ${JSON.stringify(facts)}`,
+        { sessionId, prologQuery, factsForReasoner: facts }
+      );
+
       try {
         rawResults = await ReasonerService.runQuery(facts, prologQuery);
       } catch (reasonerError) {
@@ -127,10 +134,23 @@ const queryHandlers = {
         JSON.stringify(simpleResult),
         options.style
       );
+
+      // Jules: Add zero-shot LM comparison
+      let zeroShotLmAnswer = null;
+      try {
+        // 'query' is the original user question from req.body
+        zeroShotLmAnswer = await LlmService.getZeroShotAnswerAsync(query);
+        logger.info(`Session ${sessionId}: Zero-shot LM answer: "${zeroShotLmAnswer}"`, { sessionId });
+      } catch (lmError) {
+        logger.warn(`Session ${sessionId}: Failed to get zero-shot LM answer: ${lmError.message}`, { sessionId, error: lmError.message, stack: lmError.stack });
+        zeroShotLmAnswer = "Error: Could not retrieve zero-shot answer from LLM.";
+      }
+
       const response = {
         queryProlog: prologQuery,
         result: simpleResult,
-        answer: finalAnswer,
+        answer: finalAnswer, // System's answer from reasoner + NL generation
+        zeroShotLmAnswer: zeroShotLmAnswer, // Comparison answer from direct LLM query
         metadata: { success: true, steps: rawResults.length },
       };
 
