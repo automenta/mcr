@@ -12,7 +12,7 @@ async function assertFactAsync(sessionId, text, options, commandInstance) {
   handleCliOutput(response.data, programOpts, null, 'Facts asserted:\n');
 }
 
-async function runInteractiveQueryMode(
+async function runInteractiveQueryModeAsync(
   initialSessionId,
   options,
   programOpts,
@@ -35,7 +35,7 @@ async function runInteractiveQueryMode(
       if (!programOpts.json) {
         console.log(`Continuing session: ${currentSessionId}`);
       }
-    } catch (error) {
+    } catch { // Removed unused 'error'
       console.error(
         `Error verifying session ${currentSessionId}. Please check the session ID and server.`
       );
@@ -170,7 +170,7 @@ async function querySessionAsync(
     const isInteractive = !sessionIdArg || !questionArg;
 
     if (isInteractive) {
-      await runInteractiveQueryMode(
+      await runInteractiveQueryModeAsync(
         currentSessionId,
         options,
         programOpts,

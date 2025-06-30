@@ -104,7 +104,7 @@ async function familyOntologyDemoAsync() {
         { ontologyName },
         { message: 'Attempted pre-cleanup' }
       );
-    } catch (_e) {
+    } catch {
       // Ignore if it doesn't exist
     }
     const ontologyResponse = await apiAddOntology(ontologyName, ontologyFile);

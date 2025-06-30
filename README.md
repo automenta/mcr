@@ -135,7 +135,6 @@ MCR exposes a RESTful API for interaction. All requests and responses are JSON-b
 - **`X-Correlation-ID` Header**: All responses will include an `X-Correlation-ID` header, containing a unique ID for the request. This ID is also included in server logs and can be useful for debugging and tracing.
 
 - **Error Responses**: Errors are returned in a consistent JSON format.
-
   - **API Errors (Client-side or expected issues, e.g., 4xx status codes):**
 
     ```json
@@ -182,7 +181,6 @@ MCR exposes a RESTful API for interaction. All requests and responses are JSON-b
 Sessions are stateful contexts where facts are stored and reasoned upon.
 
 - `POST /sessions`
-
   - **Description**: Creates a new reasoning session.
   - **Response**:
     ```json
@@ -195,7 +193,6 @@ Sessions are stateful contexts where facts are stored and reasoned upon.
     ```
 
 - `GET /sessions/:sessionId`
-
   - **Description**: Retrieves the details of a specific session.
   - **Parameters**: `sessionId` (path) - The ID of the session.
   - **Response**: (Same as `POST /sessions` response, but with current facts)
@@ -246,7 +243,6 @@ Add natural language statements to a session's knowledge base. MCR uses an LLM t
 Ask natural language questions against a session's knowledge base. MCR translates the question to Prolog, runs the query, and translates the result back to natural language.
 
 - `POST /sessions/:sessionId/query`
-
   - **Description**: Translates a natural language question into a Prolog query, executes it against the session's knowledge base (including a common-sense ontology), and returns a natural language answer.
   - **Parameters**: `sessionId` (path) - The ID of the session.
   - **Request Body**:
@@ -289,7 +285,6 @@ Ask natural language questions against a session's knowledge base. MCR translate
 
   - **Implementing Retrieval Augmented Generation (RAG) with Dynamic Knowledge Injection**:
     The `ontology` field is key to implementing RAG with MCR. The workflow is typically as follows:
-
     1.  **User Query**: The user submits a natural language query to your application.
     2.  **Context Retrieval (Application Responsibility)**: Your application preprocesses the user's query (e.g., identifies keywords, entities). It then queries an external knowledge source (vector database, document store, knowledge graph, etc.) to retrieve relevant contextual information.
     3.  **Context Transformation (Application Responsibility)**: The retrieved context (which might be text chunks, structured data, etc.) needs to be transformed into Prolog facts or rules. This transformation can be done programmatically by your application or by using an LLM to convert natural language context into Prolog statements.
@@ -324,7 +319,6 @@ Ask natural language questions against a session's knowledge base. MCR translate
 These endpoints allow direct translation without session management.
 
 - `POST /translate/nl-to-rules`
-
   - **Description**: Translates natural language text into a list of Prolog facts/rules.
   - **Request Body**:
     ```json
@@ -367,7 +361,6 @@ These endpoints allow direct translation without session management.
 MCR allows for the management of global ontologies (collections of Prolog facts and rules) that can be applied to reasoning tasks. These ontologies are stored by MCR and can be created, updated, listed, retrieved, and deleted via the API. Ontologies are identified by a unique `name`.
 
 - `POST /ontologies`
-
   - **Description**: Creates a new global ontology.
   - **Request Body**:
     ```json
@@ -385,7 +378,6 @@ MCR allows for the management of global ontologies (collections of Prolog facts 
     ```
 
 - `GET /ontologies`
-
   - **Description**: Retrieves a list of all global ontologies.
   - **Response**:
     ```json
@@ -396,7 +388,6 @@ MCR allows for the management of global ontologies (collections of Prolog facts 
     ```
 
 - `GET /ontologies/:name`
-
   - **Description**: Retrieves a specific global ontology by its name.
   - **Parameters**: `name` (path) - The name of the ontology.
   - **Response**:
@@ -408,7 +399,6 @@ MCR allows for the management of global ontologies (collections of Prolog facts 
     ```
 
 - `PUT /ontologies/:name`
-
   - **Description**: Updates an existing global ontology.
   - **Parameters**: `name` (path) - The name of the ontology to update.
   - **Request Body**:
@@ -439,7 +429,6 @@ MCR allows for the management of global ontologies (collections of Prolog facts 
 ### 7. Utility & Debugging Endpoints
 
 - `GET /prompts`
-
   - **Description**: Retrieves all raw prompt templates currently loaded by the MCR server. This is useful for understanding the base prompts used for LLM interactions.
   - **Response**:
     ```json

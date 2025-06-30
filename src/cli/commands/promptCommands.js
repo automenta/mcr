@@ -19,7 +19,7 @@ async function listPromptsAsync(options, commandInstance) {
         console.log(`- ${name}`);
       });
     }
-  } catch (_error) {
+  } catch {
     // apiClient.get already calls handleApiError which exits
   }
 }
@@ -51,7 +51,7 @@ async function showPromptAsync(templateName, options, commandInstance) {
       console.log(`Content of prompt template '${templateName}':`);
       console.log(templates[templateName]);
     }
-  } catch (_error) {
+  } catch {
     // apiClient.get already calls handleApiError
   }
 }
@@ -103,7 +103,7 @@ async function debugPromptAsync(
       console.log('\n--- Formatted Prompt ---');
       console.log(result.formattedPrompt);
     }
-  } catch (_error) {
+  } catch {
     // apiClient.post already calls handleApiError
   }
 }

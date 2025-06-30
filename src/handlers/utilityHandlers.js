@@ -1,5 +1,6 @@
 const LlmService = require('../llmService');
 const ApiError = require('../errors');
+const { PromptTemplate } = require('@langchain/core/prompts'); // Moved here
 const { logger } = require('../logger');
 const { validateNonEmptyString } = require('./handlerUtils');
 const {
@@ -53,7 +54,7 @@ const utilityHandlers = {
         );
       }
 
-      const { PromptTemplate } = require('@langchain/core/prompts');
+      // const { PromptTemplate } = require('@langchain/core/prompts'); // Removed from here
 
       let formattedPrompt;
       try {

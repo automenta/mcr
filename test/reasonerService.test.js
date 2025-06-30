@@ -408,7 +408,9 @@ describe('ReasonerService', () => {
         expect(caughtAnswerInitError.message).toMatch(
           /Prolog answer initiation error: Simulated answer initiation error/i
         );
-        expect(caughtAnswerInitError.errorCode).toBe('PROLOG_ANSWER_INIT_ERROR');
+        expect(caughtAnswerInitError.errorCode).toBe(
+          'PROLOG_ANSWER_INIT_ERROR'
+        );
         expect(logger.error).toHaveBeenCalledWith(
           expect.stringMatching(/Error initiating Prolog answer callback/i),
           expect.objectContaining({
@@ -453,7 +455,9 @@ describe('ReasonerService', () => {
         expect(caughtAnswerProcessingError.message).toMatch(
           /Prolog answer processing error: Simulated answer processing error/i
         );
-        expect(caughtAnswerProcessingError.errorCode).toBe('PROLOG_ANSWER_ERROR');
+        expect(caughtAnswerProcessingError.errorCode).toBe(
+          'PROLOG_ANSWER_ERROR'
+        );
         expect(logger.error).toHaveBeenCalledWith(
           expect.stringMatching(/Error processing Prolog answer/i),
           expect.objectContaining({
