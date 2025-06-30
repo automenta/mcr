@@ -17,6 +17,25 @@ const ConfigManager = {
       return this._config;
     }
 
+    // Ensure .env file exists by copying .env.example if necessary
+    const fs = require('fs');
+    const path = require('path');
+    const envPath = path.resolve(process.cwd(), '.env');
+    const envExamplePath = path.resolve(process.cwd(), '.env.example');
+
+    if (!fs.existsSync(envPath) && fs.existsSync(envExamplePath)) {
+      try {
+        fs.copyFileSync(envExamplePath, envPath);
+        logger.info(
+          'No .env file found. Copied .env.example to .env. Please review and update .env with your specific settings.'
+        );
+      } catch (err) {
+        logger.warn(
+          `Could not copy .env.example to .env: ${err.message}. Proceeding without .env file creation.`
+        );
+      }
+    }
+
     dotenv.config();
 
     // Determine LLM provider with new default logic

@@ -275,6 +275,38 @@ describe('LlmService', () => {
       expect(prologQuery).toBe('query(X).');
     });
 
+    test('should append a period if LLM output for queryToPrologAsync does not have one', async () => {
+      mockConfig.llm.provider = 'openai';
+      LlmService.init(mockConfig, testProviderStrategies);
+      const currentMockInvoke = mockClientInvokeImpl('openai', 'query(Y)'); // No period
+
+      const question = 'What is Y?';
+      const expectedFormattedPrompt = `Formatted: ${Prompts.QUERY_TO_PROLOG}`;
+      mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+
+      const prologQuery = await LlmService.queryToPrologAsync(question);
+
+      expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(
+        Prompts.QUERY_TO_PROLOG
+      );
+      expect(mockLangchainFormatFn).toHaveBeenCalledWith({ question });
+      expect(currentMockInvoke).toHaveBeenCalledWith(expectedFormattedPrompt);
+      expect(prologQuery).toBe('query(Y).'); // Expect period to be added
+    });
+
+    test('should handle query from LLM that already has a period and trailing space for queryToPrologAsync', async () => {
+      mockConfig.llm.provider = 'openai';
+      LlmService.init(mockConfig, testProviderStrategies);
+      const currentMockInvoke = mockClientInvokeImpl('openai', 'query(Z). '); // Period and space
+
+      const question = 'What is Z?';
+      const expectedFormattedPrompt = `Formatted: ${Prompts.QUERY_TO_PROLOG}`;
+      mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+
+      const prologQuery = await LlmService.queryToPrologAsync(question);
+      expect(prologQuery).toBe('query(Z).'); // Expect period to be present, space trimmed
+    });
+
     test('should throw ApiError if LLM returns empty string for queryToPrologAsync', async () => {
       mockConfig.llm.provider = 'openai';
       LlmService.init(mockConfig, testProviderStrategies);
