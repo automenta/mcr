@@ -13,9 +13,9 @@
 - Modular (logically organized, supporting abstraction, OOP principles)
 - **Prioritize self-documenting code** through clear naming, concise logic, and good structure.
 - **Use comments judiciously where they add significant value:**
-   - **JSDoc for public functions/modules:** Document parameters, return values, and purpose for all exported functions and class methods that form the public API of a module.
-   - **Explain complex or non-obvious logic:** If a piece of code is intricate or its reasoning isn't immediately clear from the code itself, a brief comment explaining the "why" can be very helpful.
-   - **Document workarounds or important assumptions.**
+  - **JSDoc for public functions/modules:** Document parameters, return values, and purpose for all exported functions and class methods that form the public API of a module.
+  - **Explain complex or non-obvious logic:** If a piece of code is intricate or its reasoning isn't immediately clear from the code itself, a brief comment explaining the "why" can be very helpful.
+  - **Document workarounds or important assumptions.**
 - **Avoid redundant comments** that merely restate what the code clearly shows (e.g., `// increment i` for `i++`).
 - Use the latest version of the language, APIs, and dependencies
 
