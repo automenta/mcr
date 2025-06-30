@@ -1,6 +1,10 @@
 const AllHandlers = require('./handlers'); // Import from the new index file
+const mcpHandler = require('./mcpHandler'); // Import MCP Handler
 
 const setupRoutes = (app) => {
+  // MCP SSE Endpoint
+  app.get('/mcp/sse', mcpHandler.handleSse);
+
   app.get('/', AllHandlers.getRoot);
 
   // Session Management

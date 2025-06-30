@@ -271,6 +271,54 @@ Some examples of direct commands are:
 
 The demo functionalities previously available via `mcr agent` are now integrated into the main TUI (`mcr chat`) using the `/run-demo` command (e.g., `/run-demo simpleQA`). The TUI provides a more comprehensive and integrated experience for these features.
 
+## Integrating with AI Clients (MCP)
+
+This MCR server can be exposed as a set of tools to AI clients that support the Model Context Protocol (MCP), such as Claude Desktop. This allows the AI to leverage the reasoning capabilities of MCR.
+
+### Configuring Claude Desktop
+
+To connect Claude Desktop to this MCR server, you need to modify your `claude_desktop_config.json` file.
+
+1.  **Locate the configuration file:**
+    *   On **macOS**, this file is typically found at: `~/Library/Application Support/Claude/claude_desktop_config.json`
+    *   On other operating systems, the location may vary. Please refer to the Claude Desktop documentation.
+
+2.  **Add the MCR server configuration:**
+    Open `claude_desktop_config.json` in a text editor and add the following entry to the `mcpServers` object. If `mcpServers` doesn't exist, create it.
+
+    ```json
+    {
+      "mcpServers": {
+        "mcr-reasoner-server": {
+          "type": "url",
+          "url": "http://localhost:8080/mcp/sse",
+          "name": "MCR Reasoner Server",
+          "tool_configuration": {
+            "enabled": true,
+            "allowed_tools": [
+              "create_reasoning_session",
+              "assert_facts",
+              "query_reasoning_session",
+              "translate_nl_to_rules",
+              "translate_rules_to_nl"
+            ]
+          }
+        }
+      }
+      // ... any other existing configurations ...
+    }
+    ```
+
+    **Notes:**
+    *   Replace `"mcr-reasoner-server"` with any unique key you prefer for this server.
+    *   The `url` field defaults to `http://localhost:8080/mcp/sse`. If your MCR server is running on a different port (configured via the `PORT` environment variable) or host, update this URL accordingly.
+    *   The `allowed_tools` array lists the tools that will be available from this MCR server.
+
+3.  **Restart Claude Desktop:**
+    After saving the changes to `claude_desktop_config.json`, restart Claude Desktop for the new configuration to take effect.
+
+Once configured, Claude Desktop should be able to discover and use the tools provided by this MCR server, enabling it to create reasoning sessions, assert facts, and perform queries.
+
 ## API Reference
 
 MCR exposes a RESTful API for interaction. All requests and responses are JSON-based.
