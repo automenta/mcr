@@ -85,12 +85,17 @@ The `mcr chat` command starts a full-application TUI that serves as your "home" 
   - Automatically starts the MCR server if it's not already running.
   - Shuts down the server on exit *if* the TUI started it.
   - Seamlessly uses an existing MCR server if one is detected.
-- **Status Bar**: Displays current session ID, startup ontology context, server status, and chat debug mode.
+- **Status Bar**: Displays current session ID, startup ontology context (from `-o` flag), server status, and chat debug mode.
 - **Command System**:
   - Type natural language messages directly for chat.
   - Use slash commands (e.g., `/help`, `/status`, `/create-session`) to perform specific operations.
 - **Interactive Output**: View responses from MCR, command outputs, and demo progress in the main content area.
-- **Startup Ontology**: Use the `-o` option to specify an ontology file at startup (e.g., `mcr chat -o path/to/your_ontology.pl`). This file's content will be used as context for chat messages and certain commands.
+- **Startup Ontology**: Use the `mcr chat -o path/to/your_ontology.pl` option to specify an ontology file at startup.
+  - The content of this file will be automatically included as dynamic context in the `ontology` field for:
+    - All natural language chat messages sent to the MCR.
+    - All `/query <question>` commands.
+  - This allows you to have a base set of rules or facts active for your TUI session without manually asserting them or including them in every query.
+  - The name of the startup ontology file is displayed in the status bar.
 
 **Navigating the TUI:**
 

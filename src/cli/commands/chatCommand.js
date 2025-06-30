@@ -1,32 +1,38 @@
 /* eslint-disable no-console */
-// const readline = require('readline'); // REMOVED
-const { apiClient, API_BASE_URL, handleApiError: originalHandleApiError } = require('../api'); // Renamed for clarity
-const { readOntologyFile, readFileContentSafe, delay } = require('../utils'); // readFileContentSafe added for TUI, delay for demos
-const axios = require('axios');
+const api = require('../api'); // Import all exported functions from api.js
+const { readOntologyFile, readFileContentSafe, delay } = require('../utils');
+const axios = require('axios'); // Still needed for isServerAlive check directly
 const { spawn } = require('child_process');
 const path = require('path');
 const ConfigManager = require('../../config');
 
 // NEW: Ink and React imports
 const React = require('react');
-const { render, Box, Text, Newline, useApp, useInput, Static, Spacer } = require('ink'); // Added Spacer
+const { render, Box, Text, Newline, useApp, useInput, Static, Spacer } = require('ink');
 const TextInput = require('ink-text-input').default;
 
-// For Agent Demos - direct import of API methods used by agentCommand
-// This avoids trying to adapt the commander-based functions from agentCommand.js
-// We are essentially reimplementing the demo logic within the TUI context.
+// Demo functions will use the destructured methods from the 'api' import.
+// e.g. api.createSession, api.assertFacts etc.
+// The aliases like agentApiCreateSession are kept for minimal changes in demo logic code.
 const {
     createSession: agentApiCreateSession,
     assertFacts: agentApiAssertFacts,
-    query: agentApiQuery,
+    query: agentApiQuery, // This is the generic query helper from api.js
     deleteSession: agentApiDeleteSession,
     addOntology: agentApiAddOntology,
     deleteOntology: agentApiDeleteOntology,
-} = require('../api');
+    getServerStatus: tuiGetServerStatus, // Alias for clarity
+} = api;
 
 
 // Helper to parse simple command line options like --option value
 // For TUI internal commands, not a full CLI parser.
+/**
+ * Parses simple command line arguments (like --option value) for TUI internal commands.
+ * This is not a full CLI parser.
+ * @param {string[]} args - Array of argument strings.
+ * @returns {{options: object, _: string[]}} Parsed options and remaining arguments.
+ */
 function parseTuiCommandArgs(args) {
   const options = {};
   const remainingArgs = [];
@@ -48,13 +54,19 @@ function parseTuiCommandArgs(args) {
 
 
 let serverProcess = null;
-let serverStartedByChat = false;
+let serverStartedByChat = false; // Tracks if this TUI instance started the server
 
-// Function to check if server is alive (largely unchanged)
-async function isServerAlive(url, retries = 5, delayTime = 1000) { // Renamed delay to delayTime
+/**
+ * Checks if the MCR server is alive by making a GET request to its root.
+ * @param {string} url - The base URL of the MCR server.
+ * @param {number} [retries=5] - Number of times to retry.
+ * @param {number} [delayTime=1000] - Time in ms to wait between retries.
+ * @returns {Promise<boolean>} True if server is alive, false otherwise.
+ */
+async function isServerAlive(url, retries = 5, delayTime = 1000) {
   for (let i = 0; i < retries; i++) {
     try {
-      await axios.get(url, { timeout: 500 });
+      await axios.get(url, { timeout: 500 }); // Using axios directly for a simple health check
       return true;
     } catch (error) {
       if (i < retries - 1) {
@@ -65,10 +77,14 @@ async function isServerAlive(url, retries = 5, delayTime = 1000) { // Renamed de
   return false;
 }
 
-// Function to start the MCR server (largely unchanged)
+/**
+ * Starts the MCR server as a detached background process.
+ * @param {object} programOpts - Commander program options (used for conditional logging).
+ * @returns {Promise<void>} Resolves when server is started and detected as healthy, or rejects on error.
+ */
 function startMcrServer(programOpts) {
   return new Promise((resolve, reject) => {
-    // Pre-TUI logging is okay here
+    // Pre-TUI logging is okay here as Ink hasn't taken over the console yet.
     if (!programOpts.json) {
       // This console.log will be overwritten by Ink, but useful for pre-TUI debug
       console.log('Starting MCR server...');
@@ -104,7 +120,16 @@ function startMcrServer(programOpts) {
   });
 }
 
-// Main Ink Application Component
+/**
+ * The main Ink application component for the MCR TUI.
+ * Manages state for messages, input, session, server status, and demos.
+ * Handles user input for commands and chat messages.
+ * @param {object} props - Component props.
+ * @param {string|null} props.initialSessionId - An initial session ID to use, if any.
+ * @param {string|null} props.initialOntologyContent - Path to a startup ontology file, if provided via -o.
+ * @param {object} props.programOpts - Commander program options.
+ * @param {function} props.onExitTrigger - Async function to call before exiting (for cleanup).
+ */
 const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath, programOpts, onExitTrigger }) => {
   const { exit } = useApp();
   const [messages, setMessages] = React.useState([]);
@@ -133,24 +158,35 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
     checkServerStatus();
   }, [initialSessionId, initialOntologyPath]);
 
+  /**
+   * Adds a message to the TUI output.
+   * @param {string} type - Type of message (e.g., 'system', 'user', 'mcr', 'error', 'output').
+   * @param {string|object} text - The message content. Objects will be stringified.
+   */
   const addMessage = (type, text) => {
     const messageText = (typeof text === 'object' && text !== null) ? JSON.stringify(text, null, 2) : text;
     setMessages(prev => [...prev, { type, text: messageText }]);
   };
 
+  /**
+   * Checks the MCR server status and updates the TUI.
+   * @returns {Promise<object|null>} Server status data or null on failure.
+   */
   const checkServerStatus = async () => {
     try {
-      const response = await apiClient.get('/');
-      setServerStatus(`OK (v${response.data?.version})`);
-      return response.data;
+      const statusData = await tuiGetServerStatus(); // Use the new helper
+      setServerStatus(`OK (v${statusData?.version})`);
+      return statusData;
     } catch (error) {
       setServerStatus('Unavailable');
-      addMessage('error', `Server status check failed: ${error.message}`);
+      const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Unknown error';
+      addMessage('error', `Server status check failed: ${errorMessage}`);
       return null;
     }
   };
 
   // --- Demo Implementations ---
+  /** Runs the Simple Q&A demo, interacting with the MCR API. */
   const runSimpleQADemo = async () => {
     setIsDemoRunning(true);
     addMessage('system', '🚀 Starting Simple Q&A Demo...');
@@ -198,6 +234,7 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
     }
   };
 
+  /** Runs the Family Ontology demo, showcasing ontology management and querying. */
   const runFamilyOntologyDemo = async () => {
     setIsDemoRunning(true);
     addMessage('system', '🚀 Starting Family Ontology Demo...');
@@ -265,6 +302,11 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
   };
   // --- End Demo Implementations ---
 
+  /**
+   * Handles slash commands entered by the user.
+   * @param {string} command - The command name (without the slash).
+   * @param {string[]} args - Arguments provided with the command.
+   */
   const handleCommand = async (command, args) => {
     if (isDemoRunning) {
       addMessage('error', 'A demo is currently running. Please wait for it to complete.');
@@ -313,10 +355,10 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
           }
           break;
         case 'create-session':
-          const createResponse = await apiClient.post('/sessions');
-          setCurrentSessionId(createResponse.data.sessionId);
-          addMessage('system', `New session created: ${createResponse.data.sessionId}`);
-          addMessage('output', createResponse.data);
+          response = await api.createSession();
+          setCurrentSessionId(response.sessionId);
+          addMessage('system', `New session created: ${response.sessionId}`);
+          addMessage('output', response);
           break;
         case 'get-session':
           targetSessionId = args[0] || currentSessionId;
@@ -324,9 +366,9 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
             addMessage('error', 'No session ID specified and no active session.');
             break;
           }
-          const getResponse = await apiClient.get(`/sessions/${targetSessionId}`);
+          response = await api.getSession(targetSessionId);
           addMessage('system', `Details for session ${targetSessionId}:`);
-          addMessage('output', getResponse.data);
+          addMessage('output', response);
           break;
         case 'delete-session':
           targetSessionId = args[0] || currentSessionId;
@@ -334,8 +376,8 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
             addMessage('error', 'No session ID specified and no active session.');
             break;
           }
-          const deleteResponse = await apiClient.delete(`/sessions/${targetSessionId}`);
-          addMessage('system', deleteResponse.data.message || `Session ${targetSessionId} deleted.`);
+          response = await api.deleteSession(targetSessionId);
+          addMessage('system', response.message || `Session ${targetSessionId} deleted.`);
           if (targetSessionId === currentSessionId) {
             setCurrentSessionId(null);
             addMessage('system', 'Active session cleared.');
@@ -352,9 +394,9 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
             addMessage('error', 'Usage: /assert <text to assert>');
             break;
           }
-          const assertResponse = await apiClient.post(`/sessions/${targetSessionId}/assert`, { text: assertText });
+          response = await api.assertFacts(targetSessionId, assertText);
           addMessage('system', `Facts asserted to session ${targetSessionId}:`);
-          addMessage('output', assertResponse.data);
+          addMessage('output', response);
           break;
         case 'query':
           targetSessionId = currentSessionId;
@@ -367,20 +409,21 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
             addMessage('error', 'Usage: /query <question>');
             break;
           }
-          const queryPayload = {
-            query: question,
-            options: { style: 'conversational', debug: chatDebugMode }
-          };
-          if (initialOntologyPath && chatDebugMode) { // Example: only apply startup ontology in debug for query cmd
-             const ontContent = readFileContentSafe(initialOntologyPath, addMessage, "Startup ontology for query");
-             if (ontContent) queryPayload.ontology = ontContent;
+          let queryOntologyContent = null;
+          if (initialOntologyPath) {
+             queryOntologyContent = readFileContentSafe(initialOntologyPath, addMessage, "Startup ontology for query");
+             // If readFileContentSafe returns null (error reading), it would have already added an error message.
           }
-          const queryResponse = await apiClient.post(`/sessions/${targetSessionId}/query`, queryPayload);
+          // Only proceed if ontology loading didn't fail critically (readFileContentSafe handles message)
+          // or if no initialOntologyPath was specified.
+          if (initialOntologyPath && !queryOntologyContent) break;
+
+          response = await api.query(targetSessionId, question, { style: 'conversational', debug: chatDebugMode }, queryOntologyContent);
           addMessage('system', `Query to session ${targetSessionId}: "${question}"`);
-          addMessage('mcr', queryResponse.data.answer || JSON.stringify(queryResponse.data));
-          if (queryResponse.data.debug) addMessage('output', {debugInfo: queryResponse.data.debug});
-          if (chatDebugMode && queryResponse.data.translation) addMessage('output', {translation: queryResponse.data.translation});
-          if (chatDebugMode && queryResponse.data.prologOutput) addMessage('output', {prolog: queryResponse.data.prologOutput});
+          addMessage('mcr', response.answer || JSON.stringify(response));
+          if (response.debug) addMessage('output', {debugInfo: response.debug});
+          if (chatDebugMode && response.translation) addMessage('output', {translation: response.translation});
+          if (chatDebugMode && response.prologOutput) addMessage('output', {prolog: response.prologOutput});
           break;
         case 'explain':
           targetSessionId = currentSessionId;
@@ -393,18 +436,18 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
             addMessage('error', 'Usage: /explain <question>');
             break;
           }
-          const explainResponse = await apiClient.post(`/sessions/${targetSessionId}/explain-query`, { query: explainQuestion });
+          response = await api.explainQuery(targetSessionId, explainQuestion);
           addMessage('system', `Explanation for query in session ${targetSessionId}: "${explainQuestion}"`);
-          addMessage('output', explainResponse.data);
+          addMessage('output', response);
           break;
         // Ontology Commands
         case 'list-ontologies':
-          response = await apiClient.get('/ontologies');
+          response = await api.listOntologies();
           addMessage('system', 'Available Ontologies:');
-          if (response.data.length === 0) {
+          if (response.length === 0) {
             addMessage('output', 'No ontologies found.');
           } else {
-            response.data.forEach(ont => addMessage('output', `- ${ont.name} (${ont.rules ? ont.rules.split('\n').length : 0} rules)`));
+            response.forEach(ont => addMessage('output', `- ${ont.name} (${ont.rules ? ont.rules.split('\n').length : 0} rules)`));
           }
           break;
         case 'get-ontology':
@@ -413,9 +456,9 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
             addMessage('error', 'Usage: /get-ontology <name>');
             break;
           }
-          response = await apiClient.get(`/ontologies/${ontologyName}`);
+          response = await api.getOntology(ontologyName);
           addMessage('system', `Details for ontology "${ontologyName}":`);
-          addMessage('output', response.data);
+          addMessage('output', response);
           break;
         case 'add-ontology':
           [ontologyName, filePath] = args;
@@ -425,9 +468,9 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
           }
           rulesContent = readFileContentSafe(filePath, addMessage);
           if (!rulesContent) break;
-          response = await apiClient.post('/ontologies', { name: ontologyName, rules: rulesContent });
+          response = await api.addOntology(ontologyName, rulesContent);
           addMessage('system', `Ontology "${ontologyName}" added:`);
-          addMessage('output', response.data);
+          addMessage('output', response);
           break;
         case 'update-ontology':
           [ontologyName, filePath] = args;
@@ -437,9 +480,9 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
           }
           rulesContent = readFileContentSafe(filePath, addMessage);
           if (!rulesContent) break;
-          response = await apiClient.put(`/ontologies/${ontologyName}`, { rules: rulesContent });
+          response = await api.updateOntology(ontologyName, rulesContent);
           addMessage('system', `Ontology "${ontologyName}" updated:`);
-          addMessage('output', response.data);
+          addMessage('output', response);
           break;
         case 'delete-ontology':
           ontologyName = args[0];
@@ -447,8 +490,8 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
             addMessage('error', 'Usage: /delete-ontology <name>');
             break;
           }
-          response = await apiClient.delete(`/ontologies/${ontologyName}`);
-          addMessage('system', response.data.message || `Ontology "${ontologyName}" deleted.`);
+          response = await api.deleteOntology(ontologyName);
+          addMessage('system', response.message || `Ontology "${ontologyName}" deleted.`);
           break;
         // Translation Commands
         case 'nl2rules':
@@ -458,18 +501,17 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
             addMessage('error', 'Usage: /nl2rules <text> [--facts "..."] [--ontology path/file.pl]');
             break;
           }
-          const nlToRulesPayload = { text };
+          let nlFacts = null, nlOntologyContext = null;
           if (parsedArgs.options.facts) {
-            nlToRulesPayload.existing_facts = parsedArgs.options.facts;
+            nlFacts = parsedArgs.options.facts;
           }
           if (parsedArgs.options.ontology) {
-            const ontContext = readFileContentSafe(parsedArgs.options.ontology, addMessage, 'Ontology context file');
-            if (ontContext) nlToRulesPayload.ontology_context = ontContext;
-            else break;
+            nlOntologyContext = readFileContentSafe(parsedArgs.options.ontology, addMessage, 'Ontology context file');
+            if (!nlOntologyContext) break;
           }
-          response = await apiClient.post('/translate/nl-to-rules', nlToRulesPayload);
+          response = await api.nlToRules(text, nlFacts, nlOntologyContext);
           addMessage('system', 'Translated NL to Rules:');
-          addMessage('output', response.data);
+          addMessage('output', response);
           break;
         case 'rules2nl':
           parsedArgs = parseTuiCommandArgs(args);
@@ -480,24 +522,20 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
           }
           rulesContent = readFileContentSafe(filePath, addMessage, 'Rules file');
           if (!rulesContent) break;
-          const rulesArray = rulesContent.split(/\r?\n|\.(?=\s|$)/)
-            .map(line => line.trim())
-            .filter(line => line !== '')
-            .map(line => line.endsWith('.') ? line : `${line}.`);
-
+          // api.rulesToNl helper now handles splitting string to array
           const style = parsedArgs.options.style || 'formal';
-          response = await apiClient.post('/translate/rules-to-nl', { rules: rulesArray, style });
+          response = await api.rulesToNl(rulesContent, style);
           addMessage('system', `Translated Rules from "${filePath}" to NL (style: ${style}):`);
-          addMessage('output', response.data);
+          addMessage('output', response);
           break;
         // Prompt Commands
         case 'list-prompts':
-          response = await apiClient.get('/prompts');
+          response = await api.listPrompts();
           addMessage('system', 'Available prompt templates:');
-          if (Object.keys(response.data).length === 0) {
+          if (Object.keys(response).length === 0) {
             addMessage('output', 'No prompt templates found.');
           } else {
-            Object.keys(response.data).forEach(name => addMessage('output', `- ${name}`));
+            Object.keys(response).forEach(name => addMessage('output', `- ${name}`));
           }
           break;
         case 'show-prompt':
@@ -506,13 +544,14 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
             addMessage('error', 'Usage: /show-prompt <templateName>');
             break;
           }
-          response = await apiClient.get('/prompts');
-          if (!response.data[templateName]) {
+          // listPrompts returns all prompts, so we can use it and then select.
+          const allPrompts = await api.listPrompts();
+          if (!allPrompts[templateName]) {
             addMessage('error', `Prompt template '${templateName}' not found.`);
             break;
           }
           addMessage('system', `Content of prompt template '${templateName}':`);
-          addMessage('output', response.data[templateName]);
+          addMessage('output', allPrompts[templateName]);
           break;
         case 'debug-prompt':
           templateName = args[0];
@@ -528,11 +567,11 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
             addMessage('error', `Invalid JSON for input variables: ${e.message}`);
             break;
           }
-          response = await apiClient.post('/debug/format-prompt', { templateName, inputVariables: inputVars });
-          addMessage('system', `Debugging prompt template '${response.data.templateName}':`);
-          addMessage('output', `Raw Template: ${response.data.rawTemplate}`);
-          addMessage('output', `Input Variables: ${JSON.stringify(response.data.inputVariables, null, 2)}`);
-          addMessage('output', `Formatted Prompt: ${response.data.formattedPrompt}`);
+          response = await api.debugFormatPrompt(templateName, inputVars);
+          addMessage('system', `Debugging prompt template '${response.templateName}':`);
+          addMessage('output', `Raw Template: ${response.rawTemplate}`);
+          addMessage('output', `Input Variables: ${JSON.stringify(response.inputVariables, null, 2)}`);
+          addMessage('output', `Formatted Prompt: ${response.formattedPrompt}`);
           break;
         // Demo Commands
         case 'run-demo':
@@ -574,63 +613,74 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
     }
   };
 
-  const handleChatMessage = async (query) => {
+  /**
+   * Handles regular chat messages (non-commands).
+   * Creates a session if one isn't active, then submits the message.
+   * @param {string} queryString - The chat message from the user.
+   */
+  const handleChatMessage = async (queryString) => {
     if (isDemoRunning) {
       addMessage('error', 'A demo is currently running. Please wait for it to complete before sending chat messages.');
-      setInputValue(query); // Keep query in input
+      setInputValue(queryString); // Keep query in input
       return;
     }
     if (!currentSessionId) {
       try {
         addMessage('system', 'No active session. Creating one for chat...');
-        const createResponse = await apiClient.post('/sessions');
-        setCurrentSessionId(createResponse.data.sessionId);
-        addMessage('system', `New session for chat: ${createResponse.data.sessionId}`);
-        await submitMessageToSession(query, createResponse.data.sessionId);
+        const sessionData = await api.createSession(); // Use helper
+        setCurrentSessionId(sessionData.sessionId);
+        addMessage('system', `New session for chat: ${sessionData.sessionId}`);
+        await submitMessageToSession(queryString, sessionData.sessionId);
       } catch (error) {
-        const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to create session for chat.';
+        const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Failed to create session for chat.';
         addMessage('error', `Session Creation Error: ${errorMessage}`);
-        setInputValue(query);
+        setInputValue(queryString); // Keep query in input if session creation failed
       }
       return;
     }
-    await submitMessageToSession(query, currentSessionId);
+    await submitMessageToSession(queryString, currentSessionId);
   };
 
-  const submitMessageToSession = async (query, sessionIdForQuery) => {
-     addMessage('user', query);
+  /**
+   * Submits a query message to a specific MCR session.
+   * @param {string} queryString - The query/chat message.
+   * @param {string} sessionIdForQuery - The ID of the session to query.
+   */
+  const submitMessageToSession = async (queryString, sessionIdForQuery) => {
+     addMessage('user', queryString);
      setInputValue('');
     try {
-      const requestBody = {
-        query: query,
-        options: { style: 'conversational', debug: chatDebugMode },
-      };
+      let dynamicOntologyContent = null;
       if (initialOntologyPath) {
-        const ontFileContent = readFileContentSafe(initialOntologyPath, addMessage, "Startup ontology context");
-        if (ontFileContent) {
-            requestBody.ontology = ontFileContent;
-        }
+        dynamicOntologyContent = readFileContentSafe(initialOntologyPath, addMessage, "Startup ontology context for chat");
+        // If readFileContentSafe returns null (error reading), it would have already added an error message.
+        // We'll proceed with query, it just won't have the dynamic ontology.
       }
 
-      const response = await apiClient.post(
-        `${API_BASE_URL}/sessions/${sessionIdForQuery}/query`,
-        requestBody
+      const response = await api.query(
+        sessionIdForQuery,
+        queryString,
+        { style: 'conversational', debug: chatDebugMode },
+        dynamicOntologyContent
       );
 
-      const mcrResponse = response.data?.answer || JSON.stringify(response.data);
+      const mcrResponse = response.answer || JSON.stringify(response);
       addMessage('mcr', mcrResponse);
-      if (chatDebugMode && response.data.debug) addMessage('output', {debugInfo: response.data.debug});
-      if (chatDebugMode && response.data.translation) addMessage('output', {translation: response.data.translation});
-      if (chatDebugMode && response.data.prologOutput) addMessage('output', {prolog: response.data.prologOutput});
-
+      if (chatDebugMode && response.debug) addMessage('output', {debugInfo: response.debug});
+      if (chatDebugMode && response.translation) addMessage('output', {translation: response.translation});
+      if (chatDebugMode && response.prologOutput) addMessage('output', {prolog: response.prologOutput});
 
     } catch (error) {
-      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'An API error occurred';
+      const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'An API error occurred during chat';
       addMessage('error', `Chat Error: ${errorMessage}`);
     }
   }
 
-
+  /**
+   * Handles submission of the text input field.
+   * Differentiates between commands (starting with '/') and chat messages.
+   * @param {string} input - The text from the input field.
+   */
   const handleSubmit = async (input) => {
     if (!input.trim() || isExiting) return;
 
@@ -713,6 +763,12 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
   );
 };
 
+/**
+ * Initializes and starts the MCR TUI application.
+ * Handles server auto-start, cleanup, and renders the main Ink component.
+ * @param {object} options - Command-specific options from Commander (e.g., for --ontology).
+ * @param {import('commander').Command} command - The Commander command instance.
+ */
 async function startAppAsync(options, command) {
   const programOpts = command.parent.opts();
   let initialSessionId = null;
@@ -761,10 +817,11 @@ async function startAppAsync(options, command) {
       if (activeSessionId) {
         console.log(`Terminating session ${activeSessionId}...`);
         try {
-          await apiClient.delete(`/sessions/${activeSessionId}`);
+          await api.deleteSession(activeSessionId); // Use helper
           console.log(`Session ${activeSessionId} terminated.`);
         } catch (error) {
-          const errorMsg = error.response?.data?.message || error.message;
+          // Log error but don't exit, as other cleanup might need to run
+          const errorMsg = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Unknown error during session termination';
           console.error(`Failed to terminate session ${activeSessionId}: ${errorMsg}`);
         }
       }
