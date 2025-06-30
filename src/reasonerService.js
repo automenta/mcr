@@ -1,5 +1,5 @@
 const pl = require('tau-prolog');
-const { logger } = require('./logger'); // Corrected import
+const { logger } = require('./logger');
 const ApiError = require('./errors');
 
 /**
@@ -27,22 +27,32 @@ const ReasonerService = {
                     resolve(results);
                     return;
                   }
-                  // Correctly access is_substitution via pl.type
-                  if (answer && pl.type && typeof pl.type.is_substitution === 'function' && pl.type.is_substitution(answer)) {
+                  if (
+                    answer &&
+                    pl.type &&
+                    typeof pl.type.is_substitution === 'function' &&
+                    pl.type.is_substitution(answer)
+                  ) {
                     results.push(
                       prologSession.format_answer(answer, { quoted: true })
                     );
-                  } else if (answer && answer.id === "true" && answer.args && answer.args.length === 0) { // Handle the atom 'true'
-                    results.push("true.");
-                  } else if (answer && answer.id === "false" && answer.args && answer.args.length === 0) { // Handle the atom 'false'
-                    results.push("false.");
+                  } else if (
+                    answer &&
+                    answer.id === 'true' &&
+                    answer.args &&
+                    answer.args.length === 0
+                  ) {
+                    results.push('true.');
+                  } else if (
+                    answer &&
+                    answer.id === 'false' &&
+                    answer.args &&
+                    answer.args.length === 0
+                  ) {
+                    results.push('false.');
                   }
-                  // If it's not a substitution and not true/false, it might be an error or an unexpected state.
-                  // For now, we just don't add it to results if it's not a recognized format.
-                  // Consider logging if answer is not null/the_end and not a substitution.
                   try {
                     prologSession.answer(answerCallback);
-                     // Explicit return
                   } catch (e) {
                     logger.error('Error processing Prolog answer.', {
                       internalErrorCode: 'PROLOG_ANSWER_PROCESSING_ERROR',
@@ -56,7 +66,6 @@ const ReasonerService = {
                         'PROLOG_ANSWER_ERROR'
                       )
                     );
-                     // Explicit return
                   }
                 };
                 try {
@@ -74,7 +83,6 @@ const ReasonerService = {
                       'PROLOG_ANSWER_INIT_ERROR'
                     )
                   );
-                   // Explicit return for consistent-return
                 }
               },
               error: (err) => {

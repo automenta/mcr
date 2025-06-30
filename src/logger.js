@@ -50,7 +50,7 @@ const logger = winston.createLogger({
               if (metadataString !== '{}') {
                 logMessage += ` ${metadataString}`;
               }
-            } catch (_e) {
+            } catch { // Removed unused _e
               // Prefixed 'e'
               logMessage += ' (metadata not serializable)';
             }

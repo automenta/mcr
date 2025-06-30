@@ -26,14 +26,23 @@ describe('Logger Module', () => {
     головаCreateLoggerSpy = jest.spyOn(winston, 'createLogger');
 
     const asyncHooks = require('async_hooks');
-    головаAsyncLocalStorageRunSpy = jest.spyOn(asyncHooks.AsyncLocalStorage.prototype, 'run');
-    головаAsyncLocalStorageGetStoreSpy = jest.spyOn(asyncHooks.AsyncLocalStorage.prototype, 'getStore');
+    головаAsyncLocalStorageRunSpy = jest.spyOn(
+      asyncHooks.AsyncLocalStorage.prototype,
+      'run'
+    );
+    головаAsyncLocalStorageGetStoreSpy = jest.spyOn(
+      asyncHooks.AsyncLocalStorage.prototype,
+      'getStore'
+    );
 
     // Re-establish config mock for the fresh module load
     mockConfigLoad.mockReturnValue({ logging: { level: 'info' } });
     // Re-mock config because resetModules clears Jest's mock cache for it
     jest.mock('../src/config', () => ({
-        load: mockConfigLoad, get: mockConfigLoad, validateConfig: jest.fn(), _config: null,
+      load: mockConfigLoad,
+      get: mockConfigLoad,
+      validateConfig: jest.fn(),
+      _config: null,
     }));
 
     // Now require the logger module fresh for each test
@@ -43,7 +52,6 @@ describe('Logger Module', () => {
     initializeLoggerContext = loggerModule.initializeLoggerContext;
     loggerAsyncLocalStorageInstance = loggerModule.asyncLocalStorage;
   });
-
 
   describe('Logger Initialization', () => {
     test('should call winston.createLogger with correct default format structure', () => {
@@ -70,21 +78,39 @@ describe('Logger Module', () => {
       expect(mockNext).toHaveBeenCalledTimes(1);
     });
 
-    test('correlationId should be available via getStore within asyncLocalStorage.run callback', (done) => {
+    test('correlationId should be available via getStore within asyncLocalStorage.run callback', async () => {
       const mockReq = { correlationId: 'context-id' };
       const mockRes = {};
+      // Return a Promise from mockNext
       const mockNext = jest.fn(() => {
         expect(головаAsyncLocalStorageGetStoreSpy).toHaveBeenCalled();
-        expect(loggerAsyncLocalStorageInstance.getStore()).toEqual(expect.objectContaining({ correlationId: 'context-id' }));
-        done();
+        expect(loggerAsyncLocalStorageInstance.getStore()).toEqual(
+          expect.objectContaining({ correlationId: 'context-id' })
+        );
+        return Promise.resolve(); // Resolve the promise
       });
 
-      const instanceRunSpy = jest.spyOn(loggerAsyncLocalStorageInstance, 'run').mockImplementationOnce((store, callback) => {
-        const { AsyncLocalStorage: ActualAsyncLocalStorage } = jest.requireActual('async_hooks');
-        ActualAsyncLocalStorage.prototype.run.call(loggerAsyncLocalStorageInstance, store, callback);
-      });
+      const instanceRunSpy = jest
+        .spyOn(loggerAsyncLocalStorageInstance, 'run')
+        .mockImplementationOnce((store, callback) => {
+          const { AsyncLocalStorage: ActualAsyncLocalStorage } =
+            jest.requireActual('async_hooks');
+          ActualAsyncLocalStorage.prototype.run.call(
+            loggerAsyncLocalStorageInstance,
+            store,
+            callback
+          );
+        });
 
+      // Await the call to initializeLoggerContext if mockNext returns a Promise.
+      // However, initializeLoggerContext itself is not async and doesn't await mockNext.
+      // The key is that mockNext itself is where the assertions happen and it returns a Promise.
+      // We need to ensure that the test waits for mockNext's promise to resolve.
+      // A simple way is to await the result of mockNext if initializeLoggerContext calls it and we can grab that promise.
+      // Or, more directly, since initializeLoggerContext calls mockNext synchronously:
       initializeLoggerContext(mockReq, mockRes, mockNext);
+      await mockNext.mock.results[0].value; // Wait for the promise returned by mockNext
+
       instanceRunSpy.mockRestore();
     });
   });
@@ -97,7 +123,9 @@ describe('Logger Module', () => {
       reconfigureLogger(newConfig); // This should modify the 'logger' instance obtained in beforeEach
 
       expect(logger.level).toBe('debug'); // Check the same 'logger' instance
-      expect(infoSpy).toHaveBeenCalledWith('Logger reconfigured with loaded settings.');
+      expect(infoSpy).toHaveBeenCalledWith(
+        'Logger reconfigured with loaded settings.'
+      );
       infoSpy.mockRestore();
     });
   });

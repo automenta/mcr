@@ -85,5 +85,17 @@ module.exports = [
       'no-restricted-syntax': 'off', // Allow different naming in tests
     },
   },
+  {
+    // Configuration for mock files
+    files: ['src/__mocks__/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+      },
+    },
+    rules: {
+      // Potentially relax or add specific rules for mocks if needed
+    },
+  },
   eslintConfigPrettier, // Add Prettier config last to override other formatting rules
 ];

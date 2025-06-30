@@ -1,32 +1,32 @@
-const ApiHandlers = require('./apiHandlers');
+const AllHandlers = require('./handlers'); // Import from the new index file
 
 const setupRoutes = (app) => {
-  app.get('/', ApiHandlers.getRoot);
+  app.get('/', AllHandlers.getRoot);
 
   // Session Management
-  app.post('/sessions', ApiHandlers.createSession);
-  app.get('/sessions/:sessionId', ApiHandlers.getSession);
-  app.delete('/sessions/:sessionId', ApiHandlers.deleteSession);
+  app.post('/sessions', AllHandlers.createSession);
+  app.get('/sessions/:sessionId', AllHandlers.getSession);
+  app.delete('/sessions/:sessionId', AllHandlers.deleteSession);
 
   // Fact Assertion and Querying
-  app.post('/sessions/:sessionId/assert', ApiHandlers.assertAsync);
-  app.post('/sessions/:sessionId/query', ApiHandlers.queryAsync);
-  app.post('/sessions/:sessionId/explain-query', ApiHandlers.explainQueryAsync);
+  app.post('/sessions/:sessionId/assert', AllHandlers.assertAsync);
+  app.post('/sessions/:sessionId/query', AllHandlers.queryAsync);
+  app.post('/sessions/:sessionId/explain-query', AllHandlers.explainQueryAsync);
 
   // Translation Endpoints
-  app.post('/translate/nl-to-rules', ApiHandlers.translateNlToRulesAsync);
-  app.post('/translate/rules-to-nl', ApiHandlers.translateRulesToNlAsync);
+  app.post('/translate/nl-to-rules', AllHandlers.translateNlToRulesAsync);
+  app.post('/translate/rules-to-nl', AllHandlers.translateRulesToNlAsync);
 
   // Prompt Management
-  app.get('/prompts', ApiHandlers.getPrompts);
-  app.post('/debug/format-prompt', ApiHandlers.debugFormatPromptAsync);
+  app.get('/prompts', AllHandlers.getPrompts);
+  app.post('/debug/format-prompt', AllHandlers.debugFormatPromptAsync);
 
   // Ontology Management
-  app.post('/ontologies', ApiHandlers.addOntology);
-  app.put('/ontologies/:name', ApiHandlers.updateOntology);
-  app.get('/ontologies', ApiHandlers.getOntologies);
-  app.get('/ontologies/:name', ApiHandlers.getOntology);
-  app.delete('/ontologies/:name', ApiHandlers.deleteOntology);
+  app.post('/ontologies', AllHandlers.addOntology);
+  app.put('/ontologies/:name', AllHandlers.updateOntology);
+  app.get('/ontologies', AllHandlers.getOntologies);
+  app.get('/ontologies/:name', AllHandlers.getOntology);
+  app.delete('/ontologies/:name', AllHandlers.deleteOntology);
 };
 
 module.exports = setupRoutes;

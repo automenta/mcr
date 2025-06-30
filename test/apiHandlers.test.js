@@ -1,4 +1,4 @@
-const ApiHandlers = require('../src/apiHandlers');
+const AllHandlers = require('../src/handlers'); // Updated import
 const SessionManager = require('../src/sessionManager');
 const LlmService = require('../src/llmService');
 const ReasonerService = require('../src/reasonerService');
@@ -11,9 +11,9 @@ jest.mock('../src/reasonerService');
 // Properly mock ApiError as a class constructor
 jest.mock('../src/errors', () => {
   const ActualApiErrorInsideMock = jest.requireActual('../src/errors'); // Require it inside
-  return jest.fn().mockImplementation((status, message, code) => {
-    return new ActualApiErrorInsideMock(status, message, code); // Use the inside-mock version
-  });
+  return jest.fn().mockImplementation((status, message, code) =>
+     new ActualApiErrorInsideMock(status, message, code) // Use the inside-mock version
+  );
 });
 
 // For instanceof checks in tests
@@ -49,18 +49,17 @@ jest.mock('../package.json', () => ({
 let mockLangchainFormatFn;
 let mockLangchainFromTemplateFn;
 
-jest.mock('@langchain/core/prompts', () => {
+jest.mock('@langchain/core/prompts', () =>
   // This factory is called once when setting up mocks.
   // It needs to return the structure that ApiHandlers.js expects when it requires this module.
   // mockLangchainFromTemplateFn will be assigned later in beforeEach or specific tests.
   // So, the mock needs to call the function reference.
-  return {
+   ({
     PromptTemplate: {
       fromTemplate: (...args) => mockLangchainFromTemplateFn(...args),
     },
-  };
-});
-
+  })
+);
 
 describe('ApiHandlers', () => {
   let mockReq, mockRes, mockNext;
@@ -78,12 +77,14 @@ describe('ApiHandlers', () => {
 
     // Reset the implementations for each test
     mockLangchainFormatFn = jest.fn();
-    mockLangchainFromTemplateFn = jest.fn(() => ({ format: mockLangchainFormatFn }));
+    mockLangchainFromTemplateFn = jest.fn(() => ({
+      format: mockLangchainFormatFn,
+    }));
   });
 
   describe('getRoot', () => {
     test('should return basic API status and info from mocked package.json', () => {
-      ApiHandlers.getRoot(mockReq, mockRes);
+      AllHandlers.getRoot(mockReq, mockRes);
       expect(mockRes.json).toHaveBeenCalledWith({
         status: 'ok',
         name: 'mcr-test-app',
@@ -103,7 +104,7 @@ describe('ApiHandlers', () => {
       };
       SessionManager.create.mockReturnValue(newSession);
 
-      ApiHandlers.createSession(mockReq, mockRes);
+      AllHandlers.createSession(mockReq, mockRes);
 
       expect(SessionManager.create).toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(201);
@@ -117,7 +118,7 @@ describe('ApiHandlers', () => {
       mockReq.params = { sessionId: 'existing-id' };
       SessionManager.get.mockReturnValue(existingSession);
 
-      ApiHandlers.getSession(mockReq, mockRes, mockNext);
+      AllHandlers.getSession(mockReq, mockRes, mockNext);
 
       expect(SessionManager.get).toHaveBeenCalledWith('existing-id');
       expect(mockRes.json).toHaveBeenCalledWith(existingSession);
@@ -131,7 +132,7 @@ describe('ApiHandlers', () => {
         throw error;
       });
 
-      ApiHandlers.getSession(mockReq, mockRes, mockNext);
+      AllHandlers.getSession(mockReq, mockRes, mockNext);
 
       expect(SessionManager.get).toHaveBeenCalledWith('non-existent-id');
       expect(mockNext).toHaveBeenCalledWith(error);
@@ -145,7 +146,7 @@ describe('ApiHandlers', () => {
       mockReq.params = { sessionId };
       SessionManager.delete.mockReturnValue(undefined); // delete doesn't return a value
 
-      ApiHandlers.deleteSession(mockReq, mockRes, mockNext);
+      AllHandlers.deleteSession(mockReq, mockRes, mockNext);
 
       expect(SessionManager.delete).toHaveBeenCalledWith(sessionId);
       expect(mockRes.json).toHaveBeenCalledWith({
@@ -162,7 +163,7 @@ describe('ApiHandlers', () => {
         throw error;
       });
 
-      ApiHandlers.deleteSession(mockReq, mockRes, mockNext);
+      AllHandlers.deleteSession(mockReq, mockRes, mockNext);
 
       expect(SessionManager.delete).toHaveBeenCalledWith('non-existent-id');
       expect(mockNext).toHaveBeenCalledWith(error);
@@ -197,7 +198,7 @@ describe('ApiHandlers', () => {
       // SessionManager.addFacts is called internally by SessionManager, not directly by handler after refactor
       // The effect is checked by the second call to SessionManager.get()
 
-      await ApiHandlers.assertAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.assertAsync(mockReq, mockRes, mockNext);
 
       expect(SessionManager.get).toHaveBeenCalledWith('assert-id');
       expect(SessionManager.getNonSessionOntologyFacts).toHaveBeenCalledWith(
@@ -224,7 +225,7 @@ describe('ApiHandlers', () => {
       mockReq.params = { sessionId: 'assert-id' };
       mockReq.body = { text: '' }; // Empty text
 
-      await ApiHandlers.assertAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.assertAsync(mockReq, mockRes, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
       const errorThrown = mockNext.mock.calls[0][0];
@@ -248,7 +249,7 @@ describe('ApiHandlers', () => {
       SessionManager.getNonSessionOntologyFacts.mockReturnValue([]);
       LlmService.nlToRulesAsync.mockRejectedValue(llmError);
 
-      await ApiHandlers.assertAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.assertAsync(mockReq, mockRes, mockNext);
 
       expect(mockNext).toHaveBeenCalledWith(llmError);
     });
@@ -276,7 +277,7 @@ describe('ApiHandlers', () => {
       ReasonerService.runQuery.mockResolvedValue(rawResults);
       LlmService.resultToNlAsync.mockResolvedValue(finalAnswer);
 
-      await ApiHandlers.queryAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.queryAsync(mockReq, mockRes, mockNext);
 
       expect(LlmService.queryToPrologAsync).toHaveBeenCalledWith(
         mockReq.body.query
@@ -318,7 +319,7 @@ describe('ApiHandlers', () => {
       ReasonerService.runQuery.mockResolvedValue(rawResults);
       LlmService.resultToNlAsync.mockResolvedValue(finalAnswer);
 
-      await ApiHandlers.queryAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.queryAsync(mockReq, mockRes, mockNext);
 
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -339,7 +340,7 @@ describe('ApiHandlers', () => {
       SessionManager.getFactsWithOntology.mockReturnValue(['some_fact.']);
       ReasonerService.runQuery.mockRejectedValue(reasonerError);
 
-      await ApiHandlers.queryAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.queryAsync(mockReq, mockRes, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
       const errorThrown = mockNext.mock.calls[0][0];
@@ -380,7 +381,7 @@ describe('ApiHandlers', () => {
       ReasonerService.runQuery.mockResolvedValue(rawReasonerResults);
       LlmService.resultToNlAsync.mockResolvedValue(finalAnswer);
 
-      await ApiHandlers.queryAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.queryAsync(mockReq, mockRes, mockNext);
 
       expect(mockRes.json).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -412,7 +413,7 @@ describe('ApiHandlers', () => {
       const rules = ['can_fly(X):-bird(X).'];
       LlmService.nlToRulesAsync.mockResolvedValue(rules);
 
-      await ApiHandlers.translateNlToRulesAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.translateNlToRulesAsync(mockReq, mockRes, mockNext);
 
       expect(LlmService.nlToRulesAsync).toHaveBeenCalledWith(
         mockReq.body.text,
@@ -425,7 +426,7 @@ describe('ApiHandlers', () => {
 
     test('should call next with ApiError if text is missing', async () => {
       mockReq.body = { text: '' }; // Empty text
-      await ApiHandlers.translateNlToRulesAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.translateNlToRulesAsync(mockReq, mockRes, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
       const errorThrown = mockNext.mock.calls[0][0];
@@ -444,7 +445,7 @@ describe('ApiHandlers', () => {
       const text = 'A parent is defined.';
       LlmService.rulesToNlAsync.mockResolvedValue(text);
 
-      await ApiHandlers.translateRulesToNlAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.translateRulesToNlAsync(mockReq, mockRes, mockNext);
 
       expect(LlmService.rulesToNlAsync).toHaveBeenCalledWith(
         mockReq.body.rules,
@@ -456,7 +457,7 @@ describe('ApiHandlers', () => {
 
     test('should call next with ApiError if rules are invalid (not an array)', async () => {
       mockReq.body = { rules: 'not an array' };
-      await ApiHandlers.translateRulesToNlAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.translateRulesToNlAsync(mockReq, mockRes, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
       const errorThrown = mockNext.mock.calls[0][0];
@@ -467,7 +468,7 @@ describe('ApiHandlers', () => {
     });
     test('should call next with ApiError if rules array contains empty strings', async () => {
       mockReq.body = { rules: ['parent(X,Y).', '  '] }; // Contains an empty string after trim
-      await ApiHandlers.translateRulesToNlAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.translateRulesToNlAsync(mockReq, mockRes, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
       const errorThrown = mockNext.mock.calls[0][0];
@@ -485,7 +486,7 @@ describe('ApiHandlers', () => {
       const newOntology = { name: 'new_onto', rules: 'rule1.' };
       SessionManager.addOntology.mockReturnValue(newOntology);
 
-      ApiHandlers.addOntology(mockReq, mockRes, mockNext);
+      AllHandlers.addOntology(mockReq, mockRes, mockNext);
 
       expect(SessionManager.addOntology).toHaveBeenCalledWith(
         mockReq.body.name,
@@ -497,7 +498,7 @@ describe('ApiHandlers', () => {
 
     test('should call next with ApiError if name is missing or invalid', () => {
       mockReq.body = { name: '', rules: 'rule1.' };
-      ApiHandlers.addOntology(mockReq, mockRes, mockNext);
+      AllHandlers.addOntology(mockReq, mockRes, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
       const errorThrown = mockNext.mock.calls[0][0];
@@ -511,7 +512,7 @@ describe('ApiHandlers', () => {
 
     test('should call next with ApiError if rules are missing or invalid', () => {
       mockReq.body = { name: 'new_onto', rules: '' };
-      ApiHandlers.addOntology(mockReq, mockRes, mockNext);
+      AllHandlers.addOntology(mockReq, mockRes, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
       const errorThrown = mockNext.mock.calls[0][0];
@@ -532,7 +533,7 @@ describe('ApiHandlers', () => {
       const updatedOntology = { name: 'update_onto', rules: 'updated_rule.' };
       SessionManager.updateOntology.mockReturnValue(updatedOntology);
 
-      ApiHandlers.updateOntology(mockReq, mockRes, mockNext);
+      AllHandlers.updateOntology(mockReq, mockRes, mockNext);
 
       expect(SessionManager.updateOntology).toHaveBeenCalledWith(
         mockReq.params.name,
@@ -545,7 +546,7 @@ describe('ApiHandlers', () => {
     test('should call next with ApiError if rules are missing or invalid', () => {
       mockReq.params = { name: 'update_onto' };
       mockReq.body = { rules: '' }; // Empty rules
-      ApiHandlers.updateOntology(mockReq, mockRes, mockNext);
+      AllHandlers.updateOntology(mockReq, mockRes, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
       const errorThrown = mockNext.mock.calls[0][0];
@@ -564,7 +565,7 @@ describe('ApiHandlers', () => {
       const ontologies = [{ name: 'onto1', rules: 'r1.' }];
       SessionManager.getOntologies.mockReturnValue(ontologies);
 
-      ApiHandlers.getOntologies(mockReq, mockRes, mockNext);
+      AllHandlers.getOntologies(mockReq, mockRes, mockNext);
 
       expect(SessionManager.getOntologies).toHaveBeenCalled();
       expect(mockRes.json).toHaveBeenCalledWith(ontologies);
@@ -579,7 +580,7 @@ describe('ApiHandlers', () => {
       const ontology = { name: 'specific_onto', rules: 'specific_r.' };
       SessionManager.getOntology.mockReturnValue(ontology);
 
-      ApiHandlers.getOntology(mockReq, mockRes, mockNext);
+      AllHandlers.getOntology(mockReq, mockRes, mockNext);
 
       expect(SessionManager.getOntology).toHaveBeenCalledWith(
         mockReq.params.name
@@ -598,7 +599,7 @@ describe('ApiHandlers', () => {
         throw error;
       });
 
-      ApiHandlers.getOntology(mockReq, mockRes, mockNext);
+      AllHandlers.getOntology(mockReq, mockRes, mockNext);
       expect(SessionManager.getOntology).toHaveBeenCalledWith(
         'non_existent_onto'
       );
@@ -618,7 +619,7 @@ describe('ApiHandlers', () => {
       };
       SessionManager.deleteOntology.mockReturnValue(deleteMsgFromManager);
 
-      ApiHandlers.deleteOntology(mockReq, mockRes, mockNext);
+      AllHandlers.deleteOntology(mockReq, mockRes, mockNext);
 
       expect(SessionManager.deleteOntology).toHaveBeenCalledWith(ontologyName);
       expect(mockRes.json).toHaveBeenCalledWith({
@@ -637,7 +638,7 @@ describe('ApiHandlers', () => {
       SessionManager.deleteOntology.mockImplementation(() => {
         throw error;
       });
-      ApiHandlers.deleteOntology(mockReq, mockRes, mockNext);
+      AllHandlers.deleteOntology(mockReq, mockRes, mockNext);
       expect(SessionManager.deleteOntology).toHaveBeenCalledWith(
         'non_existent_onto'
       );
@@ -662,7 +663,7 @@ describe('ApiHandlers', () => {
       );
       LlmService.explainQueryAsync.mockResolvedValue(explanation);
 
-      await ApiHandlers.explainQueryAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.explainQueryAsync(mockReq, mockRes, mockNext);
 
       expect(SessionManager.get).toHaveBeenCalledWith('explain-id');
       expect(SessionManager.getNonSessionOntologyFacts).toHaveBeenCalledWith(
@@ -684,7 +685,7 @@ describe('ApiHandlers', () => {
       mockReq.params = { sessionId: 'explain-id' };
       mockReq.body = { query: '' }; // Empty query
 
-      await ApiHandlers.explainQueryAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.explainQueryAsync(mockReq, mockRes, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
       const errorThrown = mockNext.mock.calls[0][0];
@@ -706,7 +707,7 @@ describe('ApiHandlers', () => {
       };
       LlmService.getPromptTemplates.mockReturnValue(mockPromptTemplates);
 
-      ApiHandlers.getPrompts(mockReq, mockRes); // No next for this one
+      AllHandlers.getPrompts(mockReq, mockRes); // No next for this one
 
       expect(LlmService.getPromptTemplates).toHaveBeenCalled();
       expect(mockRes.json).toHaveBeenCalledWith(mockPromptTemplates);
@@ -726,14 +727,16 @@ describe('ApiHandlers', () => {
       mockLangchainFormatFn.mockResolvedValue(formattedPrompt);
       // mockLangchainFromTemplateFn is already set up in beforeEach to return { format: mockLangchainFormatFn }
 
-      // ApiHandlers is required at the top of the file and uses the globally mocked Langchain
-      await ApiHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
+      // AllHandlers is required at the top of the file and uses the globally mocked Langchain
+      await AllHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
 
       expect(LlmService.getPromptTemplates).toHaveBeenCalled();
       expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(
         mockTemplates.TEST_TEMPLATE
       );
-      expect(mockLangchainFormatFn).toHaveBeenCalledWith(mockReq.body.inputVariables);
+      expect(mockLangchainFormatFn).toHaveBeenCalledWith(
+        mockReq.body.inputVariables
+      );
       expect(mockRes.json).toHaveBeenCalledWith({
         templateName: mockReq.body.templateName,
         rawTemplate: mockTemplates.TEST_TEMPLATE,
@@ -745,7 +748,7 @@ describe('ApiHandlers', () => {
 
     test('should call next with ApiError if templateName is missing', async () => {
       mockReq.body = { inputVariables: { key: 'value' } }; // templateName missing
-      await ApiHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
       expect(mockNext).toHaveBeenCalled();
       const errorThrown = mockNext.mock.calls[0][0];
       expect(errorThrown).toBeInstanceOf(ActualApiError);
@@ -763,7 +766,7 @@ describe('ApiHandlers', () => {
         templateName: 'TEST_TEMPLATE',
         inputVariables: 'not-an-object',
       };
-      await ApiHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
       expect(mockNext).toHaveBeenCalled();
       const errorThrown = mockNext.mock.calls[0][0];
       expect(errorThrown).toBeInstanceOf(ActualApiError);
@@ -784,7 +787,7 @@ describe('ApiHandlers', () => {
       LlmService.getPromptTemplates.mockReturnValue({
         TEST_TEMPLATE: 'Hello {{key}}',
       }); // Does not contain NON_EXISTENT_TEMPLATE
-      await ApiHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
+      await AllHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
       expect(mockNext).toHaveBeenCalled();
       const errorThrown = mockNext.mock.calls[0][0];
       expect(errorThrown).toBeInstanceOf(ActualApiError);
@@ -808,8 +811,8 @@ describe('ApiHandlers', () => {
       mockLangchainFormatFn.mockRejectedValue(new Error("Missing key 'key'"));
       // mockLangchainFromTemplateFn is already set up in beforeEach
 
-      // ApiHandlers is required at the top of the file and uses the globally mocked Langchain
-      await ApiHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
+      // AllHandlers is required at the top of the file and uses the globally mocked Langchain
+      await AllHandlers.debugFormatPromptAsync(mockReq, mockRes, mockNext);
 
       expect(mockLangchainFromTemplateFn).toHaveBeenCalled();
       expect(mockLangchainFormatFn).toHaveBeenCalled();

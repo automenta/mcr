@@ -93,7 +93,7 @@ function setupApp(currentApp) {
       if (!res.headersSent) {
         res.status(err.statusCode).json(errorResponse);
       } else {
-        return next(err); // Delegate to default Express error handler if headers already sent
+        return next(err);
       }
     } else {
       req.log.error(

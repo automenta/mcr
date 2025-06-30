@@ -31,7 +31,6 @@
     "commander": "^14.0.0",
     "dotenv": "^16.1.0-rc2",
     "express": "^5.1.0",
-    "fs-extra": "^11.3.0",
     "langchain": "^0.3.29",
     "tau-prolog": "^0.3.4",
     "uuid": "^9.0.0",
@@ -43,6 +42,24 @@
   "overrides": {
     "ignore": "^5.2.0"
   },
+  "files": [
+    "mcr.js",
+    "mcr-cli.js",
+    "src/",
+    "ontologies/",
+    "README.md",
+    "LICENSE",
+    "CODE.md",
+    ".env.example"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/model-context-reasoner.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/model-context-reasoner/issues"
+  },
+  "homepage": "https://github.com/yourusername/model-context-reasoner#readme",
   "devDependencies": {
     "@babel/core": "^7.27.7",
     "@babel/preset-env": "^7.27.2",

@@ -31,10 +31,10 @@ async function querySessionAsync(
     }
   }
 
-
-  function handleResponseCli(programOpts, response) {
-    if (programOpts.json) {
-      handleCliOutput(response.data, programOpts);
+  // programOpts is available in this scope from querySessionAsync's parameters
+  function handleResponseCli(response) {
+    if (programOpts.json) { // Uses programOpts from the outer scope
+      handleCliOutput(response.data, programOpts); // Uses programOpts from the outer scope
     } else {
       handleResponse(response);
     }
@@ -92,7 +92,6 @@ async function querySessionAsync(
           rl.prompt();
           return;
         }
-
 
         try {
           const requestBody = {
