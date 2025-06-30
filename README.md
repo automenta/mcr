@@ -95,16 +95,24 @@ The MCR includes a Command Line Interface (CLI) for direct interaction. You can 
   mcr query <sessionId> "What color is the sky?"
   ```
 
-- **Interactive Chat**:
+- **Interactive Chat (TUI)**:
 
   ```bash
   mcr chat
   ```
-  This command starts an interactive chat session. If the MCR server is not already running, `mcr chat` will attempt to start it automatically in the background. The server will then be shut down when you exit the chat session. You can also use an existing running server if one is detected.
-  To use a specific ontology for the entire chat session:
+  This command launches an interactive **Text User Interface (TUI)** for chatting with the MCR. The TUI provides a more application-like experience with dedicated areas for message history and text input.
+
+  Key features:
+  - If the MCR server is not already running, `mcr chat` will attempt to start it automatically.
+  - The server will be shut down when you exit the chat session if it was started by `mcr chat`.
+  - You can also use an existing running MCR server.
+  - To exit the TUI, type `exit` or `quit` in the input field and press Enter, or press `Ctrl+C`.
+
+  To use a specific ontology file for the entire chat session:
   ```bash
   mcr chat -o path/to/your_ontology.pl
   ```
+  The TUI will confirm if the ontology is being used.
 
 - **Interactive Agent Mode**:
   This mode provides an interactive way to explore MCR's capabilities through prescripted demos or a free-form chat interface that shows system interactions.

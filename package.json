@@ -30,7 +30,10 @@
     "commander": "^14.0.0",
     "dotenv": "^16.1.0-rc2",
     "express": "^5.1.0",
+    "ink": "^4.4.1",
+    "ink-text-input": "^5.0.1",
     "langchain": "^0.3.29",
+    "react": "^18.3.1",
     "tau-prolog": "^0.3.4",
     "uuid": "^9.0.0",
     "winston": "^3.17.0"
@@ -62,6 +65,7 @@
   "devDependencies": {
     "@babel/core": "^7.27.7",
     "@babel/preset-env": "^7.27.2",
+    "@babel/preset-react": "^7.27.1",
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.30.0",
     "babel-jest": "^30.0.2",
