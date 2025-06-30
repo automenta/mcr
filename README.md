@@ -603,12 +603,3 @@ MCR allows for the management of global ontologies (collections of Prolog facts 
     ```
 
 ---
-
-## TODO
-
-- Advanced error handling and debugging to diagnose translation and reasoner issues.
-- Prompt template editing and debugging.
-- Unit test framework.
-- Demo framework: try individual operations.
-- Extensibility.
-- Integrate RAG / datastores through dynamic Prolog assertions / overlay.
