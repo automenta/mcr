@@ -89,7 +89,7 @@ const LlmService = {
 
     if (providerStrategy && typeof providerStrategy.initialize === 'function') {
       try {
-        this._client = providerStrategy.initialize(this._appConfig.llm);
+        this._client = await providerStrategy.initialize(this._appConfig.llm); // Added await
         if (this._client) {
           this._activeProviderName = providerStrategy.name; // Set active provider name
           logger.info(
@@ -219,6 +219,11 @@ const LlmService = {
       let statusCode = 502;
       let message = `Error communicating with LLM provider: ${error.message}`;
       let errorCode = 'LLM_PROVIDER_GENERAL_ERROR';
+
+      // Add specific advice for Ollama fetch errors
+      if (providerName === 'ollama' && error.message?.toLowerCase().includes('fetch failed')) {
+        message += ` (Ensure Ollama server is running and accessible at the configured MCR_LLM_OLLAMA_BASE_URL: ${this._appConfig.llm.ollamaBaseUrl}. Also, verify the model '${this._appConfig.llm.model.ollama}' is available in Ollama.)`;
+      }
 
       if (errorStatus) {
         if (errorStatus === 401 || errorStatus === 403) {
@@ -358,6 +363,17 @@ const LlmService = {
 
   getPromptTemplates() {
     return JSON.parse(JSON.stringify(PROMPT_TEMPLATES));
+  },
+
+  getActiveProviderName() {
+    return this._activeProviderName;
+  },
+
+  getActiveModelName() {
+    if (this._activeProviderName && this._appConfig && this._appConfig.llm && this._appConfig.llm.model) {
+      return this._appConfig.llm.model[this._activeProviderName];
+    }
+    return 'unknown';
   },
 };
 

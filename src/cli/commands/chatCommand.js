@@ -142,6 +142,7 @@ const McrApp = ({
   const [currentSessionId, setCurrentSessionId] =
     React.useState(initialSessionId);
   const [serverStatus, setServerStatus] = React.useState('Checking...');
+  const [activeLlmInfo, setActiveLlmInfo] = React.useState('Provider: N/A, Model: N/A'); // New state for LLM info
   const [currentOntologyDisplay, _setCurrentOntologyDisplay] = React.useState(
     // Marked unused
     initialOntologyPath ? path.basename(initialOntologyPath) : 'None'
@@ -149,34 +150,37 @@ const McrApp = ({
   const [isDemoRunning, setIsDemoRunning] = React.useState(false);
   const [chatDebugMode, setChatDebugMode] = React.useState(false);
 
-  React.useEffect(async () => {
-    // Made useEffect async to satisfy linter for checkServerStatus
-    const welcomeMessages = [
-      {
-        type: 'system',
-        text: 'Welcome to MCR. Type /help for a list of commands.',
-      },
-    ];
-    if (currentSessionId) {
-      welcomeMessages.push({
-        type: 'system',
-        text: `Active session: ${currentSessionId}.`,
-      });
-    } else {
-      welcomeMessages.push({
-        type: 'system',
-        text: 'No active session. Use /create-session or chat to start one.',
-      });
-    }
-    if (initialOntologyPath) {
-      welcomeMessages.push({
-        type: 'system',
-        text: `Startup ontology context: ${path.basename(initialOntologyPath)} (used for NL to Rules context if applicable).`,
-      });
-    }
-    setMessages(welcomeMessages);
-    checkServerStatusAsync(); // Updated call
-  }, [initialSessionId, initialOntologyPath]);
+  React.useEffect(() => {
+    const initApp = async () => {
+      const welcomeMessages = [
+        {
+          type: 'system',
+          text: 'Welcome to MCR. Type /help for a list of commands.',
+        },
+      ];
+      if (currentSessionId) {
+        welcomeMessages.push({
+          type: 'system',
+          text: `Active session: ${currentSessionId}.`,
+        });
+      } else {
+        welcomeMessages.push({
+          type: 'system',
+          text: 'No active session. Use /create-session or chat to start one.',
+        });
+      }
+      if (initialOntologyPath) {
+        welcomeMessages.push({
+          type: 'system',
+          text: `Startup ontology context: ${path.basename(initialOntologyPath)} (used for NL to Rules context if applicable).`,
+        });
+      }
+      setMessages(welcomeMessages);
+      await checkServerStatusAsync(); // Ensure await if checkServerStatusAsync is async
+    };
+
+    initApp();
+  }, [currentSessionId, initialOntologyPath]); // Added currentSessionId to dependencies as it's used
 
   /**
    * Adds a message to the TUI output.
@@ -201,9 +205,15 @@ const McrApp = ({
     try {
       const statusData = await tuiGetServerStatus(); // Use the new helper
       setServerStatus(`OK (v${statusData?.version})`);
+      if (statusData?.activeLlmProvider) {
+        setActiveLlmInfo(`LLM: ${statusData.activeLlmProvider} (${statusData.activeLlmModel || 'default'})`);
+      } else {
+        setActiveLlmInfo('LLM: N/A');
+      }
       return statusData;
     } catch (error) {
       setServerStatus('Unavailable');
+      setActiveLlmInfo('LLM: N/A'); // Reset on error
       const errorMessage =
         error.response?.data?.error?.message ||
         error.response?.data?.message ||
@@ -1029,6 +1039,8 @@ const McrApp = ({
         <Text>Session: {currentSessionId || 'None'}</Text>
         <Spacer />
         <Text>Ontology: {currentOntologyDisplay}</Text>
+        <Spacer />
+        <Text>{activeLlmInfo}</Text>
         <Spacer />
         <Text>Server: {serverStatus}</Text>
         <Spacer />

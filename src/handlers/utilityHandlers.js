@@ -10,13 +10,18 @@ const {
 } = require('../../package.json');
 
 const utilityHandlers = {
-  getRoot: (req, res) =>
+  getRoot: (req, res) => {
+    const activeProvider = LlmService.getActiveProviderName();
+    const activeModel = LlmService.getActiveModelName();
     res.json({
       status: 'ok',
       name: appName || 'Model Context Reasoner',
       version: appVersion || 'unknown',
       description: appDescription || 'MCR API',
-    }),
+      activeLlmProvider: activeProvider || 'N/A',
+      activeLlmModel: activeModel || 'N/A',
+    });
+  },
 
   getPrompts: (req, res) => {
     res.json(LlmService.getPromptTemplates());
