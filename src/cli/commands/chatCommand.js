@@ -408,7 +408,7 @@ const McrApp = ({
         response: queryResponse,
       });
 
-      question = 'Who is marys grandfather?';
+      question = 'Who is marys grandparent?';
       addMessage('output', `   ❓ Question: "${question}"`);
       queryResponse = await agentApiQuery(demoSessionId, question);
       addMessage('output', {

@@ -322,10 +322,22 @@ const LlmService = {
     trimmedResult = trimmedResult.substring(1, trimmedResult.length - 1);
   }
 
+    // NEW: Remove single backticks if present
+    if (trimmedResult.startsWith('`') && trimmedResult.endsWith('`')) {
+      trimmedResult = trimmedResult.substring(1, trimmedResult.length - 1);
+    }
+
     // Remove "?-" prefix if present
     if (trimmedResult.startsWith('?-')) {
       trimmedResult = trimmedResult.substring(2).trim();
     }
+
+    // Specific replacements for known ontology mismatches
+    // TODO: Consider making this more robust or configurable if many such cases arise.
+    // For family.pl, ensure 'grandparent' is used.
+    trimmedResult = trimmedResult.replace(/\bgrandfather\(/g, 'grandparent(');
+    trimmedResult = trimmedResult.replace(/\bgrandmother\(/g, 'grandparent(');
+
 
     if (!trimmedResult) {
       logger.error('LLM generated an empty Prolog query after cleaning.', {
