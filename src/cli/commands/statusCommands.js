@@ -3,7 +3,7 @@ const { handleCliOutput } = require('../utils');
 const ConfigManager = require('../../config');
 
 // This function is intended for CLI command execution via Commander
-async function getServerStatusCli(options, commandInstance) {
+async function getServerStatusCliAsync(options, commandInstance) {
   const programOpts = commandInstance.parent.opts();
   const config = ConfigManager.get(); // Get config for API URL
   const apiUrl = `http://${config.server.host}:${config.server.port}`;
@@ -20,23 +20,45 @@ async function getServerStatusCli(options, commandInstance) {
     if (error.isAxiosError && !error.response) {
       // This typically means connection refused or DNS error etc.
       if (isJsonOutput) {
-        console.log(JSON.stringify({ status: 'offline', message: `MCR API server not reachable at ${apiUrl}.` }));
+        console.log(
+          JSON.stringify({
+            status: 'offline',
+            message: `MCR API server not reachable at ${apiUrl}.`,
+          })
+        );
       } else {
-        console.log(`MCR API server not reachable at ${apiUrl}. Status: Offline`);
+        console.log(
+          `MCR API server not reachable at ${apiUrl}. Status: Offline`
+        );
       }
     } else if (error.response) {
       // Server responded with an error status code
       if (isJsonOutput) {
-        console.log(JSON.stringify({ status: 'error', message: `Server at ${apiUrl} responded with error ${error.response.status}.`, details: error.response.data }));
+        console.log(
+          JSON.stringify({
+            status: 'error',
+            message: `Server at ${apiUrl} responded with error ${error.response.status}.`,
+            details: error.response.data,
+          })
+        );
       } else {
-        console.log(`MCR API server at ${apiUrl} responded with error ${error.response.status}. Status: Error`);
+        console.log(
+          `MCR API server at ${apiUrl} responded with error ${error.response.status}. Status: Error`
+        );
       }
     } else {
       // Other types of errors
       if (isJsonOutput) {
-        console.log(JSON.stringify({ status: 'error', message: `Failed to get status from ${apiUrl}: ${error.message}` }));
+        console.log(
+          JSON.stringify({
+            status: 'error',
+            message: `Failed to get status from ${apiUrl}: ${error.message}`,
+          })
+        );
       } else {
-        console.log(`Failed to determine MCR API server status at ${apiUrl}: ${error.message}. Status: Unknown`);
+        console.log(
+          `Failed to determine MCR API server status at ${apiUrl}: ${error.message}. Status: Unknown`
+        );
       }
     }
     // For 'status' command, even if server is down, the command itself didn't fail.
@@ -53,7 +75,7 @@ module.exports = (program) => {
   program
     .command('status')
     .description('Get the MCR server status and information')
-    .action(getServerStatusCli);
+    .action(getServerStatusCliAsync);
 };
 
 // No need for module.exports.internal if getServerStatus from api.js is sufficient

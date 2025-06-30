@@ -38,32 +38,38 @@ const originalCliArgs = process.argv.slice(2);
 // If no command is specified (e.g., just 'mcr' run via 'node src/cli.js'), default to 'chat'.
 // This needs to be done carefully to not interfere with --help or --version.
 if (originalCliArgs.length === 0) {
-    // This is true if 'node src/cli.js' is run with no further arguments.
-    process.argv.push('chat');
+  // This is true if 'node src/cli.js' is run with no further arguments.
+  process.argv.push('chat');
 } else {
-    // Check if the first argument is an option (e.g., --json) and not a command.
-    // This is a heuristic. A more robust way is to check against known commands.
-    const firstArgIsOption = originalCliArgs[0].startsWith('-');
-    let commandExists = false;
-    if (!firstArgIsOption) {
-        for (const command of program.commands) {
-            if (command.name() === originalCliArgs[0] || command.aliases().includes(originalCliArgs[0])) {
-                commandExists = true;
-                break;
-            }
-        }
+  // Check if the first argument is an option (e.g., --json) and not a command.
+  // This is a heuristic. A more robust way is to check against known commands.
+  const firstArgIsOption = originalCliArgs[0].startsWith('-');
+  let commandExists = false;
+  if (!firstArgIsOption) {
+    for (const command of program.commands) {
+      if (
+        command.name() === originalCliArgs[0] ||
+        command.aliases().includes(originalCliArgs[0])
+      ) {
+        commandExists = true;
+        break;
+      }
     }
-    // If the first arg is an option, and no actual command follows,
-    // or if there are args but none is a known command (e.g. 'mcr --json'),
-    // it might still be a case for defaulting to 'chat', unless it's help/version.
-    const helpOrVersionArg = originalCliArgs.find(arg => arg === '--help' || arg === '-h' || arg === '--version' || arg === '-V');
+  }
+  // If the first arg is an option, and no actual command follows,
+  // or if there are args but none is a known command (e.g. 'mcr --json'),
+  // it might still be a case for defaulting to 'chat', unless it's help/version.
+  const helpOrVersionArg = originalCliArgs.find(
+    (arg) =>
+      arg === '--help' || arg === '-h' || arg === '--version' || arg === '-V'
+  );
 
-    if (!commandExists && firstArgIsOption && !helpOrVersionArg) {
-        // e.g., 'mcr --json' should become 'mcr chat --json'
-        // Find where actual command should be (after node and script path)
-        const commandInsertIndex = 2; // After 'node' and 'script.js'
-        process.argv.splice(commandInsertIndex, 0, 'chat');
-    }
+  if (!commandExists && firstArgIsOption && !helpOrVersionArg) {
+    // e.g., 'mcr --json' should become 'mcr chat --json'
+    // Find where actual command should be (after node and script path)
+    const commandInsertIndex = 2; // After 'node' and 'script.js'
+    process.argv.splice(commandInsertIndex, 0, 'chat');
+  }
 }
 
 program.parse(process.argv);

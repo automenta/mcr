@@ -12,10 +12,11 @@ MCR adds **general-purpose reasoning** to Language Model applications. It's a se
 Large Language Models (LLMs) excel at understanding and generating human language, accessing vast knowledge, and performing nuanced contextual tasks. Formal logic systems, like Prolog, offer precision, verifiability, and the ability to perform complex deductive and inductive reasoning over structured knowledge.
 
 MCR's vision is to create a seamless symbiosis between these two powerful paradigms. We believe that the future of advanced AI applications lies in systems that can:
--   **Understand intent** through natural language (LLMs).
--   **Structure knowledge** into formal representations (LLMs + MCR).
--   **Reason rigorously** over that knowledge (Prolog via MCR).
--   **Communicate results** back in an understandable way (MCR + LLMs).
+
+- **Understand intent** through natural language (LLMs).
+- **Structure knowledge** into formal representations (LLMs + MCR).
+- **Reason rigorously** over that knowledge (Prolog via MCR).
+- **Communicate results** back in an understandable way (MCR + LLMs).
 
 This combination unlocks possibilities for more robust, explainable, and sophisticated AI systems – from intelligent assistants that can truly understand and follow complex rules, to data analysis tools that can infer deep insights, to educational platforms that can adapt to individual learning paths based on logical understanding. MCR aims to be a key enabler in this exciting future.
 
@@ -46,95 +47,99 @@ This section provides a fast track to getting MCR running and illustrates a coup
 
 **1. Get MCR Running (Locally):**
 
-   a. **Clone & Install:**
-      ```bash
+a. **Clone & Install:**
+`bash
       git clone https://github.com/yourusername/model-context-reasoner.git # Replace with actual URL
       cd model-context-reasoner
       npm install
-      ```
-   b. **Configure LLM:** Create a `.env` file in the project root (see [.env.example](.env.example) or [Setup](#setup-and-installation) for details) and add your chosen LLM provider API key (e.g., `OPENAI_API_KEY="sk-..."`).
-   c. **Launch the Interactive TUI:** This is the easiest way to start. The TUI will also attempt to start the MCR server if it's not already running.
-      ```bash
+      `
+b. **Configure LLM:** Create a `.env` file in the project root (see [.env.example](.env.example) or [Setup](#setup-and-installation) for details) and add your chosen LLM provider API key (e.g., `OPENAI_API_KEY="sk-..."`).
+c. **Launch the Interactive TUI:** This is the easiest way to start. The TUI will also attempt to start the MCR server if it's not already running.
+`bash
       mcr chat
       # Or: node src/cli.js chat
-      ```
-      You're now in the MCR TUI! Try typing `/help` or a simple statement like "The sky is blue." followed by "What color is the sky?".
+      `
+You're now in the MCR TUI! Try typing `/help` or a simple statement like "The sky is blue." followed by "What color is the sky?".
 
 **2. Common Use Case: Interactive Reasoning & Knowledge Exploration (via TUI)**
 
-   The `mcr chat` TUI is your primary tool for exploring MCR's capabilities:
-   - **Build Knowledge Incrementally:**
-     ```
-     /create-session
-     > All humans are mortal.
-     MCR: Understood. I've noted that all humans are mortal.
-     > Socrates is a human.
-     MCR: Okay, I've added that Socrates is a human.
-     /query Is Socrates mortal?
-     MCR: Yes, Socrates is mortal.
-     ```
-   - **Manage Ontologies:** Load predefined sets of rules and facts.
-     ```
-     /add-ontology family ontologies/family.pl
-     /query Who is johns son? (Assuming family.pl and session facts define this)
-     ```
-   - **Translate & Understand:** See how natural language translates to logic.
-     ```
-     /nl2rules Every cat is an animal.
-     /toggle-debug-chat  # Then send a query to see debug info
-     ```
+The `mcr chat` TUI is your primary tool for exploring MCR's capabilities:
+
+- **Build Knowledge Incrementally:**
+  ```
+  /create-session
+  > All humans are mortal.
+  MCR: Understood. I've noted that all humans are mortal.
+  > Socrates is a human.
+  MCR: Okay, I've added that Socrates is a human.
+  /query Is Socrates mortal?
+  MCR: Yes, Socrates is mortal.
+  ```
+- **Manage Ontologies:** Load predefined sets of rules and facts.
+  ```
+  /add-ontology family ontologies/family.pl
+  /query Who is johns son? (Assuming family.pl and session facts define this)
+  ```
+- **Translate & Understand:** See how natural language translates to logic.
+  ```
+  /nl2rules Every cat is an animal.
+  /toggle-debug-chat  # Then send a query to see debug info
+  ```
 
 **3. Common Use Case: Scripting MCR API for Automated Tasks**
 
-   Leverage MCR's HTTP API for programmatic reasoning in your applications or scripts.
+Leverage MCR's HTTP API for programmatic reasoning in your applications or scripts.
 
-   *Example: A simple Node.js script to create a session, assert a fact, and query it.*
-   ```javascript
-   // simple_script.js
-   const axios = require('axios');
-   const MCR_API_URL = 'http://localhost:8080'; // Adjust if your server runs elsewhere
+_Example: A simple Node.js script to create a session, assert a fact, and query it._
 
-   async function runMcrScript() {
-     try {
-       console.log('Creating MCR session...');
-       let response = await axios.post(`${MCR_API_URL}/sessions`);
-       const sessionId = response.data.sessionId;
-       console.log(`Session created: ${sessionId}`);
+```javascript
+// simple_script.js
+const axios = require('axios');
+const MCR_API_URL = 'http://localhost:8080'; // Adjust if your server runs elsewhere
 
-       console.log('Asserting fact: "Dragons breathe fire."...');
-       await axios.post(`${MCR_API_URL}/sessions/${sessionId}/assert`, {
-         text: "Dragons breathe fire."
-       });
-       console.log('Fact asserted.');
+async function runMcrScript() {
+  try {
+    console.log('Creating MCR session...');
+    let response = await axios.post(`${MCR_API_URL}/sessions`);
+    const sessionId = response.data.sessionId;
+    console.log(`Session created: ${sessionId}`);
 
-       console.log('Querying: "Do dragons breathe fire?"...');
-       response = await axios.post(`${MCR_API_URL}/sessions/${sessionId}/query`, {
-         query: "Do dragons breathe fire?"
-       });
-       console.log('MCR Answer:', response.data.answer);
+    console.log('Asserting fact: "Dragons breathe fire."...');
+    await axios.post(`${MCR_API_URL}/sessions/${sessionId}/assert`, {
+      text: 'Dragons breathe fire.',
+    });
+    console.log('Fact asserted.');
 
-       console.log('Deleting session...');
-       await axios.delete(`${MCR_API_URL}/sessions/${sessionId}`);
-       console.log('Session deleted.');
+    console.log('Querying: "Do dragons breathe fire?"...');
+    response = await axios.post(`${MCR_API_URL}/sessions/${sessionId}/query`, {
+      query: 'Do dragons breathe fire?',
+    });
+    console.log('MCR Answer:', response.data.answer);
 
-     } catch (error) {
-       console.error('Error interacting with MCR API:');
-       if (error.response) {
-         console.error('Status:', error.response.status);
-         console.error('Data:', JSON.stringify(error.response.data, null, 2));
-       } else {
-         console.error(error.message);
-       }
-     }
-   }
+    console.log('Deleting session...');
+    await axios.delete(`${MCR_API_URL}/sessions/${sessionId}`);
+    console.log('Session deleted.');
+  } catch (error) {
+    console.error('Error interacting with MCR API:');
+    if (error.response) {
+      console.error('Status:', error.response.status);
+      console.error('Data:', JSON.stringify(error.response.data, null, 2));
+    } else {
+      console.error(error.message);
+    }
+  }
+}
 
-   runMcrScript();
-   ```
-   To run this (ensure MCR server `node mcr.js` is running first, and `axios` is installed):
-   ```bash
-   node simple_script.js
-   ```
-   This demonstrates how any application can integrate MCR's reasoning power.
+runMcrScript();
+```
+
+To run this (ensure MCR server `node mcr.js` is running first, and `axios` is installed):
+
+```bash
+node simple_script.js
+```
+
+This demonstrates how any application can integrate MCR's reasoning power.
 
 ## Setup and Installation
 
@@ -194,7 +199,7 @@ The `mcr chat` command starts a full-application TUI that serves as your "home" 
 - **Unified Interface**: Access chat, session management, ontology management, translations, prompt utilities, and demos all from one place.
 - **Server Management**:
   - Automatically starts the MCR server if it's not already running.
-  - Shuts down the server on exit *if* the TUI started it.
+  - Shuts down the server on exit _if_ the TUI started it.
   - Seamlessly uses an existing MCR server if one is detected.
 - **Status Bar**: Displays current session ID, startup ontology context (from `-o` flag), server status, and chat debug mode.
 - **Command System**:
@@ -221,34 +226,34 @@ The `mcr chat` command starts a full-application TUI that serves as your "home" 
 
 **Available TUI Commands (obtain the full up-to-date list with `/help` inside the TUI):**
 
-*   **Core:**
-    *   `/help`: Show help message.
-    *   `/status`: Check MCR server status.
-    *   `/exit`, `/quit`: Exit the application.
-*   **Session Management:**
-    *   `/create-session`: Create a new session.
-    *   `/get-session [id]`: Get details for a session (current if no id).
-    *   `/delete-session [id]`: Delete a session (current if no id).
-*   **Knowledge & Querying:**
-    *   `/assert <text>`: Assert facts to the current session.
-    *   `/query <question>`: Query the current session.
-    *   `/explain <question>`: Explain a query for the current session.
-*   **Ontology Management:**
-    *   `/list-ontologies`: List all global ontologies.
-    *   `/get-ontology <name>`: Get details of a specific ontology.
-    *   `/add-ontology <name> <path>`: Add a new ontology from a rules file.
-    *   `/update-ontology <name> <path>`: Update an ontology from a rules file.
-    *   `/delete-ontology <name>`: Delete an ontology.
-*   **Translation:**
-    *   `/nl2rules <text> [--facts "..."] [--ontology path/file.pl]`: Translate NL to Prolog rules.
-    *   `/rules2nl <path> [--style formal|conversational]`: Translate Prolog rules from a file to NL.
-*   **Prompts:**
-    *   `/list-prompts`: List all prompt templates.
-    *   `/show-prompt <templateName>`: Show a specific prompt template.
-    *   `/debug-prompt <templateName> <json>`: Debug a prompt template with JSON variables.
-*   **Demos & Utilities:**
-    *   `/run-demo <simpleQA|family>`: Run a demo script (e.g., `simpleQA`, `family`).
-    *   `/toggle-debug-chat`: Toggle verbose debug output for chat messages and `/query` commands.
+- **Core:**
+  - `/help`: Show help message.
+  - `/status`: Check MCR server status.
+  - `/exit`, `/quit`: Exit the application.
+- **Session Management:**
+  - `/create-session`: Create a new session.
+  - `/get-session [id]`: Get details for a session (current if no id).
+  - `/delete-session [id]`: Delete a session (current if no id).
+- **Knowledge & Querying:**
+  - `/assert <text>`: Assert facts to the current session.
+  - `/query <question>`: Query the current session.
+  - `/explain <question>`: Explain a query for the current session.
+- **Ontology Management:**
+  - `/list-ontologies`: List all global ontologies.
+  - `/get-ontology <name>`: Get details of a specific ontology.
+  - `/add-ontology <name> <path>`: Add a new ontology from a rules file.
+  - `/update-ontology <name> <path>`: Update an ontology from a rules file.
+  - `/delete-ontology <name>`: Delete an ontology.
+- **Translation:**
+  - `/nl2rules <text> [--facts "..."] [--ontology path/file.pl]`: Translate NL to Prolog rules.
+  - `/rules2nl <path> [--style formal|conversational]`: Translate Prolog rules from a file to NL.
+- **Prompts:**
+  - `/list-prompts`: List all prompt templates.
+  - `/show-prompt <templateName>`: Show a specific prompt template.
+  - `/debug-prompt <templateName> <json>`: Debug a prompt template with JSON variables.
+- **Demos & Utilities:**
+  - `/run-demo <simpleQA|family>`: Run a demo script (e.g., `simpleQA`, `family`).
+  - `/toggle-debug-chat`: Toggle verbose debug output for chat messages and `/query` commands.
 
 ## Direct CLI Commands (For Scripting and Automation)
 
@@ -256,7 +261,7 @@ Beyond the interactive TUI, MCR offers a set of direct Command Line Interface (C
 
 You can see the list of all available direct CLI commands and their options with `mcr --help`.
 
-Examples of legacy commands:
+Some examples of direct commands are:
 
 - `mcr status`: Checks server status.
 - `mcr create-session`: Creates a session and prints its ID.

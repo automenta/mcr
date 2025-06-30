@@ -82,16 +82,26 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * @param {string} fileDescription - A description of the file type.
  * @returns {string|null} The content of the file, or null if an error occurs.
  */
-const readFileContentSafe = (filePath, addMessageCallback, fileDescription = 'File') => {
+const readFileContentSafe = (
+  filePath,
+  addMessageCallback,
+  fileDescription = 'File'
+) => {
   try {
     const resolvedPath = path.resolve(filePath);
     if (!fs.existsSync(resolvedPath)) {
-      addMessageCallback('error', `${fileDescription} not found: ${resolvedPath}`);
+      addMessageCallback(
+        'error',
+        `${fileDescription} not found: ${resolvedPath}`
+      );
       return null;
     }
     return fs.readFileSync(resolvedPath, 'utf8');
   } catch (error) {
-    addMessageCallback('error', `Error reading ${fileDescription} "${filePath}": ${error.message}`);
+    addMessageCallback(
+      'error',
+      `Error reading ${fileDescription} "${filePath}": ${error.message}`
+    );
     return null;
   }
 };

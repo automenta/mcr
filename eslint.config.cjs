@@ -1,25 +1,25 @@
 const globals = require('globals');
 const js = require('@eslint/js');
 const pluginJest = require('eslint-plugin-jest');
+const eslintPluginReact = require('eslint-plugin-react');
 const eslintConfigPrettier = require('eslint-config-prettier'); // To turn off ESLint rules that conflict with Prettier
 
 module.exports = [
   js.configs.recommended, // ESLint recommended rules
   {
     // Global settings for all JS files
-    files: ['**/*.js', '**/*.mjs', '**/*.cjs'], // Explicitly include .cjs for the config itself if needed, though it should be fine
+    files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
     languageOptions: {
       ecmaVersion: 'latest',
-      sourceType: 'commonjs', // All project .js files are CommonJS
+      sourceType: 'commonjs', // Default, can be overridden for specific files if needed
       globals: {
         ...globals.node,
         ...globals.commonjs,
       },
     },
     rules: {
-      // Custom rules from the old config
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-      'no-console': 'warn', // Keep as warn for CLI, override for server if needed
+      'no-console': 'warn',
       'consistent-return': 'warn',
       'no-undef': 'error',
       semi: ['error', 'always'],
@@ -66,6 +66,35 @@ module.exports = [
           message: "Async functions expressions must end in 'Async'",
         },
       ],
+    },
+  },
+  {
+    // Configuration for files potentially using React/JSX (e.g., TUI commands)
+    files: ['src/cli/commands/chatCommand.js'], // Add other files if they use JSX
+    plugins: {
+      react: eslintPluginReact,
+    },
+    languageOptions: {
+      parserOptions: {
+        ecmaFeatures: {
+          jsx: true,
+        },
+      },
+      globals: {
+        ...globals.browser, // React components might use browser-like globals
+      },
+    },
+    settings: {
+      react: {
+        version: 'detect', // Automatically detect React version
+      },
+    },
+    rules: {
+      ...eslintPluginReact.configs.recommended.rules,
+      // Disable specific React rules if they are too noisy or conflict
+      // e.g. 'react/react-in-jsx-scope': 'off', // Not needed with new JSX transform, but good for explicit control
+      'react/prop-types': 'off', // If not using prop-types
+      'react/jsx-key': 'warn', // Important for lists
     },
   },
   {
