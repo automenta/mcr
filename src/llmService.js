@@ -312,9 +312,15 @@ const LlmService = {
     );
     let trimmedResult = result.trim();
 
-    // Remove Markdown code fences if present
+  // Remove Markdown code fences if present (triple backticks with 'prolog' language hint)
     trimmedResult = trimmedResult.replace(/^```prolog\n/, '').replace(/\n```$/, '');
+  // Remove Markdown code fences if present (triple backticks without language hint)
     trimmedResult = trimmedResult.replace(/^```/, '').replace(/```$/, '');
+
+  // NEW: Remove single backticks if present
+  if (trimmedResult.startsWith('`') && trimmedResult.endsWith('`')) {
+    trimmedResult = trimmedResult.substring(1, trimmedResult.length - 1);
+  }
 
     // Remove "?-" prefix if present
     if (trimmedResult.startsWith('?-')) {
