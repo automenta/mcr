@@ -299,7 +299,7 @@ const LlmService = {
           'An unexpected error occurred during query to Prolog translation.',
       }
     );
-    const trimmedResult = result.trim();
+    let trimmedResult = result.trim();
     if (!trimmedResult) {
       logger.error('LLM generated an empty Prolog query.', {
         internalErrorCode: 'LLM_EMPTY_PROLOG_QUERY',
@@ -311,6 +311,10 @@ const LlmService = {
         'LLM generated an empty or whitespace-only Prolog query. Cannot proceed with reasoning.',
         'LLM_EMPTY_PROLOG_QUERY_GENERATED'
       );
+    }
+    // Ensure the prolog query ends with a period.
+    if (!trimmedResult.endsWith('.')) {
+      trimmedResult += '.';
     }
     return trimmedResult;
   },
