@@ -261,9 +261,20 @@ const LlmService = {
   },
 
   async nlToRulesAsync(text, existing_facts = '', ontology_context = '') {
+    let processedText = text;
+    // If text seems to be multiple Prolog statements concatenated without newlines
+    // e.g., "fact1.fact2." or "fact1. fact2."
+    // Add newlines to help LLM parsing as per its prompt.
+    // This regex replaces periods followed by optional spaces,
+    // but only if they are NOT already followed by a newline or the end of the string,
+    // with ".[newline]".
+    if (text.includes('.') && text.split('.').length > 2) { // More than one statement
+      processedText = text.replace(/\.\s*(?![\n\r]|$)/g, '.\n');
+    }
+
     const result = await this._callLlmAsync(
       'NL_TO_RULES',
-      { existing_facts, ontology_context, text_to_translate: text },
+      { existing_facts, ontology_context, text_to_translate: processedText },
       new JsonOutputParser(),
       {
         methodName: 'nlToRulesAsync',
