@@ -11,8 +11,12 @@
   - Introduce helpful abstractions functions, parameters, and classes to share common code
   - Apply "don't repeat yourself" principles
 - Modular (logically organized, supporting abstraction, OOP principles)
-- Remove all comments, relying only on self-documenting code
-  - Clear naming and structure
+- **Prioritize self-documenting code** through clear naming, concise logic, and good structure.
+- **Use comments judiciously where they add significant value:**
+   - **JSDoc for public functions/modules:** Document parameters, return values, and purpose for all exported functions and class methods that form the public API of a module.
+   - **Explain complex or non-obvious logic:** If a piece of code is intricate or its reasoning isn't immediately clear from the code itself, a brief comment explaining the "why" can be very helpful.
+   - **Document workarounds or important assumptions.**
+- **Avoid redundant comments** that merely restate what the code clearly shows (e.g., `// increment i` for `i++`).
 - Use the latest version of the language, APIs, and dependencies
 
 ## Extensibility
