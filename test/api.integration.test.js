@@ -84,41 +84,47 @@ const TEST_ONTOLOGY_STORAGE_PATH = path.resolve(
 //   reconfigureLogger: jest.fn(), // Add mock for reconfigureLogger
 // }));
 
-jest.mock('../src/llmService', () => ({
-  init: jest.fn(),
-  nlToRulesAsync: jest.fn().mockResolvedValue(['mock_rule(integration_test).']),
-  queryToPrologAsync: jest.fn().mockResolvedValue('mock_query_integration(Y).'),
-  resultToNlAsync: jest
-    .fn()
-    .mockImplementation((_query, logicResultJsonString, _style) => {
+jest.mock('../src/llmService', () => {
+  const actualLlmService = jest.requireActual('../src/llmService');
+  const mockConfig = jest.requireActual('../src/config').get();
+
+  // Initialize the actualLlmService with the mocked config immediately when the factory runs.
+  actualLlmService.init(mockConfig);
+
+  return {
+    // Delegate state-dependent methods to the now-initialized actualLlmService
+    getActiveProviderName: () => actualLlmService.getActiveProviderName(),
+    getActiveModelName: () => actualLlmService.getActiveModelName(),
+
+    // init on the mock can be a simple jest.fn(). The important initialization has already occurred on actualLlmService.
+    init: jest.fn(), // mcr.js will call this, but actualLlmService is already prepared.
+
+    // Mock other methods as before
+    nlToRulesAsync: jest.fn().mockResolvedValue(['mock_rule(integration_test).']),
+    queryToPrologAsync: jest.fn().mockResolvedValue('mock_query_integration(Y).'),
+    resultToNlAsync: jest.fn().mockImplementation((_query, logicResultJsonString, _style) => {
       if (logicResultJsonString === JSON.stringify('No solution found.')) {
-        return Promise.resolve(
-          'No, there is no solution for integration test.'
-        );
+        return Promise.resolve('No, there is no solution for integration test.');
       }
-      return Promise.resolve(
-        `Yes, the mock integration answer is based on: ${logicResultJsonString}`
-      );
+      return Promise.resolve(`Yes, the mock integration answer is based on: ${logicResultJsonString}`);
     }),
-  rulesToNlAsync: jest.fn().mockResolvedValue(
-    'Mock natural language explanation of rules.' // Corrected value
-  ),
-  explainQueryAsync: jest
-    .fn()
-    .mockResolvedValue('Mock explanation for the query.'), // Corrected value
-  getPromptTemplates: jest.fn().mockImplementation(() => {
-    const ActualPrompts = jest.requireActual('../src/prompts');
-    return {
-      INTEGRATION_TEMPLATE: 'mock integration template',
-      NL_TO_RULES: ActualPrompts.NL_TO_RULES,
-      QUERY_TO_PROLOG: ActualPrompts.QUERY_TO_PROLOG, // Add others if needed by tests
-      RESULT_TO_NL: ActualPrompts.RESULT_TO_NL,
-      EXPLAIN_QUERY: ActualPrompts.EXPLAIN_QUERY,
-      RULES_TO_NL: ActualPrompts.RULES_TO_NL,
-      // Add any other prompts that might be formatted via this debug endpoint
-    };
-  }),
-}));
+    rulesToNlAsync: jest.fn().mockResolvedValue('Mock natural language explanation of rules.'),
+    explainQueryAsync: jest.fn().mockResolvedValue('Mock explanation for the query.'),
+    getPromptTemplates: jest.fn().mockImplementation(() => {
+      const ActualPrompts = jest.requireActual('../src/prompts');
+      return {
+        INTEGRATION_TEMPLATE: 'mock integration template',
+        NL_TO_RULES: ActualPrompts.NL_TO_RULES,
+        QUERY_TO_PROLOG: ActualPrompts.QUERY_TO_PROLOG,
+        RESULT_TO_NL: ActualPrompts.RESULT_TO_NL,
+        EXPLAIN_QUERY: ActualPrompts.EXPLAIN_QUERY,
+        RULES_TO_NL: ActualPrompts.RULES_TO_NL,
+        ZERO_SHOT_QUERY: ActualPrompts.ZERO_SHOT_QUERY // Added for completeness
+      };
+    }),
+    getZeroShotAnswerAsync: jest.fn().mockResolvedValue('Mock zero shot answer from integration test'),
+  };
+});
 
 jest.mock('../package.json', () => ({
   name: 'mcr-integration-test-app',
@@ -359,6 +365,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
         RESULT_TO_NL: ActualPrompts.RESULT_TO_NL,
         EXPLAIN_QUERY: ActualPrompts.EXPLAIN_QUERY,
         RULES_TO_NL: ActualPrompts.RULES_TO_NL,
+        ZERO_SHOT_QUERY: ActualPrompts.ZERO_SHOT_QUERY,
       });
     });
 

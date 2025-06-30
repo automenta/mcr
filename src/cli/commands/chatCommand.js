@@ -89,17 +89,34 @@ async function startMcrServerAsync(_programOpts) {
   console.log('Starting MCR server...');
 
   const mcrScriptPath = path.resolve(__dirname, '../../../mcr.js');
+  let serverStdErr = '';
   const server = spawn('node', [mcrScriptPath], {
     detached: true,
-    stdio: 'ignore',
+    stdio: ['ignore', 'ignore', 'pipe'], // Capture stderr
   });
   serverProcess = server;
 
+  server.stderr.on('data', (data) => {
+    serverStdErr += data.toString();
+  });
+
   return new Promise((resolve, reject) => {
     server.on('error', (err) => {
-      // Renamed 'error' to 'err' to avoid conflict if any
-      console.error('Failed to start MCR server:', err);
+      console.error('Failed to start MCR server process:', err);
+      console.error('MCR Server stderr:', serverStdErr);
       reject(err);
+    });
+
+    // Listen for exit event to capture error output if server fails early
+    server.on('exit', (code, signal) => {
+      if (code !== 0 && signal !== 'SIGTERM') { // SIGTERM is how we might stop it
+        // Non-zero exit code and not our own SIGTERM means it likely crashed
+        const errorMessage = `MCR server process exited with code ${code} and signal ${signal}. Stderr: ${serverStdErr}`;
+        console.error(errorMessage);
+        // To ensure this error is caught by the promise chain if isServerAliveAsync also fails:
+        // We might need a more robust way to signal this specific failure back up.
+        // For now, the isServerAliveAsync check will be the primary failure detector.
+      }
     });
 
     server.unref();
@@ -112,10 +129,19 @@ async function startMcrServerAsync(_programOpts) {
         if (alive) {
           resolve();
         } else {
+          // If server is not alive, log any stderr we captured.
+          if (serverStdErr) {
+            console.error('MCR Server (spawned by chat) stderr before failing health check:', serverStdErr);
+          }
           reject(new Error('Server failed to start or become healthy.'));
         }
       })
-      .catch(reject);
+      .catch((err) => { // Catch rejections from isServerAliveAsync or other setup steps
+        if (serverStdErr) {
+            console.error('MCR Server (spawned by chat) stderr on error:', serverStdErr);
+        }
+        reject(err);
+      });
   });
 }
 

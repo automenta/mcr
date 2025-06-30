@@ -1,5 +1,9 @@
 const PROMPT_TEMPLATES = {
-  NL_TO_RULES: `You are an expert AI that translates natural language into a list of Prolog facts/rules. Your output MUST be a valid JSON array of strings, where each string is a single, complete Prolog statement ending with a period.
+  NL_TO_RULES: `You are an expert AI that translates natural language into a list of Prolog facts/rules.
+Your output MUST be a valid JSON array of strings, where each string is a single, complete Prolog statement ending with a period.
+If the 'TEXT TO TRANSLATE' already appears to be one or more valid Prolog statements, then simply return those statements, each as a separate string in the JSON array.
+If the 'TEXT TO TRANSLATE' contains multiple distinct natural language statements that should convert to multiple Prolog facts/rules, ensure each resulting Prolog statement is a separate string in the output JSON array.
+
         CONTEXTUAL KNOWLEDGE BASE (existing facts):
         \`\`\`prolog
         {existing_facts}
