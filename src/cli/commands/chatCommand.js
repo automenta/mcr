@@ -6,10 +6,10 @@ const { spawn } = require('child_process');
 const path = require('path');
 const ConfigManager = require('../../config');
 
-// NEW: Ink and React imports
-const React = require('react');
-const { render, Box, Text, Newline, useApp, useInput, Static, Spacer } = require('ink');
-const TextInput = require('ink-text-input').default;
+// Ink and React will be required dynamically inside startAppAsync
+let React;
+let render, Box, Text, Newline, useApp, useInput, Static, Spacer;
+let TextInput;
 
 // Demo functions will use the destructured methods from the 'api' import.
 // e.g. api.createSession, api.assertFacts etc.
@@ -770,6 +770,19 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
  * @param {import('commander').Command} command - The Commander command instance.
  */
 async function startAppAsync(options, command) {
+  // Dynamically import React and Ink components only when chat command is run
+  React = (await import('react')).default; // Assuming React might also be ESM-like in some setups or future
+  const inkModule = await import('ink');
+  render = inkModule.render;
+  Box = inkModule.Box;
+  Text = inkModule.Text;
+  Newline = inkModule.Newline;
+  useApp = inkModule.useApp;
+  useInput = inkModule.useInput;
+  Static = inkModule.Static;
+  Spacer = inkModule.Spacer;
+  TextInput = (await import('ink-text-input')).default;
+
   const programOpts = command.parent.opts();
   let initialSessionId = null;
   let initialOntologyPath = null; // Store path from -o option

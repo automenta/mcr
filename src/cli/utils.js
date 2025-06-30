@@ -74,15 +74,6 @@ const handleCliOutput = (
  */
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-module.exports = {
-  readFileContent,
-  readOntologyFile,
-  printJson,
-  handleCliOutput,
-  delay, // Export the new delay function
-  readFileContentSafe, // Export new safe reader for TUI
-};
-
 /**
  * Reads file content safely for TUI.
  * Instead of exiting, it uses the addMessage callback to report errors.
@@ -103,4 +94,13 @@ const readFileContentSafe = (filePath, addMessageCallback, fileDescription = 'Fi
     addMessageCallback('error', `Error reading ${fileDescription} "${filePath}": ${error.message}`);
     return null;
   }
+};
+
+module.exports = {
+  readFileContent,
+  readOntologyFile,
+  printJson,
+  handleCliOutput,
+  delay, // Export the new delay function
+  readFileContentSafe, // Export new safe reader for TUI
 };
