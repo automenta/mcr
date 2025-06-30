@@ -127,7 +127,7 @@ jest.mock('../package.json', () => ({
 }));
 
 const { app } = require('../mcr');
-const SessionManager = require('../src/sessionManager');
+// Removed unused SessionManager import
 
 describe('MCR API Integration Tests (with Supertest)', () => {
   let sessionId = null;
@@ -174,6 +174,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
       try {
         await request(app).delete(`/sessions/${sessionId}`);
       } catch (error) {
+        // eslint-disable-next-line no-console
         console.error(
           `Integration Test: Failed to delete session ${sessionId} during cleanup:`,
           { errorMessage: error.message }
@@ -296,9 +297,8 @@ describe('MCR API Integration Tests (with Supertest)', () => {
 
     test('should handle dynamic ontology loading and query (if family.pl exists)', async () => {
       if (!familyOntologyContent) {
-        console.warn(
-          'Skipping main assertions for dynamic ontology test as family.pl was not found or is empty.'
-        );
+        // Not logging to console here as it's a test path, test output should indicate skip or failure.
+        // For now, the existing conditional expect and return handles this.
         // eslint-disable-next-line jest/no-conditional-expect
         expect(familyOntologyContent).toBeFalsy();
         return;

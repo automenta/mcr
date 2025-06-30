@@ -24,7 +24,7 @@ function simplifyPrologResults(rawResults, loggerInstance) {
       if (typeof r === 'string' && (r.startsWith('{') || r.startsWith('['))) {
         try {
           return JSON.parse(r);
-        } catch { // Removed unused _e
+        } catch {
           return r;
         }
       }
@@ -38,14 +38,13 @@ function simplifyPrologResults(rawResults, loggerInstance) {
       return processedResults[0];
     }
     return processedResults;
-  } catch (_e) {
+  } catch (e) {
     (loggerInstance || logger).warn(
-      // Use passed logger or default
-      `Could not fully process Prolog results: ${JSON.stringify(rawResults)}. Returning as best effort. Error: ${_e.message}`,
+      `Could not fully process Prolog results: ${JSON.stringify(rawResults)}. Returning as best effort. Error: ${e.message}`,
       {
         internalErrorCode: 'PROLOG_RESULT_PROCESSING_FAILED',
         rawResults,
-        error: _e.toString(),
+        error: e.toString(),
       }
     );
     return rawResults.map((r) => String(r));
@@ -86,7 +85,7 @@ const queryHandlers = {
         { sessionId, prologQuery }
       );
 
-      SessionManager.get(sessionId); // Ensures session exists
+      SessionManager.get(sessionId);
 
       const facts = SessionManager.getFactsWithOntology(
         sessionId,

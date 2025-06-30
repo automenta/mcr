@@ -4,10 +4,8 @@ const { apiClient, API_BASE_URL, handleApiError } = require('../api');
 const { readOntologyFile, handleCliOutput } = require('../utils'); // Added handleCliOutput
 const axios = require('axios');
 
-// chat command has options, no direct arguments. Action: (options, command)
 async function startChatAsync(options, command) {
-  // Renamed
-  const programOpts = command.parent.opts(); // Global program options
+  const programOpts = command.parent.opts();
   let sessionId = null;
   let ontologyContent = null;
 
@@ -23,18 +21,12 @@ async function startChatAsync(options, command) {
     sessionId = sessionResponse.data.sessionId;
     if (!programOpts.json) {
       console.log(`New chat session started. Session ID: ${sessionId}`);
-    } else {
-      // If --json, we should output the session creation details as JSON
-      // However, chat is interactive, so --json for the *entire chat flow* is weird.
-      // Let's assume --json primarily affects the output of each query *within* the chat.
-      // The initial session message could be conditional.
-      // For now, let's make chat output JSON for each response if --json is set.
     }
 
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
-      prompt: programOpts.json ? '' : 'You> ', // No prompt if raw JSON output
+      prompt: programOpts.json ? '' : 'You> ',
     });
 
     if (!programOpts.json) rl.prompt();
@@ -67,12 +59,10 @@ async function startChatAsync(options, command) {
           requestBody
         );
 
-        // Pass programOpts to handleCliOutput
-        // For chat, messageKey is 'answer'. Prefix is 'MCR> ' only if not json.
         const prefix = programOpts.json ? '' : 'MCR> ';
         handleCliOutput(response.data, programOpts, 'answer', prefix);
       } catch (error) {
-        handleApiError(error, programOpts); // Pass programOpts
+        handleApiError(error, programOpts);
       }
       if (!programOpts.json) rl.prompt();
     }).on('close', async () => {
@@ -86,7 +76,6 @@ async function startChatAsync(options, command) {
               deleteResponse.data.message || `Session ${sessionId} terminated.`
             );
           } else {
-            // Output a JSON message for session termination if --json was active
             console.log(
               JSON.stringify({
                 action: 'chat_session_terminated',
@@ -127,7 +116,7 @@ async function startChatAsync(options, command) {
           message: error.message,
         })
       );
-    } // API errors from initial session creation are handled by apiClient
+    }
     process.exit(1);
   }
 }
@@ -140,5 +129,5 @@ module.exports = (program) => {
       '-o, --ontology <file>',
       'Specify an ontology file to use for the entire chat session'
     )
-    .action(startChatAsync); // Renamed
+    .action(startChatAsync);
 };

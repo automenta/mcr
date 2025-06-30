@@ -268,26 +268,29 @@ describe('ReasonerService', () => {
 
         const facts = ['fact(a).', 'this_is_not_valid_prolog(((.'];
         const query = 'fact(a).';
-        expect.assertions(5); // Exact number of assertions in the catch block
+        let caughtError;
         try {
           await ReasonerService.runQuery(facts, query);
-          throw new Error('Should have thrown an ApiError');
         } catch (error) {
-          expect(error).toBeInstanceOf(ApiError);
-          expect(error.statusCode).toBe(422);
-          expect(error.message).toMatch(
-            /Prolog knowledge base is invalid: Error: Simulated consultation error from test/i
-          );
-          expect(error.errorCode).toBe('PROLOG_CONSULT_FAILED');
-          expect(logger.error).toHaveBeenCalledWith(
-            expect.stringMatching(/Prolog knowledge base is invalid/i),
-            expect.objectContaining({
-              internalErrorCode: 'PROLOG_CONSULT_ERROR',
-              factsCount: facts.length,
-              details: 'Error: Simulated consultation error from test',
-            })
-          );
+          caughtError = error;
         }
+        expect(caughtError).toBeDefined();
+        expect(caughtError).toBeInstanceOf(ApiError);
+        expect(caughtError.statusCode).toBe(422);
+        expect(caughtError.message).toMatch(
+          /Prolog knowledge base is invalid: Error: Simulated consultation error from test/i
+        );
+        expect(caughtError.errorCode).toBe('PROLOG_CONSULT_FAILED');
+        // logger.error is called within runQuery before the error is thrown,
+        // so it should have been called if runQuery was attempted.
+        expect(logger.error).toHaveBeenCalledWith(
+          expect.stringMatching(/Prolog knowledge base is invalid/i),
+          expect.objectContaining({
+            internalErrorCode: 'PROLOG_CONSULT_ERROR',
+            factsCount: facts.length,
+            details: 'Error: Simulated consultation error from test',
+          })
+        );
       });
 
       it('should reject with ApiError for invalid Prolog query (query failure)', async () => {
@@ -303,26 +306,27 @@ describe('ReasonerService', () => {
 
         const facts = ['fact(a).'];
         const query = 'fact(A, B, C, .'; // Syntax error in query
-        expect.assertions(5);
+        let caughtErrorQuery;
         try {
           await ReasonerService.runQuery(facts, query);
-          throw new Error('Should have thrown an ApiError');
         } catch (error) {
-          expect(error).toBeInstanceOf(ApiError);
-          expect(error.statusCode).toBe(422);
-          expect(error.message).toMatch(
-            /Prolog query failed: Error: Simulated query error from test/i
-          );
-          expect(error.errorCode).toBe('PROLOG_QUERY_FAILED');
-          expect(logger.error).toHaveBeenCalledWith(
-            expect.stringMatching(/Prolog query failed/i),
-            expect.objectContaining({
-              internalErrorCode: 'PROLOG_QUERY_ERROR',
-              query: query,
-              details: 'Error: Simulated query error from test',
-            })
-          );
+          caughtErrorQuery = error;
         }
+        expect(caughtErrorQuery).toBeDefined();
+        expect(caughtErrorQuery).toBeInstanceOf(ApiError);
+        expect(caughtErrorQuery.statusCode).toBe(422);
+        expect(caughtErrorQuery.message).toMatch(
+          /Prolog query failed: Error: Simulated query error from test/i
+        );
+        expect(caughtErrorQuery.errorCode).toBe('PROLOG_QUERY_FAILED');
+        expect(logger.error).toHaveBeenCalledWith(
+          expect.stringMatching(/Prolog query failed/i),
+          expect.objectContaining({
+            internalErrorCode: 'PROLOG_QUERY_ERROR',
+            query: query,
+            details: 'Error: Simulated query error from test',
+          })
+        );
       });
 
       // The following tests are simplified as the direct prototype manipulation is removed.
@@ -338,24 +342,21 @@ describe('ReasonerService', () => {
 
         const facts = ['fact(a).'];
         const query = 'fact(a).';
-        expect.assertions(3);
+        let caughtConsultError;
         try {
           await ReasonerService.runQuery(facts, query);
-          throw new Error('Should have thrown an ApiError');
         } catch (error) {
-          expect(error).toBeInstanceOf(ApiError);
-          expect(error.statusCode).toBe(422);
-          expect(error.message).toMatch(
-            /Prolog knowledge base is invalid: Error: Unexpected consult error/i
-          );
-          // Note: error.errorCode is not asserted here to match the 3 assertions.
-          // If it needs to be asserted, change expect.assertions(4) and uncomment:
-          // expect(error.errorCode).toBe('PROLOG_CONSULT_FAILED');
+          caughtConsultError = error;
         }
+        expect(caughtConsultError).toBeDefined();
+        expect(caughtConsultError).toBeInstanceOf(ApiError);
+        expect(caughtConsultError.statusCode).toBe(422);
+        expect(caughtConsultError.message).toMatch(
+          /Prolog knowledge base is invalid: Error: Unexpected consult error/i
+        );
       });
 
       it('should reject with ApiError if prologSession.query throws an unexpected error', async () => {
-        // Covered by "invalid Prolog query (query failure)" test with new strategy.
         mockSession.consult.mockImplementationOnce((_program, options) =>
           options.success()
         );
@@ -366,18 +367,18 @@ describe('ReasonerService', () => {
 
         const facts = ['fact(a).'];
         const query = 'fact(a).';
-        expect.assertions(3);
+        let caughtQueryError;
         try {
           await ReasonerService.runQuery(facts, query);
-          throw new Error('Should have thrown an ApiError');
         } catch (error) {
-          expect(error).toBeInstanceOf(ApiError);
-          expect(error.statusCode).toBe(422);
-          expect(error.message).toMatch(
-            /Prolog query failed: Error: Unexpected query error/i
-          );
-          // expect(error.errorCode).toBe('PROLOG_QUERY_FAILED');
+          caughtQueryError = error;
         }
+        expect(caughtQueryError).toBeDefined();
+        expect(caughtQueryError).toBeInstanceOf(ApiError);
+        expect(caughtQueryError.statusCode).toBe(422);
+        expect(caughtQueryError.message).toMatch(
+          /Prolog query failed: Error: Unexpected query error/i
+        );
       });
 
       it('should reject with ApiError if prologSession.answer throws an error (answer initiation)', async () => {
@@ -395,27 +396,26 @@ describe('ReasonerService', () => {
 
         const facts = ['test(a).'];
         const query = 'test(X).';
-        expect.assertions(5); // Corrected count
+        let caughtAnswerInitError;
         try {
           await ReasonerService.runQuery(facts, query);
-          throw new Error(
-            'Should have thrown an ApiError for answer initiation error'
-          );
         } catch (error) {
-          expect(error).toBeInstanceOf(ApiError);
-          expect(error.statusCode).toBe(500);
-          expect(error.message).toMatch(
-            /Prolog answer initiation error: Simulated answer initiation error/i
-          );
-          expect(error.errorCode).toBe('PROLOG_ANSWER_INIT_ERROR');
-          expect(logger.error).toHaveBeenCalledWith(
-            expect.stringMatching(/Error initiating Prolog answer callback/i),
-            expect.objectContaining({
-              internalErrorCode: 'PROLOG_ANSWER_INIT_ERROR',
-              originalError: 'Simulated answer initiation error',
-            })
-          );
+          caughtAnswerInitError = error;
         }
+        expect(caughtAnswerInitError).toBeDefined();
+        expect(caughtAnswerInitError).toBeInstanceOf(ApiError);
+        expect(caughtAnswerInitError.statusCode).toBe(500);
+        expect(caughtAnswerInitError.message).toMatch(
+          /Prolog answer initiation error: Simulated answer initiation error/i
+        );
+        expect(caughtAnswerInitError.errorCode).toBe('PROLOG_ANSWER_INIT_ERROR');
+        expect(logger.error).toHaveBeenCalledWith(
+          expect.stringMatching(/Error initiating Prolog answer callback/i),
+          expect.objectContaining({
+            internalErrorCode: 'PROLOG_ANSWER_INIT_ERROR',
+            originalError: 'Simulated answer initiation error',
+          })
+        );
       });
 
       it('should reject with ApiError if prologSession.answer callback throws an error (answer processing)', async () => {
@@ -430,13 +430,10 @@ describe('ReasonerService', () => {
         mockSession.answer.mockImplementation((callback) => {
           answerCallCount++;
           if (answerCallCount === 1) {
-            // First call from query success, to get first answer
-            callback({ id: 'test', args: ['a'], indicator: 'test/1' }); // Simulate one valid answer
+            callback({ id: 'test', args: ['a'], indicator: 'test/1' });
           } else if (answerCallCount === 2) {
-            // Second call from within the answerCallback, to get next answer
             throw new Error('Simulated answer processing error');
           } else if (answerCallCount === 3) {
-            // Subsequent call to get the end token
             callback({ indicator: 'the_end/0' });
           }
         });
@@ -444,27 +441,26 @@ describe('ReasonerService', () => {
 
         const facts = ['test(a).'];
         const query = 'test(X).';
-        expect.assertions(5); // Corrected count
+        let caughtAnswerProcessingError;
         try {
           await ReasonerService.runQuery(facts, query);
-          throw new Error(
-            'Should have thrown an ApiError for answer processing error'
-          );
         } catch (error) {
-          expect(error).toBeInstanceOf(ApiError);
-          expect(error.statusCode).toBe(500);
-          expect(error.message).toMatch(
-            /Prolog answer processing error: Simulated answer processing error/i
-          );
-          expect(error.errorCode).toBe('PROLOG_ANSWER_ERROR');
-          expect(logger.error).toHaveBeenCalledWith(
-            expect.stringMatching(/Error processing Prolog answer/i),
-            expect.objectContaining({
-              internalErrorCode: 'PROLOG_ANSWER_PROCESSING_ERROR',
-              originalError: 'Simulated answer processing error',
-            })
-          );
+          caughtAnswerProcessingError = error;
         }
+        expect(caughtAnswerProcessingError).toBeDefined();
+        expect(caughtAnswerProcessingError).toBeInstanceOf(ApiError);
+        expect(caughtAnswerProcessingError.statusCode).toBe(500);
+        expect(caughtAnswerProcessingError.message).toMatch(
+          /Prolog answer processing error: Simulated answer processing error/i
+        );
+        expect(caughtAnswerProcessingError.errorCode).toBe('PROLOG_ANSWER_ERROR');
+        expect(logger.error).toHaveBeenCalledWith(
+          expect.stringMatching(/Error processing Prolog answer/i),
+          expect.objectContaining({
+            internalErrorCode: 'PROLOG_ANSWER_PROCESSING_ERROR',
+            originalError: 'Simulated answer processing error',
+          })
+        );
       });
     });
 
@@ -659,7 +655,10 @@ describe('ReasonerService', () => {
 
         const facts = [':- use_module(library(lists)).', 'member(a, [a,b]).'];
         const queryForUseModule = 'member(a, [a,b]).';
-        const results = await ReasonerService.runQuery(facts, queryForUseModule);
+        const results = await ReasonerService.runQuery(
+          facts,
+          queryForUseModule
+        );
         expect(results).toEqual(['true.']); // reasonerService pushes "true." directly
       });
     });

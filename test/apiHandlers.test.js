@@ -11,8 +11,9 @@ jest.mock('../src/reasonerService');
 // Properly mock ApiError as a class constructor
 jest.mock('../src/errors', () => {
   const ActualApiErrorInsideMock = jest.requireActual('../src/errors'); // Require it inside
-  return jest.fn().mockImplementation((status, message, code) =>
-     new ActualApiErrorInsideMock(status, message, code) // Use the inside-mock version
+  return jest.fn().mockImplementation(
+    (status, message, code) =>
+      new ActualApiErrorInsideMock(status, message, code) // Use the inside-mock version
   );
 });
 
@@ -54,7 +55,7 @@ jest.mock('@langchain/core/prompts', () =>
   // It needs to return the structure that ApiHandlers.js expects when it requires this module.
   // mockLangchainFromTemplateFn will be assigned later in beforeEach or specific tests.
   // So, the mock needs to call the function reference.
-   ({
+  ({
     PromptTemplate: {
       fromTemplate: (...args) => mockLangchainFromTemplateFn(...args),
     },

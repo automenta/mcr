@@ -1,23 +1,17 @@
 /* eslint-disable no-console */
-// const fs = require('fs'); // Unused
-// const path = require('path'); // Unused
 const { apiClient } = require('../api');
 const {
   handleCliOutput,
   readOntologyFile,
   readFileContent,
-} = require('../utils'); // Added readFileContent
+} = require('../utils');
 
-// nlToRules has <text> argument and options. Action: (text, options, command)
 async function nlToRulesAsync(text, options, command) {
-  // Renamed
   const programOpts = command.parent.opts();
   let ontologyContent = null;
   if (options.ontology) {
-    // readOntologyFile already handles file reading errors
     ontologyContent = readOntologyFile(options.ontology);
     if (ontologyContent && !programOpts.json) {
-      // Log the original path provided by the user for clarity
       console.log(`Using ontology for nl-to-rules: ${options.ontology}`);
     }
   }
@@ -35,15 +29,11 @@ async function nlToRulesAsync(text, options, command) {
   handleCliOutput(response.data, programOpts, null, 'Translated Rules:\n');
 }
 
-// rulesToNl has <rulesFile> argument and options. Action: (rulesFile, options, command)
 async function rulesToNlAsync(rulesFile, options, command) {
-  // Renamed
   const programOpts = command.parent.opts();
-  // readFileContent will handle path resolution and existence check
   const rulesContent = readFileContent(rulesFile, 'Rules file');
 
   if (!programOpts.json) {
-    // Log the original path for consistency
     console.log(`Using rules file: ${rulesFile}`);
   }
 

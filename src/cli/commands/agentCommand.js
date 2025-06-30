@@ -11,8 +11,6 @@ const {
 const { logger } = require('../../logger.js'); // Assuming logger is an object with methods
 const { delay } = require('../utils.js');
 
-// const DEMO_SESSION_ID_PREFIX = 'agent_demo_'; // Removed unused variable
-
 // Helper to log API interactions
 function logInteraction(action, request, response) {
   logger.info(`\n🤖 Agent Action: ${action}`);
@@ -91,7 +89,7 @@ async function familyOntologyDemoAsync() {
 
   let sessionId;
   const ontologyName = 'family_agent_demo';
-  const ontologyFile = 'ontologies/family.pl'; // Make sure this path is correct
+  const ontologyFile = 'ontologies/family.pl';
 
   try {
     logger.info(
@@ -100,13 +98,13 @@ async function familyOntologyDemoAsync() {
     await delay(500);
     // First, try to delete if it exists from a previous failed run
     try {
-      await apiDeleteOntology(ontologyName, true); // true for force delete
+      await apiDeleteOntology(ontologyName, true);
       logInteraction(
         'Delete Ontology (pre-cleanup)',
         { ontologyName },
         { message: 'Attempted pre-cleanup' }
       );
-    } catch (_e) { // Ignored error variable
+    } catch (_e) {
       // Ignore if it doesn't exist
     }
     const ontologyResponse = await apiAddOntology(ontologyName, ontologyFile);
@@ -181,7 +179,7 @@ async function familyOntologyDemoAsync() {
       const deleteOntologyResponse = await apiDeleteOntology(
         ontologyName,
         true
-      ); // true for force
+      );
       logInteraction(
         'Delete Ontology',
         { ontologyName },
@@ -378,19 +376,12 @@ function registerAgentCommand(program) {
   program
     .command('agent')
     .description('Run MCR in Agent Mode to interact with demos or free chat.')
-    // .option('-o, --ontology <filePath>', 'Path to a local ontology file to use for the agent session (optional)') // Example option
-    .action(async (_options) => { // Prefixed options with underscore
-      // The 'options' object here would contain any command-specific options defined above.
-      // For agent mode, it primarily triggers agentFlowAsync.
-      // Global options like --json are handled by the main program instance.
+    .action(async (_options) => {
       try {
-        // If _options were to be used, pass them here: await agentFlowAsync(_options);
         await agentFlowAsync();
       } catch (error) {
-        // Logged within agentFlowAsync or here as a fallback
         logger.error(`Error launching agent mode: ${error.message}`);
-        // console.error('Stack trace:', error.stack);
-        process.exit(1); // Exit if agent mode fails to launch critically
+        process.exit(1);
       }
     });
 }

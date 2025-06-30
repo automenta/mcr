@@ -17,7 +17,8 @@ const mockOllamaClientInvoke = jest.fn();
 // Mock the provider modules to export strategy objects
 jest.mock('../src/llmProviders/openaiProvider', () => ({
   name: 'openai',
-  initialize: jest.fn().mockImplementation((_llmConfig) => ({ // Prefixed llmConfig
+  initialize: jest.fn().mockImplementation((_llmConfig) => ({
+    // Prefixed llmConfig
     pipe: jest.fn((_outputParser) => ({ invoke: mockOpenAiClientInvoke })), // Prefixed outputParser
     someOtherMethodJustForTesting: () => {},
   })),
@@ -25,14 +26,16 @@ jest.mock('../src/llmProviders/openaiProvider', () => ({
 
 jest.mock('../src/llmProviders/geminiProvider', () => ({
   name: 'gemini',
-  initialize: jest.fn().mockImplementation((_llmConfig) => ({ // Prefixed llmConfig
+  initialize: jest.fn().mockImplementation((_llmConfig) => ({
+    // Prefixed llmConfig
     pipe: jest.fn((_outputParser) => ({ invoke: mockGeminiClientInvoke })), // Prefixed outputParser
   })),
 }));
 
 jest.mock('../src/llmProviders/ollamaProvider', () => ({
   name: 'ollama',
-  initialize: jest.fn().mockImplementation((_llmConfig) => ({ // Prefixed llmConfig
+  initialize: jest.fn().mockImplementation((_llmConfig) => ({
+    // Prefixed llmConfig
     pipe: jest.fn((_outputParser) => ({ invoke: mockOllamaClientInvoke })), // Prefixed outputParser
   })),
 }));
@@ -51,10 +54,10 @@ let mockLangchainFormatFn;
 let mockLangchainFromTemplateFn;
 
 jest.mock('@langchain/core/prompts', () => ({
-    PromptTemplate: {
-      fromTemplate: (...args) => mockLangchainFromTemplateFn(...args),
-    },
-  }));
+  PromptTemplate: {
+    fromTemplate: (...args) => mockLangchainFromTemplateFn(...args),
+  },
+}));
 
 describe('LlmService', () => {
   let mockConfig;
