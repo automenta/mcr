@@ -100,9 +100,15 @@ The MCR includes a Command Line Interface (CLI) for direct interaction. You can 
   ```bash
   mcr chat
   ```
+  This command starts an interactive chat session. If the MCR server is not already running, `mcr chat` will attempt to start it automatically in the background. The server will then be shut down when you exit the chat session. You can also use an existing running server if one is detected.
+  To use a specific ontology for the entire chat session:
+  ```bash
+  mcr chat -o path/to/your_ontology.pl
+  ```
 
 - **Interactive Agent Mode**:
   This mode provides an interactive way to explore MCR's capabilities through prescripted demos or a free-form chat interface that shows system interactions.
+  *Note: Unlike `mcr chat`, the `mcr agent` command currently requires the MCR server to be running separately.*
 
   ```bash
   mcr agent
