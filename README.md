@@ -65,80 +65,91 @@ MCR is built with a "guitar pedal" philosophy: a single, plug-and-play unit that
     ```
     The script will then start the server, indicating which LLM provider is active.
 
-## CLI Usage Examples
+## Interactive TUI (Primary Interface)
 
-The MCR includes a Command Line Interface (CLI) for direct interaction. You can run it using `mcr --help` to see all available commands.
+The primary way to interact with MCR is through its comprehensive Text User Interface (TUI).
+To launch the TUI, run:
 
-- **Check Server Status**:
+```bash
+node mcr.js chat
+# Or if mcr is in your PATH (e.g. via npm link or global install)
+mcr chat
+```
 
-  ```bash
-  mcr status
-  ```
+The `mcr chat` command starts a full-application TUI that serves as your "home" for all MCR operations.
 
-- **Create a Session**:
+**Key TUI Features:**
 
-  ```bash
-  mcr create-session
-  ```
+- **Unified Interface**: Access chat, session management, ontology management, translations, prompt utilities, and demos all from one place.
+- **Server Management**:
+  - Automatically starts the MCR server if it's not already running.
+  - Shuts down the server on exit *if* the TUI started it.
+  - Seamlessly uses an existing MCR server if one is detected.
+- **Status Bar**: Displays current session ID, startup ontology context, server status, and chat debug mode.
+- **Command System**:
+  - Type natural language messages directly for chat.
+  - Use slash commands (e.g., `/help`, `/status`, `/create-session`) to perform specific operations.
+- **Interactive Output**: View responses from MCR, command outputs, and demo progress in the main content area.
+- **Startup Ontology**: Use the `-o` option to specify an ontology file at startup (e.g., `mcr chat -o path/to/your_ontology.pl`). This file's content will be used as context for chat messages and certain commands.
 
-  (Save the `sessionId` from the output for subsequent commands)
+**Navigating the TUI:**
 
-- **Assert a Fact**:
+- **Chat**: Simply type your message and press Enter. If no session is active, one will be created for you.
+- **Commands**: Type `/` followed by a command name and any arguments. For example:
+  - `/help`: Shows a list of all available TUI commands.
+  - `/status`: Checks and displays the MCR server status.
+  - `/create-session`: Creates a new reasoning session.
+  - `/list-ontologies`: Lists all globally stored ontologies.
+  - `/run-demo simpleQA`: Runs the Simple Q&A demo.
+- **Exiting**: Type `/exit`, `/quit`, or press `Ctrl+C`.
 
-  ```bash
-  mcr assert <sessionId> "The sky is blue."
-  ```
+**Available TUI Commands (obtain the full up-to-date list with `/help` inside the TUI):**
 
-- **Query a Session**:
+*   **Core:**
+    *   `/help`: Show help message.
+    *   `/status`: Check MCR server status.
+    *   `/exit`, `/quit`: Exit the application.
+*   **Session Management:**
+    *   `/create-session`: Create a new session.
+    *   `/get-session [id]`: Get details for a session (current if no id).
+    *   `/delete-session [id]`: Delete a session (current if no id).
+*   **Knowledge & Querying:**
+    *   `/assert <text>`: Assert facts to the current session.
+    *   `/query <question>`: Query the current session.
+    *   `/explain <question>`: Explain a query for the current session.
+*   **Ontology Management:**
+    *   `/list-ontologies`: List all global ontologies.
+    *   `/get-ontology <name>`: Get details of a specific ontology.
+    *   `/add-ontology <name> <path>`: Add a new ontology from a rules file.
+    *   `/update-ontology <name> <path>`: Update an ontology from a rules file.
+    *   `/delete-ontology <name>`: Delete an ontology.
+*   **Translation:**
+    *   `/nl2rules <text> [--facts "..."] [--ontology path/file.pl]`: Translate NL to Prolog rules.
+    *   `/rules2nl <path> [--style formal|conversational]`: Translate Prolog rules from a file to NL.
+*   **Prompts:**
+    *   `/list-prompts`: List all prompt templates.
+    *   `/show-prompt <templateName>`: Show a specific prompt template.
+    *   `/debug-prompt <templateName> <json>`: Debug a prompt template with JSON variables.
+*   **Demos & Utilities:**
+    *   `/run-demo <simpleQA|family>`: Run a demo script (e.g., `simpleQA`, `family`).
+    *   `/toggle-debug-chat`: Toggle verbose debug output for chat messages and `/query` commands.
 
-  ```bash
-  mcr query <sessionId> "What color is the sky?"
-  ```
+## Legacy CLI Commands (Secondary)
 
-- **Interactive Chat (TUI)**:
+While the TUI (`mcr chat`) is the recommended primary interface, some of the original CLI commands are still available for scripting or direct, non-interactive use. These commands typically require the MCR server to be running independently.
 
-  ```bash
-  mcr chat
-  ```
-  This command launches an interactive **Text User Interface (TUI)** for chatting with the MCR. The TUI provides a more application-like experience with dedicated areas for message history and text input.
+You can see the list of all available top-level commands with `mcr --help`.
 
-  Key features:
-  - If the MCR server is not already running, `mcr chat` will attempt to start it automatically.
-  - The server will be shut down when you exit the chat session if it was started by `mcr chat`.
-  - You can also use an existing running MCR server.
-  - To exit the TUI, type `exit` or `quit` in the input field and press Enter, or press `Ctrl+C`.
+Examples of legacy commands:
 
-  To use a specific ontology file for the entire chat session:
-  ```bash
-  mcr chat -o path/to/your_ontology.pl
-  ```
-  The TUI will confirm if the ontology is being used.
+- `mcr status`: Checks server status.
+- `mcr create-session`: Creates a session and prints its ID.
+- `mcr assert <sessionId> "Fact"`: Asserts a fact to a given session.
+- `mcr query <sessionId> "Question?"`: Queries a session.
+- `mcr list-ontologies`: Lists ontologies.
 
-- **Interactive Agent Mode**:
-  This mode provides an interactive way to explore MCR's capabilities through prescripted demos or a free-form chat interface that shows system interactions.
-  *Note: Unlike `mcr chat`, the `mcr agent` command currently requires the MCR server to be running separately.*
-
-  ```bash
-  mcr agent
-  ```
-
-  You will be prompted to enter a Gemini API key if one is not found in your environment variables. The agent mode will then offer a menu to run demos (like simple Q&A or a family ontology showcase) or engage in a chat that displays LLM translations and Prolog outputs.
-
-- **Prompt Template Management (CLI)**:
-  - List available prompt templates:
-    ```bash
-    mcr prompt list
-    ```
-  - Show a specific template:
-    ```bash
-    mcr prompt show NL_TO_RULES
-    ```
-  - Debug/format a template with variables:
-    ```bash
-    mcr prompt debug QUERY_TO_PROLOG "{\"question\":\"What is the capital of France?\"}"
-    ```
-
-Many other commands are available for managing ontologies, direct translations, etc. Use the `--help` flag on commands for more details (e.g., `mcr query --help`).
+The `mcr agent` command also remains available for its specific interactive demo menu, though its demo functionalities are now also integrated into the main TUI via `/run-demo`.
+The `mcr agent` command still requires the MCR server to be running separately.
 
 ## API Reference
 

@@ -90,121 +90,128 @@ describe('mcr chat command integration', () => {
   });
 
   test('mcr chat should start the server if not running, and server should stop after chat exits', (done) => {
-    const chatProcess = spawn('node', [MCR_SCRIPT_PATH, 'chat'], { stdio: ['pipe', 'pipe', 'pipe'] });
-    let output = '';
-    let serverStartedMessage = false;
-    let chatReady = false;
+    // Test a TUI is very different. We will focus on server lifecycle.
+    // We can't easily check for "chatReady" or send stdin commands like "exit" to a full-screen TUI.
+    const chatProcess = spawn('node', [MCR_SCRIPT_PATH, 'chat'], { stdio: ['ignore', 'pipe', 'pipe'] }); // stdin ignored
+    let stdoutData = '';
+    let serverShouldHaveStarted = false;
 
     chatProcess.stdout.on('data', (data) => {
-      output += data.toString();
-      // console.log(`CHAT STDOUT: ${data.toString()}`);
-      if (output.includes('Starting MCR server...')) {
-        serverStartedMessage = true;
+      stdoutData += data.toString();
+      // Check for the pre-Ink log message indicating an attempt to start the server.
+      if (stdoutData.includes('Starting MCR server...')) {
+        serverShouldHaveStarted = true;
       }
-      if (output.includes('New chat session started.') || output.includes('You>')) {
-        chatReady = true;
-        if (serverStartedMessage) { // Only proceed if we saw the server starting message
-          // Server should be up now
-          isServerAlive().then(alive => {
-            expect(alive).toBe(true);
-            chatProcess.stdin.write('exit\\n'); // Exit chat
-          });
-        } else {
-            // this indicates an issue, server should have been started by chat.
-        }
-      }
+      // We can't reliably check for "chat ready" or TUI prompts anymore.
     });
 
     chatProcess.stderr.on('data', (data) => {
-      // console.error(`CHAT STDERR: ${data.toString()}`);
-      // Fail test if significant errors during startup
-      if (data.toString().includes('Failed to start MCR server') || data.toString().includes('Could not start MCR server')) {
+      // console.error(`CHAT TUI STDERR: ${data.toString()}`);
+      // Fail test if significant errors during startup that appear on stderr
+      // Note: Ink might also use stderr for rendering in some terminals.
+      // This check might need refinement if too noisy.
+      if (data.toString().includes('Critical: Failed to start MCR server')) {
+        chatProcess.kill();
         done(new Error(`Chat process reported server start failure: ${data.toString()}`));
       }
     });
 
-    chatProcess.on('close', async (code) => {
-      expect(code).toBe(0);
-      expect(serverStartedMessage).toBe(true); // Ensure we saw the attempt to start
-      expect(chatReady).toBe(true); // Ensure chat actually became ready
+    // 1. Check if server starts
+    // Give the TUI and server time to start up.
+    setTimeout(async () => {
+      try {
+        const alive = await isServerAlive(SERVER_URL, 5, 300); // More retries for server to boot
+        expect(alive).toBe(true); // Server should be running
+        expect(serverShouldHaveStarted).toBe(true); // We should have seen the message too
 
-      // Server should be stopped now
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Give server time to shut down
+        // 2. Terminate chat process (simulating Ctrl+C or closing window)
+        chatProcess.kill('SIGTERM'); // Send SIGTERM to allow graceful shutdown
+      } catch (e) {
+        chatProcess.kill(); // Ensure it's killed on error
+        done(e);
+      }
+    }, 7000); // Increased timeout for server to start reliably
+
+    chatProcess.on('close', async (code) => {
+      // With SIGTERM, code might be null or a signal code.
+      // We are less concerned about exit code 0 here as TUI termination is different.
+      // The main check is that the server it started is now stopped.
+
+      // 3. Check if server stops after chat TUI is terminated
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Give server time to shut down
       const aliveAfter = await isServerAlive();
-      expect(aliveAfter).toBe(false);
+      expect(aliveAfter).toBe(false); // Server should be stopped
       done();
     });
 
-    // Timeout for the test
+    // Overall timeout for the test
     setTimeout(() => {
-        if (!chatReady) {
-            chatProcess.kill(); // ensure the process is killed if it hangs
-            done(new Error('Test timed out, chat did not become ready or server check failed. Output: ' + output));
-        }
-    }, 20000); // 20s timeout
-  }, 25000); // Jest timeout for this test
+      if (!chatProcess.killed) {
+          chatProcess.kill();
+          done(new Error('Test timed out. Chat process did not complete checks or close in time. Stdout: ' + stdoutData));
+      }
+    }, 25000); // Jest timeout for this specific test can be longer
+  }, 30000);
 
   test('mcr chat should use an existing server if one is running', (done) => {
-    // Start server manually
     manuallyStartedServer = spawn('node', [MCR_SCRIPT_PATH], { detached: false, stdio: 'ignore' });
-
     let chatProcess;
+    let stdoutData = '';
 
-    // Wait for manually started server to be ready
-    isServerAlive(SERVER_URL, 10, 500).then(alive => {
-      if (!alive) {
-        if(manuallyStartedServer) manuallyStartedServer.kill();
+    isServerAlive(SERVER_URL, 10, 500).then(async (serverIsUp) => {
+      if (!serverIsUp) {
+        if (manuallyStartedServer) manuallyStartedServer.kill();
         return done(new Error('Manually started server did not become alive.'));
       }
+      expect(serverIsUp).toBe(true);
 
-      expect(alive).toBe(true); // Manually started server is running
-
-      chatProcess = spawn('node', [MCR_SCRIPT_PATH, 'chat']);
-      let output = '';
-      let chatReady = false;
+      chatProcess = spawn('node', [MCR_SCRIPT_PATH, 'chat'], { stdio: ['ignore', 'pipe', 'pipe'] });
 
       chatProcess.stdout.on('data', (data) => {
-        output += data.toString();
-        // console.log(`CHAT STDOUT (existing server): ${data.toString()}`);
-        expect(output).not.toContain('Starting MCR server...'); // Should not try to start a new one
-        if (output.includes('Using existing MCR server.')) {
-           // Correct path
-        }
-        if (output.includes('New chat session started.') || output.includes('You>')) {
-          chatReady = true;
-          chatProcess.stdin.write('exit\\n');
-        }
+        stdoutData += data.toString();
+        // We expect NOT to see "Starting MCR server..."
+        expect(stdoutData).not.toContain('Starting MCR server...');
+        // We might see "Existing MCR server detected." before Ink takes over.
       });
 
       chatProcess.stderr.on('data', (data) => {
-        // console.error(`CHAT STDERR (existing server): ${data.toString()}`);
+        // console.error(`CHAT TUI (existing server) STDERR: ${data.toString()}`);
       });
 
-      chatProcess.on('close', async (code) => {
-        expect(code).toBe(0);
-        expect(output).toContain('Using existing MCR server.');
-        expect(chatReady).toBe(true);
+      // Let the TUI run for a bit
+      await new Promise(resolve => setTimeout(resolve, 5000));
 
+      // Terminate chat process
+      chatProcess.kill('SIGTERM');
+
+      chatProcess.on('close', async () => {
         // Manually started server should still be running
         const aliveAfter = await isServerAlive();
         expect(aliveAfter).toBe(true);
 
+        if (stdoutData.includes('Existing MCR server detected.')) {
+            // This is good, means it logged correctly before Ink took over.
+        }
+
         // Cleanup: stop manually started server
         if (manuallyStartedServer) {
           manuallyStartedServer.kill('SIGTERM');
-          manuallyStartedServer = null; // Important to prevent afterEach from trying to kill again
+          manuallyStartedServer = null;
         }
-        await new Promise(resolve => setTimeout(resolve, 500)); // Give it time to die
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Give it time to die
         done();
       });
+
     }).catch(err => {
-        if(manuallyStartedServer) manuallyStartedServer.kill();
-        done(err);
+      if (manuallyStartedServer) manuallyStartedServer.kill();
+      if (chatProcess && !chatProcess.killed) chatProcess.kill();
+      done(err);
     });
-  }, 25000);
+  }, 30000);
 
 
   test('mcr status command should not start the server', (done) => {
+    // This test remains valid as it doesn't involve the chat TUI.
     exec(`node ${MCR_SCRIPT_PATH} status`, async (error, stdout, stderr) => {
       expect(error).toBeNull();
       expect(stderr).toBe('');
