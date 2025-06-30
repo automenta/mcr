@@ -42,6 +42,10 @@ const PROMPT_TEMPLATES = {
         \`\`\`
         PROLOG QUERY TO EXPLAIN: "{query}"
         DETAILED EXPLANATION:`,
+
+  ZERO_SHOT_QUERY: `You are a helpful AI assistant. Answer the following question based on your general knowledge.
+Question: "{question}"
+Answer:`,
 };
 
 module.exports = PROMPT_TEMPLATES;

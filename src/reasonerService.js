@@ -17,7 +17,8 @@ const ReasonerService = {
     return new Promise((resolve, reject) => {
       try {
         const prologSession = pl.create();
-        prologSession.consult(facts.join(' '), {
+        // Jules: Changed facts.join(' ') to facts.join('\n') for potentially better parsing by Tau Prolog
+        prologSession.consult(facts.join('\n'), {
           success: () => {
             prologSession.query(query, {
               success: () => {
