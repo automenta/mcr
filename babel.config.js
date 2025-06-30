@@ -8,5 +8,6 @@ module.exports = {
         },
       },
     ],
+    '@babel/preset-react', // Add this for React/JSX support
   ],
 };

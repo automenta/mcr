@@ -75,9 +75,32 @@ const handleCliOutput = (
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 module.exports = {
-  readFileContent, // Added
+  readFileContent,
   readOntologyFile,
   printJson,
   handleCliOutput,
   delay, // Export the new delay function
+  readFileContentSafe, // Export new safe reader for TUI
+};
+
+/**
+ * Reads file content safely for TUI.
+ * Instead of exiting, it uses the addMessage callback to report errors.
+ * @param {string} filePath - The path to the file.
+ * @param {function} addMessageCallback - Callback function (type, text) to add messages to TUI.
+ * @param {string} fileDescription - A description of the file type.
+ * @returns {string|null} The content of the file, or null if an error occurs.
+ */
+const readFileContentSafe = (filePath, addMessageCallback, fileDescription = 'File') => {
+  try {
+    const resolvedPath = path.resolve(filePath);
+    if (!fs.existsSync(resolvedPath)) {
+      addMessageCallback('error', `${fileDescription} not found: ${resolvedPath}`);
+      return null;
+    }
+    return fs.readFileSync(resolvedPath, 'utf8');
+  } catch (error) {
+    addMessageCallback('error', `Error reading ${fileDescription} "${filePath}": ${error.message}`);
+    return null;
+  }
 };
