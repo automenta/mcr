@@ -371,7 +371,7 @@ async function agentFlowAsync() {
   logger.info('Exiting Agent Mode. Goodbye!');
 }
 
-// This function will be imported by mcr-cli.js
+// This function will be imported by src/cli.js
 function registerAgentCommand(program) {
   program
     .command('agent')

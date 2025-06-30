@@ -4,11 +4,10 @@
   "description": "Connect LLMs and Logic",
   "main": "mcr.js",
   "bin": {
-    "mcr-cli": "./mcr-cli.js"
+    "mcr": "./mcr.js"
   },
   "scripts": {
     "start": "node mcr.js",
-    "cli": "node mcr-cli.js",
     "test": "jest",
     "test:coverage": "jest --coverage",
     "format": "prettier --write .",

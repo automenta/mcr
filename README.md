@@ -1,6 +1,6 @@
 # Model Context Reasoner (MCR)
 
-The **Model Context Reasoner (MCR)** is a standalone Node.js server application designed to act as a powerful, API-driven bridge between Large Language Models (LLMs) and formal logic reasoners (specifically Prolog). It enables applications to leverage sophisticated logical reasoning capabilities by translating natural language into formal logic and managing a persistent knowledge base through stateful sessions.
+The **Model Context Reasoner (MCR)** is a powerful, API-driven system designed to act as a bridge between Large Language Models (LLMs) and formal logic reasoners (specifically Prolog). It enables applications to leverage sophisticated logical reasoning capabilities by translating natural language into formal logic and managing a persistent knowledge base through stateful sessions.
 
 MCR is built with a "guitar pedal" philosophy: a single, plug-and-play unit that adds advanced reasoning to your AI stack with minimal setup.
 
@@ -67,18 +67,18 @@ MCR is built with a "guitar pedal" philosophy: a single, plug-and-play unit that
 
 ## CLI Usage Examples
 
-The MCR includes a Command Line Interface (CLI) for direct interaction. You can run it using `node mcr-cli.js --help` to see all available commands. The CLI executable is `mcr-cli.js` (or `node mcr-cli.js`).
+The MCR includes a Command Line Interface (CLI) for direct interaction. You can run it using `mcr --help` to see all available commands.
 
 - **Check Server Status**:
 
   ```bash
-  node mcr-cli.js status
+  mcr status
   ```
 
 - **Create a Session**:
 
   ```bash
-  node mcr-cli.js create-session
+  mcr create-session
   ```
 
   (Save the `sessionId` from the output for subsequent commands)
@@ -86,26 +86,26 @@ The MCR includes a Command Line Interface (CLI) for direct interaction. You can 
 - **Assert a Fact**:
 
   ```bash
-  node mcr-cli.js assert <sessionId> "The sky is blue."
+  mcr assert <sessionId> "The sky is blue."
   ```
 
 - **Query a Session**:
 
   ```bash
-  node mcr-cli.js query <sessionId> "What color is the sky?"
+  mcr query <sessionId> "What color is the sky?"
   ```
 
 - **Interactive Chat**:
 
   ```bash
-  node mcr-cli.js chat
+  mcr chat
   ```
 
 - **Interactive Agent Mode**:
   This mode provides an interactive way to explore MCR's capabilities through prescripted demos or a free-form chat interface that shows system interactions.
 
   ```bash
-  node mcr-cli.js agent
+  mcr agent
   ```
 
   You will be prompted to enter a Gemini API key if one is not found in your environment variables. The agent mode will then offer a menu to run demos (like simple Q&A or a family ontology showcase) or engage in a chat that displays LLM translations and Prolog outputs.
@@ -113,18 +113,18 @@ The MCR includes a Command Line Interface (CLI) for direct interaction. You can 
 - **Prompt Template Management (CLI)**:
   - List available prompt templates:
     ```bash
-    node mcr-cli.js prompt list
+    mcr prompt list
     ```
   - Show a specific template:
     ```bash
-    node mcr-cli.js prompt show NL_TO_RULES
+    mcr prompt show NL_TO_RULES
     ```
   - Debug/format a template with variables:
     ```bash
-    node mcr-cli.js prompt debug QUERY_TO_PROLOG "{\"question\":\"What is the capital of France?\"}"
+    mcr prompt debug QUERY_TO_PROLOG "{\"question\":\"What is the capital of France?\"}"
     ```
 
-Many other commands are available for managing ontologies, direct translations, etc. Use the `--help` flag on commands for more details (e.g., `node mcr-cli.js query --help`).
+Many other commands are available for managing ontologies, direct translations, etc. Use the `--help` flag on commands for more details (e.g., `mcr query --help`).
 
 ## API Reference
 

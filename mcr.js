@@ -153,7 +153,16 @@ function startServer(currentApp, currentConfig) {
 }
 
 if (require.main === module) {
-  startServer(app, config);
+  // Check if the script is being run as a CLI command
+  const isCliCommand = process.argv[1].endsWith('mcr') && process.argv.length > 2;
+
+  if (isCliCommand) {
+    // If it's a CLI command, execute the CLI logic
+    require('./src/cli');
+  } else {
+    // Otherwise, start the server
+    startServer(app, config);
+  }
 }
 
 module.exports = { app, startServer, config };

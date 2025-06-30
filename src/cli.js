@@ -4,17 +4,17 @@ const { Command } = require('commander');
 const program = new Command();
 
 // Import command modules
-const registerSessionCommands = require('./src/cli/commands/sessionCommands');
-const registerOntologyCommands = require('./src/cli/commands/ontologyCommands');
-const registerTranslationCommands = require('./src/cli/commands/translationCommands');
-const registerQueryCommands = require('./src/cli/commands/queryCommands');
-const registerChatCommand = require('./src/cli/commands/chatCommand');
-const registerStatusCommand = require('./src/cli/commands/statusCommands');
-const { registerPromptCommands } = require('./src/cli/commands/promptCommands');
-const { registerAgentCommand } = require('./src/cli/commands/agentCommand'); // Import the new command
+const registerSessionCommands = require('./cli/commands/sessionCommands');
+const registerOntologyCommands = require('./cli/commands/ontologyCommands');
+const registerTranslationCommands = require('./cli/commands/translationCommands');
+const registerQueryCommands = require('./cli/commands/queryCommands');
+const registerChatCommand = require('./cli/commands/chatCommand');
+const registerStatusCommand = require('./cli/commands/statusCommands');
+const { registerPromptCommands } = require('./cli/commands/promptCommands');
+const { registerAgentCommand } = require('./cli/commands/agentCommand'); // Import the new command
 
 program
-  .name('mcr-cli')
+  .name('mcr') // Changed name to 'mcr'
   .description('CLI for the Model Context Reasoner (MCR) API')
   .version('2.1.0')
   .option('--json', 'Output raw JSON responses from the API');
