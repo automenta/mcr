@@ -6,8 +6,7 @@ MCR is built with a "guitar pedal" philosophy: a single, plug-and-play unit that
 
 ## The MCR Philosophy: Bridging Worlds
 
-**The "Guitar Pedal" for Your AI Stack:**
-Imagine a guitarist's pedalboard – each pedal takes an input, transforms it, and outputs something new, adding a unique effect or capability. MCR is designed to be that "reasoning pedal" for your AI applications. It's a self-contained unit that you can easily "plug in" to an existing system (via its API) to imbue it with the power of formal logic, without needing to become a Prolog expert yourself. Just as a guitarist can focus on playing, you can focus on your application's core functionality, while MCR handles the complex translations and reasoning in the background.
+MCR adds **general-purpose reasoning** to Language Model applications. It's a self-contained unit that you can easily "plug in" to an existing system (via its API) to empower it with logic.
 
 **Vision: The Symbiosis of Language and Logic:**
 Large Language Models (LLMs) excel at understanding and generating human language, accessing vast knowledge, and performing nuanced contextual tasks. Formal logic systems, like Prolog, offer precision, verifiability, and the ability to perform complex deductive and inductive reasoning over structured knowledge.
