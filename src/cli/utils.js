@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 const fs = require('fs');
 const path = require('path');
 
@@ -71,7 +72,7 @@ const handleCliOutput = (
  * @param {number} ms - The number of milliseconds to delay.
  * @returns {Promise<void>}
  */
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 module.exports = {
   readFileContent, // Added

@@ -8,6 +8,7 @@ const Prompts = require('../src/prompts'); // Moved to top
 // For this specific fix, we move them inside the mock.
 
 jest.mock('../src/config', () => {
+  // eslint-disable-next-line no-shadow
   const path = require('path'); // Require path inside the mock factory
   // Define these constants inside the factory function
   const TEST_SESSION_STORAGE_PATH_MOCK = path.resolve(
@@ -99,11 +100,9 @@ jest.mock('../src/llmService', () => ({
         `Yes, the mock integration answer is based on: ${logicResultJsonString}`
       );
     }),
-  rulesToNlAsync: jest
-    .fn()
-    .mockResolvedValue(
-      'Mock natural language explanation of rules.' // Corrected value
-    ),
+  rulesToNlAsync: jest.fn().mockResolvedValue(
+    'Mock natural language explanation of rules.' // Corrected value
+  ),
   explainQueryAsync: jest
     .fn()
     .mockResolvedValue('Mock explanation for the query.'), // Corrected value
@@ -115,7 +114,7 @@ jest.mock('../src/llmService', () => ({
       QUERY_TO_PROLOG: ActualPrompts.QUERY_TO_PROLOG, // Add others if needed by tests
       RESULT_TO_NL: ActualPrompts.RESULT_TO_NL,
       EXPLAIN_QUERY: ActualPrompts.EXPLAIN_QUERY,
-      RULES_TO_NL: ActualPrompts.RULES_TO_NL
+      RULES_TO_NL: ActualPrompts.RULES_TO_NL,
       // Add any other prompts that might be formatted via this debug endpoint
     };
   }),
@@ -128,7 +127,7 @@ jest.mock('../package.json', () => ({
 }));
 
 const { app } = require('../mcr');
-const SessionManager = require('../src/sessionManager');
+// Removed unused SessionManager import
 
 describe('MCR API Integration Tests (with Supertest)', () => {
   let sessionId = null;
@@ -175,6 +174,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
       try {
         await request(app).delete(`/sessions/${sessionId}`);
       } catch (error) {
+        // eslint-disable-next-line no-console
         console.error(
           `Integration Test: Failed to delete session ${sessionId} during cleanup:`,
           { errorMessage: error.message }
@@ -210,7 +210,8 @@ describe('MCR API Integration Tests (with Supertest)', () => {
       `Session ${newSessionId} terminated.`
     );
 
-    const getAfterDeleteResponse = await request(app).get( // Added await
+    const getAfterDeleteResponse = await request(app).get(
+      // Added await
       `/sessions/${newSessionId}`
     );
     expect(getAfterDeleteResponse.status).toBe(404);
@@ -231,7 +232,8 @@ describe('MCR API Integration Tests (with Supertest)', () => {
     const newTestSessionId = createSessionResponse.body.sessionId;
     expect(newTestSessionId).toBeDefined();
 
-    const getSessionResponse = await request(app).get( // Added await
+    const getSessionResponse = await request(app).get(
+      // Added await
       `/sessions/${newTestSessionId}`
     );
     expect(getSessionResponse.status).toBe(200);
@@ -254,7 +256,8 @@ describe('MCR API Integration Tests (with Supertest)', () => {
       expect(typeof assertResponse.body.totalFactsInSession).toBe('number');
       expect(assertResponse.body.totalFactsInSession).toBeGreaterThanOrEqual(1);
 
-      const getSessionResponse = await request(app).get( // Added await
+      const getSessionResponse = await request(app).get(
+        // Added await
         `/sessions/${sessionId}`
       );
       expect(getSessionResponse.status).toBe(200);
@@ -294,9 +297,8 @@ describe('MCR API Integration Tests (with Supertest)', () => {
 
     test('should handle dynamic ontology loading and query (if family.pl exists)', async () => {
       if (!familyOntologyContent) {
-        console.warn(
-          'Skipping main assertions for dynamic ontology test as family.pl was not found or is empty.'
-        );
+        // Not logging to console here as it's a test path, test output should indicate skip or failure.
+        // For now, the existing conditional expect and return handles this.
         // eslint-disable-next-line jest/no-conditional-expect
         expect(familyOntologyContent).toBeFalsy();
         return;
@@ -356,7 +358,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
         QUERY_TO_PROLOG: ActualPrompts.QUERY_TO_PROLOG,
         RESULT_TO_NL: ActualPrompts.RESULT_TO_NL,
         EXPLAIN_QUERY: ActualPrompts.EXPLAIN_QUERY,
-        RULES_TO_NL: ActualPrompts.RULES_TO_NL
+        RULES_TO_NL: ActualPrompts.RULES_TO_NL,
       });
     });
 
@@ -426,7 +428,8 @@ describe('MCR API Integration Tests (with Supertest)', () => {
         expect(response.body.name).toBe(ontologyName);
         expect(response.body.rules).toBe(updatedOntologyRules);
 
-        const getResponse = await request(app).get( // Added await
+        const getResponse = await request(app).get(
+          // Added await
           `/ontologies/${ontologyName}`
         );
         expect(getResponse.body.rules).toBe(updatedOntologyRules);
@@ -445,14 +448,16 @@ describe('MCR API Integration Tests (with Supertest)', () => {
           `Ontology ${ontologyName} deleted.`
         );
 
-        const getResponse = await request(app).get( // Added await
+        const getResponse = await request(app).get(
+          // Added await
           `/ontologies/${ontologyName}`
         );
         expect(getResponse.status).toBe(404);
       });
 
       test('should return 404 when trying to get a non-existent ontology', async () => {
-        const response = await request(app).get( // Added await
+        const response = await request(app).get(
+          // Added await
           '/ontologies/non_existent_ontology'
         );
         expect(response.status).toBe(404);
@@ -495,7 +500,9 @@ describe('MCR API Integration Tests (with Supertest)', () => {
           ontology_context: '',
           text_to_translate: 'test input',
         });
-        expect(response.body.formattedPrompt).toContain('TEXT TO TRANSLATE: "test input"'); // More specific
+        expect(response.body.formattedPrompt).toContain(
+          'TEXT TO TRANSLATE: "test input"'
+        ); // More specific
         expect(response.body.formattedPrompt).toMatch(
           /CONTEXTUAL KNOWLEDGE BASE \(existing facts\):\s*```prolog\s*\n\s*\n\s*```/
         );

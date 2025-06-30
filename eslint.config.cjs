@@ -20,7 +20,6 @@ module.exports = [
       // Custom rules from the old config
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       'no-console': 'warn', // Keep as warn for CLI, override for server if needed
-      //'no-conditional-expect': 'warn',
       'consistent-return': 'warn',
       'no-undef': 'error',
       semi: ['error', 'always'],
@@ -83,6 +82,18 @@ module.exports = [
     rules: {
       ...pluginJest.configs.recommended.rules,
       'no-restricted-syntax': 'off', // Allow different naming in tests
+    },
+  },
+  {
+    // Configuration for mock files
+    files: ['src/__mocks__/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+      },
+    },
+    rules: {
+      // Potentially relax or add specific rules for mocks if needed
     },
   },
   eslintConfigPrettier, // Add Prettier config last to override other formatting rules

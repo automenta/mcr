@@ -16,12 +16,11 @@ const {
 const LlmService = require('./src/llmService');
 const ApiError = require('./src/errors');
 const setupRoutes = require('./src/routes');
+const { v4: uuidv4 } = require('uuid');
 
 const config = ConfigManager.get();
 reconfigureLogger(config);
 LlmService.init(config);
-
-const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 
@@ -91,9 +90,11 @@ function setupApp(currentApp) {
       }
 
       if (!res.headersSent) {
+        res.errLoggedByErrorHandler = true;
         res.status(err.statusCode).json(errorResponse);
       } else {
-        return next(err); // Delegate to default Express error handler if headers already sent
+        next(err);
+        return;
       }
     } else {
       req.log.error(
@@ -107,6 +108,7 @@ function setupApp(currentApp) {
         }
       );
       if (!res.headersSent) {
+        res.errLoggedByErrorHandler = true;
         res.status(500).json({
           error: {
             message: 'An internal server error occurred.',
@@ -119,10 +121,10 @@ function setupApp(currentApp) {
           },
         });
       } else {
-        return next(err);
+        next(err);
+        return;
       }
     }
-    res.errLoggedByErrorHandler = true;
   });
 }
 

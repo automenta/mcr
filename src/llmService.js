@@ -115,7 +115,11 @@ const LlmService = {
     } else {
       logger.error(
         `Unsupported or missing LLM provider strategy for '${providerName}' (using ${optionalProviderStrategies ? 'optional strategies' : 'internal registration'}). LLM service will not be available.`,
-        { internalErrorCode: 'LLM_PROVIDER_STRATEGY_NOT_FOUND', providerName, usingOptionalStrategies: !!optionalProviderStrategies }
+        {
+          internalErrorCode: 'LLM_PROVIDER_STRATEGY_NOT_FOUND',
+          providerName,
+          usingOptionalStrategies: !!optionalProviderStrategies,
+        }
       );
       this._client = null;
     }
@@ -197,7 +201,9 @@ const LlmService = {
       const responseData = error.response?.data;
       const errorStatus = error.response?.status || error.status;
       const cause = error.cause;
-      const providerName = this._activeProviderName || (this._appConfig ? this._appConfig.llm.provider : 'unknown');
+      const providerName =
+        this._activeProviderName ||
+        (this._appConfig ? this._appConfig.llm.provider : 'unknown');
 
       logger.error(`LLM invocation error for provider ${providerName}.`, {
         internalErrorCode: 'LLM_INVOCATION_ERROR',

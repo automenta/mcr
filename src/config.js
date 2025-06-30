@@ -1,5 +1,5 @@
 const dotenv = require('dotenv');
-const { logger } = require('./logger'); // Use the destructured logger instance
+const { logger } = require('./logger');
 
 const SUPPORTED_PROVIDERS = ['openai', 'gemini', 'ollama'];
 
@@ -8,10 +8,8 @@ const ConfigManager = {
 
   load(options) {
     const effectiveOptions = {
-      // Default exitOnFailure to false if in test environment, true otherwise.
-      // User-provided options can override this.
       exitOnFailure: process.env.NODE_ENV === 'test' ? false : true,
-      forceReload: false, // Default forceReload to false
+      forceReload: false,
       ...options,
     };
 
@@ -43,32 +41,32 @@ const ConfigManager = {
         level: (process.env.LOG_LEVEL || 'info').toLowerCase(),
       },
       session: {
-        storagePath: process.env.MCR_SESSION_STORAGE_PATH || './sessions_data', // Renamed for clarity
+        storagePath: process.env.MCR_SESSION_STORAGE_PATH || './sessions_data',
       },
       ontology: {
         storagePath:
-          process.env.MCR_ONTOLOGY_STORAGE_PATH || './ontologies_data', // Renamed for clarity
+          process.env.MCR_ONTOLOGY_STORAGE_PATH || './ontologies_data',
       },
       debugMode: process.env.MCR_DEBUG_MODE === 'true',
     };
 
     try {
       this.validate(loadedConfig);
-      this._config = loadedConfig; // Cache the validated config
+      this._config = loadedConfig;
       logger.info('Configuration loaded and validated successfully.');
       return this._config;
     } catch (error) {
       logger.error(`Configuration validation failed: ${error.message}`);
-      if (effectiveOptions.exitOnFailure) { // Use effectiveOptions
+      if (effectiveOptions.exitOnFailure) {
         logger.fatal(
           'Application cannot start due to configuration errors. Exiting.'
         );
         process.exit(1);
       } else {
-        throw error; // Re-throw if not exiting, e.g., for tests
+        throw error;
       }
     }
-    // No explicit return undefined needed here as all paths either return or throw.
+    return undefined;
   },
 
   validate(configToValidate) {
@@ -114,10 +112,9 @@ const ConfigManager = {
             `Please set MCR_LLM_OLLAMA_BASE_URL (e.g., 'http://localhost:11434').`
         );
       }
-      // Basic URL validation for Ollama
       try {
         new URL(ollamaBaseUrl);
-      } catch (_e) {
+      } catch {
         throw new Error(
           `Configuration Error: MCR_LLM_OLLAMA_BASE_URL ('${ollamaBaseUrl}') is not a valid URL.`
         );
@@ -133,7 +130,6 @@ const ConfigManager = {
         `Invalid PORT: '${process.env.PORT}'. Must be a number between 1 and 65535.`
       );
     }
-    // Add more validations as needed (e.g., for storage paths, log levels)
     const validLogLevels = [
       'error',
       'warn',
@@ -148,17 +144,14 @@ const ConfigManager = {
         `Invalid LOG_LEVEL: '${configToValidate.logging.level}'. Defaulting to 'info'. ` +
           `Supported levels are: ${validLogLevels.join(', ')}.`
       );
-      configToValidate.logging.level = 'info'; // Correct to a default if invalid but not critical
+      configToValidate.logging.level = 'info';
     }
 
-    return true; // Indicates successful validation
+    return true;
   },
 
-  // Getter to access the cached config, ensuring it's loaded first.
-  get(options) { // Allow passing options to get, which passes to load
+  get(options) {
     if (!this._config || (options && options.forceReload)) {
-      // Pass options to load, which will include handling for exitOnFailure
-      // and forceReload based on effectiveOptions within load().
       return this.load(options);
     }
     return this._config;

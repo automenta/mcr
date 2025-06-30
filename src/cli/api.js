@@ -5,7 +5,8 @@ const API_URL = process.env.MCR_API_URL || 'http://localhost:8080';
 
 // Updated handleApiError to be aware of --json flag
 const handleApiError = (error, programOptions) => {
-  const isJsonOutput = programOptions && typeof programOptions.json === 'boolean'
+  const isJsonOutput =
+    programOptions && typeof programOptions.json === 'boolean'
       ? programOptions.json
       : process.argv.includes('--json');
 
@@ -92,8 +93,7 @@ const apiClient = {
     axios.get(`${API_URL}${url}`, { params }).catch(handleApiError),
   post: (url, data) =>
     axios.post(`${API_URL}${url}`, data).catch(handleApiError),
-  put: (url, data) =>
-    axios.put(`${API_URL}${url}`, data).catch(handleApiError),
+  put: (url, data) => axios.put(`${API_URL}${url}`, data).catch(handleApiError),
   delete: (url) => axios.delete(`${API_URL}${url}`).catch(handleApiError),
 };
 

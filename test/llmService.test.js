@@ -1,39 +1,42 @@
 // test/llmService.test.js
 const LlmService = require('../src/llmService');
 const Config = require('../src/config');
-const { ApiError } = require('../src/errors');
-const OpenAIProvider = require('../src/llmProviders/openaiProvider');
-const GeminiProvider = require('../src/llmProviders/geminiProvider');
-const OllamaProvider = require('../src/llmProviders/ollamaProvider');
+// const { ApiError } = require('../src/errors'); // Unused
+// const OpenAIProvider = require('../src/llmProviders/openaiProvider'); // Unused
+// const GeminiProvider = require('../src/llmProviders/geminiProvider'); // Unused
+// const OllamaProvider = require('../src/llmProviders/ollamaProvider'); // Unused
 const Prompts = require('../src/prompts');
 
 jest.mock('../src/config');
 
 // Define mocks for the .pipe().invoke() methods of the *clients* that provider strategies will return
-let mockOpenAiClientInvoke = jest.fn();
-let mockGeminiClientInvoke = jest.fn();
-let mockOllamaClientInvoke = jest.fn();
+const mockOpenAiClientInvoke = jest.fn();
+const mockGeminiClientInvoke = jest.fn();
+const mockOllamaClientInvoke = jest.fn();
 
 // Mock the provider modules to export strategy objects
 jest.mock('../src/llmProviders/openaiProvider', () => ({
   name: 'openai',
-  initialize: jest.fn().mockImplementation((llmConfig) => ({
-    pipe: jest.fn((outputParser) => ({ invoke: mockOpenAiClientInvoke })),
-    someOtherMethodJustForTesting: () => {}
+  initialize: jest.fn().mockImplementation((_llmConfig) => ({
+    // Prefixed llmConfig
+    pipe: jest.fn((_outputParser) => ({ invoke: mockOpenAiClientInvoke })), // Prefixed outputParser
+    someOtherMethodJustForTesting: () => {},
   })),
 }));
 
 jest.mock('../src/llmProviders/geminiProvider', () => ({
   name: 'gemini',
-  initialize: jest.fn().mockImplementation((llmConfig) => ({
-    pipe: jest.fn((outputParser) => ({ invoke: mockGeminiClientInvoke })),
+  initialize: jest.fn().mockImplementation((_llmConfig) => ({
+    // Prefixed llmConfig
+    pipe: jest.fn((_outputParser) => ({ invoke: mockGeminiClientInvoke })), // Prefixed outputParser
   })),
 }));
 
 jest.mock('../src/llmProviders/ollamaProvider', () => ({
   name: 'ollama',
-  initialize: jest.fn().mockImplementation((llmConfig) => ({
-    pipe: jest.fn((outputParser) => ({ invoke: mockOllamaClientInvoke })),
+  initialize: jest.fn().mockImplementation((_llmConfig) => ({
+    // Prefixed llmConfig
+    pipe: jest.fn((_outputParser) => ({ invoke: mockOllamaClientInvoke })), // Prefixed outputParser
   })),
 }));
 
@@ -50,13 +53,11 @@ jest.mock('../src/logger', () => ({
 let mockLangchainFormatFn;
 let mockLangchainFromTemplateFn;
 
-jest.mock('@langchain/core/prompts', () => {
-  return {
-    PromptTemplate: {
-      fromTemplate: (...args) => mockLangchainFromTemplateFn(...args),
-    },
-  };
-});
+jest.mock('@langchain/core/prompts', () => ({
+  PromptTemplate: {
+    fromTemplate: (...args) => mockLangchainFromTemplateFn(...args),
+  },
+}));
 
 describe('LlmService', () => {
   let mockConfig;

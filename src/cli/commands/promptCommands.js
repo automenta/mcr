@@ -1,93 +1,110 @@
-const apiClient = require('../api');
-const { printError, printSuccess, printJson, printBold } = require('../utils');
+/* eslint-disable no-console */
+const { apiClient } = require('../api');
+const { handleCliOutput, printJson } = require('../utils');
 
-async function listPromptsCommandAsync() {
-  // Renamed
+async function listPromptsAsync(options, commandInstance) {
+  const programOpts = commandInstance.parent.opts();
   try {
-    const templates = await apiClient.getPrompts();
-    if (Object.keys(templates).length === 0) {
-      printSuccess('No prompt templates found.');
-      return;
+    const response = await apiClient.get('/prompts');
+    if (programOpts.json) {
+      handleCliOutput(response.data, programOpts);
+    } else {
+      const templates = response.data;
+      if (Object.keys(templates).length === 0) {
+        console.log('No prompt templates found.');
+        return;
+      }
+      console.log('Available prompt templates:');
+      Object.keys(templates).forEach((name) => {
+        console.log(`- ${name}`);
+      });
     }
-    printBold('Available prompt templates:');
-    Object.keys(templates).forEach((name) => {
-      console.log(`- ${name}`);
-    });
-  } catch (error) {
-    printError('Error listing prompts:', error.message);
-    if (error.response?.data) {
-      printJson(error.response.data);
-    }
+  } catch {
+    // apiClient.get already calls handleApiError which exits
   }
 }
 
-async function showPromptCommandAsync(templateName) {
-  // Renamed
+async function showPromptAsync(templateName, options, commandInstance) {
+  const programOpts = commandInstance.parent.opts();
   if (!templateName) {
-    printError('Error: Template name is required.');
-    console.log('Usage: mcr-cli show-prompt <templateName>');
-    return;
+    console.error('Error: Template name is required.');
+    console.log('Usage: mcr-cli prompt show <templateName>');
+    process.exit(1);
   }
   try {
-    const templates = await apiClient.getPrompts();
+    const response = await apiClient.get('/prompts');
+    const templates = response.data;
     if (!templates[templateName]) {
-      printError(`Error: Prompt template '${templateName}' not found.`);
-      printBold('Available templates are:');
-      Object.keys(templates).forEach((name) => console.log(`- ${name}`));
-      return;
+      console.error(`Error: Prompt template '${templateName}' not found.`);
+      if (!programOpts.json) {
+        console.log('Available templates are:');
+        Object.keys(templates).forEach((name) => console.log(`- ${name}`));
+      }
+      process.exit(1);
     }
-    printBold(`Content of prompt template '${templateName}':`);
-    console.log(templates[templateName]);
-  } catch (error) {
-    printError(`Error showing prompt '${templateName}':`, error.message);
-    if (error.response?.data) {
-      printJson(error.response.data);
+
+    if (programOpts.json) {
+      // Output just the specific template string if --json for this command
+      // or consider if the API should have a /prompts/:name endpoint
+      handleCliOutput({ [templateName]: templates[templateName] }, programOpts);
+    } else {
+      console.log(`Content of prompt template '${templateName}':`);
+      console.log(templates[templateName]);
     }
+  } catch {
+    // apiClient.get already calls handleApiError
   }
 }
 
-async function debugPromptCommandAsync(templateName, inputVariablesJson) {
-  // Renamed
+async function debugPromptAsync(
+  templateName,
+  inputVariablesJson,
+  options,
+  commandInstance
+) {
+  const programOpts = commandInstance.parent.opts();
   if (!templateName) {
-    printError('Error: Template name is required.');
+    console.error('Error: Template name is required.');
     console.log(
-      'Usage: mcr-cli debug-prompt <templateName> <inputVariablesJson>'
+      'Usage: mcr-cli prompt debug <templateName> <inputVariablesJson>'
     );
-    return;
+    process.exit(1);
   }
   if (!inputVariablesJson) {
-    printError('Error: Input variables JSON string is required.');
+    console.error('Error: Input variables JSON string is required.');
     console.log(
-      'Usage: mcr-cli debug-prompt <templateName> <inputVariablesJson>'
+      'Usage: mcr-cli prompt debug <templateName> <inputVariablesJson>'
     );
-    return;
+    process.exit(1);
   }
 
   let inputVariables;
   try {
     inputVariables = JSON.parse(inputVariablesJson);
   } catch (e) {
-    printError('Error: Invalid JSON string for input variables.', e.message);
-    return;
+    console.error('Error: Invalid JSON string for input variables.', e.message);
+    process.exit(1);
   }
 
   try {
-    const result = await apiClient.debugFormatPrompt(
+    const response = await apiClient.post('/debug/format-prompt', {
       templateName,
-      inputVariables
-    );
-    printBold(`Debugging prompt template '${result.templateName}':`);
-    console.log('\n--- Raw Template ---');
-    console.log(result.rawTemplate);
-    console.log('\n--- Input Variables ---');
-    printJson(result.inputVariables);
-    console.log('\n--- Formatted Prompt ---');
-    console.log(result.formattedPrompt);
-  } catch (error) {
-    printError(`Error debugging prompt '${templateName}':`, error.message);
-    if (error.response?.data) {
-      printJson(error.response.data);
+      inputVariables,
+    });
+    if (programOpts.json) {
+      handleCliOutput(response.data, programOpts);
+    } else {
+      const result = response.data;
+      console.log(`Debugging prompt template '${result.templateName}':`);
+      console.log('\n--- Raw Template ---');
+      console.log(result.rawTemplate);
+      console.log('\n--- Input Variables ---');
+      printJson(result.inputVariables); // Pretty print JSON
+      console.log('\n--- Formatted Prompt ---');
+      console.log(result.formattedPrompt);
     }
+  } catch {
+    // apiClient.post already calls handleApiError
   }
 }
 
@@ -99,24 +116,21 @@ function registerPromptCommands(program) {
   promptCommand
     .command('list')
     .description('List all available prompt template names')
-    .action(listPromptsCommandAsync);
+    .action(listPromptsAsync);
 
   promptCommand
     .command('show <templateName>')
     .description('Show the content of a specific prompt template')
-    .action(showPromptCommandAsync);
+    .action(showPromptAsync);
 
   promptCommand
     .command('debug <templateName> <inputVariablesJson>')
     .description(
       'Format a prompt template with input variables (provide variables as a JSON string)'
     )
-    .action(debugPromptCommandAsync);
+    .action(debugPromptAsync);
 }
 
 module.exports = {
-  // listPromptsCommand, // No longer need to export individual commands
-  // showPromptCommand,
-  // debugPromptCommand,
-  registerPromptCommands, // Export the registration function
+  registerPromptCommands,
 };
