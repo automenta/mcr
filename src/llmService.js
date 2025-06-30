@@ -89,7 +89,7 @@ const LlmService = {
 
     if (providerStrategy && typeof providerStrategy.initialize === 'function') {
       try {
-        this._client = await providerStrategy.initialize(this._appConfig.llm); // Added await
+        this._client = providerStrategy.initialize(this._appConfig.llm); // Added await
         if (this._client) {
           this._activeProviderName = providerStrategy.name; // Set active provider name
           logger.info(
