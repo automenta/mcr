@@ -18,13 +18,33 @@ const ConfigManager = {
     }
 
     dotenv.config();
+
+    // Determine LLM provider with new default logic
+    let providerEnv = process.env.MCR_LLM_PROVIDER;
+    let chosenProvider;
+    if (providerEnv) {
+      chosenProvider = providerEnv.toLowerCase();
+    } else {
+      if (process.env.GEMINI_API_KEY) {
+        chosenProvider = 'gemini';
+        logger.info('MCR_LLM_PROVIDER not set and GEMINI_API_KEY found. Defaulting LLM provider to Gemini.');
+      } else if (process.env.OPENAI_API_KEY) {
+        chosenProvider = 'openai';
+        logger.info('MCR_LLM_PROVIDER not set, OPENAI_API_KEY found (and GEMINI_API_KEY not found). Defaulting LLM provider to OpenAI.');
+      } else {
+        // Fallback to ollama if no keys and no explicit provider, as it's local and doesn't require keys.
+        chosenProvider = 'ollama';
+        logger.info('MCR_LLM_PROVIDER not set, and no OpenAI/Gemini API keys found. Defaulting LLM provider to Ollama.');
+      }
+    }
+
     const loadedConfig = {
       server: {
         host: process.env.HOST || '0.0.0.0',
         port: parseInt(process.env.PORT || '8080', 10),
       },
       llm: {
-        provider: (process.env.MCR_LLM_PROVIDER || 'openai').toLowerCase(),
+        provider: chosenProvider,
         model: {
           openai: process.env.MCR_LLM_MODEL_OPENAI || 'gpt-4o',
           gemini: process.env.MCR_LLM_MODEL_GEMINI || 'gemini-pro',
@@ -98,10 +118,14 @@ const ConfigManager = {
         provider === check.name &&
         (!apiKey[check.keyName] || apiKey[check.keyName].trim() === '')
       ) {
-        throw new Error(
-          `Configuration Error: MCR_LLM_PROVIDER is set to '${check.name}', but its API key ${check.envVar} is missing or empty. ` +
-            `Please set ${check.envVar} in your .env file or environment variables.`
+        // Log a warning instead of throwing an error for missing API keys
+        logger.warn(
+          `Configuration Warning: MCR_LLM_PROVIDER is set to '${check.name}', but its API key ${check.envVar} is missing or empty. ` +
+            `The application will attempt to run, but functionality requiring this LLM provider may be impaired or fail. ` +
+            `Please set ${check.envVar} in your .env file or environment variables if you intend to use ${check.serviceName}.`
         );
+        // We don't throw an error here anymore, allowing the app to start.
+        // The respective service/command should handle the missing key (e.g., by prompting or failing gracefully).
       }
     }
 
