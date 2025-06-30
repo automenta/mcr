@@ -770,9 +770,10 @@ const McrApp = ({ initialSessionId, initialOntologyContent: initialOntologyPath,
  * @param {import('commander').Command} command - The Commander command instance.
  */
 async function startAppAsync(options, command) {
-  // Dynamically import React and Ink components only when chat command is run
-  React = (await import('react')).default; // Assuming React might also be ESM-like in some setups or future
-  const inkModule = await import('ink');
+  // Dynamically import React and Ink components using Function constructor
+  // to potentially sidestep Babel's direct handling of dynamic import()
+  React = (await Function('return import("react")')()).default;
+  const inkModule = await Function('return import("ink")')();
   render = inkModule.render;
   Box = inkModule.Box;
   Text = inkModule.Text;
@@ -781,7 +782,15 @@ async function startAppAsync(options, command) {
   useInput = inkModule.useInput;
   Static = inkModule.Static;
   Spacer = inkModule.Spacer;
-  TextInput = (await import('ink-text-input')).default;
+  TextInput = (await Function('return import("ink-text-input")')()).default;
+
+  // Check for TTY, essential for Ink's raw mode and interactive input
+  if (!process.stdin.isTTY) {
+    console.error("ERROR: MCR Chat TUI requires an interactive terminal (TTY).");
+    console.error("Raw mode for input is not supported in the current environment.");
+    console.error("Please run this command in a fully interactive terminal session.");
+    process.exit(1); // Exit gracefully as TUI cannot function
+  }
 
   const programOpts = command.parent.opts();
   let initialSessionId = null;
