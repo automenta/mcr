@@ -24,15 +24,15 @@ LlmService.init(config);
 
 const app = express();
 
-function setupApp(currentApp) {
-  currentApp.use((req, res, next) => {
+function setupApp(app) {
+  app.use((req, res, next) => {
     req.correlationId = uuidv4();
     res.setHeader('X-Correlation-ID', req.correlationId);
     next();
   });
-  currentApp.use(initializeLoggerContext);
+  app.use(initializeLoggerContext);
 
-  currentApp.use((req, res, next) => {
+  app.use((req, res, next) => {
     req.startTime = Date.now();
     req.log.http(`Request received: ${req.method} ${req.originalUrl}`, {
       httpMethod: req.method,
@@ -58,10 +58,10 @@ function setupApp(currentApp) {
     return next();
   });
 
-  currentApp.use(express.json({ limit: '1mb' }));
-  setupRoutes(currentApp);
+  app.use(express.json({ limit: '1mb' }));
+  setupRoutes(app);
 
-  currentApp.use((err, req, res, next) => {
+  app.use((err, req, res, next) => {
     const correlationId = req.correlationId || 'unknown';
     const durationMs = req.startTime ? Date.now() - req.startTime : undefined;
 
@@ -94,7 +94,7 @@ function setupApp(currentApp) {
         res.status(err.statusCode).json(errorResponse);
       } else {
         next(err);
-        return;
+
       }
     } else {
       req.log.error(
@@ -122,7 +122,7 @@ function setupApp(currentApp) {
         });
       } else {
         next(err);
-        return;
+
       }
     }
   });
@@ -130,23 +130,23 @@ function setupApp(currentApp) {
 
 setupApp(app);
 
-function startServer(currentApp, currentConfig) {
-  return currentApp
-    .listen(currentConfig.server.port, currentConfig.server.host, () => {
+function startServer(app, cfg) {
+  return app
+    .listen(cfg.server.port, cfg.server.host, () => {
       logger.info(
-        `MCR server listening on http://${currentConfig.server.host}:${currentConfig.server.port}`
+        `MCR server listening on http://${cfg.server.host}:${cfg.server.port}`
       );
-      logger.info(`LLM Provider: ${currentConfig.llm.provider}`);
-      const llmModel = currentConfig.llm.model[currentConfig.llm.provider];
+      logger.info(`LLM Provider: ${cfg.llm.provider}`);
+      const llmModel = cfg.llm.model[cfg.llm.provider];
       logger.info(`LLM Model: ${llmModel}`);
-      if (currentConfig.llm.provider === 'ollama') {
-        logger.info(`Ollama Base URL: ${currentConfig.llm.ollamaBaseUrl}`);
+      if (cfg.llm.provider === 'ollama') {
+        logger.info(`Ollama Base URL: ${cfg.llm.ollamaBaseUrl}`);
       }
     })
     .on('error', (error) => {
       logger.error(`Failed to start server: ${error.message}`);
       if (error.code === 'EADDRINUSE') {
-        logger.error(`Port ${currentConfig.server.port} is already in use.`);
+        logger.error(`Port ${cfg.server.port} is already in use.`);
       }
       process.exit(1);
     });

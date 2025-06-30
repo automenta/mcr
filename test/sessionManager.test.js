@@ -118,9 +118,7 @@ describe('SessionManager', () => {
     test('should create ontology directory on load and session directory on first use if they do not exist', () => {
       jest.resetModules();
       mockFsExistsSync.mockImplementation((p) => {
-        if (p === MOCK_SESSION_STORAGE_PATH || p === MOCK_ONTOLOGY_STORAGE_PATH)
-          return false;
-        return true;
+        return !(p === MOCK_SESSION_STORAGE_PATH || p === MOCK_ONTOLOGY_STORAGE_PATH);
       });
       mockFsMkdirSync.mockClear();
       mockLoggerInfo.mockClear();
@@ -210,8 +208,8 @@ describe('SessionManager', () => {
         if (p === `${MOCK_ONTOLOGY_STORAGE_PATH}/family.pl`) return true;
         if (p === `${MOCK_ONTOLOGY_STORAGE_PATH}/another.pl`) return true;
         // Also for session storage path if it's checked during the same SUT load
-        if (p === MOCK_SESSION_STORAGE_PATH) return true;
-        return false; // Default to false for other paths not explicitly handled
+        return p === MOCK_SESSION_STORAGE_PATH;
+         // Default to false for other paths not explicitly handled
       });
       mockFsReaddirSync.mockReturnValue(['family.pl', 'another.pl']);
       mockFsReadFileSync.mockImplementation((filePath) => {

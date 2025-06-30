@@ -1020,7 +1020,7 @@ const McrApp = ({
       addMessage('system', 'Ctrl+C detected. Exiting...');
       await onExitTrigger(currentSessionId);
       exit();
-      return;
+
     }
   });
 

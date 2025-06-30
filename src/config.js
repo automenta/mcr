@@ -8,7 +8,7 @@ const ConfigManager = {
 
   load(options) {
     const effectiveOptions = {
-      exitOnFailure: process.env.NODE_ENV === 'test' ? false : true,
+      exitOnFailure: process.env.NODE_ENV !== 'test',
       forceReload: false,
       ...options,
     };
@@ -39,7 +39,7 @@ const ConfigManager = {
     dotenv.config();
 
     // Determine LLM provider with new default logic
-    let providerEnv = process.env.MCR_LLM_PROVIDER;
+    const providerEnv = process.env.MCR_LLM_PROVIDER;
     let chosenProvider;
     if (providerEnv) {
       chosenProvider = providerEnv.toLowerCase();
