@@ -314,8 +314,11 @@ const LlmService = {
         errorMessage: error.message,
         errorStack: error.stack,
         errorStatus,
-        responseData,
-        cause,
+        // Defensively log responseData and cause to prevent logger crashes
+        responseDataPreview: responseData ? JSON.stringify(responseData).substring(0, 500) : 'N/A',
+        responseDataType: typeof responseData,
+        causeMessage: cause?.message || (typeof cause === 'string' ? cause : 'N/A'),
+        causeType: typeof cause,
       });
 
       let statusCode = 502;
