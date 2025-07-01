@@ -5,6 +5,12 @@ const ApiError = require('./errors');
 const ConfigManager = require('./config');
 const storage = require('./storageUtils');
 
+/**
+ * Manages stateful user sessions and global ontologies.
+ * Handles creation, retrieval, deletion, and modification of sessions (facts)
+ * and ontologies (Prolog rule sets).
+ * Persists session and ontology data to the file system.
+ */
 const SessionManager = {
   _sessions: {},
   _ontologies: {},
