@@ -257,10 +257,15 @@ async function runDemoAction(demoName, options, command) {
   // Initialize MCR Core for the demo
   demoLogger.step('Initializing MCR Core for Demo...');
   const config = ConfigManager.get({ exitOnFailure: true }); // Ensure demo exits if config is bad
-  // The global logger instance should pick up any level changes from config.
+
+  // Temporarily adjust log level for cleaner demo output
+  const originalLogLevel = config.logging.level;
+  config.logging.level = 'warn'; // Suppress info and debug logs from core services during demo
+
+  // The global logger instance should pick up any level changes from config passed to mcrCore.init.
   // mcrCore.init will log details about LLM provider.
   try {
-    await mcrCore.init(config);
+    await mcrCore.init(config); // Pass modified config
     // Log active LLM provider and model using mcrCore getters
     if (mcrCore.LlmService) { // Check if LlmService was successfully set in mcrCore
         const providerName = mcrCore.LlmService.getActiveProviderName();
@@ -272,11 +277,42 @@ async function runDemoAction(demoName, options, command) {
         demoLogger.error('MCR Core initialized, but LlmService is not available. Cannot determine LLM info.');
     }
   } catch (initError) {
+    // Restore log level in case of init error before exiting
+    config.logging.level = originalLogLevel;
+    // If mcrCore.init reconfigures the global logger directly, we might need to reconfigure it back here.
+    // Assuming mcrCore.init uses the passed config for its own logger instances or a temporary global change.
+    // For safety, if reconfigureLogger is accessible and affects the global logger:
+    // const { reconfigureLogger: reconfigureGlobalLogger } = require('./logger');
+    // reconfigureGlobalLogger(config); // This would set it back globally if needed.
+    // However, the current `reconfigureLogger` in `logger.js` updates the shared `logger` instance.
+    // So, the change to `config.logging.level` and subsequent `mcrCore.init(config)`
+    // (which calls `reconfigureLogger` internally or its equivalent) will affect the global logger.
+    // We MUST restore it in a finally block.
+
     demoLogger.error('MCR Core Initialization Failed. Demo cannot run.', initError.message);
     if (initError.stack) {
         console.error(initError.stack);
     }
     process.exit(1);
+  } finally {
+    // Restore the original log level for the global logger
+    // This is crucial because mcrCore.init(config) would have called reconfigureLogger,
+    // affecting the global logger instance.
+    if (originalLogLevel) {
+      const currentGlobalConfig = ConfigManager.get(); // Get current global config state
+      currentGlobalConfig.logging.level = originalLogLevel; // Set the desired original level
+
+      const { logger: globalLoggerInstance, reconfigureLogger: reconfigureGlobalLogger } = require('./logger');
+
+      // Log *before* changing, if current level permits
+      globalLoggerInstance.info(`Attempting to restore global log level to: ${originalLogLevel} (from demo)`);
+
+      reconfigureGlobalLogger(currentGlobalConfig); // Apply the restoration
+
+      // Log *after* changing to confirm, if the new (original) level permits
+      // This message will only show if originalLogLevel is 'info' or 'debug'
+      globalLoggerInstance.info(`Global log level now restored to: ${currentGlobalConfig.logging.level} (from demo)`);
+    }
   }
 
   // demoLogger.info('Global CLI Options (potentially for server start, now unused by demo itself)', programOpts);
