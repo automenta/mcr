@@ -63,6 +63,13 @@ Leveraging MCR's own capabilities (LLM-powered NLP, Prolog reasoning, prompt man
 - **Fine-tuning Integration**: Support for fine-tuning LLMs specifically for Prolog translation based on user-provided examples.
 - **LLM-as-a-Reasoner (Hybrid Approach)**: For simpler queries, allow LLMs to directly reason, falling back to Prolog for complex, multi-hop, or highly structured reasoning.
 - **Prompt Template Management API**: Allow users to define, store, and manage custom prompt templates for different translation tasks.
+- **Null LLM Provider**: Implement a "Null" or "Passthrough" LLM provider. This provider would not make any external LLM calls.
+    - For translations (NL to Rules, Query to Prolog), it could return predefined canned responses or echo the input in a structured format.
+    - For NL generation (Result to NL, Rules to NL), it could return the input logic directly or a simple message indicating no LLM translation occurred.
+    - **Benefits**:
+        - Allows basic system operation and testing of core logic (session management, reasoner service) without requiring LLM API keys or connectivity.
+        - Useful for environments where LLMs are unavailable or undesired for certain tasks.
+        - Could facilitate more deterministic testing of components that interact with LlmService.
 
 ### 4. Data Integration & Knowledge Management
 

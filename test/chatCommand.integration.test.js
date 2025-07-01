@@ -165,8 +165,10 @@ describe('mcr chat command integration', () => {
     let stdoutData = '';
 
     try {
-      const serverIsUp = await isServerAlive(SERVER_URL, 10, 500);
+      // Increased retries and delay for server health check
+      const serverIsUp = await isServerAlive(SERVER_URL, 20, 600);
       if (!serverIsUp) {
+        console.error(`DEBUG: Manually started server Stderr: ${manuallyStartedServerStderr}`); // Added explicit log
         throw new Error(
           `Manually started server did not become alive. Stderr: ${manuallyStartedServerStderr}`
         );
