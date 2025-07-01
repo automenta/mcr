@@ -23,7 +23,9 @@ async function startMcrServerAsync(_programOpts) {
   console.log('Starting MCR server (from tuiUtils/serverManager.js)...');
 
   // __dirname here will be src/cli/tuiUtils
-  const mcrScriptPath = path.resolve(__dirname, '../../../../mcr.js'); // Adjusted path: tuiUtils -> cli -> src -> project_root
+//  const mcrScriptPath = path.resolve(__dirname, '../../../../mcr.js'); // Adjusted path: tuiUtils -> cli -> src -> project_root
+  const mcrScriptPath = path.resolve(__dirname, '../../../mcr.js'); // Corrected path: tuiUtils -> cli -> src -> project_root
+
   let serverStdErr = '';
   const serverInstance = spawn('node', [mcrScriptPath], {
     detached: true,
