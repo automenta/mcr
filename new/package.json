@@ -1,0 +1,38 @@
+{
+  "name": "new-mcr",
+  "version": "1.0.0",
+  "description": "Streamlined Model Context Reasoner",
+  "main": "mcr.js",
+  "scripts": {
+    "start": "node mcr.js",
+    "demo": "node demo.js",
+    "chat": "node chat.js",
+    "test": "jest"
+  },
+  "keywords": [
+    "llm",
+    "prolog",
+    "reasoning",
+    "ai"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "winston": "^3.0.0",
+    "@langchain/community": "^0.0.52",
+    "@langchain/core": "^0.1.62",
+    "@langchain/google-genai": "^0.0.12",
+    "langchain": "^0.1.37",
+    "tau-prolog": "^0.3.4",
+    "uuid": "^9.0.0",
+    "express": "^4.17.1",
+    "axios": "^1.6.0",
+    "inquirer": "^8.2.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "supertest": "^6.0.0"
+  }
+}
