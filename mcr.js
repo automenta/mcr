@@ -13,7 +13,8 @@ const {
   reconfigureLogger,
   initializeLoggerContext,
 } = require('./src/logger');
-const LlmService = require('./src/llmService');
+// const LlmService = require('./src/llmService'); // LlmService will be initialized via mcrCore
+const mcrCore = require('./src/mcrCore'); // Import the new MCR Core module
 const ApiError = require('./src/errors');
 const setupRoutes = require('./src/routes');
 const { v4: uuidv4 } = require('uuid');
@@ -127,7 +128,9 @@ async function startServerInstanceInternal(expressApp, serverConfig) { // Made a
     logger.info('Server is already running or starting.');
     return serverInstanceHttp;
   }
-  await LlmService.init(serverConfig); // Await async LlmService initialization
+  // Initialize MCR Core services, including LlmService
+  // serverConfig is the global `config` object here
+  await mcrCore.init(serverConfig);
   setupApp(expressApp); // setupApp is synchronous
   logger.info(
     `Attempting to start MCR server on http://${serverConfig.server.host}:${serverConfig.server.port}...`
@@ -303,7 +306,8 @@ async function getInitializedApp(initialConfig) {
   // For supertest, it's usually better to pass the app instance before listen.
 
   // Let's refine: separate init logic from listen logic for testing.
-  await LlmService.init(initialConfig); // Ensure LLM Service is ready
+  // initialConfig is the global `config` object when called from tests or mcr.js itself
+  await mcrCore.init(initialConfig); // Ensure MCR Core (including LLM Service) is ready
   setupApp(expressApp); // Configure routes and middleware on this app
   return expressApp;
 }

@@ -4,70 +4,50 @@ require('@babel/register');
 
 const { Command } = require('commander');
 const inquirer = require('inquirer');
-const api = require('./apiHandlers');
+// const api = require('./apiHandlers'); // Removed
 const ConfigManager = require('./config');
-const {
-  isServerAliveAsync,
-  startMcrServerAsync,
-  stopMcrServer,
-} = require('./cli/tuiUtils/serverManager');
-const { delay } = require('./cli/utils');
+const mcrCore = require('./mcrCore'); // Added
+// const {
+//   isServerAliveAsync,
+//   startMcrServerAsync,
+//   stopMcrServer,
+// } = require('./cli/tuiUtils/serverManager'); // Removed
+// const { delay } = require('./cli/utils'); // delay is not used anymore it seems
 
 const sandboxProgram = new Command();
 
-let mcrServerProcess = null; // To keep track of the server process if started by sandbox
-let serverStartedBySandbox = false;
+// let mcrServerProcess = null; // Removed
+// let serverStartedBySandbox = false; // Removed
 
-/**
- * Ensures the MCR server is running, starting it if necessary.
- * @param {object} programOpts - Commander program options.
- * @returns {Promise<boolean>} True if the server is running, false otherwise.
- */
-async function ensureServerRunning(programOpts) {
-  const config = ConfigManager.get();
-  const serverUrl = `http://${config.server.host}:${config.server.port}/`;
-  const healthCheckUrl = serverUrl;
-
-  if (!(await isServerAliveAsync(healthCheckUrl, 1, 100))) {
-    console.log('MCR server not detected. Attempting to start it...');
-    try {
-      mcrServerProcess = await startMcrServerAsync(programOpts);
-      serverStartedBySandbox = true;
-      console.log(
-        'MCR server process started. Waiting a moment for it to initialize...'
-      );
-      await delay(2000); // Wait for server to boot
-      if (!(await isServerAliveAsync(healthCheckUrl, 5, 1000))) {
-        console.error(
-          'Server process was started but did not become healthy in time.'
-        );
-        return false;
-      }
-      console.log('MCR server is now running.');
-      return true;
-    } catch (serverStartError) {
-      console.error(
-        `Critical: Failed to start MCR server: ${serverStartError.message}.`
-      );
-      console.error('Please start it manually and try again.');
-      return false;
-    }
-  }
-  // console.log('Existing MCR server detected.');
-  return true;
-}
+// Removed ensureServerRunning function
 
 async function sandboxLoop(cmdObj) {
-  const programOpts = cmdObj.optsWithGlobals(); // Access global options like --json from main 'mcr' command
+  // const programOpts = cmdObj.optsWithGlobals(); // programOpts was for server starting, not needed directly by sandbox logic now
 
-  if (!(await ensureServerRunning(programOpts))) {
+  console.log('Initializing MCR Core for Sandbox...');
+  const config = ConfigManager.get({ exitOnFailure: true });
+  try {
+    await mcrCore.init(config);
+    if (mcrCore.LlmService) {
+        const providerName = mcrCore.LlmService.getActiveProviderName();
+        const modelName = mcrCore.LlmService.getActiveModelName();
+        console.log(`MCR Core Initialized. Using LLM Provider: ${providerName}, Model: ${modelName || 'N/A'}`);
+    } else {
+        console.error('MCR Core initialized, but LlmService is not available.');
+    }
+  } catch (initError) {
+    console.error(`MCR Core Initialization Failed: ${initError.message}. Sandbox cannot run.`);
+    if (initError.stack) {
+        console.error(initError.stack);
+    }
     process.exit(1);
   }
+  console.log('---');
 
   let sessionId = null;
   try {
     console.log('Creating sandbox session...');
-    const sessionData = await api.createSession();
+    const sessionData = mcrCore.createSession(); // Direct call
     sessionId = sessionData.sessionId;
     console.log(`Sandbox session created: ${sessionId}`);
     console.log('---');
@@ -107,8 +87,8 @@ async function sandboxLoop(cmdObj) {
         console.log('Processing query...');
         try {
           // Request debug information to get more details
-          const response = await api.query(sessionId, nlQuery, {
-            style: 'verbose',
+          const response = await mcrCore.query(sessionId, nlQuery, { // Direct call
+            style: 'verbose', // Or any other style you prefer for sandbox
             debug: true,
           });
 
@@ -116,44 +96,40 @@ async function sandboxLoop(cmdObj) {
           console.log(`NL Input: ${nlQuery}`);
           console.log('---');
 
-          if (response.translation) {
-            console.log('Input (Logic - Translation):');
-            console.log(JSON.stringify(response.translation, null, 2));
+          // The mcrCore.query response structure matches the API structure
+          if (response.debug?.prologQueryGenerated) {
+            console.log('Query (Logic - Generated Prolog):');
+            console.log(response.debug.prologQueryGenerated);
             console.log('---');
           }
 
-          // The 'query' in debug might represent the structured/logic query
-          if (response.debug?.query) {
-            console.log('Query (Logic - Processed):');
-            console.log(JSON.stringify(response.debug.query, null, 2));
+          if (response.result) {
+            console.log('Results (Logic - Simplified):');
+            console.log(JSON.stringify(response.result, null, 2));
             console.log('---');
           }
 
-          if (response.prologOutput && response.prologOutput.length > 0) {
-            console.log('Results (Logic - Prolog Output):');
-            response.prologOutput.forEach((out) => console.log(out));
-            console.log('---');
-          } else if (response.debug?.solutions) {
-            console.log('Results (Logic - Solutions):');
-            console.log(JSON.stringify(response.debug.solutions, null, 2));
+          if (response.debug?.rawReasonerResults) {
+            console.log('Results (Logic - Raw Reasoner Output):');
+            response.debug.rawReasonerResults.forEach((out) => console.log(out));
             console.log('---');
           }
 
-          console.log('Result (NL):');
-          console.log(response.answer || 'No NL answer provided.');
+          console.log('Result (NL - MCR):');
+          console.log(response.answer || 'No NL answer provided by MCR.');
+          console.log('---');
+          console.log('Result (NL - Zero-shot LLM for comparison):');
+          console.log(response.zeroShotLmAnswer || 'No zero-shot NL answer provided.');
           console.log('======================\n');
+
         } catch (error) {
-          const errorMessage =
-            error.response?.data?.error?.message ||
-            error.response?.data?.message ||
-            error.message ||
-            'Unknown error during query processing.';
+          // Error from mcrCore call
+          const errorMessage = error.message || 'Unknown error during query processing.';
           console.error(`Query Error: ${errorMessage}`);
-          if (error.response?.data) {
-            console.error(
-              'Details:',
-              JSON.stringify(error.response.data, null, 2)
-            );
+          if (error.stack) console.error(error.stack);
+          // If ApiError and has details:
+          if (error.errorCode || error.details) {
+            console.error('Details:', JSON.stringify({ code: error.errorCode, details: error.details }, null, 2));
           }
         }
       } else {
@@ -161,24 +137,21 @@ async function sandboxLoop(cmdObj) {
       }
       console.log('---');
     }
-  } catch (error) {
+  } catch (error) { // Catch errors from session creation or other general sandbox logic
     console.error(`Sandbox Error: ${error.message}`);
     if (error.stack) console.error(error.stack);
   } finally {
     if (sessionId) {
       try {
         console.log(`\nDeleting sandbox session: ${sessionId}...`);
-        await api.deleteSession(sessionId);
+        mcrCore.deleteSession(sessionId); // Direct call
         console.log('Sandbox session deleted.');
       } catch (e) {
         console.error(`Error deleting session ${sessionId}: ${e.message}`);
+        if (e.stack) console.error(e.stack);
       }
     }
-    if (serverStartedBySandbox && mcrServerProcess) {
-      console.log('Stopping MCR server started by sandbox...');
-      // serverManager's stopMcrServer expects the process object
-      await stopMcrServer(mcrServerProcess);
-    }
+    // Removed server stopping logic as server is not started by sandbox anymore
     console.log('Exiting sandbox.');
   }
 }

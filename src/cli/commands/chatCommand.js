@@ -1,16 +1,14 @@
 /* eslint-disable no-console */
 const path = require('path'); // Added path import
-const api = require('../api'); // Import all exported functions from api.js
-// Axios, spawn, path are no longer directly needed here if serverManager handles them.
-// ConfigManager is still needed for other parts.
 const ConfigManager = require('../../config');
-const {
-  isServerAliveAsync,
-  startMcrServerAsync,
-} = require('../tuiUtils/serverManager');
-// const chatDemos = require('../tuiUtils/chatDemos'); // No longer needed here
-const tuiCmdHandlers = require('../tuiUtils/tuiCommandHandlers'); // Import new command handlers
-const { parseTuiCommandArgs, readFileContentSafe, delay } = require('../utils'); // Ensure all utils are from here or passed in context
+const mcrCore = require('../../mcrCore'); // Added for direct MCR interaction
+const api = require('../api'); // Still needed for some API helpers if not all are moved to mcrCore facades yet, or for tuiCmdHandlers that might still use it
+// const {
+//   isServerAliveAsync,
+//   startMcrServerAsync,
+// } = require('../tuiUtils/serverManager'); // Removed server management
+const tuiCmdHandlers = require('../tuiUtils/tuiCommandHandlers');
+const { parseTuiCommandArgs, readFileContentSafe, delay } = require('../utils');
 
 // Ink and React will be required dynamically inside startAppAsync
 let React;
@@ -50,384 +48,181 @@ const McrApp = ({
   programOpts: _programOpts, // Marked unused
   onExitTrigger,
 }) => {
+/**
+ * The main Ink application component for the MCR TUI.
+ * Manages state for messages, input, session, server status, and demos.
+ * @param {object} props - Component props.
+ * @param {string|null} props.initialSessionId - An initial session ID to use, if any.
+ * @param {object} props.programOpts - Commander program options. // This seems unused now
+ * @param {function} props.onExitTrigger - Async function to call before exiting (for cleanup).
+ */
+const McrApp = ({
+  initialSessionId,
+  // initialOntologyContent: initialOntologyPath, // Removed
+  // programOpts: _programOpts, // Marked unused, removing
+  onExitTrigger,
+}) => {
   const { exit } = useApp();
   const [messages, setMessages] = React.useState([]);
   const [inputValue, setInputValue] = React.useState('');
   const [isExiting, setIsExiting] = React.useState(false);
-  const [currentSessionId, setCurrentSessionId] =
-    React.useState(initialSessionId);
-  const [serverStatus, setServerStatus] = React.useState('Checking...');
-  const [activeLlmInfo, setActiveLlmInfo] = React.useState(
-    'Provider: N/A, Model: N/A'
-  ); // New state for LLM info
-  const [currentOntologyDisplay] = React.useState( // _setCurrentOntologyDisplay removed
-    initialOntologyPath ? path.basename(initialOntologyPath) : 'None'
-  );
-  // const [isDemoRunning, setIsDemoRunning] = React.useState(false); // Removed
-  const [chatDebugMode, setChatDebugMode] = React.useState(false);
+  const [currentSessionId, setCurrentSessionId] = React.useState(initialSessionId);
+  const [mcrCoreStatus, setMcrCoreStatus] = React.useState('Initializing...');
+  const [activeLlmInfo, setActiveLlmInfo] = React.useState('LLM: N/A');
 
-  /**
-   * Adds a message to the TUI output.
-   * @param {string} type - Type of message (e.g., 'system', 'user', 'mcr', 'error', 'output').
-   * @param {string|object} text - The message content. Objects will be stringified.
-   */
   const addMessage = React.useCallback((type, text) => {
-    const messageText =
-      typeof text === 'object' && text !== null
-        ? JSON.stringify(text, null, 2)
-        : text;
+    const messageText = typeof text === 'object' && text !== null ? JSON.stringify(text, null, 2) : text;
     setMessages((prev) => [...prev, { type, text: messageText }]);
-  }, []); // setMessages is stable
+  }, []);
 
-  /**
-   * Checks the MCR server status and updates the TUI.
-   * @returns {Promise<object|null>} Server status data or null on failure.
-   */
-  const checkServerStatusAsync = React.useCallback(async () => {
-    try {
-      const statusData = await tuiGetServerStatus(); // Use the new helper
-      setServerStatus(`OK (v${statusData?.version})`);
-      if (statusData?.activeLlmProvider) {
-        setActiveLlmInfo(
-          `LLM: ${statusData.activeLlmProvider} (${statusData.activeLlmModel || 'default'})`
-        );
-      } else {
-        setActiveLlmInfo('LLM: N/A');
-      }
-      return statusData;
-    } catch (error) {
-      setServerStatus('Unavailable');
-      setActiveLlmInfo('LLM: N/A'); // Reset on error
-      const errorMessage =
-        error.response?.data?.error?.message ||
-        error.response?.data?.message ||
-        error.message ||
-        'Unknown error';
-      addMessage('error', `Server status check failed: ${errorMessage}`); // addMessage is a dependency
-      return null;
+  const checkMcrCoreStatus = React.useCallback(() => {
+    if (mcrCore.isInitialized() && mcrCore.LlmService) {
+      setMcrCoreStatus('Initialized');
+      setActiveLlmInfo(`LLM: ${mcrCore.LlmService.getActiveProviderName()} (${mcrCore.LlmService.getActiveModelName() || 'default'})`);
+    } else if (mcrCore.isInitialized()) {
+      setMcrCoreStatus('Initialized (LLM Error)');
+      setActiveLlmInfo('LLM: Error/Unavailable');
+      addMessage('error', 'MCR Core is initialized, but LLM Service is not properly configured or available.');
     }
-  }, [setServerStatus, setActiveLlmInfo, addMessage]); // Dependencies for checkServerStatusAsync
+    else {
+      setMcrCoreStatus('Not Initialized');
+      setActiveLlmInfo('LLM: N/A');
+      addMessage('error', 'MCR Core is not initialized. Chat functionality may be impaired.');
+    }
+  }, [addMessage]); // Removed dependencies on setMcrCoreStatus, setActiveLlmInfo as they are stable setters from useState
 
   React.useEffect(() => {
-    const initAppAsync = async () => {
-      const welcomeMessages = [
-        {
-          type: 'system',
-          text: 'Welcome to MCR. Type /help for a list of commands.',
-        },
-      ];
-      if (currentSessionId) {
-        welcomeMessages.push({
-          type: 'system',
-          text: `Active session: ${currentSessionId}.`,
-        });
-      } else {
-        welcomeMessages.push({
-          type: 'system',
-          text: 'No active session. Use /create-session or chat to start one.',
-        });
-      }
-      if (initialOntologyPath) {
-        welcomeMessages.push({
-          type: 'system',
-          text: `Startup ontology context: ${path.basename(initialOntologyPath)} (used for NL to Rules context if applicable).`,
-        });
-      }
-      setMessages(welcomeMessages);
-      await checkServerStatusAsync();
-    };
+    const welcomeMessages = [
+      { type: 'system', text: 'Welcome to MCR Chat. Type /help for commands.' },
+    ];
+    if (currentSessionId) {
+      welcomeMessages.push({ type: 'system', text: `Active session: ${currentSessionId}.` });
+    } else {
+      welcomeMessages.push({ type: 'system', text: 'No active session. Chat to start one or use /create-session.' });
+    }
+    setMessages(welcomeMessages);
+    checkMcrCoreStatus(); // Check status after mcrCore should have been initialized by startAppAsync
+  }, [currentSessionId, checkMcrCoreStatus, setMessages]);
 
-    initAppAsync(); // Call the async function
-  }, [currentSessionId, initialOntologyPath, checkServerStatusAsync, setMessages]); // Added setMessages to dependencies as it's used in the effect for welcome messages
 
-  // Demo implementations were in ../tuiUtils/chatDemos.js but are no longer called from here.
-
-  // Construct tuiContext to pass to command handlers
-  // This includes state setters, utility functions, and API helpers
+  // Simplified tuiContext
   const tuiContext = {
     addMessage,
-    // setIsDemoRunning, // Removed
     setCurrentSessionId,
-    setChatDebugMode,
-    getChatDebugMode: () => chatDebugMode,
     getCurrentSessionId: () => currentSessionId,
-    getInitialOntologyPath: () => initialOntologyPath,
-    // Pass state setters for status bar
-    setServerStatus,
+    // For status command to update McrApp's view of core status
+    setMcrCoreStatus, // Renamed from setServerStatus
     setActiveLlmInfo,
 
-    // Utilities from ../utils required by demos or commands
-    delay, // Already imported at top level of file
-    readFileContentSafe, // Already imported at top level of file
-    parseTuiCommandArgs, // Already imported at top level of file
-
-    // API functions (already aliased at the top of the file or available via api.*)
-    // Ensure all functions used by handlers are included in tuiContext.
-    agentApiCreateSession,
-    agentApiAssertFacts, // Used by handleAssertCommand
-    agentApiQuery, // Used by handleQueryCommand
-    agentApiDeleteSession,
-    agentApiAddOntology,
-    agentApiDeleteOntology,
-    tuiGetServerStatus,
-    agentApiGetSession: api.getSession,
-    agentApiExplainQuery: api.explainQuery, // Added for /explain
-
-    // Add other direct api functions that will be used by handlers
-    // (as opposed to the top-level aliased ones if names differ or for clarity)
-    listOntologies: api.listOntologies,
-    getOntology: api.getOntology,
-    updateOntology: api.updateOntology,
-    // addOntology: api.addOntology, // Covered by agentApiAddOntology
-    // deleteOntology: api.deleteOntology, // Covered by agentApiDeleteOntology
-    nlToRules: api.nlToRules,
-    rulesToNl: api.rulesToNl,
-    listPrompts: api.listPrompts,
-    debugFormatPrompt: api.debugFormatPrompt,
+    // API functions needed by simplified commands
+    // These still point to 'api.*' which are REST client calls.
+    // For a fully direct TUI, these would also become mcrCore calls.
+    // Plan step 5 mentions TUI using mcrCore directly.
+    // So these should be mcrCore facade calls.
+    // For now, let's assume they are placeholders and will be replaced if handler logic is kept.
+    // However, for a *simple* chat, many handlers are removed.
+    // CreateSession and DeleteSession are the main ones.
+    agentApiCreateSession: mcrCore.createSession, // Directly use mcrCore
+    agentApiDeleteSession: mcrCore.deleteSession, // Directly use mcrCore
+    // getStatus will be custom for mcrCore
+    // tuiGetServerStatus: api.getServerStatus, // This would be replaced by a mcrCore status check
   };
 
-  /**
-   * Handles slash commands entered by the user.
-   * @param {string} command - The command name (without the slash).
-   * @param {string[]} args - Arguments provided with the command.
-   */
-  // eslint-disable-next-line no-restricted-syntax
   const handleCommand = async (command, args) => {
-    // if (isDemoRunning) { // Removed demo check
-    //   addMessage(
-    //     'error',
-    //     'A demo is currently running. Please wait for it to complete.'
-    //   );
-    //   return;
-    // }
     addMessage('command', `Executing: /${command} ${args.join(' ')}`);
     setInputValue('');
-    // Unused variables removed: targetSessionId, ontologyName, filePath, rulesContent, response, text, templateName, inputVariablesJson, parsedArgs, _options
 
     try {
-      // Pass tuiContext to all handlers
       switch (command) {
-        case 'help': {
-          await tuiCmdHandlers.handleHelpCommand(tuiContext, args);
+        case 'help':
+          // Simplified help
+          addMessage('system', 'Available commands:');
+          addMessage('system', '  /help                - Show this help');
+          addMessage('system', '  /status              - Show MCR Core status');
+          addMessage('system', '  /create-session      - Create a new chat session');
+          addMessage('system', '  /delete-session [id] - Delete current or specified session');
+          addMessage('system', '  /exit, /quit         - Exit the application');
           break;
-        }
-        case 'status': {
-          // checkServerStatusAsync was the McrApp local state-updating function.
-          // The new handleStatusCommand in tuiCmdHandlers will call the api and use addMessage.
-          // It also now takes setServerStatus and setActiveLlmInfo via tuiContext to update McrApp's state.
-          await tuiCmdHandlers.handleStatusCommand(tuiContext, args);
+        case 'status':
+          // This command should update the status bar via tuiContext setters
+          // For now, it just re-checks and logs message.
+          checkMcrCoreStatus(); // Re-check and update UI state
+          addMessage('system', `MCR Core Status: ${mcrCoreStatus}`);
+          addMessage('system', activeLlmInfo);
           break;
-        }
-        case 'create-session': {
-          await tuiCmdHandlers.handleCreateSessionCommand(tuiContext, args);
+        case 'create-session':
+          // Directly use mcrCore facade
+          const newSession = mcrCore.createSession();
+          setCurrentSessionId(newSession.sessionId);
+          addMessage('system', `New session created: ${newSession.sessionId}`);
+          addMessage('output', newSession);
           break;
-        }
-        case 'get-session': {
-          await tuiCmdHandlers.handleGetSessionCommand(tuiContext, args);
+        case 'delete-session':
+          const targetSessionId = args[0] || currentSessionId;
+          if (!targetSessionId) {
+            addMessage('error', 'No session ID specified and no active session.');
+            return;
+          }
+          // Directly use mcrCore facade
+          const deleteResponse = mcrCore.deleteSession(targetSessionId);
+          addMessage('system', deleteResponse.message || `Session ${targetSessionId} deleted.`);
+          if (targetSessionId === currentSessionId) {
+            setCurrentSessionId(null);
+            addMessage('system', 'Active session cleared.');
+          }
           break;
-        }
-        case 'delete-session': {
-          await tuiCmdHandlers.handleDeleteSessionCommand(tuiContext, args);
-          break;
-        }
-        case 'assert': {
-          await tuiCmdHandlers.handleAssertCommand(tuiContext, args);
-          break;
-        }
-        case 'query': {
-          await tuiCmdHandlers.handleQueryCommand(tuiContext, args);
-          break;
-        }
-        case 'explain': {
-          await tuiCmdHandlers.handleExplainCommand(tuiContext, args);
-          break;
-        }
-        case 'list-ontologies': {
-          await tuiCmdHandlers.handleListOntologiesCommand(tuiContext, args);
-          break;
-        }
-        case 'get-ontology': {
-          await tuiCmdHandlers.handleGetOntologyCommand(tuiContext, args);
-          break;
-        }
-        case 'add-ontology': {
-          await tuiCmdHandlers.handleAddOntologyCommand(tuiContext, args);
-          break;
-        }
-        case 'update-ontology': {
-          await tuiCmdHandlers.handleUpdateOntologyCommand(tuiContext, args);
-          break;
-        }
-        case 'delete-ontology': {
-          await tuiCmdHandlers.handleDeleteOntologyCommand(tuiContext, args);
-          break;
-        }
-        case 'nl2rules': {
-          await tuiCmdHandlers.handleNl2RulesCommand(tuiContext, args);
-          break;
-        }
-        case 'rules2nl': {
-          await tuiCmdHandlers.handleRules2NlCommand(tuiContext, args);
-          break;
-        }
-        case 'list-prompts': {
-          await tuiCmdHandlers.handleListPromptsCommand(tuiContext, args);
-          break;
-        }
-        case 'show-prompt': {
-          await tuiCmdHandlers.handleShowPromptCommand(tuiContext, args);
-          break;
-        }
-        case 'debug-prompt': {
-          await tuiCmdHandlers.handleDebugPromptCommand(tuiContext, args);
-          break;
-        }
-        // case 'run-demo': { // Removed /run-demo command case
-        //   const demoName = args[0];
-        //   if (demoName === 'simpleQA' || demoName === 'simpleqa') {
-        //     await chatDemos.runSimpleQADemo(tuiContext);
-        //   } else if (
-        //     demoName === 'family' ||
-        //     demoName === 'familyOntology' ||
-        //     demoName === 'familyontology'
-        //   ) {
-        //     await chatDemos.runFamilyOntologyDemo(tuiContext);
-        //   } else {
-        //     addMessage(
-        //       'error',
-        //       `Unknown demo: ${demoName}. Available: simpleQA, family`
-        //     );
-        //   }
-        //   break;
-        // }
-        // Note: There was a duplicated 'toggle-debug-chat' case that seemed to be a copy-paste error
-        // of the 'run-demo' logic. I am removing the duplicated one and keeping the correct one.
-        case 'toggle-debug-chat': {
-          await tuiCmdHandlers.handleToggleDebugChatCommand(tuiContext, args);
-          break;
-        }
         case 'exit':
-        case 'quit': {
-          // This command involves direct calls to setIsExiting and exit() from useApp(),
-          // so it's best handled directly within McrApp unless those are passed to context too.
+        case 'quit':
           setIsExiting(true);
           addMessage('system', 'Exiting application...');
-          await onExitTrigger(currentSessionId); // onExitTrigger is from McrApp props
-          exit(); // exit is from useApp()
-          return; // Important to return after exit
-        }
+          await onExitTrigger(currentSessionId);
+          exit();
+          return;
         default:
-          addMessage(
-            'error',
-            `Unknown command: /${command}. Type /help for available commands.`
-          );
+          addMessage('error', `Unknown command: /${command}. Type /help for available commands.`);
       }
     } catch (error) {
-      const errorSource = error.isAxiosError ? 'API Error' : 'Command Error';
-      const errorMessage =
-        error.response?.data?.error ||
-        error.response?.data?.message ||
-        error.message ||
-        'An unexpected error occurred';
-      addMessage('error', `${errorSource} for /${command}: ${errorMessage}`);
-      if (error.response?.data && typeof error.response.data === 'object') {
-        const detailText = JSON.stringify(error.response.data, null, 2);
-        if (detailText !== errorMessage) {
-          setMessages((prev) => [
-            ...prev,
-            { type: 'output', text: detailText },
-          ]);
-        }
-      } else if (
-        error.response?.data &&
-        typeof error.response.data === 'string' &&
-        error.response.data !== errorMessage
-      ) {
-        setMessages((prev) => [
-          ...prev,
-          { type: 'output', text: error.response.data },
-        ]);
-      }
+      addMessage('error', `Command Error for /${command}: ${error.message}`);
+      if(error.stack) console.error(error.stack);
     }
   };
 
-  /**
-   * Handles regular chat messages (non-commands).
-   * Creates a session if one isn't active, then submits the message.
-   * @param {string} queryString - The chat message from the user.
-   */
-  // eslint-disable-next-line no-restricted-syntax
   const handleChatMessage = async (queryString) => {
-    // if (isDemoRunning) { // Removed demo check
-    //   addMessage(
-    //     'error',
-    //     'A demo is currently running. Please wait for it to complete before sending chat messages.'
-    //   );
-    //   setInputValue(queryString); // Keep query in input
-    //   return;
-    // }
-    if (!currentSessionId) {
+    let currentSessId = currentSessionId;
+    if (!currentSessId) {
       try {
         addMessage('system', 'No active session. Creating one for chat...');
-        const sessionData = await api.createSession(); // Use helper
+        const sessionData = mcrCore.createSession(); // Use mcrCore directly
         setCurrentSessionId(sessionData.sessionId);
+        currentSessId = sessionData.sessionId; // Update for current message submission
         addMessage('system', `New session for chat: ${sessionData.sessionId}`);
-        await submitMessageToSession(queryString, sessionData.sessionId);
       } catch (error) {
-        const errorMessage =
-          error.response?.data?.error?.message ||
-          error.response?.data?.message ||
-          error.message ||
-          'Failed to create session for chat.';
-        addMessage('error', `Session Creation Error: ${errorMessage}`);
-        setInputValue(queryString); // Keep query in input if session creation failed
+        addMessage('error', `Session Creation Error: ${error.message}`);
+        if(error.stack) console.error(error.stack);
+        setInputValue(queryString);
+        return;
       }
-      return;
     }
-    await submitMessageToSession(queryString, currentSessionId);
+    await submitMessageToSession(queryString, currentSessId);
   };
 
-  /**
-   * Submits a query message to a specific MCR session.
-   * @param {string} queryString - The query/chat message.
-   * @param {string} sessionIdForQuery - The ID of the session to query.
-   */
-  // eslint-disable-next-line no-restricted-syntax
   const submitMessageToSession = async (queryString, sessionIdForQuery) => {
     addMessage('user', queryString);
     setInputValue('');
     try {
-      let dynamicOntologyContent = null;
-      if (initialOntologyPath) {
-        dynamicOntologyContent = readFileContentSafe(
-          initialOntologyPath,
-          addMessage,
-          'Startup ontology context for chat'
-        );
-      }
-
-      const response = await api.query(
+      // Use mcrCore.query directly. Ontology and debug options simplified.
+      const response = await mcrCore.query(
         sessionIdForQuery,
         queryString,
-        { style: 'conversational', debug: chatDebugMode },
-        dynamicOntologyContent
+        { style: 'conversational', debug: false } // Simplified options
       );
 
-      const mcrResponse = response.answer || JSON.stringify(response);
-      addMessage('mcr', mcrResponse);
-      if (chatDebugMode && response.debug)
-        addMessage('output', { debugInfo: response.debug });
-      if (chatDebugMode && response.translation)
-        addMessage('output', { translation: response.translation });
-      if (chatDebugMode && response.prologOutput)
-        addMessage('output', { prolog: response.prologOutput });
+      const mcrResponseText = response.answer || JSON.stringify(response);
+      addMessage('mcr', mcrResponseText);
+      // Simplified: No complex debug output in basic chat
     } catch (error) {
-      const errorMessage =
-        error.response?.data?.error?.message ||
-        error.response?.data?.message ||
-        error.message ||
-        'An API error occurred during chat';
-      addMessage('error', `Chat Error: ${errorMessage}`);
+      addMessage('error', `Chat Error: ${error.message}`);
+      if(error.stack) console.error(error.stack);
     }
   };
 
@@ -469,17 +264,13 @@ const McrApp = ({
     >
       {/* Status Bar */}
       <Box paddingX={1} borderStyle="single" borderBottom borderColor="gray">
-        <Text color="cyan">🤖 MCR TUI</Text>
+        <Text color="cyan">🤖 MCR Chat</Text>
         <Spacer />
         <Text>🏷️ Session: {currentSessionId || 'None'}</Text>
         <Spacer />
-        <Text>📚 Ontology: {currentOntologyDisplay}</Text>
-        <Spacer />
         <Text>🧠 {activeLlmInfo}</Text>
         <Spacer />
-        <Text>⚡ Server: {serverStatus}</Text>
-        <Spacer />
-        <Text>🐞 ChatDebug: {chatDebugMode ? 'ON' : 'OFF'}</Text>
+        <Text>⚡ Core: {mcrCoreStatus}</Text>
       </Box>
 
       {/* Main Content Area (Messages/Outputs) */}
@@ -577,134 +368,66 @@ async function startAppAsync(options, command) {
     process.exit(1); // Exit gracefully as TUI cannot function
   }
 
-  const programOpts = command.parent.opts();
+  // const programOpts = command.parent.opts(); // programOpts seems unused by McrApp now
   const initialSessionId = null;
-  let initialOntologyPath = null; // Store path from -o option
+  // let initialOntologyPath = null; // Removed ontology option
 
-  if (programOpts.json) {
-    console.log(
-      JSON.stringify({
-        error: 'TUI_MODE_NO_JSON',
-        message: 'The TUI mode does not support JSON output.',
-      })
-    );
-    process.exit(1);
+  // if (programOpts.json) { // JSON option is global, can be checked if needed, but TUI won't output JSON
+  //   console.log(JSON.stringify({ error: 'TUI_MODE_NO_JSON', message: 'The TUI mode does not support JSON output.' }));
+  //   process.exit(1);
+  // }
+
+  // Removed options.ontology processing
+
+  // Initialize MCR Core
+  console.log('Initializing MCR Core for TUI Chat...');
+  const globalConfig = ConfigManager.get({ exitOnFailure: true });
+  try {
+      await mcrCore.init(globalConfig);
+      if (mcrCore.LlmService) {
+          // Log to console before Ink app takes over
+          console.log(`MCR Core Initialized. Using LLM Provider: ${mcrCore.LlmService.getActiveProviderName()}, Model: ${mcrCore.LlmService.getActiveModelName() || 'N/A'}`);
+      } else {
+           console.error('MCR Core initialized, but LlmService is not available. This might be a configuration issue.');
+      }
+  } catch (initError) {
+      console.error(`MCR Core Initialization Failed: ${initError.message}. TUI cannot run.`);
+      if (initError.stack) console.error(initError.stack);
+      process.exit(1);
   }
 
-  if (options.ontology) {
-    initialOntologyPath = options.ontology; // Store path for McrApp to use/display
-  }
-
-  const config = ConfigManager.get();
-  const serverUrl = `http://${config.server.host}:${config.server.port}/`;
-  const healthCheckUrl = serverUrl;
-
-  // These variables will be local to startAppAsync
-  let mcrServerProcess = null;
-  let mcrServerStartedByThisTui = false;
+  // Server starting logic removed
 
   try {
-    // let _serverJustStarted = false; // This variable seems unused, removing
-    if (!(await isServerAliveAsync(healthCheckUrl, 1, 100))) {
-      console.log('MCR server not detected. Attempting to start it...');
-      try {
-        // startMcrServerAsync now returns the process
-        mcrServerProcess = await startMcrServerAsync(programOpts);
-        mcrServerStartedByThisTui = true;
-        // serverStartedByChat = true; // This global is removed
-        console.log(
-          'MCR server process started. Waiting a moment for it to initialize...'
-        );
-        await new Promise((resolve) => setTimeout(resolve, 1500)); // Initial delay for server to boot
-        if (!(await isServerAliveAsync(healthCheckUrl, 3, 500))) {
-          throw new Error(
-            'Server process was started but did not become healthy in time.'
-          );
-        }
-        // _serverJustStarted = true;
-      } catch (serverStartError) {
-        console.error(
-          `Critical: Failed to start MCR server: ${serverStartError.message}. Please start it manually and try again.`
-        );
-        process.exit(1);
-      }
-    } else {
-      // console.log('Existing MCR server detected.');
-    }
-
     const performCleanup = async (activeSessionId) => {
       if (activeSessionId) {
         console.log(`Terminating TUI session ${activeSessionId}...`);
         try {
-          await api.deleteSession(activeSessionId);
+          // Assuming mcrCore.deleteSession is synchronous or we don't need to await it heavily here
+          // If it were async: await mcrCore.deleteSession(activeSessionId);
+          mcrCore.deleteSession(activeSessionId);
           console.log(`TUI Session ${activeSessionId} terminated.`);
         } catch (error) {
-          const errorMsg =
-            error.response?.data?.error?.message ||
-            error.response?.data?.message ||
-            error.message ||
-            'Unknown error during session termination';
-          console.error(
-            `Failed to terminate TUI session ${activeSessionId}: ${errorMsg}`
-          );
+          console.error(`Failed to terminate TUI session ${activeSessionId}: ${error.message}`);
         }
       }
-      // Use the locally managed mcrServerProcess and mcrServerStartedByThisTui
-      if (mcrServerProcess && mcrServerStartedByThisTui) {
-        console.log('Stopping MCR server started by this TUI session...');
-        try {
-          if (mcrServerProcess.pid) {
-            process.kill(mcrServerProcess.pid, 'SIGTERM');
-            console.log(
-              `Kill signal sent to MCR server process (PID: ${mcrServerProcess.pid}).`
-            );
-          }
-        } catch (e) {
-          console.warn(
-            `Could not send kill signal to server process (PID: ${mcrServerProcess.pid}). It might require manual termination. Error: ${e.message}`
-          );
-        }
-      }
+      // Server stopping logic removed
     };
-
-    // Global serverProcess and serverStartedByChat are removed, no need to update them here.
 
     const app = render(
       <McrApp
         initialSessionId={initialSessionId}
-        initialOntologyContent={initialOntologyPath}
-        programOpts={programOpts}
+        // programOpts={programOpts} // Removed as it's not used by McrApp
         onExitTrigger={performCleanup}
       />,
-      { exitOnCtrlC: false }
+      { exitOnCtrlC: false } // Manual Ctrl+C handling is inside McrApp
     );
 
     await app.waitUntilExit();
   } catch (error) {
-    console.error(
-      `\nCritical error during TUI initialization or operation: ${error.message}`
-    );
-    if (
-      error.code === 'ECONNREFUSED' &&
-      !mcrServerStartedByThisTui // Check the local variable
-      // && !serverStartedByChat // This global is removed
-    ) {
-      console.error(
-        'This might be because the MCR server is not running and could not be started automatically.'
-      );
-    }
-    // Use local variables for cleanup
-    if (mcrServerProcess && mcrServerStartedByThisTui) {
-      console.log('Attempting to stop MCR server due to critical error...');
-      try {
-        if (mcrServerProcess.pid) process.kill(mcrServerProcess.pid, 'SIGTERM');
-      } catch (e) {
-        console.warn(
-          'Could not send kill signal to server process during error exit.',
-          e.message
-        );
-      }
-    }
+    console.error(`\nCritical error during TUI operation: ${error.message}`);
+    if (error.stack) console.error(error.stack);
+    // No server process to kill anymore
     process.exit(1);
   }
 }
@@ -712,12 +435,10 @@ async function startAppAsync(options, command) {
 module.exports = (program) => {
   program
     .command('chat')
-    .description(
-      'Start the interactive MCR TUI. Starts the server if not running.'
-    )
-    .option(
-      '-o, --ontology <file>',
-      'Specify an ontology file to load at startup (its name will be shown in status)'
-    )
+    .description('Start the interactive MCR Chat TUI.')
+    // .option( // Ontology option removed
+    //   '-o, --ontology <file>',
+    //   'Specify an ontology file to load at startup (its name will be shown in status)'
+    // )
     .action(startAppAsync);
 };
