@@ -2,6 +2,7 @@ const SessionManager = require('../sessionManager');
 const LlmService = require('../llmService');
 const { logger } = require('../logger');
 const { validateNonEmptyString } = require('./handlerUtils');
+const ApiError = require('../errors');
 
 const sessionHandlers = {
   createSession: (req, res, next) => {
@@ -29,7 +30,7 @@ const sessionHandlers = {
       logger.error('Error in createSession handler (explicit catch)', {
         error: err,
         stack: err.stack,
-        isApiError: err instanceof require('../errors'),
+        isApiError: err instanceof ApiError,
         sessionObject: session,
       });
       next(err);

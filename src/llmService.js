@@ -5,7 +5,6 @@ const {
 const { PromptTemplate } = require('@langchain/core/prompts');
 const logger = require('./logger').logger;
 const ApiError = require('./errors');
-// const ConfigManager = require('./config'); // Unused import
 const PROMPT_TEMPLATES = require('./prompts');
 
 const OpenAiProvider = require('./llmProviders/openaiProvider');

@@ -36,7 +36,6 @@ async function runInteractiveQueryModeAsync(
         console.log(`Continuing session: ${currentSessionId}`);
       }
     } catch {
-      // Removed unused 'error'
       console.error(
         `Error verifying session ${currentSessionId}. Please check the session ID and server.`
       );
