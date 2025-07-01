@@ -1,181 +1,56 @@
-const pl = require('tau-prolog');
-const { logger } = require('./logger');
-const ApiError = require('./errors');
+// new/src/reasonerService.js
+const config = require('./config');
+const logger = require('./logger');
+const PrologReasonerProvider = require('./reasonerProviders/prologReasoner');
+
+let selectedProvider;
+
+function getProvider() {
+  if (!selectedProvider) {
+    const providerName = config.reasoner.provider.toLowerCase();
+    logger.info(`Attempting to initialize Reasoner provider: ${providerName}`);
+    switch (providerName) {
+      case 'prolog':
+        selectedProvider = PrologReasonerProvider;
+        break;
+      // Future reasoner providers can be added here
+      default:
+        logger.error(`Unsupported Reasoner provider configured: ${providerName}. Defaulting to Prolog.`);
+        selectedProvider = PrologReasonerProvider; // Or throw new Error
+    }
+    logger.info(`Reasoner Service initialized with provider: ${selectedProvider.name}`);
+  }
+  return selectedProvider;
+}
 
 /**
- * Service for interacting with the Tau Prolog reasoner.
+ * Executes a query against a given knowledge base using the configured reasoner.
+ * @param {string} knowledgeBase - A string containing all facts and rules for the reasoner.
+ * @param {string} query - The query string for the reasoner.
+ * @param {number} [limit=10] - Maximum number of answers to retrieve.
+ * @returns {Promise<Array<object|string|boolean>>} A promise that resolves to an array of formatted answers.
+ * @throws {Error} If the reasoner provider is not configured or query execution fails.
  */
-const ReasonerService = {
-  /**
-   * Runs a Prolog query against a given set of facts.
-   * @param {string[]} facts - An array of Prolog facts and rules to consult.
-   * @param {string} query - The Prolog query string to execute.
-   * @returns {Promise<string[]>} A promise that resolves to an array of formatted answer strings.
-   * @throws {ApiError} If there's an error during Prolog session setup, consultation, querying, or answer processing.
-   */
-  runQuery(facts, query) {
-    logger.debug(
-      'ReasonerService.runQuery called with facts_count: %d, query: "%s"',
-      facts?.length || 0,
-      query
-    );
-    // Log all facts only if debug is enabled, as it can be verbose
-    if (logger.level === 'debug') {
-      logger.debug({
-        message: 'Full facts for ReasonerService.runQuery',
-        facts,
-      });
-    }
+async function executeQuery(knowledgeBase, query, limit = 10) {
+  const provider = getProvider();
+  if (!provider || typeof provider.runQuery !== 'function') {
+    logger.error('Reasoner provider is not correctly configured or does not support runQuery.');
+    throw new Error('Reasoner provider misconfiguration.');
+  }
 
-    return new Promise((resolve, reject) => {
-      try {
-        const prologSession = pl.create();
-        logger.debug('Tau Prolog session created.');
-
-        // Jules: Changed facts.join(' ') to facts.join('\n') for potentially better parsing by Tau Prolog
-        prologSession.consult(facts.join('\n'), {
-          success: () => {
-            logger.debug(
-              'Prolog consult successful for %d facts. Proceeding with query: "%s"',
-              facts?.length || 0,
-              query
-            );
-            prologSession.query(query, {
-              success: () => {
-                logger.debug(
-                  'Prolog query "%s" execution successful. Fetching answers.',
-                  query
-                );
-                const results = [];
-                const answerCallback = (answer) => {
-                  if (!answer || answer.indicator === 'the_end/0') {
-                    logger.debug(
-                      'Prolog query "%s" finished. Total answers: %d. Results: %j',
-                      query,
-                      results.length,
-                      results
-                    );
-                    resolve(results);
-                    return;
-                  }
-
-                  let formattedAnswer = 'unknown_answer_type';
-                  if (
-                    answer &&
-                    pl.type &&
-                    typeof pl.type.is_substitution === 'function' &&
-                    pl.type.is_substitution(answer)
-                  ) {
-                    formattedAnswer = prologSession.format_answer(answer, {
-                      quoted: true,
-                    });
-                    results.push(formattedAnswer);
-                  } else if (
-                    answer &&
-                    answer.id === 'true' &&
-                    answer.args &&
-                    answer.args.length === 0
-                  ) {
-                    formattedAnswer = 'true.';
-                    results.push(formattedAnswer);
-                  } else if (
-                    answer &&
-                    answer.id === 'false' &&
-                    answer.args &&
-                    answer.args.length === 0
-                  ) {
-                    formattedAnswer = 'false.';
-                    results.push(formattedAnswer);
-                  }
-                  logger.debug(
-                    'Prolog answer received for query "%s": %s',
-                    query,
-                    formattedAnswer
-                  );
-
-                  try {
-                    prologSession.answer(answerCallback);
-                  } catch (e) {
-                    logger.error('Error processing Prolog answer.', {
-                      internalErrorCode: 'PROLOG_ANSWER_PROCESSING_ERROR',
-                      originalError: e.message,
-                      stack: e.stack,
-                    });
-                    reject(
-                      new ApiError(
-                        500,
-                        `Prolog answer processing error: ${e.message}`,
-                        'PROLOG_ANSWER_ERROR'
-                      )
-                    );
-                  }
-                };
-                try {
-                  prologSession.answer(answerCallback);
-                } catch (e) {
-                  logger.error('Error initiating Prolog answer callback.', {
-                    internalErrorCode: 'PROLOG_ANSWER_INIT_ERROR',
-                    originalError: e.message,
-                    stack: e.stack,
-                  });
-                  reject(
-                    new ApiError(
-                      500,
-                      `Prolog answer initiation error: ${e.message}`,
-                      'PROLOG_ANSWER_INIT_ERROR'
-                    )
-                  );
-                }
-              },
-              error: (err) => {
-                logger.error('Prolog query failed.', {
-                  internalErrorCode: 'PROLOG_QUERY_ERROR',
-                  query,
-                  details: err.toString(),
-                });
-                reject(
-                  new ApiError(
-                    422,
-                    `Prolog query failed: ${err.toString()}`,
-                    'PROLOG_QUERY_FAILED'
-                  )
-                );
-              },
-            });
-          },
-          error: (err) => {
-            logger.error('Prolog knowledge base is invalid.', {
-              internalErrorCode: 'PROLOG_CONSULT_ERROR',
-              factsCount: facts.length,
-              details: err.toString(),
-            });
-            reject(
-              new ApiError(
-                422,
-                `Prolog knowledge base is invalid: ${err.toString()}`,
-                'PROLOG_CONSULT_FAILED'
-              )
-            );
-          },
-        });
-      } catch (e) {
-        logger.error('Error during Prolog session setup.', {
-          internalErrorCode: 'PROLOG_SESSION_SETUP_ERROR',
-          factsCount: facts.length,
-          query,
-          originalError: e.message,
-          stack: e.stack,
-        });
-        reject(
-          new ApiError(
-            500,
-            `Prolog session error: ${e.message}`,
-            'PROLOG_SESSION_ERROR'
-          )
-        );
-      }
+  try {
+    logger.debug(`ReasonerService:executeQuery called with provider ${provider.name}`, { knowledgeBaseLen: knowledgeBase.length, query, limit });
+    return await provider.runQuery(knowledgeBase, query, limit);
+  } catch (error) {
+    logger.error(`Error during reasoner execution with ${provider.name}: ${error.message}`, {
+      provider: provider.name,
+      query,
+      error,
     });
-  },
-};
+    throw error; // Re-throw to be handled by the caller
+  }
+}
 
-module.exports = ReasonerService;
+module.exports = {
+  executeQuery,
+};

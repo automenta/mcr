@@ -1,91 +1,66 @@
-const { ChatOllama } = require('@langchain/community/chat_models/ollama');
-const logger = require('../logger').logger;
-const axios = require('axios');
+// new/src/llmProviders/ollamaProvider.js
+const { Ollama: OllamaLangchain } = require("@langchain/community/chat_models/ollama");
+const { StringOutputParser } = require("@langchain/core/output_parsers");
+const { PromptTemplate } = require("@langchain/core/prompts");
+const config = require('../config');
+const logger = require('../logger');
+
+let ollamaInstance;
+
+function getOllamaInstance() {
+  if (!ollamaInstance) {
+    try {
+      ollamaInstance = new OllamaLangchain({
+        baseUrl: config.llm.ollama.baseURL,
+        model: config.llm.ollama.model,
+        // temperature: 0, // Optional: for more deterministic output
+      });
+      logger.info(`Ollama provider initialized with model ${config.llm.ollama.model} at ${config.llm.ollama.baseURL}`);
+    } catch (error) {
+      logger.error(`Failed to initialize Ollama provider: ${error.message}`, { error });
+      throw new Error(`Ollama initialization failed: ${error.message}`);
+    }
+  }
+  return ollamaInstance;
+}
 
 /**
- * Checks the connection to the Ollama server and optionally if the model exists.
- * @param {string} ollamaBaseUrl - The base URL of the Ollama server.
- * @param {string} modelName - The name of the model to check.
- * @throws {Error} If the Ollama server is unreachable.
+ * Generates text using the Ollama model based on a structured prompt.
+ * @param {string} systemPrompt - The system message or instructions.
+ * @param {string} userPrompt - The user's query or input.
+ * @param {object} [options={}] - Additional options.
+ * @param {boolean} [options.jsonMode=false] - Whether to instruct the model to output JSON.
+ * (Note: Actual JSON mode enforcement depends on model capabilities and specific prompting)
+ * @returns {Promise<string>} The generated text.
  */
-async function checkOllamaConnectionAsync(ollamaBaseUrl, modelName) {
-  try {
-    // First, check basic connectivity, e.g., by hitting the version endpoint
-    await axios.get(`${ollamaBaseUrl}/api/version`, { timeout: 2000 });
-    logger.debug(
-      `Successfully connected to Ollama server at ${ollamaBaseUrl}.`
-    );
+async function generateStructured(systemPrompt, userPrompt, options = {}) {
+  const ollama = getOllamaInstance();
+  let fullPromptContent = systemPrompt ? `${systemPrompt}\n\n${userPrompt}` : userPrompt;
 
-    // Then, check if the specific model is available
-    try {
-      await axios.post(
-        `${ollamaBaseUrl}/api/show`,
-        { name: modelName },
-        { timeout: 3000 }
-      );
-      logger.info(
-        `Ollama model '${modelName}' is available on server ${ollamaBaseUrl}.`
-      );
-    } catch (modelError) {
-      if (modelError.response && modelError.response.status === 404) {
-        logger.warn(
-          `Ollama model '${modelName}' not found on server ${ollamaBaseUrl}. ` +
-            `Please ensure the model is pulled (e.g., 'ollama pull ${modelName}'). ` +
-            `Error: ${modelError.message}`
-        );
-      } else {
-        logger.warn(
-          `Could not confirm availability of Ollama model '${modelName}' on server ${ollamaBaseUrl}. ` +
-            `This might lead to errors if the model is not present. Error: ${modelError.message}`
-        );
-      }
-      // Model check failure is a warning, not an error that stops initialization.
-    }
-  } catch (connectionError) {
-    // This catch is for errors during the initial connection attempt (axios.get to /api/version)
-    const errorMessage = `Failed to connect to Ollama server at ${ollamaBaseUrl}. Ensure Ollama is running and accessible. Error: ${connectionError.message}`;
-    logger.error(errorMessage, {
-      internalErrorCode: 'OLLAMA_SERVER_CONNECTION_FAILED',
-      ollamaBaseUrl,
-      originalError: connectionError.message,
-    });
-    throw new Error(errorMessage); // Crucial: stop LlmService initialization
+  // Rudimentary check for JSON mode - actual JSON output depends on model fine-tuning and prompt engineering
+  // For more robust JSON output with Ollama, the model itself needs to support it well,
+  // or you might need to use specific grammar/template features if available via Langchain/Ollama.
+  if (options.jsonMode) {
+    fullPromptContent += "\n\nRespond ONLY with valid JSON. Do not include any explanatory text before or after the JSON object.";
+    // logger.debug('Attempting JSON mode with prompt adjustment.');
+  }
+
+  const promptTemplate = PromptTemplate.fromTemplate(fullPromptContent);
+  const chain = promptTemplate.pipe(ollama).pipe(new StringOutputParser());
+
+  try {
+    logger.debug(`Ollama generating with prompt: "${fullPromptContent}"`, { systemPrompt, userPrompt, options });
+    const result = await chain.invoke({}); // Invoke with empty object as variables are in the template string
+    logger.debug(`Ollama generation successful. Result: "${result}"`);
+    return result;
+  } catch (error) {
+    logger.error(`Ollama generation failed: ${error.message}`, { error, fullPromptContent });
+    throw new Error(`Ollama generation failed: ${error.message}`);
   }
 }
 
-const OllamaProvider = {
+module.exports = {
   name: 'ollama',
-  initialize: async (llmConfig) => {
-    const { model, ollamaBaseUrl } = llmConfig;
-
-    // Perform the connection check. This will now throw if server is unreachable.
-    await checkOllamaConnectionAsync(ollamaBaseUrl, model.ollama);
-
-    try {
-      const client = new ChatOllama({
-        baseUrl: ollamaBaseUrl,
-        model: model.ollama,
-        temperature: 0,
-      });
-      logger.info(
-        `Ollama provider client configured for model '${model.ollama}' at ${ollamaBaseUrl}.`
-      );
-      return client;
-    } catch (error) {
-      logger.error(
-        `Failed to initialize Ollama provider client: ${error.message}`,
-        {
-          internalErrorCode: 'OLLAMA_CLIENT_INIT_FAILED',
-          ollamaBaseUrl,
-          model: model.ollama,
-          originalError: error.message,
-          stack: error.stack,
-        }
-      );
-      // Re-throw the error or a new specific error to be caught by LlmService.init
-      throw new Error(`Failed to initialize Ollama provider: ${error.message}`);
-    }
-  },
+  generateStructured,
+  // Potentially add a more generic generate(promptString) if needed later
 };
-
-module.exports = OllamaProvider;
