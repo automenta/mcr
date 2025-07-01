@@ -85,6 +85,12 @@ async function runSimpleQADemoAsync() {
   let sessionId;
 
   try {
+    // Log LLM Provider Info
+    const serverStatus = await callApi('getServerStatus');
+    if (serverStatus && serverStatus.activeLlmProvider) {
+      demoLogger.info('LLM Used', `Provider: ${serverStatus.activeLlmProvider}, Model: ${serverStatus.activeLlmModel || 'N/A'}`);
+    }
+
     // 1. Create Session
     demoLogger.step('1. Creating a new reasoning session');
     const sessionData = await callApi('createSession');
@@ -167,6 +173,12 @@ async function runFamilyOntologyDemoAsync() {
   };
 
   try {
+    // Log LLM Provider Info
+    const serverStatus = await callApi('getServerStatus');
+    if (serverStatus && serverStatus.activeLlmProvider) {
+      demoLogger.info('LLM Used', `Provider: ${serverStatus.activeLlmProvider}, Model: ${serverStatus.activeLlmModel || 'N/A'}`);
+    }
+
     // 1. Load Ontology
     demoLogger.step(`1. Loading '${ontologyName}' ontology from '${ontologyFilePath}'`);
     const ontologyRules = readFileContentSafe(ontologyFilePath, logFileReadError, 'Family Ontology File');

@@ -27,12 +27,18 @@ const sessionHandlers = {
       res.status(201).json(session);
       logger.debug('res.status(201).json(session) completed');
     } catch (err) {
-      logger.error('Error in createSession handler (explicit catch)', {
-        error: err,
+      // Defensive logging for error object
+      const errDetails = {
+        message: err.message,
+        name: err.name,
         stack: err.stack,
         isApiError: err instanceof ApiError,
-        sessionObject: session,
-      });
+      };
+      if (err instanceof ApiError) {
+        errDetails.statusCode = err.statusCode;
+        errDetails.errorCode = err.errorCode;
+      }
+      logger.error('Error in createSession handler (explicit catch)', errDetails);
       next(err);
     }
   },
@@ -86,6 +92,18 @@ const sessionHandlers = {
         metadata: { success: true },
       });
     } catch (err) {
+      // Defensive logging for error object
+      const errDetails = {
+        message: err.message,
+        name: err.name,
+        stack: err.stack,
+        isApiError: err instanceof ApiError,
+      };
+      if (err instanceof ApiError) {
+        errDetails.statusCode = err.statusCode;
+        errDetails.errorCode = err.errorCode;
+      }
+      logger.error('Error in assertAsync handler (explicit catch)', errDetails);
       next(err);
     }
   },

@@ -66,6 +66,48 @@ const McrApp = ({
   // const [isDemoRunning, setIsDemoRunning] = React.useState(false); // Removed
   const [chatDebugMode, setChatDebugMode] = React.useState(false);
 
+  /**
+   * Adds a message to the TUI output.
+   * @param {string} type - Type of message (e.g., 'system', 'user', 'mcr', 'error', 'output').
+   * @param {string|object} text - The message content. Objects will be stringified.
+   */
+  const addMessage = React.useCallback((type, text) => {
+    const messageText =
+      typeof text === 'object' && text !== null
+        ? JSON.stringify(text, null, 2)
+        : text;
+    setMessages((prev) => [...prev, { type, text: messageText }]);
+  }, []); // setMessages is stable
+
+  /**
+   * Checks the MCR server status and updates the TUI.
+   * @returns {Promise<object|null>} Server status data or null on failure.
+   */
+  const checkServerStatusAsync = React.useCallback(async () => {
+    try {
+      const statusData = await tuiGetServerStatus(); // Use the new helper
+      setServerStatus(`OK (v${statusData?.version})`);
+      if (statusData?.activeLlmProvider) {
+        setActiveLlmInfo(
+          `LLM: ${statusData.activeLlmProvider} (${statusData.activeLlmModel || 'default'})`
+        );
+      } else {
+        setActiveLlmInfo('LLM: N/A');
+      }
+      return statusData;
+    } catch (error) {
+      setServerStatus('Unavailable');
+      setActiveLlmInfo('LLM: N/A'); // Reset on error
+      const errorMessage =
+        error.response?.data?.error?.message ||
+        error.response?.data?.message ||
+        error.message ||
+        'Unknown error';
+      addMessage('error', `Server status check failed: ${errorMessage}`); // addMessage is a dependency
+      return null;
+    }
+  }, [setServerStatus, setActiveLlmInfo, addMessage]); // Dependencies for checkServerStatusAsync
+
   React.useEffect(() => {
     const initAppAsync = async () => {
       const welcomeMessages = [
@@ -95,52 +137,8 @@ const McrApp = ({
       await checkServerStatusAsync();
     };
 
-    initApp();
-  }, [currentSessionId, initialOntologyPath, checkServerStatusAsync]); // Added checkServerStatusAsync to dependencies
-
-  /**
-   * Adds a message to the TUI output.
-   * @param {string} type - Type of message (e.g., 'system', 'user', 'mcr', 'error', 'output').
-   * @param {string|object} text - The message content. Objects will be stringified.
-   */
-  const addMessage = (type, text) => {
-    const messageText =
-      typeof text === 'object' && text !== null
-        ? JSON.stringify(text, null, 2)
-        : text;
-    setMessages((prev) => [...prev, { type, text: messageText }]);
-  };
-
-  /**
-   * Checks the MCR server status and updates the TUI.
-   * @returns {Promise<object|null>} Server status data or null on failure.
-   */
-
-  const checkServerStatusAsync = async () => {
-    // Renamed
-    try {
-      const statusData = await tuiGetServerStatus(); // Use the new helper
-      setServerStatus(`OK (v${statusData?.version})`);
-      if (statusData?.activeLlmProvider) {
-        setActiveLlmInfo(
-          `LLM: ${statusData.activeLlmProvider} (${statusData.activeLlmModel || 'default'})`
-        );
-      } else {
-        setActiveLlmInfo('LLM: N/A');
-      }
-      return statusData;
-    } catch (error) {
-      setServerStatus('Unavailable');
-      setActiveLlmInfo('LLM: N/A'); // Reset on error
-      const errorMessage =
-        error.response?.data?.error?.message ||
-        error.response?.data?.message ||
-        error.message ||
-        'Unknown error';
-      addMessage('error', `Server status check failed: ${errorMessage}`);
-      return null;
-    }
-  };
+    initAppAsync(); // Call the async function
+  }, [currentSessionId, initialOntologyPath, checkServerStatusAsync, setMessages]); // Added setMessages to dependencies as it's used in the effect for welcome messages
 
   // Demo implementations were in ../tuiUtils/chatDemos.js but are no longer called from here.
 
