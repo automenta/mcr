@@ -14,6 +14,7 @@ const readFileContent = (filePath, fileDescription = 'File') => {
   const resolvedPath = path.resolve(filePath);
   if (!fs.existsSync(resolvedPath)) {
     console.error(`Error: ${fileDescription} not found: ${resolvedPath}`);
+    console.error(`Suggestion: Please ensure the file path is correct and the file exists at that location.`);
     process.exit(1);
   }
   return fs.readFileSync(resolvedPath, 'utf8');
@@ -35,7 +36,29 @@ const printJson = (data, isRawJson = false) => {
   if (isRawJson) {
     console.log(JSON.stringify(data));
   } else {
-    console.log(JSON.stringify(data, null, 2));
+    // Special handling for 'rules' field if it's a string, to make Prolog more readable
+    if (typeof data === 'object' && data !== null && typeof data.rules === 'string' && data.rules.includes('\n')) {
+      const { rules, ...restOfData } = data;
+      // Print the rest of the data normally, if there's anything else
+      if (Object.keys(restOfData).length > 0) {
+        console.log(JSON.stringify(restOfData, null, 2));
+      }
+      // Print the rules, formatted line by line
+      // Check if restOfData was empty, if so, we might not need the "rules:" header if it's the only field.
+      // However, for consistency with other parts of the object, let's keep it.
+      const rulesLabel = Object.keys(restOfData).length > 0 ? '  rules:' : 'rules:';
+      console.log(rulesLabel);
+      rules.split('\n').forEach(line => {
+        const trimmedLine = line.trim();
+        if (trimmedLine.length > 0) {
+          // Basic indentation for each line of Prolog code
+          console.log(`    ${trimmedLine}`);
+        }
+      });
+    } else {
+      // Default behavior for other data types or if 'rules' is not a multi-line string
+      console.log(JSON.stringify(data, null, 2));
+    }
   }
 };
 
@@ -92,7 +115,7 @@ const readFileContentSafe = (
     if (!fs.existsSync(resolvedPath)) {
       addMessageCallback(
         'error',
-        `${fileDescription} not found: ${resolvedPath}`
+        `${fileDescription} not found: ${resolvedPath}. Please ensure the file path is correct.`
       );
       return null;
     }
@@ -100,7 +123,7 @@ const readFileContentSafe = (
   } catch (error) {
     addMessageCallback(
       'error',
-      `Error reading ${fileDescription} "${filePath}": ${error.message}`
+      `Error reading ${fileDescription} "${filePath}": ${error.message}. Please check file permissions and path.`
     );
     return null;
   }
@@ -113,4 +136,27 @@ module.exports = {
   handleCliOutput,
   delay, // Export the new delay function
   readFileContentSafe, // Export new safe reader for TUI
+  parseTuiCommandArgs, // Exported TUI arg parser
 };
+
+// Helper to parse simple command line options like --option value
+// For TUI internal commands, not a full CLI parser.
+// Moved from chatCommand.js
+function parseTuiCommandArgs(args) {
+  const options = {};
+  const remainingArgs = [];
+  let currentOption = null;
+
+  for (const arg of args) {
+    if (arg.startsWith('--')) {
+      currentOption = arg.substring(2);
+      options[currentOption] = true; // Default to true if it's a flag
+    } else if (currentOption) {
+      options[currentOption] = arg;
+      currentOption = null;
+    } else {
+      remainingArgs.push(arg);
+    }
+  }
+  return { options, _: remainingArgs };
+}

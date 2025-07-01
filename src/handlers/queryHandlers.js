@@ -9,6 +9,24 @@ const {
   validateStyle,
 } = require('./handlerUtils');
 
+// Helper function to build the debug information object for query responses
+function _buildQueryDebugInfo(sessionId, query, fullKnowledgeBaseSentToReasoner, prologQueryGenerated, rawReasonerResults, simplifiedLogicResult, options) {
+  const currentSessionForDebug = SessionManager.get(sessionId);
+  return {
+    factsInSession: currentSessionForDebug.facts,
+    ontologyContextUsed: SessionManager.getNonSessionOntologyFacts(sessionId),
+    fullKnowledgeBaseSentToReasoner: fullKnowledgeBaseSentToReasoner,
+    prologQueryGenerated: prologQueryGenerated,
+    rawReasonerResults: rawReasonerResults,
+    inputToNlAnswerGeneration: {
+      originalQuery: query,
+      simplifiedLogicResult: simplifiedLogicResult,
+      style: options.style || 'conversational',
+    },
+  };
+}
+
+
 function simplifyPrologResults(rawResults, loggerInstance) {
   if (!rawResults || rawResults.length === 0) {
     return 'No solution found.';
@@ -155,23 +173,18 @@ const queryHandlers = {
       };
 
       if (options.debug) {
-        const currentSessionDebug = SessionManager.get(sessionId);
-        response.debug = {
-          factsInSession: currentSessionDebug.facts,
-          ontologyContextUsed:
-            SessionManager.getNonSessionOntologyFacts(sessionId),
-          fullKnowledgeBaseSentToReasoner: facts,
-          prologQueryGenerated: prologQuery,
-          rawReasonerResults: rawResults,
-          inputToNlAnswerGeneration: {
-            originalQuery: query,
-            simplifiedLogicResult: simpleResult,
-            style: options.style || 'conversational',
-          },
-        };
-        logger.info(`Session ${sessionId}: Debug mode enabled for query.`, {
+        response.debug = _buildQueryDebugInfo(
+          sessionId,
+          query, // original user query
+          facts, // fullKnowledgeBaseSentToReasoner
+          prologQuery, // prologQueryGenerated
+          rawResults, // rawReasonerResults
+          simpleResult, // simplifiedLogicResult
+          options // to get options.style
+        );
+        logger.info(`Session ${sessionId}: Debug mode enabled for query. Debug data assembled.`, {
           correlationId: req.correlationId,
-          debugData: response.debug,
+          // debugData: response.debug, // Avoid logging potentially large debug data twice here
         });
       }
       res.json(response);
