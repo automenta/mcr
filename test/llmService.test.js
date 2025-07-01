@@ -50,21 +50,37 @@ jest.mock('../src/logger', () => ({
 }));
 
 // Mock Langchain's PromptTemplate for formatPrompt testing
-let mockLangchainFormatFn;
-let mockLangchainFromTemplateFn;
+const mockActualFormatImplementation = jest.fn();
 
 jest.mock('@langchain/core/prompts', () => ({
   PromptTemplate: {
-    fromTemplate: (...args) => mockLangchainFromTemplateFn(...args),
+    // Store the mock function created by jest.fn() so we can reset it etc.
+    _fromTemplateMock: jest.fn().mockImplementation((_templateString) => {
+      // _templateString is unused by this simplified mock but good to acknowledge
+      return {
+        format: mockActualFormatImplementation,
+        // Provide a default for inputVariables. Tests that care about this
+        // can provide a more specific mock for fromTemplate if needed.
+        inputVariables: [],
+      };
+    }),
+    // Expose fromTemplate as a getter to return the stored mock function
+    // This allows us to spy on/reset fromTemplate itself if needed,
+    // while still controlling its implementation.
+    get fromTemplate() {
+      return this._fromTemplateMock;
+    },
   },
 }));
 
 describe('LlmService', () => {
   let mockConfig;
   let testProviderStrategies; // Holds the strategies for injection
+  let PromptsCore; // To access the mock fromTemplate
 
   beforeEach(() => {
     jest.clearAllMocks();
+    PromptsCore = require('@langchain/core/prompts'); // Get the mocked module
 
     // Default mock config
     mockConfig = {
@@ -85,11 +101,19 @@ describe('LlmService', () => {
     };
     Config.get.mockReturnValue(mockConfig);
 
-    // Reset Langchain prompt mocks
-    mockLangchainFormatFn = jest.fn();
-    mockLangchainFromTemplateFn = jest.fn(() => ({
-      format: mockLangchainFormatFn,
-    }));
+    // Reset the actual format implementation mock
+    mockActualFormatImplementation.mockReset();
+    // Provide a default resolved value for the format method to prevent it from returning undefined
+    mockActualFormatImplementation.mockResolvedValue("Default mock formatted prompt string");
+    // If we need to reset fromTemplate's call history or change its implementation per test:
+    PromptsCore.PromptTemplate._fromTemplateMock.mockClear();
+    // Restore default implementation for fromTemplate if it was changed in a test
+    PromptsCore.PromptTemplate._fromTemplateMock.mockImplementation(
+      (_templateString) => ({
+        format: mockActualFormatImplementation,
+        inputVariables: [],
+      })
+    );
 
     // Reset the client invoke mocks
     mockOpenAiClientInvoke.mockReset();
@@ -215,8 +239,10 @@ describe('LlmService', () => {
       const text = 'Convert this to rules.';
       const existingFacts = 'fact1.';
       const ontologyContext = 'ontology1.';
-      const expectedFormattedPrompt = `Formatted: ${Prompts.NL_TO_RULES}`;
-      mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+      const expectedFormattedPrompt = `Formatted prompt for NL_TO_RULES`;
+      // mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+      mockActualFormatImplementation.mockResolvedValue(expectedFormattedPrompt);
+
 
       const rules = await LlmService.nlToRulesAsync(
         text,
@@ -224,10 +250,12 @@ describe('LlmService', () => {
         ontologyContext
       );
 
-      expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(
+      // expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(
+      expect(PromptsCore.PromptTemplate.fromTemplate).toHaveBeenCalledWith(
         Prompts.NL_TO_RULES
       );
-      expect(mockLangchainFormatFn).toHaveBeenCalledWith({
+      // expect(mockLangchainFormatFn).toHaveBeenCalledWith({
+      expect(mockActualFormatImplementation).toHaveBeenCalledWith({
         text_to_translate: text,
         existing_facts: existingFacts,
         ontology_context: ontologyContext,
@@ -262,15 +290,18 @@ describe('LlmService', () => {
       const currentMockInvoke = mockClientInvokeImpl('openai', 'query(X).');
 
       const question = 'What is X?';
-      const expectedFormattedPrompt = `Formatted: ${Prompts.QUERY_TO_PROLOG}`;
-      mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+      const expectedFormattedPrompt = `Formatted prompt for QUERY_TO_PROLOG`;
+      // mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+      mockActualFormatImplementation.mockResolvedValue(expectedFormattedPrompt);
 
       const prologQuery = await LlmService.queryToPrologAsync(question);
 
-      expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(
+      // expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(
+      expect(PromptsCore.PromptTemplate.fromTemplate).toHaveBeenCalledWith(
         Prompts.QUERY_TO_PROLOG
       );
-      expect(mockLangchainFormatFn).toHaveBeenCalledWith({ question });
+      // expect(mockLangchainFormatFn).toHaveBeenCalledWith({ question });
+      expect(mockActualFormatImplementation).toHaveBeenCalledWith({ question });
       expect(currentMockInvoke).toHaveBeenCalledWith(expectedFormattedPrompt);
       expect(prologQuery).toBe('query(X).');
     });
@@ -281,15 +312,18 @@ describe('LlmService', () => {
       const currentMockInvoke = mockClientInvokeImpl('openai', 'query(Y)'); // No period
 
       const question = 'What is Y?';
-      const expectedFormattedPrompt = `Formatted: ${Prompts.QUERY_TO_PROLOG}`;
-      mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+      const expectedFormattedPrompt = `Formatted prompt for QUERY_TO_PROLOG no period`;
+      // mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+      mockActualFormatImplementation.mockResolvedValue(expectedFormattedPrompt);
 
       const prologQuery = await LlmService.queryToPrologAsync(question);
 
-      expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(
+      // expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(
+      expect(PromptsCore.PromptTemplate.fromTemplate).toHaveBeenCalledWith(
         Prompts.QUERY_TO_PROLOG
       );
-      expect(mockLangchainFormatFn).toHaveBeenCalledWith({ question });
+      // expect(mockLangchainFormatFn).toHaveBeenCalledWith({ question });
+      expect(mockActualFormatImplementation).toHaveBeenCalledWith({ question });
       expect(currentMockInvoke).toHaveBeenCalledWith(expectedFormattedPrompt);
       expect(prologQuery).toBe('query(Y).'); // Expect period to be added
     });
@@ -300,12 +334,22 @@ describe('LlmService', () => {
       const currentMockInvoke = mockClientInvokeImpl('openai', 'query(Z). '); // Period and space
 
       const question = 'What is Z?';
-      const expectedFormattedPrompt = `Formatted: ${Prompts.QUERY_TO_PROLOG}`;
-      mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+      const expectedFormattedPrompt = `Formatted prompt for QUERY_TO_PROLOG with period and space`;
+      // mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+      mockActualFormatImplementation.mockResolvedValue(expectedFormattedPrompt);
+
 
       const prologQuery = await LlmService.queryToPrologAsync(question);
+      expect(PromptsCore.PromptTemplate.fromTemplate).toHaveBeenCalledWith(Prompts.QUERY_TO_PROLOG);
+      expect(mockActualFormatImplementation).toHaveBeenCalledWith({ question });
+      // The actual LLM output is what matters for period addition, not the formatted prompt string.
+      // So, the mockClientInvokeImpl should return 'query(Z). '
+      // This test is more about how LlmService processes the *result* of the LLM call.
+      // Let's adjust the client mock for this specific test.
+      // mockClientInvokeImpl already set for 'openai', it will return 'query(Z). '
       expect(prologQuery).toBe('query(Z).'); // Expect period to be present, space trimmed
     });
+
 
     test('should throw ApiError if LLM returns empty string for queryToPrologAsync', async () => {
       mockConfig.llm.provider = 'openai';
@@ -340,8 +384,9 @@ describe('LlmService', () => {
       const originalQuery = 'Is it true?';
       const logicResultJson = '{"result":"true"}';
       const style = 'conversational';
-      const expectedFormattedPrompt = `Formatted: ${Prompts.RESULT_TO_NL}`;
-      mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+      const expectedFormattedPrompt = `Formatted prompt for RESULT_TO_NL`;
+      // mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+      mockActualFormatImplementation.mockResolvedValue(expectedFormattedPrompt);
 
       const nlAnswer = await LlmService.resultToNlAsync(
         originalQuery,
@@ -349,10 +394,12 @@ describe('LlmService', () => {
         style
       );
 
-      expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(
+      // expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(
+      expect(PromptsCore.PromptTemplate.fromTemplate).toHaveBeenCalledWith(
         Prompts.RESULT_TO_NL
       );
-      expect(mockLangchainFormatFn).toHaveBeenCalledWith({
+      // expect(mockLangchainFormatFn).toHaveBeenCalledWith({
+      expect(mockActualFormatImplementation).toHaveBeenCalledWith({
         original_question: originalQuery,
         logic_result: logicResultJson,
         style: style,
@@ -365,12 +412,15 @@ describe('LlmService', () => {
       mockConfig.llm.provider = 'openai';
       LlmService.init(mockConfig, testProviderStrategies);
       mockClientInvokeImpl('openai', 'Default style answer.');
-      mockLangchainFormatFn.mockResolvedValue('formatted prompt');
+      // mockLangchainFormatFn.mockResolvedValue('formatted prompt');
+      mockActualFormatImplementation.mockResolvedValue('formatted prompt');
       await LlmService.resultToNlAsync('query', '{}');
-      expect(mockLangchainFormatFn).toHaveBeenCalledWith(
+      // expect(mockLangchainFormatFn).toHaveBeenCalledWith(
+      expect(mockActualFormatImplementation).toHaveBeenCalledWith(
         expect.objectContaining({ style: 'conversational' })
       );
     });
+
 
     test('should throw if client.pipe.invoke throws for resultToNlAsync', async () => {
       mockConfig.llm.provider = 'openai';
@@ -395,15 +445,18 @@ describe('LlmService', () => {
 
       const rulesArray = ['rule1.', 'rule2(X).'];
       const style = 'formal';
-      const expectedFormattedPrompt = `Formatted: ${Prompts.RULES_TO_NL}`;
-      mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+      const expectedFormattedPrompt = `Formatted prompt for RULES_TO_NL`;
+      // mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+      mockActualFormatImplementation.mockResolvedValue(expectedFormattedPrompt);
 
       const nlExplanation = await LlmService.rulesToNlAsync(rulesArray, style);
 
-      expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(
+      // expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(
+      expect(PromptsCore.PromptTemplate.fromTemplate).toHaveBeenCalledWith(
         Prompts.RULES_TO_NL
       );
-      expect(mockLangchainFormatFn).toHaveBeenCalledWith({
+      // expect(mockLangchainFormatFn).toHaveBeenCalledWith({
+      expect(mockActualFormatImplementation).toHaveBeenCalledWith({
         prolog_rules: rulesArray.join('\n'),
         style: style,
       });
@@ -415,12 +468,15 @@ describe('LlmService', () => {
       mockConfig.llm.provider = 'openai';
       LlmService.init(mockConfig, testProviderStrategies);
       mockClientInvokeImpl('openai', 'Default style rule explanation.');
-      mockLangchainFormatFn.mockResolvedValue('formatted prompt');
+      // mockLangchainFormatFn.mockResolvedValue('formatted prompt');
+      mockActualFormatImplementation.mockResolvedValue('formatted prompt');
       await LlmService.rulesToNlAsync(['rule.']);
-      expect(mockLangchainFormatFn).toHaveBeenCalledWith(
+      // expect(mockLangchainFormatFn).toHaveBeenCalledWith(
+      expect(mockActualFormatImplementation).toHaveBeenCalledWith(
         expect.objectContaining({ style: 'formal' })
       );
     });
+
 
     test('should throw if client.pipe.invoke throws for rulesToNlAsync', async () => {
       mockConfig.llm.provider = 'openai';
@@ -446,8 +502,9 @@ describe('LlmService', () => {
       const query = 'Why X?';
       const facts = ['factA.'];
       const ontology = ['ontologyC.'];
-      const expectedFormattedPrompt = `Formatted: ${Prompts.EXPLAIN_QUERY}`;
-      mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+      const expectedFormattedPrompt = `Formatted prompt for EXPLAIN_QUERY`;
+      // mockLangchainFormatFn.mockResolvedValue(expectedFormattedPrompt);
+      mockActualFormatImplementation.mockResolvedValue(expectedFormattedPrompt);
 
       const explanation = await LlmService.explainQueryAsync(
         query,
@@ -455,10 +512,12 @@ describe('LlmService', () => {
         ontology
       );
 
-      expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(
+      // expect(mockLangchainFromTemplateFn).toHaveBeenCalledWith(
+      expect(PromptsCore.PromptTemplate.fromTemplate).toHaveBeenCalledWith(
         Prompts.EXPLAIN_QUERY
       );
-      expect(mockLangchainFormatFn).toHaveBeenCalledWith({
+      // expect(mockLangchainFormatFn).toHaveBeenCalledWith({
+      expect(mockActualFormatImplementation).toHaveBeenCalledWith({
         query: query,
         facts: facts,
         ontology_context: ontology,
@@ -470,18 +529,21 @@ describe('LlmService', () => {
     test('should handle empty facts and ontology for explainQueryAsync', async () => {
       mockConfig.llm.provider = 'openai';
       LlmService.init(mockConfig, testProviderStrategies);
-      const currentMockInvoke = mockClientInvokeImpl(
+      const currentMockInvoke = mockClientInvokeImpl( // eslint-disable-line no-unused-vars
         'openai',
         'Explanation with no context.'
       );
-      mockLangchainFormatFn.mockResolvedValue('formatted prompt');
+      // mockLangchainFormatFn.mockResolvedValue('formatted prompt');
+      mockActualFormatImplementation.mockResolvedValue('formatted prompt');
       await LlmService.explainQueryAsync('Why X?', [], []);
-      expect(mockLangchainFormatFn).toHaveBeenCalledWith({
+      // expect(mockLangchainFormatFn).toHaveBeenCalledWith({
+      expect(mockActualFormatImplementation).toHaveBeenCalledWith({
         query: 'Why X?',
         facts: [],
         ontology_context: [],
       });
-      expect(currentMockInvoke).toHaveBeenCalled();
+      // expect(currentMockInvoke).toHaveBeenCalled(); // currentMockInvoke is already called by LlmService
+      expect(mockOpenAiClientInvoke).toHaveBeenCalled(); // Check specific provider's mock
     });
 
     test('should throw if client.pipe.invoke throws for explainQueryAsync', async () => {

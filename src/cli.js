@@ -14,6 +14,8 @@ const registerQueryCommands = require('./cli/commands/queryCommands');
 const registerChatCommand = require('./cli/commands/chatCommand');
 const registerStatusCommand = require('./cli/commands/statusCommands');
 const { registerPromptCommands } = require('./cli/commands/promptCommands');
+const registerDemoCommand = require('./demo'); // Import the new demo command registration function
+const registerSandboxCommand = require('./sandbox'); // Import the new sandbox command registration function
 
 program
   .name('mcr') // Changed name to 'mcr'
@@ -29,6 +31,8 @@ registerQueryCommands(program);
 registerChatCommand(program);
 registerStatusCommand(program);
 registerPromptCommands(program);
+registerDemoCommand(program); // Register the new demo command
+registerSandboxCommand(program); // Register the new sandbox command
 
 // Global options can be defined here if needed, for example:
 // program.option('-v, --verbose', 'Enable verbose output');

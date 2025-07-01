@@ -70,8 +70,14 @@ describe('Logger Module', () => {
 
   describe('initializeLoggerContext', () => {
     test('should use asyncLocalStorage.run and call next', () => {
-      const mockReq = { correlationId: 'test-id' };
-      const mockRes = {};
+      const mockReq = {
+        correlationId: 'test-id',
+        method: 'GET',
+        originalUrl: '/test',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest-test' },
+      };
+      const mockRes = { on: jest.fn() }; // Mock 'on' method for 'finish' event
       const mockNext = jest.fn();
       initializeLoggerContext(mockReq, mockRes, mockNext);
       expect(головаAsyncLocalStorageRunSpy).toHaveBeenCalledTimes(1);
@@ -79,8 +85,14 @@ describe('Logger Module', () => {
     });
 
     test('correlationId should be available via getStore within asyncLocalStorage.run callback', async () => {
-      const mockReq = { correlationId: 'context-id' };
-      const mockRes = {};
+      const mockReq = {
+        correlationId: 'context-id',
+        method: 'GET',
+        originalUrl: '/context-test',
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest-context-test' },
+      };
+      const mockRes = { on: jest.fn() }; // Mock 'on' method for 'finish' event
       // Return a Promise from mockNext
       const mockNext = jest.fn(() => {
         expect(головаAsyncLocalStorageGetStoreSpy).toHaveBeenCalled();

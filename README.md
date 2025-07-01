@@ -221,10 +221,10 @@ The `mcr chat` command starts a full-application TUI that serves as your "home" 
   - `/status`: Checks and displays the MCR server status.
   - `/create-session`: Creates a new reasoning session.
   - `/list-ontologies`: Lists all globally stored ontologies.
-  - `/run-demo simpleQA`: Runs the Simple Q&A demo.
+  // Demo execution is now handled by `mcr demo run <demoName>`
 - **Exiting**: Type `/exit`, `/quit`, or press `Ctrl+C`.
 
-**Available TUI Commands (obtain the full up-to-date list with `/help` inside the TUI):**
+**Key TUI Commands (obtain the full up-to-date list with `/help` inside the TUI):**
 
 - **Core:**
   - `/help`: Show help message.
@@ -251,25 +251,51 @@ The `mcr chat` command starts a full-application TUI that serves as your "home" 
   - `/list-prompts`: List all prompt templates.
   - `/show-prompt <templateName>`: Show a specific prompt template.
   - `/debug-prompt <templateName> <json>`: Debug a prompt template with JSON variables.
-- **Demos & Utilities:**
-  - `/run-demo <simpleQA|family>`: Run a demo script (e.g., `simpleQA`, `family`).
+- **Utilities:**
   - `/toggle-debug-chat`: Toggle verbose debug output for chat messages and `/query` commands.
 
-## Direct CLI Commands (For Scripting and Automation)
+## Direct CLI Commands (For Scripting, Automation, Demos, and Sandbox)
 
-Beyond the interactive TUI, MCR offers a set of direct Command Line Interface (CLI) commands. These are **intended for scripting, automation, or quick, non-interactive operations** from the terminal. Most of these commands interact with a running MCR server.
+Beyond the interactive TUI (`mcr chat`), MCR offers a set of direct Command Line Interface (CLI) commands. These are intended for scripting, automation, running demonstrations, or using the experimental sandbox. Most of these commands interact with a running MCR server (and will attempt to start one if not found).
 
 You can see the list of all available direct CLI commands and their options with `mcr --help`.
 
-Some examples of direct commands are:
+**Core CLI Commands:**
 
 - `mcr status`: Checks server status.
 - `mcr create-session`: Creates a session and prints its ID.
 - `mcr assert <sessionId> "Fact"`: Asserts a fact to a given session.
 - `mcr query <sessionId> "Question?"`: Queries a session.
 - `mcr list-ontologies`: Lists ontologies.
+- ... and more for session, ontology, and translation management.
 
-The demo functionalities previously available via `mcr agent` are now integrated into the main TUI (`mcr chat`) using the `/run-demo` command (e.g., `/run-demo simpleQA`). The TUI provides a more comprehensive and integrated experience for these features.
+**New `demo` Command:**
+
+The `demo` command is used to run predefined demonstrations of MCR's capabilities. These demos are non-interactive and print their progress to the console.
+
+- `mcr demo run <demoName>`: Runs a specific demo.
+  - **`<demoName>`**: Can be `simpleQA` or `family`.
+  - **Example**: `mcr demo run simpleQA`
+    This will execute the "Simple Q&A" demo, showing steps like session creation, fact assertion, queries, and cleanup. The original Natural Language inputs for assertions and queries are displayed as part of the demo output.
+
+**New `sandbox` Command:**
+
+The `sandbox` command launches an interactive command-line environment for experimenting with MCR. It's designed to help understand how the system processes queries by showing various intermediate steps.
+
+- `mcr sandbox`: Starts the sandbox mode.
+  - **Features**:
+    - Manages its own session (creates on start, deletes on exit).
+    - Prompts for Natural Language (NL) input.
+    - Shows an (optional) confirmation before submitting the query.
+    - Displays:
+      - NL Input
+      - Input (Logic - Translation from NL)
+      - Query (Logic - Processed query sent to reasoner)
+      - Results (Logic - Output from reasoner, e.g., Prolog solutions)
+      - Result (NL - Final answer)
+    - Loops for multiple queries until the user types "exit".
+
+This sandbox is useful for developers and users who want to see "under the hood" of the reasoning process for specific queries.
 
 ## Integrating with AI Clients (MCP)
 

@@ -4,7 +4,7 @@ const api = require('../api'); // Import all exported functions from api.js
 // ConfigManager is still needed for other parts.
 const ConfigManager = require('../../config');
 const { isServerAliveAsync, startMcrServerAsync } = require('../tuiUtils/serverManager');
-const chatDemos = require('../tuiUtils/chatDemos');
+// const chatDemos = require('../tuiUtils/chatDemos'); // No longer needed here
 const tuiCmdHandlers = require('../tuiUtils/tuiCommandHandlers'); // Import new command handlers
 const { parseTuiCommandArgs, readFileContentSafe, delay } = require('../utils'); // Ensure all utils are from here or passed in context
 
@@ -27,7 +27,6 @@ const {
 } = api;
 
 // parseTuiCommandArgs is now imported from ../utils
-// Demo functions (runSimpleQADemo, runFamilyOntologyDemo) are now imported from ../tuiUtils/chatDemos
 
 // serverProcess and serverStartedByChat are now managed within startAppAsync
 
@@ -59,7 +58,7 @@ const McrApp = ({
     // Marked unused
     initialOntologyPath ? path.basename(initialOntologyPath) : 'None'
   );
-  const [isDemoRunning, setIsDemoRunning] = React.useState(false);
+  // const [isDemoRunning, setIsDemoRunning] = React.useState(false); // Removed
   const [chatDebugMode, setChatDebugMode] = React.useState(false);
 
   React.useEffect(() => {
@@ -136,14 +135,13 @@ const McrApp = ({
     }
   };
 
-  // Demo implementations (runSimpleQADemo, runFamilyOntologyDemo) have been moved to ../tuiUtils/chatDemos.js
-  // They will be called via chatDemos.runSimpleQADemo(tuiContext) etc. in the handleCommand function.
+  // Demo implementations were in ../tuiUtils/chatDemos.js but are no longer called from here.
 
-  // Construct tuiContext to pass to demos and command handlers
+  // Construct tuiContext to pass to command handlers
   // This includes state setters, utility functions, and API helpers
   const tuiContext = {
     addMessage,
-    setIsDemoRunning,
+    // setIsDemoRunning, // Removed
     setCurrentSessionId,
     setChatDebugMode,
     getChatDebugMode: () => chatDebugMode,
@@ -161,8 +159,8 @@ const McrApp = ({
     // API functions (already aliased at the top of the file or available via api.*)
     // Ensure all functions used by handlers are included in tuiContext.
     agentApiCreateSession,
-    agentApiAssertFacts, // Used by handleAssertCommand (and demos)
-    agentApiQuery,       // Used by handleQueryCommand (and demos)
+    agentApiAssertFacts, // Used by handleAssertCommand
+    agentApiQuery,       // Used by handleQueryCommand
     agentApiDeleteSession,
     agentApiAddOntology,
     agentApiDeleteOntology,
@@ -191,13 +189,13 @@ const McrApp = ({
    */
   // eslint-disable-next-line no-restricted-syntax
   const handleCommand = async (command, args) => {
-    if (isDemoRunning) {
-      addMessage(
-        'error',
-        'A demo is currently running. Please wait for it to complete.'
-      );
-      return;
-    }
+    // if (isDemoRunning) { // Removed demo check
+    //   addMessage(
+    //     'error',
+    //     'A demo is currently running. Please wait for it to complete.'
+    //   );
+    //   return;
+    // }
     addMessage('command', `Executing: /${command} ${args.join(' ')}`);
     setInputValue('');
     // Variables declared here will be scoped to the function, not the switch cases.
@@ -283,47 +281,26 @@ const McrApp = ({
           await tuiCmdHandlers.handleDebugPromptCommand(tuiContext, args);
           break;
         }
-        case 'run-demo': {
-          // This was already updated to use chatDemos via tuiContext
-          const demoName = args[0];
-          if (demoName === 'simpleQA' || demoName === 'simpleqa') {
-            // Call the imported demo function with tuiContext
-            await chatDemos.runSimpleQADemo(tuiContext);
-          } else if (
-            demoName === 'family' ||
-            demoName === 'familyOntology' ||
-            demoName === 'familyontology'
-          ) {
-            // Call the imported demo function with tuiContext
-            await chatDemos.runFamilyOntologyDemo(tuiContext);
-          } else {
-            addMessage(
-              'error',
-              `Unknown demo: ${demoName}. Available: simpleQA, family`
-            );
-          }
-          break;
-        }
-        case 'toggle-debug-chat': {
-          // Example of using a setter from tuiContext (though setChatDebugMode is directly in scope here)
-          // This was already updated to use chatDemos via tuiContext
-          const demoName = args[0];
-          if (demoName === 'simpleQA' || demoName === 'simpleqa') {
-            await chatDemos.runSimpleQADemo(tuiContext);
-          } else if (
-            demoName === 'family' ||
-            demoName === 'familyOntology' ||
-            demoName === 'familyontology'
-          ) {
-            await chatDemos.runFamilyOntologyDemo(tuiContext);
-          } else {
-            addMessage(
-              'error',
-              `Unknown demo: ${demoName}. Available: simpleQA, family`
-            );
-          }
-          break;
-        }
+        // case 'run-demo': { // Removed /run-demo command case
+        //   const demoName = args[0];
+        //   if (demoName === 'simpleQA' || demoName === 'simpleqa') {
+        //     await chatDemos.runSimpleQADemo(tuiContext);
+        //   } else if (
+        //     demoName === 'family' ||
+        //     demoName === 'familyOntology' ||
+        //     demoName === 'familyontology'
+        //   ) {
+        //     await chatDemos.runFamilyOntologyDemo(tuiContext);
+        //   } else {
+        //     addMessage(
+        //       'error',
+        //       `Unknown demo: ${demoName}. Available: simpleQA, family`
+        //     );
+        //   }
+        //   break;
+        // }
+        // Note: There was a duplicated 'toggle-debug-chat' case that seemed to be a copy-paste error
+        // of the 'run-demo' logic. I am removing the duplicated one and keeping the correct one.
         case 'toggle-debug-chat': {
           await tuiCmdHandlers.handleToggleDebugChatCommand(tuiContext, args);
           break;
@@ -377,14 +354,14 @@ const McrApp = ({
    */
   // eslint-disable-next-line no-restricted-syntax
   const handleChatMessage = async (queryString) => {
-    if (isDemoRunning) {
-      addMessage(
-        'error',
-        'A demo is currently running. Please wait for it to complete before sending chat messages.'
-      );
-      setInputValue(queryString); // Keep query in input
-      return;
-    }
+    // if (isDemoRunning) { // Removed demo check
+    //   addMessage(
+    //     'error',
+    //     'A demo is currently running. Please wait for it to complete before sending chat messages.'
+    //   );
+    //   setInputValue(queryString); // Keep query in input
+    //   return;
+    // }
     if (!currentSessionId) {
       try {
         addMessage('system', 'No active session. Creating one for chat...');
@@ -547,18 +524,14 @@ const McrApp = ({
       {!isExiting && (
         <Box borderStyle="round" paddingX={1} borderColor="cyan" borderTop>
           <Box marginRight={1}>
-            <Text color="cyan">{isDemoRunning ? 'DEMO RUNNING >' : '>'}</Text>
+            <Text color="cyan">{'>'}</Text>
           </Box>
           <TextInput
             value={inputValue}
             onChange={setInputValue}
             onSubmit={handleSubmit}
-            placeholder={
-              isDemoRunning
-                ? 'Wait for demo to finish...'
-                : 'Type a message or /command (e.g. /help)...'
-            }
-            isReadOnly={isDemoRunning} // Make input read-only during demo
+            placeholder={'Type a message or /command (e.g. /help)...'}
+            // isReadOnly={isDemoRunning} // Removed
           />
         </Box>
       )}
