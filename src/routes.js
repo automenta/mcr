@@ -6,7 +6,12 @@ const mcpHandler = require('./mcpHandler');
 function setupRoutes(app) {
   const router = express.Router();
 
-  // Basic status endpoint
+  // Health check endpoint
+  router.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', message: 'MCR server is running' });
+  });
+
+  // Basic status endpoint (can be kept or removed if /health is preferred)
   router.get('/status', (req, res) => res.status(200).json({ status: 'ok', message: 'MCR Streamlined API is running.' }));
 
   // Session management

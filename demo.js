@@ -3,6 +3,7 @@ const axios = require('axios');
 const config = require('./src/config'); // To get server URL
 const logger = require('./src/logger'); // Using the same logger
 const winston = require('winston'); // Import winston for format utilities
+const { checkAndStartServer } = require('./src/cliUtils');
 
 const API_BASE_URL = `http://${config.server.host}:${config.server.port}/api/v1`;
 
@@ -20,7 +21,15 @@ logger.level = 'info'; // Set log level for the demo
 async function runDemo() {
   let sessionId;
   console.log('🚀 Starting MCR Demo...');
-  console.log(`   Targeting API: ${API_BASE_URL}\n`);
+  console.log(`   Targeting API: ${API_BASE_URL}`);
+
+  const serverReady = await checkAndStartServer();
+  if (!serverReady) {
+    console.error('❌ Demo aborted: Failed to connect to or start the MCR server.');
+    console.log('   Please check server logs and configuration. You might need to start it manually: node mcr.js');
+    return; // Exit if server cannot be started
+  }
+  console.log(''); // Newline for cleaner output after server check
 
   try {
     // 1. Create a session
@@ -108,7 +117,9 @@ async function runDemo() {
 
 console.log('MCR Demo Script');
 console.log('-------------------------');
-console.log('Ensure the MCR server (node new/mcr.js) is running in another terminal before starting the demo.');
-console.log('Starting demo in 3 seconds...');
 
-setTimeout(runDemo, 3000);
+// Removed manual server start instruction and timeout, checkAndStartServer handles it.
+runDemo().catch(error => {
+    logger.error('Critical error in demo script:', error);
+    console.error('💥 Critical error in demo script:', error.message);
+});

@@ -4,6 +4,7 @@ const inquirer = require('inquirer');
 const config = require('./src/config'); // To get server URL
 const logger = require('./src/logger'); // Using the same logger for consistency
 const winston = require('winston'); // Import winston for format utilities
+const { checkAndStartServer } = require('./src/cliUtils');
 
 const API_BASE_URL = `http://${config.server.host}:${config.server.port}/api/v1`;
 let currentSessionId = null;
@@ -108,6 +109,14 @@ function showHelp() {
 async function mainLoop() {
   console.log('Welcome to MCR Interactive Chat!');
   console.log(`API Server: ${API_BASE_URL}`);
+
+  const serverReady = await checkAndStartServer();
+  if (!serverReady) {
+    console.error('❌ Failed to connect to or start the MCR server. Please check server logs and configuration.');
+    console.log('   You might need to start it manually: node mcr.js');
+    return; // Exit if server cannot be started
+  }
+
   console.log('Type /help for commands, or /create to start.');
 
   // eslint-disable-next-line no-constant-condition
@@ -169,8 +178,8 @@ async function mainLoop() {
 
 console.log('MCR Interactive Chat Tool');
 console.log('-------------------------');
-console.log('Ensure the MCR server (node new/mcr.js) is running in another terminal.');
 
 mainLoop().catch(error => {
-  console.error('Critical error in chat tool:', error);
+  logger.error('Critical error in chat tool:', error);
+  console.error('💥 Critical error in chat tool:', error.message);
 });
