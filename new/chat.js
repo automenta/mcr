@@ -3,16 +3,20 @@ const axios = require('axios');
 const inquirer = require('inquirer');
 const config = require('./src/config'); // To get server URL
 const logger = require('./src/logger'); // Using the same logger for consistency
+const winston = require('winston'); // Import winston for format utilities
 
 const API_BASE_URL = `http://${config.server.host}:${config.server.port}/api/v1`;
 let currentSessionId = null;
 
 // Configure logger for chat tool - might want a simpler console output for CLI
 logger.transports.forEach(t => {
-    if (t.name === 'console') {
-        t.format = logger.constructor.format.combine(
-            logger.constructor.format.colorize(),
-            logger.constructor.format.printf(info => `${info.level}: ${info.message}`)
+    // Accessing transport.name is not standard for winston >= 3.x
+    // A better way to identify the console transport, if needed, is instanceof
+    // For now, let's assume there's only one console transport or apply to all
+    if (t instanceof winston.transports.Console) {
+        t.format = winston.format.combine( // Use winston.format directly
+            winston.format.colorize(),
+            winston.format.printf(info => `${info.level}: ${info.message}`)
         );
     }
 });

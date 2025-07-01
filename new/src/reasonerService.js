@@ -31,7 +31,7 @@ function getProvider() {
  * @returns {Promise<Array<object|string|boolean>>} A promise that resolves to an array of formatted answers.
  * @throws {Error} If the reasoner provider is not configured or query execution fails.
  */
-async functionexecuteQuery(knowledgeBase, query, limit = 10) {
+async function executeQuery(knowledgeBase, query, limit = 10) {
   const provider = getProvider();
   if (!provider || typeof provider.runQuery !== 'function') {
     logger.error('Reasoner provider is not correctly configured or does not support runQuery.');

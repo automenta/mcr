@@ -2,15 +2,16 @@
 const axios = require('axios');
 const config = require('./src/config'); // To get server URL
 const logger = require('./src/logger'); // Using the same logger
+const winston = require('winston'); // Import winston for format utilities
 
 const API_BASE_URL = `http://${config.server.host}:${config.server.port}/api/v1`;
 
 // Configure logger for demo script - simpler console output
 logger.transports.forEach(t => {
-    if (t.name === 'console') {
-        t.format = logger.constructor.format.combine(
-            // logger.constructor.format.colorize(), // Optional: remove color for cleaner script output
-            logger.constructor.format.printf(info => `${info.level.toUpperCase()}: ${info.message}`)
+    if (t instanceof winston.transports.Console) {
+        t.format = winston.format.combine( // Use winston.format directly
+            // winston.format.colorize(), // Optional: remove color for cleaner script output
+            winston.format.printf(info => `${info.level.toUpperCase()}: ${info.message}`)
         );
     }
 });

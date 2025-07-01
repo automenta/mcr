@@ -14,7 +14,7 @@ const logger = require('../logger');
  * @returns {string|object} - A simplified representation of the answer.
  */
 function formatAnswer(answer) {
-  if (prolog.is_substitution(answer)) {
+  if (prolog.type && typeof prolog.type.is_substitution === 'function' && prolog.type.is_substitution(answer)) {
     if (answer.lookup('Goal') && answer.lookup('Goal').toString() === 'true') {
         // This case handles results from queries like `assertz(fact(a)).`
         // which might return { Goal: true } or similar if they don't bind variables.
@@ -22,17 +22,20 @@ function formatAnswer(answer) {
     }
     const result = {};
     let hasBindings = false;
-    for (const V in answer.links) {
-      if (answer.links[V].id !== V || V.startsWith('_')) continue; // Skip internal or anonymous vars
-      result[V] = answer.links[V].toString();
+    for (const V_key in answer.links) { // V_key is the variable name string like "X"
+      if (V_key.startsWith('_')) { // Skip internal/anonymous variables like _G123
+        continue;
+      }
+      // answer.links[V_key] is a Term. Its toString() method gives its value or name.
+      result[V_key] = answer.links[V_key].toString();
       hasBindings = true;
     }
-    // If there are no bindings but the substitution is not false, it means success (e.g. for a fact query)
-    // However, tau-prolog usually returns `false` for no solution, or a substitution for solutions.
-    // An empty substitution `{}` often means "yes, true, but no variables to show".
-    return hasBindings ? result : true; // `true` for simple success like `human(socrates).`
+    // If hasBindings is true, result contains the variable bindings.
+    // If hasBindings is false (e.g., answer.links was empty or only had '_' vars),
+    // it means it's a success but no variables to bind (e.g. `human(socrates).` query), so return true.
+    return hasBindings ? result : true;
   }
-  return answer.toString(); // Fallback for other types if any
+  return answer.toString(); // Fallback for other types if any (e.g., if answer is not a substitution)
 }
 
 
@@ -47,7 +50,7 @@ function formatAnswer(answer) {
  * @throws {Error} If there's a syntax error or other issue with the Prolog execution.
  */
 async function runQuery(knowledgeBase, query, limit = 10) {
-  const session = new prolog.createSession(1000); // Limit for operations, not results
+  const session = prolog.create(1000); // Limit for operations, not results
   const results = [];
 
   return new Promise((resolve, reject) => {
@@ -63,11 +66,21 @@ async function runQuery(knowledgeBase, query, limit = 10) {
               function processNextAnswer() {
                 session.answer({
                   success: (answer) => {
-                    if (answer === false || prolog.is_theta_nil(answer)) { // No more solutions or explicit false
-                      logger.debug('Prolog query: No more answers or explicit false.');
-                      resolve(results);
+                    if (answer === false) {
+                      logger.debug('Prolog query: Received answer === false. This typically means the query (or this branch of it) failed. Resolving with accumulated results.');
+                      resolve(results); // If results is empty, this correctly returns [] for a failed query.
                       return;
                     }
+                    // Check if the answer is the special "theta_nil" object which indicates no more solutions.
+                    // This is Tau Prolog's specific way of signaling end of results in some contexts,
+                    // though the 'fail' callback is usually the primary indicator.
+                    // It's pl.type.is_theta_nil(answer).
+                    if (prolog.type && typeof prolog.type.is_theta_nil === 'function' && prolog.type.is_theta_nil(answer)) {
+                        logger.debug('Prolog query: No more answers (is_theta_nil).');
+                        resolve(results);
+                        return;
+                    }
+
                     const formatted = formatAnswer(answer);
                     logger.debug('Prolog answer received:', { raw: answer.toString(), formatted });
                     results.push(formatted);
