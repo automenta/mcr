@@ -10,7 +10,15 @@ const {
 } = require('./handlerUtils');
 
 // Helper function to build the debug information object for query responses
-function _buildQueryDebugInfo(sessionId, query, fullKnowledgeBaseSentToReasoner, prologQueryGenerated, rawReasonerResults, simplifiedLogicResult, options) {
+function _buildQueryDebugInfo(
+  sessionId,
+  query,
+  fullKnowledgeBaseSentToReasoner,
+  prologQueryGenerated,
+  rawReasonerResults,
+  simplifiedLogicResult,
+  options
+) {
   const currentSessionForDebug = SessionManager.get(sessionId);
   return {
     factsInSession: currentSessionForDebug.facts,
@@ -25,7 +33,6 @@ function _buildQueryDebugInfo(sessionId, query, fullKnowledgeBaseSentToReasoner,
     },
   };
 }
-
 
 function simplifyPrologResults(rawResults, loggerInstance) {
   if (!rawResults || rawResults.length === 0) {
@@ -158,10 +165,17 @@ const queryHandlers = {
       try {
         // 'query' is the original user question from req.body
         zeroShotLmAnswer = await LlmService.getZeroShotAnswerAsync(query);
-        logger.info(`Session ${sessionId}: Zero-shot LM answer: "${zeroShotLmAnswer}"`, { sessionId });
+        logger.info(
+          `Session ${sessionId}: Zero-shot LM answer: "${zeroShotLmAnswer}"`,
+          { sessionId }
+        );
       } catch (lmError) {
-        logger.warn(`Session ${sessionId}: Failed to get zero-shot LM answer: ${lmError.message}`, { sessionId, error: lmError.message, stack: lmError.stack });
-        zeroShotLmAnswer = "Error: Could not retrieve zero-shot answer from LLM.";
+        logger.warn(
+          `Session ${sessionId}: Failed to get zero-shot LM answer: ${lmError.message}`,
+          { sessionId, error: lmError.message, stack: lmError.stack }
+        );
+        zeroShotLmAnswer =
+          'Error: Could not retrieve zero-shot answer from LLM.';
       }
 
       const response = {
@@ -182,10 +196,13 @@ const queryHandlers = {
           simpleResult, // simplifiedLogicResult
           options // to get options.style
         );
-        logger.info(`Session ${sessionId}: Debug mode enabled for query. Debug data assembled.`, {
-          correlationId: req.correlationId,
-          // debugData: response.debug, // Avoid logging potentially large debug data twice here
-        });
+        logger.info(
+          `Session ${sessionId}: Debug mode enabled for query. Debug data assembled.`,
+          {
+            correlationId: req.correlationId,
+            // debugData: response.debug, // Avoid logging potentially large debug data twice here
+          }
+        );
       }
       res.json(response);
     } catch (err) {

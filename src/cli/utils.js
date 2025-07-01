@@ -14,7 +14,9 @@ const readFileContent = (filePath, fileDescription = 'File') => {
   const resolvedPath = path.resolve(filePath);
   if (!fs.existsSync(resolvedPath)) {
     console.error(`Error: ${fileDescription} not found: ${resolvedPath}`);
-    console.error(`Suggestion: Please ensure the file path is correct and the file exists at that location.`);
+    console.error(
+      `Suggestion: Please ensure the file path is correct and the file exists at that location.`
+    );
     process.exit(1);
   }
   return fs.readFileSync(resolvedPath, 'utf8');
@@ -37,7 +39,12 @@ const printJson = (data, isRawJson = false) => {
     console.log(JSON.stringify(data));
   } else {
     // Special handling for 'rules' field if it's a string, to make Prolog more readable
-    if (typeof data === 'object' && data !== null && typeof data.rules === 'string' && data.rules.includes('\n')) {
+    if (
+      typeof data === 'object' &&
+      data !== null &&
+      typeof data.rules === 'string' &&
+      data.rules.includes('\n')
+    ) {
       const { rules, ...restOfData } = data;
       // Print the rest of the data normally, if there's anything else
       if (Object.keys(restOfData).length > 0) {
@@ -46,9 +53,10 @@ const printJson = (data, isRawJson = false) => {
       // Print the rules, formatted line by line
       // Check if restOfData was empty, if so, we might not need the "rules:" header if it's the only field.
       // However, for consistency with other parts of the object, let's keep it.
-      const rulesLabel = Object.keys(restOfData).length > 0 ? '  rules:' : 'rules:';
+      const rulesLabel =
+        Object.keys(restOfData).length > 0 ? '  rules:' : 'rules:';
       console.log(rulesLabel);
-      rules.split('\n').forEach(line => {
+      rules.split('\n').forEach((line) => {
         const trimmedLine = line.trim();
         if (trimmedLine.length > 0) {
           // Basic indentation for each line of Prolog code

@@ -1,16 +1,17 @@
 // src/cli/tuiUtils/tuiCommandHandlers.js
 
-
-
-async function handleStatusCommand(tuiContext /*, args */) {
-  const { addMessage, tuiGetServerStatus, setServerStatus, setActiveLlmInfo } = tuiContext;
+async function handleStatusCommandAsync(tuiContext /*, args */) {
+  const { addMessage, tuiGetServerStatus, setServerStatus, setActiveLlmInfo } =
+    tuiContext;
 
   try {
     const statusData = await tuiGetServerStatus(); // API call
     // Update McrApp's state via setters in tuiContext for the status bar
     setServerStatus(`OK (v${statusData?.version})`);
     if (statusData?.activeLlmProvider) {
-      setActiveLlmInfo(`LLM: ${statusData.activeLlmProvider} (${statusData.activeLlmModel || 'default'})`);
+      setActiveLlmInfo(
+        `LLM: ${statusData.activeLlmProvider} (${statusData.activeLlmModel || 'default'})`
+      );
     } else {
       setActiveLlmInfo('LLM: N/A');
     }
@@ -20,7 +21,11 @@ async function handleStatusCommand(tuiContext /*, args */) {
     addMessage('output', `Version: ${statusData.version}`);
     addMessage('output', `Description: ${statusData.description}`);
   } catch (error) {
-    const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Unknown error';
+    const errorMessage =
+      error.response?.data?.error?.message ||
+      error.response?.data?.message ||
+      error.message ||
+      'Unknown error';
     addMessage('error', `Server status check failed: ${errorMessage}`);
     // Update McrApp's state via setters
     setServerStatus('Unavailable');
@@ -32,40 +37,105 @@ async function handleStatusCommand(tuiContext /*, args */) {
 function _getActiveSessionIdOrError(tuiContext, commandName) {
   const currentSessionId = tuiContext.getCurrentSessionId();
   if (!currentSessionId) {
-    tuiContext.addMessage('error', `No active session for /${commandName}. Use /create-session or chat first.`);
+    tuiContext.addMessage(
+      'error',
+      `No active session for /${commandName}. Use /create-session or chat first.`
+    );
     return null;
   }
   return currentSessionId;
 }
 
-async function handleHelpCommand(tuiContext /*, args */) {
+async function handleHelpCommandAsync(tuiContext /*, args */) {
   const { addMessage } = tuiContext;
   addMessage('system', 'Available commands:');
-  addMessage('system', '  /help                               - Show this help message');
-  addMessage('system', '  /status                             - Check MCR server status');
-  addMessage('system', '  /create-session                     - Create a new session');
-  addMessage('system', '  /get-session [id]                   - Get details for a session (current if no id)');
-  addMessage('system', '  /delete-session [id]                - Delete a session (current if no id)');
-  addMessage('system', '  /assert <text>                      - Assert facts to current session');
-  addMessage('system', '  /query <question>                   - Query current session');
-  addMessage('system', '  /explain <question>                 - Explain query for current session');
-  addMessage('system', '  /list-ontologies                    - List all global ontologies');
-  addMessage('system', '  /get-ontology <name>                - Get details of a specific ontology');
-  addMessage('system', '  /add-ontology <name> <path>         - Add a new ontology from a rules file');
-  addMessage('system', '  /update-ontology <name> <path>      - Update an ontology from a rules file');
-  addMessage('system', '  /delete-ontology <name>             - Delete an ontology');
-  addMessage('system', '  /nl2rules <text> [--facts "..."] [--ontology path/file.pl] - Translate NL to Prolog');
-  addMessage('system', '  /rules2nl <path> [--style formal|conversational] - Translate Prolog file to NL');
-  addMessage('system', '  /list-prompts                       - List all prompt templates');
-  addMessage('system', '  /show-prompt <templateName>         - Show a specific prompt template');
-  addMessage('system', '  /debug-prompt <templateName> <json> - Debug a prompt template with JSON variables');
-  addMessage('system', '  /run-demo <simpleQA|family>         - Run a demo script');
-  addMessage('system', '  /toggle-debug-chat                  - Toggle verbose output for chat messages');
-  addMessage('system', '  /exit, /quit                        - Exit the application');
+  addMessage(
+    'system',
+    '  /help                               - Show this help message'
+  );
+  addMessage(
+    'system',
+    '  /status                             - Check MCR server status'
+  );
+  addMessage(
+    'system',
+    '  /create-session                     - Create a new session'
+  );
+  addMessage(
+    'system',
+    '  /get-session [id]                   - Get details for a session (current if no id)'
+  );
+  addMessage(
+    'system',
+    '  /delete-session [id]                - Delete a session (current if no id)'
+  );
+  addMessage(
+    'system',
+    '  /assert <text>                      - Assert facts to current session'
+  );
+  addMessage(
+    'system',
+    '  /query <question>                   - Query current session'
+  );
+  addMessage(
+    'system',
+    '  /explain <question>                 - Explain query for current session'
+  );
+  addMessage(
+    'system',
+    '  /list-ontologies                    - List all global ontologies'
+  );
+  addMessage(
+    'system',
+    '  /get-ontology <name>                - Get details of a specific ontology'
+  );
+  addMessage(
+    'system',
+    '  /add-ontology <name> <path>         - Add a new ontology from a rules file'
+  );
+  addMessage(
+    'system',
+    '  /update-ontology <name> <path>      - Update an ontology from a rules file'
+  );
+  addMessage(
+    'system',
+    '  /delete-ontology <name>             - Delete an ontology'
+  );
+  addMessage(
+    'system',
+    '  /nl2rules <text> [--facts "..."] [--ontology path/file.pl] - Translate NL to Prolog'
+  );
+  addMessage(
+    'system',
+    '  /rules2nl <path> [--style formal|conversational] - Translate Prolog file to NL'
+  );
+  addMessage(
+    'system',
+    '  /list-prompts                       - List all prompt templates'
+  );
+  addMessage(
+    'system',
+    '  /show-prompt <templateName>         - Show a specific prompt template'
+  );
+  addMessage(
+    'system',
+    '  /debug-prompt <templateName> <json> - Debug a prompt template with JSON variables'
+  );
+  addMessage(
+    'system',
+    '  /run-demo <simpleQA|family>         - Run a demo script'
+  );
+  addMessage(
+    'system',
+    '  /toggle-debug-chat                  - Toggle verbose output for chat messages'
+  );
+  addMessage(
+    'system',
+    '  /exit, /quit                        - Exit the application'
+  );
 }
 
-
-async function handleCreateSessionCommand(tuiContext/*, args*/) {
+async function handleCreateSessionCommandAsync(tuiContext /*, args*/) {
   const { addMessage, agentApiCreateSession, setCurrentSessionId } = tuiContext;
   const response = await agentApiCreateSession(); // Uses the alias from chatCommand's api import
   setCurrentSessionId(response.sessionId);
@@ -73,7 +143,7 @@ async function handleCreateSessionCommand(tuiContext/*, args*/) {
   addMessage('output', response);
 }
 
-async function handleGetSessionCommand(tuiContext, args) {
+async function handleGetSessionCommandAsync(tuiContext, args) {
   const { addMessage, agentApiGetSession, getCurrentSessionId } = tuiContext; // Assuming agentApiGetSession is in context
   const targetSessionId = args[0] || getCurrentSessionId();
   if (!targetSessionId) {
@@ -85,46 +155,30 @@ async function handleGetSessionCommand(tuiContext, args) {
   addMessage('output', response);
 }
 
-async function handleDeleteSessionCommand(tuiContext, args) {
-  const { addMessage, agentApiDeleteSession, getCurrentSessionId, setCurrentSessionId } = tuiContext;
+async function handleDeleteSessionCommandAsync(tuiContext, args) {
+  const {
+    addMessage,
+    agentApiDeleteSession,
+    getCurrentSessionId,
+    setCurrentSessionId,
+  } = tuiContext;
   const targetSessionId = args[0] || getCurrentSessionId();
   if (!targetSessionId) {
     addMessage('error', 'No session ID specified and no active session.');
     return;
   }
   const response = await agentApiDeleteSession(targetSessionId);
-  addMessage('system', response.message || `Session ${targetSessionId} deleted.`);
+  addMessage(
+    'system',
+    response.message || `Session ${targetSessionId} deleted.`
+  );
   if (targetSessionId === getCurrentSessionId()) {
     setCurrentSessionId(null);
     addMessage('system', 'Active session cleared.');
   }
 }
 
-
-module.exports = {
-  handleHelpCommand,
-  handleStatusCommand,
-  handleCreateSessionCommand,
-  handleGetSessionCommand,
-  handleDeleteSessionCommand,
-  handleAssertCommand,
-  handleQueryCommand,
-  handleExplainCommand,
-  handleListOntologiesCommand,
-  handleGetOntologyCommand,
-  handleAddOntologyCommand,
-  handleUpdateOntologyCommand,
-  handleDeleteOntologyCommand,
-  handleNl2RulesCommand,
-  handleRules2NlCommand,
-  handleListPromptsCommand,
-  handleShowPromptCommand,
-  handleDebugPromptCommand,
-  handleToggleDebugChatCommand,
-  // Other handlers will be added here
-};
-
-async function handleToggleDebugChatCommand(tuiContext/*, args*/) {
+async function handleToggleDebugChatCommandAsync(tuiContext /*, args*/) {
   const { addMessage, getChatDebugMode, setChatDebugMode } = tuiContext;
   const newDebugMode = !getChatDebugMode();
   setChatDebugMode(newDebugMode);
@@ -134,13 +188,16 @@ async function handleToggleDebugChatCommand(tuiContext/*, args*/) {
   );
 }
 
-
-async function handleNl2RulesCommand(tuiContext, args) {
-  const { addMessage, nlToRules, readFileContentSafe, parseTuiCommandArgs } = tuiContext;
+async function handleNl2RulesCommandAsync(tuiContext, args) {
+  const { addMessage, nlToRules, readFileContentSafe, parseTuiCommandArgs } =
+    tuiContext;
   const parsedArgs = parseTuiCommandArgs(args);
   const text = parsedArgs._.join(' ');
   if (!text) {
-    addMessage('error', 'Usage: /nl2rules <text> [--facts "..."] [--ontology path/file.pl]');
+    addMessage(
+      'error',
+      'Usage: /nl2rules <text> [--facts "..."] [--ontology path/file.pl]'
+    );
     return;
   }
   let nlFacts = null;
@@ -149,7 +206,11 @@ async function handleNl2RulesCommand(tuiContext, args) {
     nlFacts = parsedArgs.options.facts;
   }
   if (parsedArgs.options.ontology) {
-    nlOntologyContext = readFileContentSafe(parsedArgs.options.ontology, addMessage, 'Ontology context file for /nl2rules');
+    nlOntologyContext = readFileContentSafe(
+      parsedArgs.options.ontology,
+      addMessage,
+      'Ontology context file for /nl2rules'
+    );
     if (!nlOntologyContext) return;
   }
   const response = await nlToRules(text, nlFacts, nlOntologyContext);
@@ -157,23 +218,56 @@ async function handleNl2RulesCommand(tuiContext, args) {
   addMessage('output', response);
 }
 
-async function handleRules2NlCommand(tuiContext, args) {
-  const { addMessage, rulesToNl, readFileContentSafe, parseTuiCommandArgs } = tuiContext;
+async function handleRules2NlCommandAsync(tuiContext, args) {
+  const { addMessage, rulesToNl, readFileContentSafe, parseTuiCommandArgs } =
+    tuiContext;
   const parsedArgs = parseTuiCommandArgs(args);
   const filePath = parsedArgs._[0];
   if (!filePath) {
-    addMessage('error', 'Usage: /rules2nl <filePath> [--style formal|conversational]');
+    addMessage(
+      'error',
+      'Usage: /rules2nl <filePath> [--style formal|conversational]'
+    );
     return;
   }
-  const rulesContent = readFileContentSafe(filePath, addMessage, 'Rules file for /rules2nl');
+  const rulesContent = readFileContentSafe(
+    filePath,
+    addMessage,
+    'Rules file for /rules2nl'
+  );
   if (!rulesContent) return;
   const style = parsedArgs.options.style || 'formal';
   const response = await rulesToNl(rulesContent, style);
-  addMessage('system', `Translated Rules from "${filePath}" to NL (style: ${style}):`);
+  addMessage(
+    'system',
+    `Translated Rules from "${filePath}" to NL (style: ${style}):`
+  );
   addMessage('output', response);
 }
 
-async function handleListPromptsCommand(tuiContext/*, args*/) {
+module.exports = {
+  handleHelpCommandAsync,
+  handleStatusCommandAsync,
+  handleCreateSessionCommandAsync,
+  handleGetSessionCommandAsync,
+  handleDeleteSessionCommandAsync,
+  handleAssertCommandAsync,
+  handleQueryCommandAsync,
+  handleExplainCommandAsync,
+  handleListOntologiesCommandAsync,
+  handleGetOntologyCommandAsync,
+  handleAddOntologyCommandAsync,
+  handleUpdateOntologyCommandAsync,
+  handleDeleteOntologyCommandAsync,
+  handleNl2RulesCommandAsync,
+  handleRules2NlCommandAsync,
+  handleListPromptsCommandAsync,
+  handleShowPromptCommandAsync,
+  handleDebugPromptCommandAsync,
+  handleToggleDebugChatCommandAsync,
+};
+
+async function handleListPromptsCommandAsync(tuiContext /*, args*/) {
   const { addMessage, listPrompts } = tuiContext;
   const response = await listPrompts();
   addMessage('system', 'Available prompt templates:');
@@ -184,7 +278,7 @@ async function handleListPromptsCommand(tuiContext/*, args*/) {
   }
 }
 
-async function handleShowPromptCommand(tuiContext, args) {
+async function handleShowPromptCommandAsync(tuiContext, args) {
   const { addMessage, listPrompts } = tuiContext;
   const templateName = args[0];
   if (!templateName) {
@@ -200,12 +294,15 @@ async function handleShowPromptCommand(tuiContext, args) {
   addMessage('output', allPrompts[templateName]);
 }
 
-async function handleDebugPromptCommand(tuiContext, args) {
+async function handleDebugPromptCommandAsync(tuiContext, args) {
   const { addMessage, debugFormatPrompt } = tuiContext;
   const templateName = args[0];
   const inputVariablesJson = args.slice(1).join(' ');
   if (!templateName || !inputVariablesJson) {
-    addMessage('error', 'Usage: /debug-prompt <templateName> <inputVariablesJsonString>');
+    addMessage(
+      'error',
+      'Usage: /debug-prompt <templateName> <inputVariablesJsonString>'
+    );
     return;
   }
   let inputVars;
@@ -218,12 +315,14 @@ async function handleDebugPromptCommand(tuiContext, args) {
   const response = await debugFormatPrompt(templateName, inputVars);
   addMessage('system', `Debugging prompt template '${response.templateName}':`);
   addMessage('output', `Raw Template: ${response.rawTemplate}`);
-  addMessage('output', `Input Variables: ${JSON.stringify(response.inputVariables, null, 2)}`);
+  addMessage(
+    'output',
+    `Input Variables: ${JSON.stringify(response.inputVariables, null, 2)}`
+  );
   addMessage('output', `Formatted Prompt: ${response.formattedPrompt}`);
 }
 
-
-async function handleListOntologiesCommand(tuiContext/*, args*/) {
+async function handleListOntologiesCommandAsync(tuiContext /*, args*/) {
   const { addMessage, listOntologies } = tuiContext;
   const response = await listOntologies();
   addMessage('system', 'Available Ontologies:');
@@ -231,12 +330,15 @@ async function handleListOntologiesCommand(tuiContext/*, args*/) {
     addMessage('output', 'No ontologies found.');
   } else {
     response.forEach((ont) =>
-      addMessage('output', `- ${ont.name} (${ont.rules ? ont.rules.split('\n').length : 0} rules)`)
+      addMessage(
+        'output',
+        `- ${ont.name} (${ont.rules ? ont.rules.split('\n').length : 0} rules)`
+      )
     );
   }
 }
 
-async function handleGetOntologyCommand(tuiContext, args) {
+async function handleGetOntologyCommandAsync(tuiContext, args) {
   const { addMessage, getOntology } = tuiContext;
   const ontologyName = args[0];
   if (!ontologyName) {
@@ -248,35 +350,43 @@ async function handleGetOntologyCommand(tuiContext, args) {
   addMessage('output', response);
 }
 
-async function handleAddOntologyCommand(tuiContext, args) {
+async function handleAddOntologyCommandAsync(tuiContext, args) {
   const { addMessage, agentApiAddOntology, readFileContentSafe } = tuiContext;
   const [ontologyName, filePath] = args;
   if (!ontologyName || !filePath) {
     addMessage('error', 'Usage: /add-ontology <name> <filePath>');
     return;
   }
-  const rulesContent = readFileContentSafe(filePath, addMessage, 'Ontology rules file for /add-ontology');
+  const rulesContent = readFileContentSafe(
+    filePath,
+    addMessage,
+    'Ontology rules file for /add-ontology'
+  );
   if (!rulesContent) return;
   const response = await agentApiAddOntology(ontologyName, rulesContent);
   addMessage('system', `Ontology "${ontologyName}" added:`);
   addMessage('output', response);
 }
 
-async function handleUpdateOntologyCommand(tuiContext, args) {
+async function handleUpdateOntologyCommandAsync(tuiContext, args) {
   const { addMessage, updateOntology, readFileContentSafe } = tuiContext;
   const [ontologyName, filePath] = args;
   if (!ontologyName || !filePath) {
     addMessage('error', 'Usage: /update-ontology <name> <filePath>');
     return;
   }
-  const rulesContent = readFileContentSafe(filePath, addMessage, 'Ontology rules file for /update-ontology');
+  const rulesContent = readFileContentSafe(
+    filePath,
+    addMessage,
+    'Ontology rules file for /update-ontology'
+  );
   if (!rulesContent) return;
   const response = await updateOntology(ontologyName, rulesContent);
   addMessage('system', `Ontology "${ontologyName}" updated:`);
   addMessage('output', response);
 }
 
-async function handleDeleteOntologyCommand(tuiContext, args) {
+async function handleDeleteOntologyCommandAsync(tuiContext, args) {
   const { addMessage, agentApiDeleteOntology } = tuiContext;
   const ontologyName = args[0];
   if (!ontologyName) {
@@ -284,12 +394,14 @@ async function handleDeleteOntologyCommand(tuiContext, args) {
     return;
   }
   const response = await agentApiDeleteOntology(ontologyName);
-  addMessage('system', response.message || `Ontology "${ontologyName}" deleted.`);
+  addMessage(
+    'system',
+    response.message || `Ontology "${ontologyName}" deleted.`
+  );
 }
 
-
-async function handleAssertCommand(tuiContext, args) {
-  const { addMessage, agentApiAssertFacts, getCurrentSessionId } = tuiContext;
+async function handleAssertCommandAsync(tuiContext, args) {
+  const { addMessage, agentApiAssertFacts } = tuiContext; // getCurrentSessionId removed as it's accessed via _getActiveSessionIdOrError
   const targetSessionId = _getActiveSessionIdOrError(tuiContext, 'assert');
   if (!targetSessionId) return;
 
@@ -303,8 +415,15 @@ async function handleAssertCommand(tuiContext, args) {
   addMessage('output', response);
 }
 
-async function handleQueryCommand(tuiContext, args) {
-  const { addMessage, agentApiQuery, getCurrentSessionId, getInitialOntologyPath, readFileContentSafe, getChatDebugMode } = tuiContext;
+async function handleQueryCommandAsync(tuiContext, args) {
+  const {
+    addMessage,
+    agentApiQuery,
+    // getCurrentSessionId, // Removed, accessed via _getActiveSessionIdOrError
+    getInitialOntologyPath,
+    readFileContentSafe,
+    getChatDebugMode,
+  } = tuiContext;
   const targetSessionId = _getActiveSessionIdOrError(tuiContext, 'query');
   if (!targetSessionId) return;
 
@@ -318,12 +437,20 @@ async function handleQueryCommand(tuiContext, args) {
   const initialOntologyPath = getInitialOntologyPath();
   if (initialOntologyPath) {
     // readFileContentSafe is passed in tuiContext and expects (filePath, addMessageCallback, fileDescription)
-    queryOntologyContent = readFileContentSafe(initialOntologyPath, addMessage, 'Startup ontology for query context');
+    queryOntologyContent = readFileContentSafe(
+      initialOntologyPath,
+      addMessage,
+      'Startup ontology for query context'
+    );
   }
   // If readFileContentSafe returns null (error occurred), it would have already called addMessage.
   // So, we should bail out if initialOntologyPath was provided but content couldn't be read.
-  if (initialOntologyPath && !queryOntologyContent && initialOntologyPath !== '') return;
-
+  if (
+    initialOntologyPath &&
+    !queryOntologyContent &&
+    initialOntologyPath !== ''
+  )
+    return;
 
   const chatDebugMode = getChatDebugMode();
   const response = await agentApiQuery(
@@ -336,19 +463,27 @@ async function handleQueryCommand(tuiContext, args) {
   addMessage('mcr', response.answer || JSON.stringify(response));
 
   // Conditional logging based on debug mode and response content
-  if (chatDebugMode) { // Check debug mode first
+  if (chatDebugMode) {
+    // Check debug mode first
     if (response.debug) addMessage('output', { debugInfo: response.debug });
-    if (response.translation) addMessage('output', { translation: response.translation });
-    if (response.prologOutput) addMessage('output', { prolog: response.prologOutput });
-  } else if (response.debug && typeof response.debug === 'object' && Object.keys(response.debug).length > 0 && response.answer) {
+    if (response.translation)
+      addMessage('output', { translation: response.translation });
+    if (response.prologOutput)
+      addMessage('output', { prolog: response.prologOutput });
+  } else if (
+    response.debug &&
+    typeof response.debug === 'object' &&
+    Object.keys(response.debug).length > 0 &&
+    response.answer
+  ) {
     // If not in chatDebugMode but server sent debug info anyway (e.g. server-side forced debug)
     // and there is an answer, show a concise version or just a note.
     // For now, only show if chatDebugMode is explicitly on.
   }
 }
 
-async function handleExplainCommand(tuiContext, args) {
-  const { addMessage, agentApiExplainQuery, getCurrentSessionId } = tuiContext;
+async function handleExplainCommandAsync(tuiContext, args) {
+  const { addMessage, agentApiExplainQuery } = tuiContext; // getCurrentSessionId removed
   const targetSessionId = _getActiveSessionIdOrError(tuiContext, 'explain');
   if (!targetSessionId) return;
 
@@ -359,6 +494,9 @@ async function handleExplainCommand(tuiContext, args) {
   }
   // Ensure agentApiExplainQuery is passed in tuiContext from McrApp
   const response = await agentApiExplainQuery(targetSessionId, explainQuestion);
-  addMessage('system', `Explanation for query in session ${targetSessionId}: "${explainQuestion}"`);
+  addMessage(
+    'system',
+    `Explanation for query in session ${targetSessionId}: "${explainQuestion}"`
+  );
   addMessage('output', response);
 }

@@ -100,16 +100,30 @@ jest.mock('../src/llmService', () => {
     init: jest.fn(), // mcr.js will call this, but actualLlmService is already prepared.
 
     // Mock other methods as before
-    nlToRulesAsync: jest.fn().mockResolvedValue(['mock_rule(integration_test).']),
-    queryToPrologAsync: jest.fn().mockResolvedValue('mock_query_integration(Y).'),
-    resultToNlAsync: jest.fn().mockImplementation((_query, logicResultJsonString, _style) => {
-      if (logicResultJsonString === JSON.stringify('No solution found.')) {
-        return Promise.resolve('No, there is no solution for integration test.');
-      }
-      return Promise.resolve(`Yes, the mock integration answer is based on: ${logicResultJsonString}`);
-    }),
-    rulesToNlAsync: jest.fn().mockResolvedValue('Mock natural language explanation of rules.'),
-    explainQueryAsync: jest.fn().mockResolvedValue('Mock explanation for the query.'),
+    nlToRulesAsync: jest
+      .fn()
+      .mockResolvedValue(['mock_rule(integration_test).']),
+    queryToPrologAsync: jest
+      .fn()
+      .mockResolvedValue('mock_query_integration(Y).'),
+    resultToNlAsync: jest
+      .fn()
+      .mockImplementation((_query, logicResultJsonString, _style) => {
+        if (logicResultJsonString === JSON.stringify('No solution found.')) {
+          return Promise.resolve(
+            'No, there is no solution for integration test.'
+          );
+        }
+        return Promise.resolve(
+          `Yes, the mock integration answer is based on: ${logicResultJsonString}`
+        );
+      }),
+    rulesToNlAsync: jest
+      .fn()
+      .mockResolvedValue('Mock natural language explanation of rules.'),
+    explainQueryAsync: jest
+      .fn()
+      .mockResolvedValue('Mock explanation for the query.'),
     getPromptTemplates: jest.fn().mockImplementation(() => {
       const ActualPrompts = jest.requireActual('../src/prompts');
       return {
@@ -119,10 +133,12 @@ jest.mock('../src/llmService', () => {
         RESULT_TO_NL: ActualPrompts.RESULT_TO_NL,
         EXPLAIN_QUERY: ActualPrompts.EXPLAIN_QUERY,
         RULES_TO_NL: ActualPrompts.RULES_TO_NL,
-        ZERO_SHOT_QUERY: ActualPrompts.ZERO_SHOT_QUERY // Added for completeness
+        ZERO_SHOT_QUERY: ActualPrompts.ZERO_SHOT_QUERY, // Added for completeness
       };
     }),
-    getZeroShotAnswerAsync: jest.fn().mockResolvedValue('Mock zero shot answer from integration test'),
+    getZeroShotAnswerAsync: jest
+      .fn()
+      .mockResolvedValue('Mock zero shot answer from integration test'),
   };
 });
 

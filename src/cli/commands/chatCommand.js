@@ -1,9 +1,13 @@
 /* eslint-disable no-console */
+const path = require('path'); // Added path import
 const api = require('../api'); // Import all exported functions from api.js
 // Axios, spawn, path are no longer directly needed here if serverManager handles them.
 // ConfigManager is still needed for other parts.
 const ConfigManager = require('../../config');
-const { isServerAliveAsync, startMcrServerAsync } = require('../tuiUtils/serverManager');
+const {
+  isServerAliveAsync,
+  startMcrServerAsync,
+} = require('../tuiUtils/serverManager');
 // const chatDemos = require('../tuiUtils/chatDemos'); // No longer needed here
 const tuiCmdHandlers = require('../tuiUtils/tuiCommandHandlers'); // Import new command handlers
 const { parseTuiCommandArgs, readFileContentSafe, delay } = require('../utils'); // Ensure all utils are from here or passed in context
@@ -53,16 +57,17 @@ const McrApp = ({
   const [currentSessionId, setCurrentSessionId] =
     React.useState(initialSessionId);
   const [serverStatus, setServerStatus] = React.useState('Checking...');
-  const [activeLlmInfo, setActiveLlmInfo] = React.useState('Provider: N/A, Model: N/A'); // New state for LLM info
-  const [currentOntologyDisplay, _setCurrentOntologyDisplay] = React.useState(
-    // Marked unused
+  const [activeLlmInfo, setActiveLlmInfo] = React.useState(
+    'Provider: N/A, Model: N/A'
+  ); // New state for LLM info
+  const [currentOntologyDisplay] = React.useState( // _setCurrentOntologyDisplay removed
     initialOntologyPath ? path.basename(initialOntologyPath) : 'None'
   );
   // const [isDemoRunning, setIsDemoRunning] = React.useState(false); // Removed
   const [chatDebugMode, setChatDebugMode] = React.useState(false);
 
   React.useEffect(() => {
-    const initApp = async () => {
+    const initAppAsync = async () => {
       const welcomeMessages = [
         {
           type: 'system',
@@ -87,11 +92,11 @@ const McrApp = ({
         });
       }
       setMessages(welcomeMessages);
-      await checkServerStatusAsync(); // Ensure await if checkServerStatusAsync is async
+      await checkServerStatusAsync();
     };
 
     initApp();
-  }, [currentSessionId, initialOntologyPath]); // Added currentSessionId to dependencies as it's used
+  }, [currentSessionId, initialOntologyPath, checkServerStatusAsync]); // Added checkServerStatusAsync to dependencies
 
   /**
    * Adds a message to the TUI output.
@@ -117,7 +122,9 @@ const McrApp = ({
       const statusData = await tuiGetServerStatus(); // Use the new helper
       setServerStatus(`OK (v${statusData?.version})`);
       if (statusData?.activeLlmProvider) {
-        setActiveLlmInfo(`LLM: ${statusData.activeLlmProvider} (${statusData.activeLlmModel || 'default'})`);
+        setActiveLlmInfo(
+          `LLM: ${statusData.activeLlmProvider} (${statusData.activeLlmModel || 'default'})`
+        );
       } else {
         setActiveLlmInfo('LLM: N/A');
       }
@@ -160,7 +167,7 @@ const McrApp = ({
     // Ensure all functions used by handlers are included in tuiContext.
     agentApiCreateSession,
     agentApiAssertFacts, // Used by handleAssertCommand
-    agentApiQuery,       // Used by handleQueryCommand
+    agentApiQuery, // Used by handleQueryCommand
     agentApiDeleteSession,
     agentApiAddOntology,
     agentApiDeleteOntology,
@@ -181,7 +188,6 @@ const McrApp = ({
     debugFormatPrompt: api.debugFormatPrompt,
   };
 
-
   /**
    * Handles slash commands entered by the user.
    * @param {string} command - The command name (without the slash).
@@ -198,10 +204,7 @@ const McrApp = ({
     // }
     addMessage('command', `Executing: /${command} ${args.join(' ')}`);
     setInputValue('');
-    // Variables declared here will be scoped to the function, not the switch cases.
-    let targetSessionId;
-    let ontologyName, filePath, rulesContent, response;
-    let text, templateName, inputVariablesJson, parsedArgs, _options;
+    // Unused variables removed: targetSessionId, ontologyName, filePath, rulesContent, response, text, templateName, inputVariablesJson, parsedArgs, _options
 
     try {
       // Pass tuiContext to all handlers
@@ -316,7 +319,10 @@ const McrApp = ({
           return; // Important to return after exit
         }
         default:
-          addMessage('error', `Unknown command: /${command}. Type /help for available commands.`);
+          addMessage(
+            'error',
+            `Unknown command: /${command}. Type /help for available commands.`
+          );
       }
     } catch (error) {
       const errorSource = error.isAxiosError ? 'API Error' : 'Command Error';
@@ -452,7 +458,6 @@ const McrApp = ({
       addMessage('system', 'Ctrl+C detected. Exiting...');
       await onExitTrigger(currentSessionId);
       exit();
-
     }
   });
 
@@ -609,7 +614,9 @@ async function startAppAsync(options, command) {
         mcrServerProcess = await startMcrServerAsync(programOpts);
         mcrServerStartedByThisTui = true;
         // serverStartedByChat = true; // This global is removed
-        console.log('MCR server process started. Waiting a moment for it to initialize...');
+        console.log(
+          'MCR server process started. Waiting a moment for it to initialize...'
+        );
         await new Promise((resolve) => setTimeout(resolve, 1500)); // Initial delay for server to boot
         if (!(await isServerAliveAsync(healthCheckUrl, 3, 500))) {
           throw new Error(
@@ -650,7 +657,9 @@ async function startAppAsync(options, command) {
         try {
           if (mcrServerProcess.pid) {
             process.kill(mcrServerProcess.pid, 'SIGTERM');
-            console.log(`Kill signal sent to MCR server process (PID: ${mcrServerProcess.pid}).`);
+            console.log(
+              `Kill signal sent to MCR server process (PID: ${mcrServerProcess.pid}).`
+            );
           }
         } catch (e) {
           console.warn(
@@ -690,8 +699,7 @@ async function startAppAsync(options, command) {
     if (mcrServerProcess && mcrServerStartedByThisTui) {
       console.log('Attempting to stop MCR server due to critical error...');
       try {
-        if (mcrServerProcess.pid)
-          process.kill(mcrServerProcess.pid, 'SIGTERM');
+        if (mcrServerProcess.pid) process.kill(mcrServerProcess.pid, 'SIGTERM');
       } catch (e) {
         console.warn(
           'Could not send kill signal to server process during error exit.',

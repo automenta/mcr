@@ -14,14 +14,19 @@ const OllamaProvider = require('./llmProviders/ollamaProvider');
 // Helper function to clean raw Prolog query string from LLM
 function _cleanPrologQueryResult(rawPrologString) {
   if (typeof rawPrologString !== 'string') {
-    logger.warn('_cleanPrologQueryResult received non-string input, returning as is.', { inputType: typeof rawPrologString });
+    logger.warn(
+      '_cleanPrologQueryResult received non-string input, returning as is.',
+      { inputType: typeof rawPrologString }
+    );
     return rawPrologString;
   }
 
   let cleanedString = rawPrologString.trim();
 
   // Remove Markdown code fences (e.g., ```prolog ... ``` or ``` ... ```)
-  cleanedString = cleanedString.replace(/^```(?:prolog)?\s*/, '').replace(/\s*```$/, '');
+  cleanedString = cleanedString
+    .replace(/^```(?:prolog)?\s*/, '')
+    .replace(/\s*```$/, '');
 
   // Remove surrounding single backticks
   if (cleanedString.startsWith('`') && cleanedString.endsWith('`')) {
@@ -193,13 +198,16 @@ const LlmService = {
       return result;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      logger.error(`Unhandled error in ${errorContext.methodName} after _invokeChainAsync.`, {
-        internalErrorCode: errorContext.internalErrorCode,
-        templateName,
-        inputVariables,
-        error: error.message,
-        stack: error.stack,
-      });
+      logger.error(
+        `Unhandled error in ${errorContext.methodName} after _invokeChainAsync.`,
+        {
+          internalErrorCode: errorContext.internalErrorCode,
+          templateName,
+          inputVariables,
+          error: error.message,
+          stack: error.stack,
+        }
+      );
       throw new ApiError(500, errorContext.customErrorMessage);
     }
   },
@@ -252,9 +260,11 @@ const LlmService = {
       );
       const result = await chain.invoke(formattedPrompt);
       // Log preview of result, as full result can be large
-      const resultPreview = typeof result === 'string'
-        ? result.substring(0,100) + (result.length > 100 ? '...' : '')
-        : JSON.stringify(result).substring(0,100) + (JSON.stringify(result).length > 100 ? '...' : '');
+      const resultPreview =
+        typeof result === 'string'
+          ? result.substring(0, 100) + (result.length > 100 ? '...' : '')
+          : JSON.stringify(result).substring(0, 100) +
+            (JSON.stringify(result).length > 100 ? '...' : '');
       logger.debug(
         'LLM chain invocation successful for provider %s. Result preview: %s',
         this._activeProviderName,
@@ -285,7 +295,10 @@ const LlmService = {
       let errorCode = 'LLM_PROVIDER_GENERAL_ERROR';
 
       // Add specific advice for Ollama fetch errors
-      if (providerName === 'ollama' && error.message?.toLowerCase().includes('fetch failed')) {
+      if (
+        providerName === 'ollama' &&
+        error.message?.toLowerCase().includes('fetch failed')
+      ) {
         message += ` (Ensure Ollama server is running and accessible at the configured MCR_LLM_OLLAMA_BASE_URL: ${this._appConfig.llm.ollamaBaseUrl}. Also, verify the model '${this._appConfig.llm.model.ollama}' is available in Ollama.)`;
       }
 
@@ -332,7 +345,8 @@ const LlmService = {
     // This regex replaces periods followed by optional spaces,
     // but only if they are NOT already followed by a newline or the end of the string,
     // with ".[newline]".
-    if (text.includes('.') && text.split('.').length > 2) { // More than one statement
+    if (text.includes('.') && text.split('.').length > 2) {
+      // More than one statement
       processedText = text.replace(/\.\s*(?![\n\r]|$)/g, '.\n');
     }
 
@@ -462,7 +476,12 @@ const LlmService = {
   },
 
   getActiveModelName() {
-    if (this._activeProviderName && this._appConfig && this._appConfig.llm && this._appConfig.llm.model) {
+    if (
+      this._activeProviderName &&
+      this._appConfig &&
+      this._appConfig.llm &&
+      this._appConfig.llm.model
+    ) {
       return this._appConfig.llm.model[this._activeProviderName];
     }
     return 'unknown';

@@ -46,14 +46,20 @@ const ConfigManager = {
     } else {
       if (process.env.GEMINI_API_KEY) {
         chosenProvider = 'gemini';
-        logger.info('MCR_LLM_PROVIDER not set and GEMINI_API_KEY found. Defaulting LLM provider to Gemini.');
+        logger.info(
+          'MCR_LLM_PROVIDER not set and GEMINI_API_KEY found. Defaulting LLM provider to Gemini.'
+        );
       } else if (process.env.OPENAI_API_KEY) {
         chosenProvider = 'openai';
-        logger.info('MCR_LLM_PROVIDER not set, OPENAI_API_KEY found (and GEMINI_API_KEY not found). Defaulting LLM provider to OpenAI.');
+        logger.info(
+          'MCR_LLM_PROVIDER not set, OPENAI_API_KEY found (and GEMINI_API_KEY not found). Defaulting LLM provider to OpenAI.'
+        );
       } else {
         // Fallback to ollama if no keys and no explicit provider, as it's local and doesn't require keys.
         chosenProvider = 'ollama';
-        logger.info('MCR_LLM_PROVIDER not set, and no OpenAI/Gemini API keys found. Defaulting LLM provider to Ollama.');
+        logger.info(
+          'MCR_LLM_PROVIDER not set, and no OpenAI/Gemini API keys found. Defaulting LLM provider to Ollama.'
+        );
       }
     }
 

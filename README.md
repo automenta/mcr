@@ -221,7 +221,7 @@ The `mcr chat` command starts a full-application TUI that serves as your "home" 
   - `/status`: Checks and displays the MCR server status.
   - `/create-session`: Creates a new reasoning session.
   - `/list-ontologies`: Lists all globally stored ontologies.
-  // Demo execution is now handled by `mcr demo run <demoName>`
+    // Demo execution is now handled by `mcr demo run <demoName>`
 - **Exiting**: Type `/exit`, `/quit`, or press `Ctrl+C`.
 
 **Key TUI Commands (obtain the full up-to-date list with `/help` inside the TUI):**
@@ -306,8 +306,8 @@ This MCR server can be exposed as a set of tools to AI clients that support the 
 To connect Claude Desktop to this MCR server, you need to modify your `claude_desktop_config.json` file.
 
 1.  **Locate the configuration file:**
-    *   On **macOS**, this file is typically found at: `~/Library/Application Support/Claude/claude_desktop_config.json`
-    *   On other operating systems, the location may vary. Please refer to the Claude Desktop documentation.
+    - On **macOS**, this file is typically found at: `~/Library/Application Support/Claude/claude_desktop_config.json`
+    - On other operating systems, the location may vary. Please refer to the Claude Desktop documentation.
 
 2.  **Add the MCR server configuration:**
     Open `claude_desktop_config.json` in a text editor and add the following entry to the `mcpServers` object. If `mcpServers` doesn't exist, create it.
@@ -336,9 +336,9 @@ To connect Claude Desktop to this MCR server, you need to modify your `claude_de
     ```
 
     **Notes:**
-    *   Replace `"mcr-reasoner-server"` with any unique key you prefer for this server.
-    *   The `url` field defaults to `http://localhost:8080/mcp/sse`. If your MCR server is running on a different port (configured via the `PORT` environment variable) or host, update this URL accordingly.
-    *   The `allowed_tools` array lists the tools that will be available from this MCR server.
+    - Replace `"mcr-reasoner-server"` with any unique key you prefer for this server.
+    - The `url` field defaults to `http://localhost:8080/mcp/sse`. If your MCR server is running on a different port (configured via the `PORT` environment variable) or host, update this URL accordingly.
+    - The `allowed_tools` array lists the tools that will be available from this MCR server.
 
 3.  **Restart Claude Desktop:**
     After saving the changes to `claude_desktop_config.json`, restart Claude Desktop for the new configuration to take effect.
