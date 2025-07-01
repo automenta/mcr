@@ -36,6 +36,8 @@ This combination unlocks possibilities for more robust, explainable, and sophist
   - **OpenAI** (e.g., GPT-4o)
   - **Google Gemini** (e.g., `gemini-pro`)
   - Local **Ollama** models (e.g., `llama3`)
+  - **Anthropic** (e.g., Claude 3 Opus)
+  - **Generic OpenAI-compatible HTTP REST Endpoint**: Allows connection to any API service that adheres to the OpenAI API specifications (e.g., locally hosted models via tools like LiteLLM, Ollama's OpenAI endpoint, or custom API proxies).
     The LLM provider is easily selectable via configuration.
 - **Robust Error Handling**: Features a custom `ApiError` class and centralized error-handling middleware for consistent and predictable API responses.
 - **Configuration Validation**: Robust configuration loading with clear startup checks for required API keys.
@@ -165,6 +167,17 @@ This demonstrates how any application can integrate MCR's reasoning power.
     # MCR_LLM_PROVIDER="ollama"
     # MCR_LLM_MODEL_OLLAMA="llama3" # Optional, defaults to llama3
     # MCR_LLM_OLLAMA_BASE_URL="http://localhost:11434" # Optional, defaults to http://localhost:11434
+
+    # For Generic OpenAI-compatible API
+    # MCR_LLM_PROVIDER="generic_openai"
+    # MCR_LLM_MODEL_GENERIC_OPENAI="your-model-name" # REQUIRED: Model name for the generic endpoint
+    # MCR_LLM_GENERIC_OPENAI_BASE_URL="http://localhost:8000/v1" # REQUIRED: Base URL of the API
+    # MCR_LLM_GENERIC_OPENAI_API_KEY="your_api_key_if_needed" # Optional: API key if needed
+
+    # For Anthropic
+    # MCR_LLM_PROVIDER="anthropic"
+    # ANTHROPIC_API_KEY="sk-ant-..." # REQUIRED
+    # MCR_LLM_MODEL_ANTHROPIC="claude-3-opus-20240229" # Optional, defaults to claude-3-opus-20240229
 
     # --- OPTIONAL GENERAL SETTINGS ---
     # MCR_API_URL="http://localhost:8080" # For CLI: defaults to http://localhost:8080 if server is local

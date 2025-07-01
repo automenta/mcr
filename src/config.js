@@ -1,7 +1,7 @@
 const dotenv = require('dotenv');
 const { logger } = require('./logger');
 
-const SUPPORTED_PROVIDERS = ['openai', 'gemini', 'ollama'];
+const SUPPORTED_PROVIDERS = ['openai', 'gemini', 'ollama', 'generic_openai', 'anthropic'];
 
 const ConfigManager = {
   _config: null,
@@ -74,13 +74,18 @@ const ConfigManager = {
           openai: process.env.MCR_LLM_MODEL_OPENAI || 'gpt-4o',
           gemini: process.env.MCR_LLM_MODEL_GEMINI || 'gemini-pro',
           ollama: process.env.MCR_LLM_MODEL_OLLAMA || 'llama3',
+          generic_openai: process.env.MCR_LLM_MODEL_GENERIC_OPENAI || 'your-model-name',
+          anthropic: process.env.MCR_LLM_MODEL_ANTHROPIC || 'claude-3-opus-20240229',
         },
         apiKey: {
           openai: process.env.OPENAI_API_KEY,
           gemini: process.env.GEMINI_API_KEY,
+          generic_openai: process.env.MCR_LLM_GENERIC_OPENAI_API_KEY, // Optional
+          anthropic: process.env.ANTHROPIC_API_KEY,
         },
         ollamaBaseUrl:
           process.env.MCR_LLM_OLLAMA_BASE_URL || 'http://localhost:11434',
+        genericOpenaiBaseUrl: process.env.MCR_LLM_GENERIC_OPENAI_BASE_URL,
       },
       logging: {
         level: (process.env.LOG_LEVEL || 'info').toLowerCase(),
@@ -115,7 +120,8 @@ const ConfigManager = {
   },
 
   validate(configToValidate) {
-    const { provider, apiKey, ollamaBaseUrl } = configToValidate.llm;
+    const { provider, model, apiKey, ollamaBaseUrl, genericOpenaiBaseUrl } =
+      configToValidate.llm;
 
     if (!SUPPORTED_PROVIDERS.includes(provider)) {
       throw new Error(
@@ -135,6 +141,12 @@ const ConfigManager = {
         keyName: 'gemini',
         envVar: 'GEMINI_API_KEY',
         serviceName: 'Gemini',
+      },
+      {
+        name: 'anthropic',
+        keyName: 'anthropic',
+        envVar: 'ANTHROPIC_API_KEY',
+        serviceName: 'Anthropic',
       },
     ];
 
@@ -168,6 +180,43 @@ const ConfigManager = {
           `Configuration Error: MCR_LLM_OLLAMA_BASE_URL ('${ollamaBaseUrl}') is not a valid URL.`
         );
       }
+    }
+
+    if (provider === 'generic_openai') {
+      if (!genericOpenaiBaseUrl || genericOpenaiBaseUrl.trim() === '') {
+        throw new Error(
+          `Configuration Error: MCR_LLM_PROVIDER is 'generic_openai', but MCR_LLM_GENERIC_OPENAI_BASE_URL is missing or empty. ` +
+            `Please set MCR_LLM_GENERIC_OPENAI_BASE_URL.`
+        );
+      }
+      try {
+        new URL(genericOpenaiBaseUrl);
+      } catch {
+        throw new Error(
+          `Configuration Error: MCR_LLM_GENERIC_OPENAI_BASE_URL ('${genericOpenaiBaseUrl}') is not a valid URL.`
+        );
+      }
+      if (!model.generic_openai || model.generic_openai.trim() === '' || model.generic_openai === 'your-model-name') {
+        throw new Error(
+          `Configuration Error: MCR_LLM_PROVIDER is 'generic_openai', but MCR_LLM_MODEL_GENERIC_OPENAI is missing or not set from default. ` +
+            `Please set MCR_LLM_MODEL_GENERIC_OPENAI to your desired model name.`
+        );
+      }
+      // API key for generic_openai is optional, so no specific warning if it's missing here.
+      // The provider itself will log an info message if it's not provided.
+    }
+
+    if (provider === 'anthropic') {
+      // ANTHROPIC_API_KEY presence is ensured by the providerChecks loop.
+      // Model name presence is critical for the Anthropic provider.
+      if (!model.anthropic || model.anthropic.trim() === '') {
+        // This covers if MCR_LLM_MODEL_ANTHROPIC is explicitly set to empty OR if the default in loadedConfig is somehow empty.
+        throw new Error(
+          `Configuration Error: MCR_LLM_PROVIDER is 'anthropic', but its model name (MCR_LLM_MODEL_ANTHROPIC) is missing or empty. ` +
+          `Please set MCR_LLM_MODEL_ANTHROPIC or ensure the default in config.js is valid.`
+        );
+      }
+      // The anthropicProvider.js will also validate the modelName it receives.
     }
 
     if (

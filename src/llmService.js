@@ -10,6 +10,8 @@ const PROMPT_TEMPLATES = require('./prompts');
 const OpenAiProvider = require('./llmProviders/openaiProvider');
 const GeminiProvider = require('./llmProviders/geminiProvider');
 const OllamaProvider = require('./llmProviders/ollamaProvider');
+const GenericOpenaiProvider = require('./llmProviders/genericOpenaiProvider');
+const AnthropicProvider = require('./llmProviders/anthropicProvider');
 
 // Helper function to clean raw Prolog query string from LLM
 function _cleanPrologQueryResult(rawPrologString) {
@@ -119,6 +121,8 @@ const LlmService = {
       this.registerProvider(OpenAiProvider);
       this.registerProvider(GeminiProvider);
       this.registerProvider(OllamaProvider);
+      this.registerProvider(GenericOpenaiProvider);
+      this.registerProvider(AnthropicProvider);
       providerStrategy = this._providerStrategies[providerName];
     }
 
