@@ -74,7 +74,7 @@ async function getServerStatusCliAsync(options, commandInstance) {
 module.exports = (program) => {
   program
     .command('status')
-    .description('Get the MCR server status and information')
+    .description('Get the MCR server status and information. This command does NOT attempt to auto-start the server.')
     .action(getServerStatusCliAsync);
 };
 

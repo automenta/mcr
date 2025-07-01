@@ -23,7 +23,7 @@ async function startMcrServerAsync(_programOpts) {
   console.log('Starting MCR server (from tuiUtils/serverManager.js)...');
 
   // __dirname here will be src/cli/tuiUtils
-  const mcrScriptPath = path.resolve(__dirname, '../../../../mcr.js'); // Adjusted path: tuiUtils -> cli -> src -> project_root
+  const mcrScriptPath = path.resolve(__dirname, '../../../mcr.js'); // Corrected path: tuiUtils -> cli -> src -> project_root
   let serverStdErr = '';
   const serverInstance = spawn('node', [mcrScriptPath], {
     detached: true,
@@ -44,8 +44,11 @@ async function startMcrServerAsync(_programOpts) {
     });
 
     serverInstance.on('exit', (code, signal) => {
-      if (code !== 0 && signal !== 'SIGTERM') {
-        const errorMessage = `MCR server process exited with code ${code} and signal ${signal}. Stderr: ${serverStdErr}`;
+      // Enhanced logging for debugging server spawn issues
+      // eslint-disable-next-line no-console
+      console.error(`[serverManagerDebug] MCR server process exited. Code: ${code}, Signal: ${signal}. Stderr collected so far: ${serverStdErr}`);
+      if (code !== 0 && !(code === null && signal === 'SIGTERM')) { // SIGTERM can be a graceful shutdown
+        const errorMessage = `MCR server process exited abnormally. Code: ${code}, Signal: ${signal}. Stderr: ${serverStdErr}`;
         // eslint-disable-next-line no-console
         console.error(errorMessage);
       }
@@ -54,26 +57,34 @@ async function startMcrServerAsync(_programOpts) {
     serverInstance.unref();
 
     const config = ConfigManager.get();
-    const healthCheckUrl = `http://${config.server.host}:${config.server.port}/`;
+    const healthCheckUrl = `http://${config.server.host}:${config.server.port}/`; // Ensure this matches server's actual listening address
 
-    isServerAliveAsync(healthCheckUrl, 10, 500)
+    isServerAliveAsync(healthCheckUrl, 10, 500) // Increased retries slightly for potentially slow CI
       .then((alive) => {
         if (alive) {
           resolve(serverInstance);
         } else {
-          if (serverStdErr) {
+          // This block is critical for diagnosing startup failures
+          // eslint-disable-next-line no-console
+          console.error(`[serverManagerDebug] Health check failed for ${healthCheckUrl}. ServerStdErr at this point: ${serverStdErr}`);
+          if (serverStdErr) { // Check if serverStdErr has content
             // eslint-disable-next-line no-console
-            console.error('MCR Server (spawned from tuiUtils) stderr before failing health check:', serverStdErr);
+            console.error('MCR Server (spawned from tuiUtils) stderr content before failing health check:', serverStdErr);
+          } else {
+            // eslint-disable-next-line no-console
+            console.error('MCR Server (spawned from tuiUtils) produced no stderr output before failing health check, or it exited cleanly before responding.');
           }
-          reject(new Error('Server failed to start or become healthy.'));
+          reject(new Error(`Server failed to start or become healthy at ${healthCheckUrl}. Check logs for details.`));
         }
       })
-      .catch((err) => {
+      .catch((err) => { // Catch errors from isServerAliveAsync itself or from the promise chain
+        // eslint-disable-next-line no-console
+        console.error(`[serverManagerDebug] Error during server health check or preceding promise for ${healthCheckUrl}. Error: ${err.message}. ServerStdErr: ${serverStdErr}`);
         if (serverStdErr) {
             // eslint-disable-next-line no-console
-            console.error('MCR Server (spawned from tuiUtils) stderr on error:', serverStdErr);
+            console.error('MCR Server (spawned from tuiUtils) stderr on error/catch:', serverStdErr);
         }
-        reject(err);
+        reject(err); // Propagate the error
       });
   });
 }

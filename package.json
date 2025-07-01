@@ -4,7 +4,7 @@
   "description": "Connect LLMs and Logic",
   "main": "mcr.js",
   "bin": {
-    "mcr": "./src/cli.js"
+    "mcr": "./mcr.js"
   },
   "scripts": {
     "start": "node mcr.js",

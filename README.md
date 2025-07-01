@@ -57,7 +57,7 @@ b. **Configure LLM:** Create a `.env` file in the project root (see [.env.exampl
 c. **Launch the Interactive TUI:** This is the easiest way to start. The TUI will also attempt to start the MCR server if it's not already running.
 `bash
       mcr chat
-      # Or: node src/cli.js chat
+      # Or: node mcr.js chat
       `
 You're now in the MCR TUI! Try typing `/help` or a simple statement like "The sky is blue." followed by "What color is the sky?".
 
