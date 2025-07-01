@@ -1,10 +1,13 @@
 /* eslint-disable no-console */
 const api = require('../api'); // Import all exported functions from api.js
 const { readFileContentSafe, delay } = require('../utils'); // Removed readOntologyFile
-const axios = require('axios'); // Still needed for isServerAlive check directly
-const { spawn } = require('child_process');
-const path = require('path');
+// Axios, spawn, path are no longer directly needed here if serverManager handles them.
+// ConfigManager is still needed for other parts.
 const ConfigManager = require('../../config');
+const { isServerAliveAsync, startMcrServerAsync } = require('../tuiUtils/serverManager');
+const chatDemos = require('../tuiUtils/chatDemos');
+const tuiCmdHandlers = require('../tuiUtils/tuiCommandHandlers'); // Import new command handlers
+const { parseTuiCommandArgs, readFileContentSafe, delay } = require('../utils'); // Ensure all utils are from here or passed in context
 
 // Ink and React will be required dynamically inside startAppAsync
 let React;
@@ -24,126 +27,10 @@ const {
   getServerStatus: tuiGetServerStatus, // Alias for clarity
 } = api;
 
-// Helper to parse simple command line options like --option value
-// For TUI internal commands, not a full CLI parser.
-/**
- * Parses simple command line arguments (like --option value) for TUI internal commands.
- * This is not a full CLI parser.
- * @param {string[]} args - Array of argument strings.
- * @returns {{options: object, _: string[]}} Parsed options and remaining arguments.
- */
-function parseTuiCommandArgs(args) {
-  const options = {};
-  const remainingArgs = [];
-  let currentOption = null;
+// parseTuiCommandArgs is now imported from ../utils
+// Demo functions (runSimpleQADemo, runFamilyOntologyDemo) are now imported from ../tuiUtils/chatDemos
 
-  for (const arg of args) {
-    if (arg.startsWith('--')) {
-      currentOption = arg.substring(2);
-      options[currentOption] = true; // Default to true if it's a flag
-    } else if (currentOption) {
-      options[currentOption] = arg;
-      currentOption = null;
-    } else {
-      remainingArgs.push(arg);
-    }
-  }
-  return { options, _: remainingArgs };
-}
-
-let serverProcess = null;
-let serverStartedByChat = false; // Tracks if this TUI instance started the server
-
-/**
- * Checks if the MCR server is alive by making a GET request to its root.
- * @param {string} url - The base URL of the MCR server.
- * @param {number} [retries=5] - Number of times to retry.
- * @param {number} [delayTime=1000] - Time in ms to wait between retries.
- * @returns {Promise<boolean>} True if server is alive, false otherwise.
- */
-async function isServerAliveAsync(url, retries = 5, delayTime = 1000) {
-  // Renamed
-  for (let i = 0; i < retries; i++) {
-    try {
-      await axios.get(url, { timeout: 500 }); // Using axios directly for a simple health check
-      return true;
-    } catch {
-      // Removed unused 'error'
-      if (i < retries - 1) {
-        await new Promise((resolve) => setTimeout(resolve, delayTime));
-      }
-    }
-  }
-  return false;
-}
-
-/**
- * Starts the MCR server as a detached background process.
- * @param {object} _programOpts - Commander program options (used for conditional logging, currently unused directly).
- * @returns {Promise<void>} Resolves when server is started and detected as healthy, or rejects on error.
- */
-async function startMcrServerAsync(_programOpts) {
-  // Renamed and marked unused param
-  // Pre-TUI logging is okay here as Ink hasn't taken over the console yet.
-  // No programOpts.json check here as it's handled before calling startAppAsync now.
-  console.log('Starting MCR server...');
-
-  const mcrScriptPath = path.resolve(__dirname, '../../../mcr.js');
-  let serverStdErr = '';
-  const server = spawn('node', [mcrScriptPath], {
-    detached: true,
-    stdio: ['ignore', 'ignore', 'pipe'], // Capture stderr
-  });
-  serverProcess = server;
-
-  server.stderr.on('data', (data) => {
-    serverStdErr += data.toString();
-  });
-
-  return new Promise((resolve, reject) => {
-    server.on('error', (err) => {
-      console.error('Failed to start MCR server process:', err);
-      console.error('MCR Server stderr:', serverStdErr);
-      reject(err);
-    });
-
-    // Listen for exit event to capture error output if server fails early
-    server.on('exit', (code, signal) => {
-      if (code !== 0 && signal !== 'SIGTERM') { // SIGTERM is how we might stop it
-        // Non-zero exit code and not our own SIGTERM means it likely crashed
-        const errorMessage = `MCR server process exited with code ${code} and signal ${signal}. Stderr: ${serverStdErr}`;
-        console.error(errorMessage);
-        // To ensure this error is caught by the promise chain if isServerAliveAsync also fails:
-        // We might need a more robust way to signal this specific failure back up.
-        // For now, the isServerAliveAsync check will be the primary failure detector.
-      }
-    });
-
-    server.unref();
-
-    const config = ConfigManager.get();
-    const healthCheckUrl = `http://${config.server.host}:${config.server.port}/`;
-
-    isServerAliveAsync(healthCheckUrl, 10, 500) // Updated call
-      .then((alive) => {
-        if (alive) {
-          resolve();
-        } else {
-          // If server is not alive, log any stderr we captured.
-          if (serverStdErr) {
-            console.error('MCR Server (spawned by chat) stderr before failing health check:', serverStdErr);
-          }
-          reject(new Error('Server failed to start or become healthy.'));
-        }
-      })
-      .catch((err) => { // Catch rejections from isServerAliveAsync or other setup steps
-        if (serverStdErr) {
-            console.error('MCR Server (spawned by chat) stderr on error:', serverStdErr);
-        }
-        reject(err);
-      });
-  });
-}
+// serverProcess and serverStartedByChat are now managed within startAppAsync
 
 /**
  * The main Ink application component for the MCR TUI.
@@ -250,206 +137,53 @@ const McrApp = ({
     }
   };
 
-  // --- Demo Implementations ---
-  /** Runs the Simple Q&A demo, interacting with the MCR API. */
-  // eslint-disable-next-line no-restricted-syntax
-  const runSimpleQADemo = async () => {
-    setIsDemoRunning(true);
-    addMessage('system', '🚀 Starting Simple Q&A Demo...');
-    await delay(500);
-    let demoSessionId;
-    try {
-      addMessage('system', '1. Creating a new session...');
-      const sessionResponse = await agentApiCreateSession(); // Using direct API call
-      demoSessionId = sessionResponse.sessionId;
-      addMessage('output', {
-        action: 'Create Session',
-        response: sessionResponse,
-      });
-      if (!demoSessionId) throw new Error('Failed to create session for demo.');
+  // Demo implementations (runSimpleQADemo, runFamilyOntologyDemo) have been moved to ../tuiUtils/chatDemos.js
+  // They will be called via chatDemos.runSimpleQADemo(tuiContext) etc. in the handleCommand function.
 
-      addMessage(
-        'system',
-        `2. Asserting facts into session ${demoSessionId}...`
-      );
-      const factsToAssert = 'The sky is blue. Grass is green.';
-      addMessage('output', `   - "${factsToAssert}"`);
-      const assertResponse = await agentApiAssertFacts(
-        demoSessionId,
-        factsToAssert
-      );
-      addMessage('output', {
-        action: 'Assert Facts',
-        request: { factsToAssert },
-        response: assertResponse,
-      });
+  // Construct tuiContext to pass to demos and command handlers
+  // This includes state setters, utility functions, and API helpers
+  const tuiContext = {
+    addMessage,
+    setIsDemoRunning,
+    setCurrentSessionId,
+    setChatDebugMode,
+    getChatDebugMode: () => chatDebugMode,
+    getCurrentSessionId: () => currentSessionId,
+    getInitialOntologyPath: () => initialOntologyPath,
+    // Pass state setters for status bar
+    setServerStatus,
+    setActiveLlmInfo,
 
-      addMessage('system', `3. Querying session ${demoSessionId}...`);
-      let question = 'What color is the sky?';
-      addMessage('output', `   ❓ Question: "${question}"`);
-      let queryResponse = await agentApiQuery(demoSessionId, question);
-      addMessage('output', {
-        action: 'Query',
-        request: { question },
-        response: queryResponse,
-      });
+    // Utilities from ../utils required by demos or commands
+    delay, // Already imported at top level of file
+    readFileContentSafe, // Already imported at top level of file
+    parseTuiCommandArgs, // Already imported at top level of file
 
-      question = 'What color is the grass?';
-      addMessage('output', `   ❓ Question: "${question}"`);
-      queryResponse = await agentApiQuery(demoSessionId, question);
-      addMessage('output', {
-        action: 'Query',
-        request: { question },
-        response: queryResponse,
-      });
-    } catch (error) {
-      addMessage('error', `Error during Simple Q&A Demo: ${error.message}`);
-      if (error.response?.data)
-        addMessage('output', { serverError: error.response.data });
-    } finally {
-      if (demoSessionId) {
-        addMessage(
-          'system',
-          `4. Cleaning up: Deleting demo session ${demoSessionId}...`
-        );
-        try {
-          const deleteResponse = await agentApiDeleteSession(demoSessionId);
-          addMessage('output', {
-            action: 'Delete Session',
-            response: deleteResponse,
-          });
-        } catch (cleanupError) {
-          addMessage(
-            'error',
-            `Failed to delete demo session ${demoSessionId}: ${cleanupError.message}`
-          );
-        }
-      }
-      addMessage('system', '🏁 Simple Q&A Demo Finished.');
-      setIsDemoRunning(false);
-    }
+    // API functions (already aliased at the top of the file or available via api.*)
+    // Ensure all functions used by handlers are included in tuiContext.
+    agentApiCreateSession,
+    agentApiAssertFacts, // Used by handleAssertCommand (and demos)
+    agentApiQuery,       // Used by handleQueryCommand (and demos)
+    agentApiDeleteSession,
+    agentApiAddOntology,
+    agentApiDeleteOntology,
+    tuiGetServerStatus,
+    agentApiGetSession: api.getSession,
+    agentApiExplainQuery: api.explainQuery, // Added for /explain
+
+    // Add other direct api functions that will be used by handlers
+    // (as opposed to the top-level aliased ones if names differ or for clarity)
+    listOntologies: api.listOntologies,
+    getOntology: api.getOntology,
+    updateOntology: api.updateOntology,
+    // addOntology: api.addOntology, // Covered by agentApiAddOntology
+    // deleteOntology: api.deleteOntology, // Covered by agentApiDeleteOntology
+    nlToRules: api.nlToRules,
+    rulesToNl: api.rulesToNl,
+    listPrompts: api.listPrompts,
+    debugFormatPrompt: api.debugFormatPrompt,
   };
 
-  /** Runs the Family Ontology demo, showcasing ontology management and querying. */
-  // eslint-disable-next-line no-restricted-syntax
-  const runFamilyOntologyDemo = async () => {
-    setIsDemoRunning(true);
-    addMessage('system', '🚀 Starting Family Ontology Demo...');
-    await delay(500);
-    let demoSessionId;
-    const ontologyName = 'tui_family_demo';
-    // Assuming family.pl is in ontologies/ relative to project root
-    const ontologyFilePath = 'ontologies/family.pl';
-
-    try {
-      addMessage(
-        'system',
-        `1. Adding '${ontologyName}' ontology from '${ontologyFilePath}'...`
-      );
-      try {
-        // Pre-cleanup
-        await agentApiDeleteOntology(ontologyName, true);
-      } catch {
-        /* ignore */
-      }
-      const rules = readFileContentSafe(
-        ontologyFilePath,
-        addMessage,
-        'Family ontology file'
-      );
-      if (!rules)
-        throw new Error(`Failed to read ${ontologyFilePath} for demo.`);
-      const ontologyResponse = await agentApiAddOntology(ontologyName, rules); // Pass content
-      addMessage('output', {
-        action: 'Add Ontology',
-        request: { ontologyName, filePath: ontologyFilePath },
-        response: ontologyResponse,
-      });
-
-      addMessage(
-        'system',
-        '2. Creating a new session with default ontology...'
-      );
-      const sessionResponse = await agentApiCreateSession();
-      demoSessionId = sessionResponse.sessionId;
-      addMessage('output', {
-        action: 'Create Session',
-        response: sessionResponse,
-      });
-      if (!demoSessionId) throw new Error('Failed to create session for demo.');
-
-      addMessage(
-        'system',
-        `3. Asserting family facts into session ${demoSessionId}...`
-      );
-      const factsToAssert =
-        'father(john, mary). mother(jane, mary). father(peter, john).';
-      addMessage('output', `   - "${factsToAssert}"`);
-      const assertResponse = await agentApiAssertFacts(
-        demoSessionId,
-        factsToAssert
-      );
-      addMessage('output', {
-        action: 'Assert Facts',
-        request: { factsToAssert },
-        response: assertResponse,
-      });
-
-      addMessage(
-        'system',
-        `4. Querying session ${demoSessionId} using family ontology...`
-      );
-      let question = 'Who is marys father?';
-      addMessage('output', `   ❓ Question: "${question}"`);
-      let queryResponse = await agentApiQuery(demoSessionId, question);
-      addMessage('output', {
-        action: 'Query',
-        request: { question },
-        response: queryResponse,
-      });
-
-      question = 'Who is marys grandparent?';
-      addMessage('output', `   ❓ Question: "${question}"`);
-      queryResponse = await agentApiQuery(demoSessionId, question);
-      addMessage('output', {
-        action: 'Query',
-        request: { question },
-        response: queryResponse,
-      });
-    } catch (error) {
-      addMessage(
-        'error',
-        `Error during Family Ontology Demo: ${error.message}`
-      );
-      if (error.response?.data)
-        addMessage('output', { serverError: error.response.data });
-    } finally {
-      if (demoSessionId) {
-        addMessage(
-          'system',
-          `5. Cleaning up: Deleting demo session ${demoSessionId}...`
-        );
-        try {
-          await agentApiDeleteSession(demoSessionId);
-        } catch (e) {
-          addMessage('error', `Failed to delete demo session: ${e.message}`);
-        }
-      }
-      addMessage(
-        'system',
-        `6. Cleaning up: Deleting ontology '${ontologyName}'...`
-      );
-      try {
-        await agentApiDeleteOntology(ontologyName, true);
-      } catch (e) {
-        addMessage('error', `Failed to delete demo ontology: ${e.message}`);
-      }
-
-      addMessage('system', '🏁 Family Ontology Demo Finished.');
-      setIsDemoRunning(false);
-    }
-  };
-  // --- End Demo Implementations ---
 
   /**
    * Handles slash commands entered by the user.
@@ -473,418 +207,96 @@ const McrApp = ({
     let text, templateName, inputVariablesJson, parsedArgs, _options;
 
     try {
+      // Pass tuiContext to all handlers
       switch (command) {
         case 'help': {
-          addMessage('system', 'Available commands:');
-          addMessage(
-            'system',
-            '  /help                               - Show this help message'
-          );
-          addMessage(
-            'system',
-            '  /status                             - Check MCR server status'
-          );
-          addMessage(
-            'system',
-            '  /create-session                     - Create a new session'
-          );
-          addMessage(
-            'system',
-            '  /get-session [id]                   - Get details for a session (current if no id)'
-          );
-          addMessage(
-            'system',
-            '  /delete-session [id]                - Delete a session (current if no id)'
-          );
-          addMessage(
-            'system',
-            '  /assert <text>                      - Assert facts to current session'
-          );
-          addMessage(
-            'system',
-            '  /query <question>                   - Query current session'
-          );
-          addMessage(
-            'system',
-            '  /explain <question>                 - Explain query for current session'
-          );
-          addMessage(
-            'system',
-            '  /list-ontologies                    - List all global ontologies'
-          );
-          addMessage(
-            'system',
-            '  /get-ontology <name>                - Get details of a specific ontology'
-          );
-          addMessage(
-            'system',
-            '  /add-ontology <name> <path>         - Add a new ontology from a rules file'
-          );
-          addMessage(
-            'system',
-            '  /update-ontology <name> <path>      - Update an ontology from a rules file'
-          );
-          addMessage(
-            'system',
-            '  /delete-ontology <name>             - Delete an ontology'
-          );
-          addMessage(
-            'system',
-            '  /nl2rules <text> [--facts "..."] [--ontology path/file.pl] - Translate NL to Prolog'
-          );
-          addMessage(
-            'system',
-            '  /rules2nl <path> [--style formal|conversational] - Translate Prolog file to NL'
-          );
-          addMessage(
-            'system',
-            '  /list-prompts                       - List all prompt templates'
-          );
-          addMessage(
-            'system',
-            '  /show-prompt <templateName>         - Show a specific prompt template'
-          );
-          addMessage(
-            'system',
-            '  /debug-prompt <templateName> <json> - Debug a prompt template with JSON variables'
-          );
-          addMessage(
-            'system',
-            '  /run-demo <simpleQA|family>         - Run a demo script'
-          );
-          addMessage(
-            'system',
-            '  /toggle-debug-chat                  - Toggle verbose output for chat messages'
-          );
-          addMessage(
-            'system',
-            '  /exit, /quit                        - Exit the application'
-          );
+          await tuiCmdHandlers.handleHelpCommand(tuiContext, args);
           break;
         }
         case 'status': {
-          const statusData = await checkServerStatusAsync(); // Updated call
-          if (statusData) {
-            addMessage('system', `Server Status: ${serverStatus}`);
-            addMessage('output', `Name: ${statusData.name}`);
-            addMessage('output', `Version: ${statusData.version}`);
-            addMessage('output', `Description: ${statusData.description}`);
-          }
+          // checkServerStatusAsync was the McrApp local state-updating function.
+          // The new handleStatusCommand in tuiCmdHandlers will call the api and use addMessage.
+          // It also now takes setServerStatus and setActiveLlmInfo via tuiContext to update McrApp's state.
+          await tuiCmdHandlers.handleStatusCommand(tuiContext, args);
           break;
         }
         case 'create-session': {
-          response = await api.createSession();
-          setCurrentSessionId(response.sessionId);
-          addMessage('system', `New session created: ${response.sessionId}`);
-          addMessage('output', response);
+          await tuiCmdHandlers.handleCreateSessionCommand(tuiContext, args);
           break;
         }
         case 'get-session': {
-          targetSessionId = args[0] || currentSessionId;
-          if (!targetSessionId) {
-            addMessage(
-              'error',
-              'No session ID specified and no active session.'
-            );
-            break;
-          }
-          response = await api.getSession(targetSessionId);
-          addMessage('system', `Details for session ${targetSessionId}:`);
-          addMessage('output', response);
+          await tuiCmdHandlers.handleGetSessionCommand(tuiContext, args);
           break;
         }
         case 'delete-session': {
-          targetSessionId = args[0] || currentSessionId;
-          if (!targetSessionId) {
-            addMessage(
-              'error',
-              'No session ID specified and no active session.'
-            );
-            break;
-          }
-          response = await api.deleteSession(targetSessionId);
-          addMessage(
-            'system',
-            response.message || `Session ${targetSessionId} deleted.`
-          );
-          if (targetSessionId === currentSessionId) {
-            setCurrentSessionId(null);
-            addMessage('system', 'Active session cleared.');
-          }
+          await tuiCmdHandlers.handleDeleteSessionCommand(tuiContext, args);
           break;
         }
         case 'assert': {
-          targetSessionId = currentSessionId;
-          const assertText = args.join(' ');
-          if (!targetSessionId) {
-            addMessage(
-              'error',
-              'No active session to assert to. Use /create-session or chat first.'
-            );
-            break;
-          }
-          if (!assertText) {
-            addMessage('error', 'Usage: /assert <text to assert>');
-            break;
-          }
-          response = await api.assertFacts(targetSessionId, assertText);
-          addMessage('system', `Facts asserted to session ${targetSessionId}:`);
-          addMessage('output', response);
+          await tuiCmdHandlers.handleAssertCommand(tuiContext, args);
           break;
         }
         case 'query': {
-          targetSessionId = currentSessionId;
-          const question = args.join(' ');
-          if (!targetSessionId) {
-            addMessage(
-              'error',
-              'No active session to query. Use /create-session or chat first.'
-            );
-            break;
-          }
-          if (!question) {
-            addMessage('error', 'Usage: /query <question>');
-            break;
-          }
-          let queryOntologyContent = null;
-          if (initialOntologyPath) {
-            queryOntologyContent = readFileContentSafe(
-              initialOntologyPath,
-              addMessage,
-              'Startup ontology for query'
-            );
-          }
-          if (initialOntologyPath && !queryOntologyContent) break;
-
-          response = await api.query(
-            targetSessionId,
-            question,
-            { style: 'conversational', debug: chatDebugMode },
-            queryOntologyContent
-          );
-          addMessage(
-            'system',
-            `Query to session ${targetSessionId}: "${question}"`
-          );
-          addMessage('mcr', response.answer || JSON.stringify(response));
-          if (response.debug)
-            addMessage('output', { debugInfo: response.debug });
-          if (chatDebugMode && response.translation)
-            addMessage('output', { translation: response.translation });
-          if (chatDebugMode && response.prologOutput)
-            addMessage('output', { prolog: response.prologOutput });
+          await tuiCmdHandlers.handleQueryCommand(tuiContext, args);
           break;
         }
         case 'explain': {
-          targetSessionId = currentSessionId;
-          const explainQuestion = args.join(' ');
-          if (!targetSessionId) {
-            addMessage(
-              'error',
-              'No active session for explanation. Use /create-session or chat first.'
-            );
-            break;
-          }
-          if (!explainQuestion) {
-            addMessage('error', 'Usage: /explain <question>');
-            break;
-          }
-          response = await api.explainQuery(targetSessionId, explainQuestion);
-          addMessage(
-            'system',
-            `Explanation for query in session ${targetSessionId}: "${explainQuestion}"`
-          );
-          addMessage('output', response);
+          await tuiCmdHandlers.handleExplainCommand(tuiContext, args);
           break;
         }
         case 'list-ontologies': {
-          response = await api.listOntologies();
-          addMessage('system', 'Available Ontologies:');
-          if (response.length === 0) {
-            addMessage('output', 'No ontologies found.');
-          } else {
-            response.forEach((ont) =>
-              addMessage(
-                'output',
-                `- ${ont.name} (${ont.rules ? ont.rules.split('\n').length : 0} rules)`
-              )
-            );
-          }
+          await tuiCmdHandlers.handleListOntologiesCommand(tuiContext, args);
           break;
         }
         case 'get-ontology': {
-          ontologyName = args[0];
-          if (!ontologyName) {
-            addMessage('error', 'Usage: /get-ontology <name>');
-            break;
-          }
-          response = await api.getOntology(ontologyName);
-          addMessage('system', `Details for ontology "${ontologyName}":`);
-          addMessage('output', response);
+          await tuiCmdHandlers.handleGetOntologyCommand(tuiContext, args);
           break;
         }
         case 'add-ontology': {
-          [ontologyName, filePath] = args;
-          if (!ontologyName || !filePath) {
-            addMessage('error', 'Usage: /add-ontology <name> <filePath>');
-            break;
-          }
-          rulesContent = readFileContentSafe(filePath, addMessage);
-          if (!rulesContent) break;
-          response = await api.addOntology(ontologyName, rulesContent);
-          addMessage('system', `Ontology "${ontologyName}" added:`);
-          addMessage('output', response);
+          await tuiCmdHandlers.handleAddOntologyCommand(tuiContext, args);
           break;
         }
         case 'update-ontology': {
-          [ontologyName, filePath] = args;
-          if (!ontologyName || !filePath) {
-            addMessage('error', 'Usage: /update-ontology <name> <filePath>');
-            break;
-          }
-          rulesContent = readFileContentSafe(filePath, addMessage);
-          if (!rulesContent) break;
-          response = await api.updateOntology(ontologyName, rulesContent);
-          addMessage('system', `Ontology "${ontologyName}" updated:`);
-          addMessage('output', response);
+          await tuiCmdHandlers.handleUpdateOntologyCommand(tuiContext, args);
           break;
         }
         case 'delete-ontology': {
-          ontologyName = args[0];
-          if (!ontologyName) {
-            addMessage('error', 'Usage: /delete-ontology <name>');
-            break;
-          }
-          response = await api.deleteOntology(ontologyName);
-          addMessage(
-            'system',
-            response.message || `Ontology "${ontologyName}" deleted.`
-          );
+          await tuiCmdHandlers.handleDeleteOntologyCommand(tuiContext, args);
           break;
         }
         case 'nl2rules': {
-          parsedArgs = parseTuiCommandArgs(args);
-          text = parsedArgs._.join(' ');
-          if (!text) {
-            addMessage(
-              'error',
-              'Usage: /nl2rules <text> [--facts "..."] [--ontology path/file.pl]'
-            );
-            break;
-          }
-          let nlFacts = null;
-          let nlOntologyContext = null;
-          if (parsedArgs.options.facts) {
-            nlFacts = parsedArgs.options.facts;
-          }
-          if (parsedArgs.options.ontology) {
-            nlOntologyContext = readFileContentSafe(
-              parsedArgs.options.ontology,
-              addMessage,
-              'Ontology context file'
-            );
-            if (!nlOntologyContext) break;
-          }
-          response = await api.nlToRules(text, nlFacts, nlOntologyContext);
-          addMessage('system', 'Translated NL to Rules:');
-          addMessage('output', response);
+          await tuiCmdHandlers.handleNl2RulesCommand(tuiContext, args);
           break;
         }
         case 'rules2nl': {
-          parsedArgs = parseTuiCommandArgs(args);
-          filePath = parsedArgs._[0];
-          if (!filePath) {
-            addMessage(
-              'error',
-              'Usage: /rules2nl <filePath> [--style formal|conversational]'
-            );
-            break;
-          }
-          rulesContent = readFileContentSafe(
-            filePath,
-            addMessage,
-            'Rules file'
-          );
-          if (!rulesContent) break;
-          const style = parsedArgs.options.style || 'formal';
-          response = await api.rulesToNl(rulesContent, style);
-          addMessage(
-            'system',
-            `Translated Rules from "${filePath}" to NL (style: ${style}):`
-          );
-          addMessage('output', response);
+          await tuiCmdHandlers.handleRules2NlCommand(tuiContext, args);
           break;
         }
         case 'list-prompts': {
-          response = await api.listPrompts();
-          addMessage('system', 'Available prompt templates:');
-          if (Object.keys(response).length === 0) {
-            addMessage('output', 'No prompt templates found.');
-          } else {
-            Object.keys(response).forEach((name) =>
-              addMessage('output', `- ${name}`)
-            );
-          }
+          await tuiCmdHandlers.handleListPromptsCommand(tuiContext, args);
           break;
         }
         case 'show-prompt': {
-          templateName = args[0];
-          if (!templateName) {
-            addMessage('error', 'Usage: /show-prompt <templateName>');
-            break;
-          }
-          const allPrompts = await api.listPrompts();
-          if (!allPrompts[templateName]) {
-            addMessage('error', `Prompt template '${templateName}' not found.`);
-            break;
-          }
-          addMessage('system', `Content of prompt template '${templateName}':`);
-          addMessage('output', allPrompts[templateName]);
+          await tuiCmdHandlers.handleShowPromptCommand(tuiContext, args);
           break;
         }
         case 'debug-prompt': {
-          templateName = args[0];
-          inputVariablesJson = args.slice(1).join(' ');
-          if (!templateName || !inputVariablesJson) {
-            addMessage(
-              'error',
-              'Usage: /debug-prompt <templateName> <inputVariablesJsonString>'
-            );
-            break;
-          }
-          let inputVars;
-          try {
-            inputVars = JSON.parse(inputVariablesJson);
-          } catch (e) {
-            addMessage(
-              'error',
-              `Invalid JSON for input variables: ${e.message}`
-            );
-            break;
-          }
-          response = await api.debugFormatPrompt(templateName, inputVars);
-          addMessage(
-            'system',
-            `Debugging prompt template '${response.templateName}':`
-          );
-          addMessage('output', `Raw Template: ${response.rawTemplate}`);
-          addMessage(
-            'output',
-            `Input Variables: ${JSON.stringify(response.inputVariables, null, 2)}`
-          );
-          addMessage('output', `Formatted Prompt: ${response.formattedPrompt}`);
+          await tuiCmdHandlers.handleDebugPromptCommand(tuiContext, args);
           break;
         }
         case 'run-demo': {
+          // This was already updated to use chatDemos via tuiContext
           const demoName = args[0];
           if (demoName === 'simpleQA' || demoName === 'simpleqa') {
-            await runSimpleQADemo();
+            // Call the imported demo function with tuiContext
+            await chatDemos.runSimpleQADemo(tuiContext);
           } else if (
             demoName === 'family' ||
             demoName === 'familyOntology' ||
             demoName === 'familyontology'
           ) {
-            await runFamilyOntologyDemo();
+            // Call the imported demo function with tuiContext
+            await chatDemos.runFamilyOntologyDemo(tuiContext);
           } else {
             addMessage(
               'error',
@@ -894,23 +306,41 @@ const McrApp = ({
           break;
         }
         case 'toggle-debug-chat': {
-          setChatDebugMode(!chatDebugMode);
-          addMessage(
-            'system',
-            `Chat debug mode ${!chatDebugMode ? 'enabled' : 'disabled'}. Query responses will now ${!chatDebugMode ? 'include more' : 'not include extra'} details.`
-          );
+          // Example of using a setter from tuiContext (though setChatDebugMode is directly in scope here)
+          // This was already updated to use chatDemos via tuiContext
+          const demoName = args[0];
+          if (demoName === 'simpleQA' || demoName === 'simpleqa') {
+            await chatDemos.runSimpleQADemo(tuiContext);
+          } else if (
+            demoName === 'family' ||
+            demoName === 'familyOntology' ||
+            demoName === 'familyontology'
+          ) {
+            await chatDemos.runFamilyOntologyDemo(tuiContext);
+          } else {
+            addMessage(
+              'error',
+              `Unknown demo: ${demoName}. Available: simpleQA, family`
+            );
+          }
+          break;
+        }
+        case 'toggle-debug-chat': {
+          await tuiCmdHandlers.handleToggleDebugChatCommand(tuiContext, args);
           break;
         }
         case 'exit':
         case 'quit': {
+          // This command involves direct calls to setIsExiting and exit() from useApp(),
+          // so it's best handled directly within McrApp unless those are passed to context too.
           setIsExiting(true);
           addMessage('system', 'Exiting application...');
-          await onExitTrigger(currentSessionId);
-          exit();
-          return;
+          await onExitTrigger(currentSessionId); // onExitTrigger is from McrApp props
+          exit(); // exit is from useApp()
+          return; // Important to return after exit
         }
         default:
-          addMessage('error', `Unknown command: /${command}`);
+          addMessage('error', `Unknown command: /${command}. Type /help for available commands.`);
       }
     } catch (error) {
       const errorSource = error.isAxiosError ? 'API Error' : 'Command Error';
@@ -1193,28 +623,28 @@ async function startAppAsync(options, command) {
   const config = ConfigManager.get();
   const serverUrl = `http://${config.server.host}:${config.server.port}/`;
   const healthCheckUrl = serverUrl;
-  let localServerProcess = null;
-  let localServerStartedByChat = false;
+
+  // These variables will be local to startAppAsync
+  let mcrServerProcess = null;
+  let mcrServerStartedByThisTui = false;
 
   try {
-    let _serverJustStarted = false; // Renamed
+    // let _serverJustStarted = false; // This variable seems unused, removing
     if (!(await isServerAliveAsync(healthCheckUrl, 1, 100))) {
-      // Updated call
       console.log('MCR server not detected. Attempting to start it...');
       try {
-        await startMcrServerAsync(programOpts); // Corrected call
-        localServerProcess = serverProcess;
-        localServerStartedByChat = true;
-        serverStartedByChat = true;
-        console.log('MCR server is starting up... waiting a moment.');
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        // startMcrServerAsync now returns the process
+        mcrServerProcess = await startMcrServerAsync(programOpts);
+        mcrServerStartedByThisTui = true;
+        // serverStartedByChat = true; // This global is removed
+        console.log('MCR server process started. Waiting a moment for it to initialize...');
+        await new Promise((resolve) => setTimeout(resolve, 1500)); // Initial delay for server to boot
         if (!(await isServerAliveAsync(healthCheckUrl, 3, 500))) {
-          // Fixed here
           throw new Error(
-            'Server was started but did not become healthy in time.'
+            'Server process was started but did not become healthy in time.'
           );
         }
-        _serverJustStarted = true; // Renamed
+        // _serverJustStarted = true;
       } catch (serverStartError) {
         console.error(
           `Critical: Failed to start MCR server: ${serverStartError.message}. Please start it manually and try again.`
@@ -1225,13 +655,12 @@ async function startAppAsync(options, command) {
       // console.log('Existing MCR server detected.');
     }
 
-    // eslint-disable-next-line no-restricted-syntax
     const performCleanup = async (activeSessionId) => {
       if (activeSessionId) {
-        console.log(`Terminating session ${activeSessionId}...`);
+        console.log(`Terminating TUI session ${activeSessionId}...`);
         try {
-          await api.deleteSession(activeSessionId); // Use helper
-          console.log(`Session ${activeSessionId} terminated.`);
+          await api.deleteSession(activeSessionId);
+          console.log(`TUI Session ${activeSessionId} terminated.`);
         } catch (error) {
           const errorMsg =
             error.response?.data?.error?.message ||
@@ -1239,28 +668,27 @@ async function startAppAsync(options, command) {
             error.message ||
             'Unknown error during session termination';
           console.error(
-            `Failed to terminate session ${activeSessionId}: ${errorMsg}`
+            `Failed to terminate TUI session ${activeSessionId}: ${errorMsg}`
           );
         }
       }
-      if (localServerProcess && localServerStartedByChat) {
+      // Use the locally managed mcrServerProcess and mcrServerStartedByThisTui
+      if (mcrServerProcess && mcrServerStartedByThisTui) {
         console.log('Stopping MCR server started by this TUI session...');
         try {
-          if (localServerProcess.pid) {
-            process.kill(localServerProcess.pid, 'SIGTERM');
-            console.log('Server stop signal sent.');
+          if (mcrServerProcess.pid) {
+            process.kill(mcrServerProcess.pid, 'SIGTERM');
+            console.log(`Kill signal sent to MCR server process (PID: ${mcrServerProcess.pid}).`);
           }
         } catch (e) {
           console.warn(
-            `Could not send kill signal to server process (PID: ${localServerProcess.pid}). It might require manual termination. Error: ${e.message}`
+            `Could not send kill signal to server process (PID: ${mcrServerProcess.pid}). It might require manual termination. Error: ${e.message}`
           );
         }
       }
     };
 
-    if (localServerProcess) serverProcess = localServerProcess;
-    if (localServerStartedByChat)
-      serverStartedByChat = localServerStartedByChat;
+    // Global serverProcess and serverStartedByChat are removed, no need to update them here.
 
     const app = render(
       <McrApp
@@ -1279,18 +707,19 @@ async function startAppAsync(options, command) {
     );
     if (
       error.code === 'ECONNREFUSED' &&
-      !localServerStartedByChat &&
-      !serverStartedByChat
+      !mcrServerStartedByThisTui // Check the local variable
+      // && !serverStartedByChat // This global is removed
     ) {
       console.error(
         'This might be because the MCR server is not running and could not be started automatically.'
       );
     }
-    if (localServerProcess && localServerStartedByChat) {
+    // Use local variables for cleanup
+    if (mcrServerProcess && mcrServerStartedByThisTui) {
       console.log('Attempting to stop MCR server due to critical error...');
       try {
-        if (localServerProcess.pid)
-          process.kill(localServerProcess.pid, 'SIGTERM');
+        if (mcrServerProcess.pid)
+          process.kill(mcrServerProcess.pid, 'SIGTERM');
       } catch (e) {
         console.warn(
           'Could not send kill signal to server process during error exit.',

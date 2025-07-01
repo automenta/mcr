@@ -12,6 +12,40 @@ const OpenAiProvider = require('./llmProviders/openaiProvider');
 const GeminiProvider = require('./llmProviders/geminiProvider');
 const OllamaProvider = require('./llmProviders/ollamaProvider');
 
+// Helper function to clean raw Prolog query string from LLM
+function _cleanPrologQueryResult(rawPrologString) {
+  if (typeof rawPrologString !== 'string') {
+    logger.warn('_cleanPrologQueryResult received non-string input, returning as is.', { inputType: typeof rawPrologString });
+    return rawPrologString;
+  }
+
+  let cleanedString = rawPrologString.trim();
+
+  // Remove Markdown code fences (e.g., ```prolog ... ``` or ``` ... ```)
+  cleanedString = cleanedString.replace(/^```(?:prolog)?\s*/, '').replace(/\s*```$/, '');
+
+  // Remove surrounding single backticks
+  if (cleanedString.startsWith('`') && cleanedString.endsWith('`')) {
+    cleanedString = cleanedString.substring(1, cleanedString.length - 1);
+  }
+
+  // Remove "?-" prefix if present
+  if (cleanedString.startsWith('?-')) {
+    cleanedString = cleanedString.substring(2).trim();
+  }
+
+  // Specific replacements for known ontology mismatches (example)
+  // This might be better handled by more robust ontology alignment or prompt engineering
+  cleanedString = cleanedString.replace(/\bgrandfather\(/g, 'grandparent(');
+  cleanedString = cleanedString.replace(/\bgrandmother\(/g, 'grandparent(');
+
+  // Ensure the prolog query ends with a period if it's not empty
+  if (cleanedString && !cleanedString.endsWith('.')) {
+    cleanedString += '.';
+  }
+  return cleanedString;
+}
+
 /**
  * Service for interacting with Large Language Models (LLMs).
  * It supports multiple providers (OpenAI, Gemini, Ollama) and handles
@@ -143,14 +177,24 @@ const LlmService = {
       );
     }
     try {
-      return await this._invokeChainAsync(
+      logger.debug(
+        'LlmService calling _invokeChainAsync for template: %s with input variables: %o',
+        templateName,
+        inputVariables
+      );
+      const result = await this._invokeChainAsync(
         template,
         inputVariables,
         outputParser
       );
+      logger.debug(
+        'LlmService _invokeChainAsync for template: %s completed successfully.',
+        templateName
+      );
+      return result;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      logger.error(`Unhandled error in ${errorContext.methodName}.`, {
+      logger.error(`Unhandled error in ${errorContext.methodName} after _invokeChainAsync.`, {
         internalErrorCode: errorContext.internalErrorCode,
         templateName,
         inputVariables,
@@ -180,6 +224,12 @@ const LlmService = {
     try {
       formattedPrompt =
         await PromptTemplate.fromTemplate(promptTemplate).format(input);
+      logger.debug(
+        'Formatted LLM prompt for provider %s. Prompt length: %d. First 100 chars: %s',
+        this._activeProviderName,
+        formattedPrompt.length,
+        formattedPrompt.substring(0, 100)
+      );
     } catch (formattingError) {
       logger.error('Error formatting LLM prompt template.', {
         internalErrorCode: 'LLM_PROMPT_FORMATTING_ERROR',
@@ -196,7 +246,22 @@ const LlmService = {
 
     const chain = this._client.pipe(outputParser);
     try {
-      return await chain.invoke(formattedPrompt);
+      logger.debug(
+        'Invoking LLM chain for provider: %s, model: %s',
+        this._activeProviderName,
+        this.getActiveModelName()
+      );
+      const result = await chain.invoke(formattedPrompt);
+      // Log preview of result, as full result can be large
+      const resultPreview = typeof result === 'string'
+        ? result.substring(0,100) + (result.length > 100 ? '...' : '')
+        : JSON.stringify(result).substring(0,100) + (JSON.stringify(result).length > 100 ? '...' : '');
+      logger.debug(
+        'LLM chain invocation successful for provider %s. Result preview: %s',
+        this._activeProviderName,
+        resultPreview
+      );
+      return result;
     } catch (error) {
       const responseData = error.response?.data;
       const errorStatus = error.response?.status || error.status;
@@ -310,40 +375,14 @@ const LlmService = {
           'An unexpected error occurred during query to Prolog translation.',
       }
     );
-    let trimmedResult = result.trim();
+    // Use a helper function to clean the raw LLM output
+    const cleanedPrologQuery = _cleanPrologQueryResult(result);
 
-  // Remove Markdown code fences if present (triple backticks with 'prolog' language hint)
-    trimmedResult = trimmedResult.replace(/^```prolog\n/, '').replace(/\n```$/, '');
-  // Remove Markdown code fences if present (triple backticks without language hint)
-    trimmedResult = trimmedResult.replace(/^```/, '').replace(/```$/, '');
-
-  // NEW: Remove single backticks if present
-  if (trimmedResult.startsWith('`') && trimmedResult.endsWith('`')) {
-    trimmedResult = trimmedResult.substring(1, trimmedResult.length - 1);
-  }
-
-    // NEW: Remove single backticks if present
-    if (trimmedResult.startsWith('`') && trimmedResult.endsWith('`')) {
-      trimmedResult = trimmedResult.substring(1, trimmedResult.length - 1);
-    }
-
-    // Remove "?-" prefix if present
-    if (trimmedResult.startsWith('?-')) {
-      trimmedResult = trimmedResult.substring(2).trim();
-    }
-
-    // Specific replacements for known ontology mismatches
-    // TODO: Consider making this more robust or configurable if many such cases arise.
-    // For family.pl, ensure 'grandparent' is used.
-    trimmedResult = trimmedResult.replace(/\bgrandfather\(/g, 'grandparent(');
-    trimmedResult = trimmedResult.replace(/\bgrandmother\(/g, 'grandparent(');
-
-
-    if (!trimmedResult) {
+    if (!cleanedPrologQuery) {
       logger.error('LLM generated an empty Prolog query after cleaning.', {
         internalErrorCode: 'LLM_EMPTY_PROLOG_QUERY',
         question,
-        llmOutput: result,
+        llmOutput: result, // Log the original result before cleaning
       });
       throw new ApiError(
         500,
@@ -351,11 +390,8 @@ const LlmService = {
         'LLM_EMPTY_PROLOG_QUERY_GENERATED'
       );
     }
-    // Ensure the prolog query ends with a period.
-    if (!trimmedResult.endsWith('.')) {
-      trimmedResult += '.';
-    }
-    return trimmedResult;
+    // The _cleanPrologQueryResult helper already ensures it ends with a period if not empty.
+    return cleanedPrologQuery;
   },
 
   async resultToNlAsync(

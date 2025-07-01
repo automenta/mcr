@@ -14,44 +14,49 @@ const ReasonerService = {
    * @throws {ApiError} If there's an error during Prolog session setup, consultation, querying, or answer processing.
    */
   runQuery(facts, query) {
+    logger.debug(
+      'ReasonerService.runQuery called with facts_count: %d, query: "%s"',
+      facts?.length || 0,
+      query
+    );
+    // Log all facts only if debug is enabled, as it can be verbose
+    if (logger.level === 'debug') {
+      logger.debug({ message: 'Full facts for ReasonerService.runQuery', facts });
+    }
+
     return new Promise((resolve, reject) => {
       try {
         const prologSession = pl.create();
+        logger.debug('Tau Prolog session created.');
+
         // Jules: Changed facts.join(' ') to facts.join('\n') for potentially better parsing by Tau Prolog
         prologSession.consult(facts.join('\n'), {
           success: () => {
+            logger.debug('Prolog consult successful for %d facts. Proceeding with query: "%s"', facts?.length || 0, query);
             prologSession.query(query, {
               success: () => {
+                logger.debug('Prolog query "%s" execution successful. Fetching answers.', query);
                 const results = [];
                 const answerCallback = (answer) => {
                   if (!answer || answer.indicator === 'the_end/0') {
+                    logger.debug('Prolog query "%s" finished. Total answers: %d. Results: %j', query, results.length, results);
                     resolve(results);
                     return;
                   }
-                  if (
-                    answer &&
-                    pl.type &&
-                    typeof pl.type.is_substitution === 'function' &&
-                    pl.type.is_substitution(answer)
-                  ) {
-                    results.push(
-                      prologSession.format_answer(answer, { quoted: true })
-                    );
-                  } else if (
-                    answer &&
-                    answer.id === 'true' &&
-                    answer.args &&
-                    answer.args.length === 0
-                  ) {
-                    results.push('true.');
-                  } else if (
-                    answer &&
-                    answer.id === 'false' &&
-                    answer.args &&
-                    answer.args.length === 0
-                  ) {
-                    results.push('false.');
+
+                  let formattedAnswer = 'unknown_answer_type';
+                  if (answer && pl.type && typeof pl.type.is_substitution === 'function' && pl.type.is_substitution(answer)) {
+                    formattedAnswer = prologSession.format_answer(answer, { quoted: true });
+                    results.push(formattedAnswer);
+                  } else if (answer && answer.id === 'true' && answer.args && answer.args.length === 0) {
+                    formattedAnswer = 'true.';
+                    results.push(formattedAnswer);
+                  } else if (answer && answer.id === 'false' && answer.args && answer.args.length === 0) {
+                    formattedAnswer = 'false.';
+                    results.push(formattedAnswer);
                   }
+                  logger.debug('Prolog answer received for query "%s": %s', query, formattedAnswer);
+
                   try {
                     prologSession.answer(answerCallback);
                   } catch (e) {

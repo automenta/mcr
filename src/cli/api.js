@@ -51,25 +51,77 @@ const handleApiError = (error, programOptions = {}) => {
       },
     };
 
+    const serverMessage = errOutput.error.message;
+
     if (isJsonOutput) {
+      // Keep JSON output concise for machine consumption
       console.error(JSON.stringify(errOutput, null, 2));
     } else {
-      console.error(`Error: ${status} - ${errOutput.error.message}`);
+      console.error(`Error: ${status} - ${serverMessage}`); // Base message
+
+      // Add specific suggestions based on status code
+      switch (status) {
+        case 400:
+          console.error("Details: The server indicated a problem with the input provided (e.g., invalid parameters, malformed data).");
+          if (errOutput.error.details) console.error(`Server Specifics: ${typeof errOutput.error.details === 'string' ? errOutput.error.details : JSON.stringify(errOutput.error.details)}`);
+          console.error("Suggestion: Please check your command syntax, parameter values, and any file paths. Use '--help' for command usage.");
+          break;
+        case 401:
+          console.error("Details: The request lacks valid authentication credentials.");
+          console.error("Suggestion: Ensure your API key or authentication method is correctly configured (if MCR uses authentication).");
+          break;
+        case 403:
+          console.error("Details: You do not have permission to access this resource or perform this action.");
+          console.error("Suggestion: Check your credentials or permissions. Contact an administrator if you believe this is incorrect.");
+          break;
+        case 404:
+          console.error("Details: The requested resource (e.g., session, ontology) could not be found on the server.");
+          if (error.config?.url) console.error(`Attempted URL: ${API_URL}${error.config.url}`);
+          console.error("Suggestion: Verify the ID/name is correct. For sessions, they may have expired or been deleted. For ontologies, you can list available ones (e.g., 'mcr-cli get-ontologies').");
+          break;
+        case 500:
+        case 501:
+        case 502:
+        case 503:
+        case 504:
+          console.error("Details: The server encountered an internal error or is temporarily unavailable.");
+          console.error("Suggestion: This is likely a server-side issue. Please try again later. If the problem persists, report this error, including the CorrelationId if available, to the MCR maintainers or check server logs.");
+          break;
+        default:
+          // For other 4xx/5xx errors not specifically handled
+          if (status >= 400 && status < 500) {
+            console.error("Details: The server indicated an issue with your request. Please check the parameters and try again.");
+          } else if (status >= 500 && status < 600) {
+            console.error("Details: The server encountered an issue processing your request. Please try again later.");
+          }
+      }
+
+      // Print common additional info if available
       if (errOutput.error.type) console.error(`Type: ${errOutput.error.type}`);
       if (errOutput.error.code) console.error(`Code: ${errOutput.error.code}`);
-      if (errOutput.error.correlationId)
-        console.error(`CorrelationId: ${errOutput.error.correlationId}`);
-      if (errOutput.error.details)
-        console.error(`Details: ${errOutput.error.details}`);
+      if (errOutput.error.correlationId) console.error(`CorrelationId: ${errOutput.error.correlationId}`);
+
+      // General details, if not handled by specific status code message and details is present
+      if (errOutput.error.details && status !== 400) { // 400 handler prints its own details via "Server Specifics"
+        const detailsOutput = typeof errOutput.error.details === 'string' ? errOutput.error.details : JSON.stringify(errOutput.error.details, null, 2);
+        console.error(`Server-Provided Details: ${detailsOutput}`);
+      }
     }
   } else if (error.request) {
+    // Request was made but no response received
     if (isJsonOutput) {
       console.error(
         JSON.stringify(
           {
             error: {
-              message: `No response received from MCR API at ${API_URL}. Is the server running?`,
+              message: `Connection Issue: No response received from MCR API server at ${API_URL}.`,
               type: 'ConnectionError',
+              suggestions: [
+                "Ensure the MCR server is running.",
+                `Check if the API URL '${API_URL}' in your configuration is correct.`,
+                "Verify network connectivity to the server host and port.",
+                "If using Docker, ensure the container is running and ports are correctly mapped."
+              ]
             },
           },
           null,
@@ -77,21 +129,32 @@ const handleApiError = (error, programOptions = {}) => {
         )
       );
     } else {
-      console.error(
-        `Error: No response received from MCR API at ${API_URL}. Is the server running?`
-      );
+      console.error(`Error: Connection Issue - Could not connect to the MCR API server at ${API_URL}.`);
+      console.error("Suggestions:");
+      console.error("  - Ensure the MCR server is running.");
+      console.error(`  - Check if the API URL '${API_URL}' in your configuration is correct (e.g., .env file, environment variables).`);
+      console.error("  - Verify network connectivity to the server host and port.");
+      console.error("  - If using Docker, ensure the container is running and ports are correctly mapped.");
     }
   } else {
+    // Something happened in setting up the request that triggered an Error
     if (isJsonOutput) {
       console.error(
         JSON.stringify(
-          { error: { message: error.message, type: 'ClientSetupError' } },
+          {
+            error: {
+              message: `Client Setup Error: ${error.message}`,
+              type: 'ClientSetupError',
+              suggestion: "This could be a local network problem, DNS issue, or an internal CLI error. Check your network and command parameters."
+            }
+          },
           null,
           2
         )
       );
     } else {
-      console.error('Error:', error.message);
+      console.error(`Error: Client Setup - An issue occurred before the request could be sent: ${error.message}`);
+      console.error("Suggestion: This could be a local network problem, DNS issue, or an internal CLI error. Check your network and command parameters.");
     }
   }
   process.exit(1);
