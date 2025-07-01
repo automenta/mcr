@@ -6,6 +6,7 @@ const axios = require('axios');
  * Checks the connection to the Ollama server and optionally if the model exists.
  * @param {string} ollamaBaseUrl - The base URL of the Ollama server.
  * @param {string} modelName - The name of the model to check.
+ * @throws {Error} If the Ollama server is unreachable.
  */
 async function checkOllamaConnectionAsync(ollamaBaseUrl, modelName) {
   try {
@@ -16,8 +17,6 @@ async function checkOllamaConnectionAsync(ollamaBaseUrl, modelName) {
     );
 
     // Then, check if the specific model is available
-    // This might involve listing tags or trying to get model info
-    // For simplicity, we can try /api/show, which errors if model not found
     try {
       await axios.post(
         `${ollamaBaseUrl}/api/show`,
@@ -40,25 +39,26 @@ async function checkOllamaConnectionAsync(ollamaBaseUrl, modelName) {
             `This might lead to errors if the model is not present. Error: ${modelError.message}`
         );
       }
-      // Do not throw; allow initialization to proceed but with a warning.
+      // Model check failure is a warning, not an error that stops initialization.
     }
-  } catch (error) {
-    logger.warn(
-      `Failed to connect to Ollama server at ${ollamaBaseUrl} or it is not responding as expected. ` +
-        `Please ensure Ollama is running and accessible. Error: ${error.message}`
-    );
-    // Do not throw; allow initialization to proceed but with a warning.
+  } catch (connectionError) {
+    // This catch is for errors during the initial connection attempt (axios.get to /api/version)
+    const errorMessage = `Failed to connect to Ollama server at ${ollamaBaseUrl}. Ensure Ollama is running and accessible. Error: ${connectionError.message}`;
+    logger.error(errorMessage, {
+      internalErrorCode: 'OLLAMA_SERVER_CONNECTION_FAILED',
+      ollamaBaseUrl,
+      originalError: connectionError.message,
+    });
+    throw new Error(errorMessage); // Crucial: stop LlmService initialization
   }
 }
 
 const OllamaProvider = {
   name: 'ollama',
-  initialize: async (llmConfig) => { // Renamed from initializeAsync
-    // Made initialize async
+  initialize: async (llmConfig) => {
     const { model, ollamaBaseUrl } = llmConfig;
 
-    // Perform the connection check before attempting to create the ChatOllama instance.
-    // This provides an earlier, more specific warning if Ollama isn't reachable.
+    // Perform the connection check. This will now throw if server is unreachable.
     await checkOllamaConnectionAsync(ollamaBaseUrl, model.ollama);
 
     try {
@@ -67,25 +67,23 @@ const OllamaProvider = {
         model: model.ollama,
         temperature: 0,
       });
-      // The ChatOllama constructor itself is synchronous and doesn't throw for bad URL/model initially.
-      // Errors typically occur upon first invocation.
       logger.info(
         `Ollama provider client configured for model '${model.ollama}' at ${ollamaBaseUrl}.`
       );
       return client;
     } catch (error) {
-      // This catch might be for unexpected constructor errors
       logger.error(
-        `Failed to configure Ollama provider client: ${error.message}`,
+        `Failed to initialize Ollama provider client: ${error.message}`,
         {
-          internalErrorCode: 'OLLAMA_CLIENT_CONFIG_FAILED',
+          internalErrorCode: 'OLLAMA_CLIENT_INIT_FAILED',
           ollamaBaseUrl,
           model: model.ollama,
           originalError: error.message,
           stack: error.stack,
         }
       );
-      return null;
+      // Re-throw the error or a new specific error to be caught by LlmService.init
+      throw new Error(`Failed to initialize Ollama provider: ${error.message}`);
     }
   },
 };

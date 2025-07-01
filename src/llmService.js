@@ -3,6 +3,7 @@ const {
   StringOutputParser,
 } = require('@langchain/core/output_parsers');
 const { PromptTemplate } = require('@langchain/core/prompts');
+const crypto = require('crypto'); // Added for UUID generation
 const logger = require('./logger').logger;
 const ApiError = require('./errors');
 const PROMPT_TEMPLATES = require('./prompts');
@@ -152,18 +153,21 @@ const LlmService = {
             stack: error.stack,
           }
         );
-        this._client = null;
+        this._client = null; // Ensure client is null on error
+        // Re-throw the error to be handled by the application's main error handling
+        // This makes server startup fail explicitly if LLM service can't init
+        throw new Error(`LLMService failed to initialize provider '${providerName}': ${error.message}`);
       }
     } else {
-      logger.error(
-        `Unsupported or missing LLM provider strategy for '${providerName}' (using ${optionalProviderStrategies ? 'optional strategies' : 'internal registration'}). LLM service will not be available.`,
-        {
-          internalErrorCode: 'LLM_PROVIDER_STRATEGY_NOT_FOUND',
-          providerName,
-          usingOptionalStrategies: !!optionalProviderStrategies,
-        }
-      );
+      const errorMessage = `Unsupported or missing LLM provider strategy for '${providerName}' (using ${optionalProviderStrategies ? 'optional strategies' : 'internal registration'}). LLM service will not be available.`;
+      logger.error(errorMessage, {
+        internalErrorCode: 'LLM_PROVIDER_STRATEGY_NOT_FOUND',
+        providerName,
+        usingOptionalStrategies: !!optionalProviderStrategies,
+      });
       this._client = null;
+      // Throw an error to make server startup fail explicitly
+      throw new Error(errorMessage);
     }
   },
 
@@ -256,36 +260,56 @@ const LlmService = {
     }
 
     const chain = this._client.pipe(outputParser);
+    const requestId = crypto.randomUUID(); // Generate unique request ID
+
     try {
-      logger.debug(
-        'Invoking LLM chain for provider: %s, model: %s',
-        this._activeProviderName,
-        this.getActiveModelName()
+      const providerNameForLog = this._activeProviderName || 'unknown_provider';
+      const modelNameForLog = this.getActiveModelName() || 'unknown_model';
+      const promptPreview = formattedPrompt.substring(0, 300) + (formattedPrompt.length > 300 ? '...' : '');
+
+      logger.info(
+        `[LLM Request Start] ID: ${requestId}, Provider: ${providerNameForLog}, Model: ${modelNameForLog}, Prompt Preview: "${promptPreview}"`,
+        {
+          requestId,
+          provider: providerNameForLog,
+          model: modelNameForLog,
+          promptPreview,
+          fullPromptLength: formattedPrompt.length,
+        }
       );
+
       const result = await chain.invoke(formattedPrompt);
-      // Log preview of result, as full result can be large
+
       const resultPreview =
         typeof result === 'string'
-          ? result.substring(0, 100) + (result.length > 100 ? '...' : '')
-          : JSON.stringify(result).substring(0, 100) +
-            (JSON.stringify(result).length > 100 ? '...' : '');
-      logger.debug(
-        'LLM chain invocation successful for provider %s. Result preview: %s',
-        this._activeProviderName,
-        resultPreview
+          ? result.substring(0, 300) + (result.length > 300 ? '...' : '')
+          : JSON.stringify(result).substring(0, 300) +
+            (JSON.stringify(result).length > 300 ? '...' : '');
+
+      logger.info(
+        `[LLM Request Success] ID: ${requestId}, Provider: ${providerNameForLog}, Model: ${modelNameForLog}, Result Preview: "${resultPreview}"`,
+        {
+          requestId,
+          provider: providerNameForLog,
+          model: modelNameForLog,
+          resultPreview,
+          fullResultType: typeof result,
+          fullResultLength: typeof result === 'string' ? result.length : JSON.stringify(result).length,
+        }
       );
       return result;
     } catch (error) {
+      const providerNameForErrorLog = this._activeProviderName || (this._appConfig ? this._appConfig.llm.provider : 'unknown_provider');
+      const modelNameForErrorLog = this.getActiveModelName() || 'unknown_model';
       const responseData = error.response?.data;
       const errorStatus = error.response?.status || error.status;
       const cause = error.cause;
-      const providerName =
-        this._activeProviderName ||
-        (this._appConfig ? this._appConfig.llm.provider : 'unknown');
 
-      logger.error(`LLM invocation error for provider ${providerName}.`, {
+      logger.error(`[LLM Request Error] ID: ${requestId}, Provider: ${providerNameForErrorLog}, Model: ${modelNameForErrorLog}. Error: ${error.message}`, {
+        requestId,
         internalErrorCode: 'LLM_INVOCATION_ERROR',
-        provider: providerName,
+        provider: providerNameForErrorLog,
+        model: modelNameForErrorLog,
         llmInputKeys: Object.keys(input || {}),
         errorMessage: error.message,
         errorStack: error.stack,

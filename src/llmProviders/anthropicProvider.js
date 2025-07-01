@@ -8,27 +8,29 @@ const AnthropicProvider = {
     const modelName = llmConfig.model.anthropic;
 
     if (!apiKey || apiKey.trim() === '') {
-      logger.warn(
-        'Anthropic API key (ANTHROPIC_API_KEY) not provided. Anthropic LLM service will not be available.',
-        { internalErrorCode: 'ANTHROPIC_API_KEY_MISSING' }
+      // logger.warn removed, will throw error instead
+      // { internalErrorCode: 'ANTHROPIC_API_KEY_MISSING' }
+      throw new Error(
+        'Anthropic API key (ANTHROPIC_API_KEY) not provided. Anthropic LLM service cannot be initialized.'
       );
-      return null;
     }
 
     if (!modelName || modelName.trim() === '') {
-      logger.warn(
-        'Anthropic model name (MCR_LLM_MODEL_ANTHROPIC) not configured. Service will not be available.',
-        { internalErrorCode: 'ANTHROPIC_MODEL_MISSING' }
+      // logger.warn removed, will throw error instead
+      // { internalErrorCode: 'ANTHROPIC_MODEL_MISSING' }
+      throw new Error(
+        'Anthropic model name (MCR_LLM_MODEL_ANTHROPIC) not configured. Anthropic LLM service cannot be initialized.'
       );
-      return null;
     }
 
     try {
-      return new ChatAnthropic({
+      const client = new ChatAnthropic({
         anthropicApiKey: apiKey,
         modelName,
         temperature: 0, // For consistency
       });
+      logger.info(`Anthropic provider client initialized successfully for model ${modelName}.`);
+      return client;
     } catch (error) {
       logger.error(
         `Failed to initialize Anthropic provider client: ${error.message}`,
@@ -39,7 +41,8 @@ const AnthropicProvider = {
           config: { modelName, apiKeyProvided: !!apiKey },
         }
       );
-      return null;
+      // Re-throw the error or a new specific error to be caught by LlmService.init
+      throw new Error(`Failed to initialize Anthropic provider: ${error.message}`);
     }
   },
 };
