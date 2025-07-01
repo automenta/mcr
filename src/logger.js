@@ -84,7 +84,7 @@ function reconfigureLogger(loadedConfig) {
 function initializeLoggerContext(req, res, next) {
   const store = {
     correlationId: req.correlationId,
-    startTime: Date.now() // Capture start time for duration calculation
+    startTime: Date.now(), // Capture start time for duration calculation
   };
 
   asyncLocalStorage.run(store, () => {
@@ -93,15 +93,18 @@ function initializeLoggerContext(req, res, next) {
 
     // Log incoming request using 'http' level
     // We log standard request details. Sensitive headers/body should not be logged here.
-    logger.http(`--> ${req.method} ${req.originalUrl || req.url} from ${req.ip}`, {
-      httpRequest: {
-        requestMethod: req.method,
-        requestUrl: req.originalUrl || req.url,
-        remoteIp: req.ip,
-        userAgent: req.headers['user-agent'],
-        // Consider adding 'referer' if valuable: req.headers.referer
+    logger.http(
+      `--> ${req.method} ${req.originalUrl || req.url} from ${req.ip}`,
+      {
+        httpRequest: {
+          requestMethod: req.method,
+          requestUrl: req.originalUrl || req.url,
+          remoteIp: req.ip,
+          userAgent: req.headers['user-agent'],
+          // Consider adding 'referer' if valuable: req.headers.referer
+        },
       }
-    });
+    );
 
     // Capture response finish to log outgoing response
     res.on('finish', () => {
@@ -110,14 +113,17 @@ function initializeLoggerContext(req, res, next) {
       const reqStartTime = reqStore ? reqStore.startTime : undefined;
       const durationMs = reqStartTime ? Date.now() - reqStartTime : undefined;
 
-      logger.http(`<-- ${req.method} ${req.originalUrl || req.url} - ${res.statusCode} (${durationMs !== undefined ? durationMs + 'ms' : 'N/A'})`, {
-        httpResponse: {
-          status: res.statusCode,
-          durationMs: durationMs,
+      logger.http(
+        `<-- ${req.method} ${req.originalUrl || req.url} - ${res.statusCode} (${durationMs !== undefined ? `${durationMs}ms` : 'N/A'})`,
+        {
+          httpResponse: {
+            status: res.statusCode,
+            durationMs: durationMs,
+          },
+          // Note: Logging response body can be verbose and contain sensitive data.
+          // It's generally avoided in standard access logs.
         }
-        // Note: Logging response body can be verbose and contain sensitive data.
-        // It's generally avoided in standard access logs.
-      });
+      );
     });
 
     next();

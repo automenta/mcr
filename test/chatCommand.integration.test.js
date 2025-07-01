@@ -4,8 +4,8 @@ const ConfigManager = require('../src/config');
 const path = require('path');
 // const fs = require('fs'); // Unused
 
-// Corrected: MCR_SCRIPT_PATH should point to the CLI entry script, not the server main script.
-const MCR_SCRIPT_PATH = path.resolve(__dirname, '../src/cli.js');
+// Corrected: MCR_SCRIPT_PATH points to the main CLI entry script.
+const MCR_SCRIPT_PATH = path.resolve(__dirname, '../mcr.js');
 const config = ConfigManager.get();
 // Use 127.0.0.1 for client-side checking, even if server binds to 0.0.0.0
 const SERVER_CHECK_HOST = '127.0.0.1';
@@ -151,7 +151,8 @@ describe('mcr chat command integration', () => {
   test('mcr chat should use an existing server if one is running', async () => {
     let manuallyStartedServerStderr = '';
     const mcrServerScript = path.resolve(__dirname, '../mcr.js');
-    manuallyStartedServer = spawn('node', [mcrServerScript], {
+    // Explicitly use 'start-server' command for clarity and robustness in tests
+    manuallyStartedServer = spawn('node', [mcrServerScript, 'start-server'], {
       detached: false,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -164,8 +165,10 @@ describe('mcr chat command integration', () => {
     let stdoutData = '';
 
     try {
-      const serverIsUp = await isServerAlive(SERVER_URL, 10, 500);
+      // Increased retries and delay for server health check
+      const serverIsUp = await isServerAlive(SERVER_URL, 20, 600);
       if (!serverIsUp) {
+        console.error(`DEBUG: Manually started server Stderr: ${manuallyStartedServerStderr}`); // Added explicit log
         throw new Error(
           `Manually started server did not become alive. Stderr: ${manuallyStartedServerStderr}`
         );

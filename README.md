@@ -1,10 +1,10 @@
-# Model Context Reasoner (MCR)
+# 🧠 Model Context Reasoner (MCR) ✨
 
 The **Model Context Reasoner (MCR)** is a powerful, API-driven system designed to act as a bridge between Large Language Models (LLMs) and formal logic reasoners (specifically Prolog). It enables applications to leverage sophisticated logical reasoning capabilities by translating natural language into formal logic and managing a persistent knowledge base through stateful sessions.
 
-MCR is built with a "guitar pedal" philosophy: a single, plug-and-play unit that adds advanced reasoning to your AI stack with minimal setup.
+MCR is built with a "guitar pedal" 🎸 philosophy: a single, plug-and-play unit that adds advanced reasoning to your AI stack with minimal setup.
 
-## The MCR Philosophy: Bridging Worlds
+## 🌉 The MCR Philosophy: Bridging Worlds
 
 MCR adds **general-purpose reasoning** to Language Model applications. It's a self-contained unit that you can easily "plug in" to an existing system (via its API) to empower it with logic.
 
@@ -20,45 +20,50 @@ MCR's vision is to create a seamless symbiosis between these two powerful paradi
 
 This combination unlocks possibilities for more robust, explainable, and sophisticated AI systems – from intelligent assistants that can truly understand and follow complex rules, to data analysis tools that can infer deep insights, to educational platforms that can adapt to individual learning paths based on logical understanding. MCR aims to be a key enabler in this exciting future.
 
-## Core Concepts
+## 🔑 Core Concepts
 
-1.  **MCR as a Service**: MCR runs as a background HTTP server, exposing its functionality via a RESTful API. Any application (web frontend, Python script, another backend service) can integrate with it.
-2.  **Stateful Sessions**: This is central to MCR's power. Clients create a `sessionId` to establish a persistent reasoning context. Facts asserted within that session are remembered for subsequent queries, building a dynamic and evolving knowledge base.
-3.  **LLM-Powered Translation**: MCR utilizes LLMs to seamlessly translate between human language and the formal syntax of a reasoner (e.g., Prolog), abstracting this complexity from the end-user. This includes:
+1.  **MCR as a Service ⚙️**: MCR runs as a background HTTP server, exposing its functionality via a RESTful API. Any application (web frontend, Python script, another backend service) can integrate with it.
+2.  **Stateful Sessions 💾**: This is central to MCR's power. Clients create a `sessionId` to establish a persistent reasoning context. Facts asserted within that session are remembered for subsequent queries, building a dynamic and evolving knowledge base.
+3.  **LLM-Powered Translation 🗣️<->🧠**: MCR utilizes LLMs to seamlessly translate between human language and the formal syntax of a reasoner (e.g., Prolog), abstracting this complexity from the end-user. This includes:
     - Natural language to Prolog facts/rules.
     - Natural language questions to Prolog queries.
     - Prolog query results back to conversational natural language.
 
-## Features
+## 🚀 Features
 
-- **Modularity**: The codebase is structured into logical components (Config, Logger, LLM Service, Reasoner Service, API Handlers) for improved readability and maintainability.
-- **Extensible LLM Support**: Natively supports multiple LLM providers out-of-the-box:
+- **🧩 Modularity**: The codebase is structured into logical components (Config, Logger, LLM Service, Reasoner Service, API Handlers) for improved readability and maintainability.
+- **🤖 Extensible LLM Support**: Natively supports multiple LLM providers out-of-the-box:
   - **OpenAI** (e.g., GPT-4o)
   - **Google Gemini** (e.g., `gemini-pro`)
   - Local **Ollama** models (e.g., `llama3`)
+  - **Anthropic** (e.g., Claude 3 Opus)
+  - **Generic OpenAI-compatible HTTP REST Endpoint**: Allows connection to any API service that adheres to the OpenAI API specifications (e.g., locally hosted models via tools like LiteLLM, Ollama's OpenAI endpoint, or custom API proxies).
     The LLM provider is easily selectable via configuration.
-- **Robust Error Handling**: Features a custom `ApiError` class and centralized error-handling middleware for consistent and predictable API responses.
-- **Configuration Validation**: Robust configuration loading with clear startup checks for required API keys.
-- **Dependency Management**: Uses a standard `package.json` file for managing Node.js dependencies.
+- **🛡️ Robust Error Handling**: Features a custom `ApiError` class and centralized error-handling middleware for consistent and predictable API responses.
+- **✅ Configuration Validation**: Robust configuration loading with clear startup checks for required API keys.
+- **📦 Dependency Management**: Uses a standard `package.json` file for managing Node.js dependencies.
 
-## Quick Start & Common Use Cases
+## 🏁 Quick Start & Common Use Cases
 
 This section provides a fast track to getting MCR running and illustrates a couple of common ways to use it. For detailed setup, see the [Setup and Installation](#setup-and-installation) section.
 
 **1. Get MCR Running (Locally):**
 
 a. **Clone & Install:**
-`bash
-      git clone https://github.com/yourusername/model-context-reasoner.git # Replace with actual URL
-      cd model-context-reasoner
-      npm install
-      `
+   ```bash
+   # Note: Replace with the actual repository URL when available.
+   git clone https://github.com/yourusername/model-context-reasoner.git
+   cd model-context-reasoner
+   npm install
+   ```
 b. **Configure LLM:** Create a `.env` file in the project root (see [.env.example](.env.example) or [Setup](#setup-and-installation) for details) and add your chosen LLM provider API key (e.g., `OPENAI_API_KEY="sk-..."`).
 c. **Launch the Interactive TUI:** This is the easiest way to start. The TUI will also attempt to start the MCR server if it's not already running.
-`bash
-      mcr chat
-      # Or: node src/cli.js chat
-      `
+   ```bash
+   # If you've run `npm link` or `npm install -g .`
+   mcr chat
+   # Or, run directly via Node:
+   node src/cli.js chat
+   ```
 You're now in the MCR TUI! Try typing `/help` or a simple statement like "The sky is blue." followed by "What color is the sky?".
 
 **2. Common Use Case: Interactive Reasoning & Knowledge Exploration (via TUI)**
@@ -141,14 +146,19 @@ node simple_script.js
 
 This demonstrates how any application can integrate MCR's reasoning power.
 
-## Setup and Installation
+## 🛠️ Setup and Installation
 
 1.  **Clone or Download the Code**: Obtain the source code, including `mcr.js`, `package.json`, and the `src/` directory.
+    ```bash
+    # Note: Replace with the actual repository URL when available.
+    git clone https://github.com/yourusername/model-context-reasoner.git
+    cd model-context-reasoner
+    ```
 2.  **Install Dependencies**: Navigate to the project directory in your terminal and run:
     ```bash
     npm install
     ```
-3.  **Create `.env` file**: In the same directory as `mcr.js`, create a file named `.env`. You only need to add the API keys for the LLM services you intend to use.
+3.  **Create `.env` file**: In the project root directory (alongside `package.json`), create a file named `.env`. You only need to add the API keys for the LLM services you intend to use. See `.env.example` for a template.
 
     ```dotenv
     # --- CHOOSE ONE LLM PROVIDER ---
@@ -166,6 +176,17 @@ This demonstrates how any application can integrate MCR's reasoning power.
     # MCR_LLM_MODEL_OLLAMA="llama3" # Optional, defaults to llama3
     # MCR_LLM_OLLAMA_BASE_URL="http://localhost:11434" # Optional, defaults to http://localhost:11434
 
+    # For Generic OpenAI-compatible API
+    # MCR_LLM_PROVIDER="generic_openai"
+    # MCR_LLM_MODEL_GENERIC_OPENAI="your-model-name" # REQUIRED: Model name for the generic endpoint
+    # MCR_LLM_GENERIC_OPENAI_BASE_URL="http://localhost:8000/v1" # REQUIRED: Base URL of the API
+    # MCR_LLM_GENERIC_OPENAI_API_KEY="your_api_key_if_needed" # Optional: API key if needed
+
+    # For Anthropic
+    # MCR_LLM_PROVIDER="anthropic"
+    # ANTHROPIC_API_KEY="sk-ant-..." # REQUIRED
+    # MCR_LLM_MODEL_ANTHROPIC="claude-3-opus-20240229" # Optional, defaults to claude-3-opus-20240229
+
     # --- OPTIONAL GENERAL SETTINGS ---
     # MCR_API_URL="http://localhost:8080" # For CLI: defaults to http://localhost:8080 if server is local
     # HOST="0.0.0.0" # Defaults to 0.0.0.0
@@ -181,15 +202,19 @@ This demonstrates how any application can integrate MCR's reasoning power.
     ```
     The script will then start the server, indicating which LLM provider is active.
 
-## Interactive TUI (Primary Interface for Exploration and Direct Use)
+## 💬 Interactive TUI (Primary Interface for Exploration and Direct Use)
 
-The `mcr chat` command launches a comprehensive Text User Interface (TUI), which is the **recommended primary way for users to directly interact with MCR**, explore its features, manage sessions, and run demos.
+The `mcr chat` command launches a comprehensive Text User Interface (TUI). This is the **recommended primary way for users to directly interact with MCR**, explore its features, manage sessions, and run demos.
+
 To launch the TUI (it will attempt to start the MCR server if not already running):
-
 ```bash
-node mcr.js chat
-# Or if mcr is in your PATH (e.g. via npm link or global install)
+# If you've run `npm link` or `npm install -g .` to make `mcr` globally available:
 mcr chat
+
+# Alternatively, run directly using Node from the project root:
+node mcr.js chat
+# Or (if you've only installed dependencies locally and not linked):
+# node src/cli.js chat
 ```
 
 The `mcr chat` command starts a full-application TUI that serves as your "home" for all MCR operations.
@@ -221,7 +246,7 @@ The `mcr chat` command starts a full-application TUI that serves as your "home" 
   - `/status`: Checks and displays the MCR server status.
   - `/create-session`: Creates a new reasoning session.
   - `/list-ontologies`: Lists all globally stored ontologies.
-  // Demo execution is now handled by `mcr demo run <demoName>`
+    // Demo execution is now handled by `mcr demo run <demoName>`
 - **Exiting**: Type `/exit`, `/quit`, or press `Ctrl+C`.
 
 **Key TUI Commands (obtain the full up-to-date list with `/help` inside the TUI):**
@@ -252,33 +277,33 @@ The `mcr chat` command starts a full-application TUI that serves as your "home" 
   - `/show-prompt <templateName>`: Show a specific prompt template.
   - `/debug-prompt <templateName> <json>`: Debug a prompt template with JSON variables.
 - **Utilities:**
-  - `/toggle-debug-chat`: Toggle verbose debug output for chat messages and `/query` commands.
+  - `/toggle-debug-chat`: 🐛 Toggle verbose debug output for chat messages and `/query` commands.
 
-## Direct CLI Commands (For Scripting, Automation, Demos, and Sandbox)
+## 💻 Direct CLI Commands (For Scripting, Automation, Demos, and Sandbox)
 
 Beyond the interactive TUI (`mcr chat`), MCR offers a set of direct Command Line Interface (CLI) commands. These are intended for scripting, automation, running demonstrations, or using the experimental sandbox. Most of these commands interact with a running MCR server (and will attempt to start one if not found).
 
-You can see the list of all available direct CLI commands and their options with `mcr --help`.
+You can see the list of all available direct CLI commands and their options by running `mcr --help` (if globally installed/linked) or `node src/cli.js --help`.
 
-**Core CLI Commands:**
+**Core CLI Commands Examples:**
 
 - `mcr status`: Checks server status.
 - `mcr create-session`: Creates a session and prints its ID.
 - `mcr assert <sessionId> "Fact"`: Asserts a fact to a given session.
 - `mcr query <sessionId> "Question?"`: Queries a session.
 - `mcr list-ontologies`: Lists ontologies.
-- ... and more for session, ontology, and translation management.
+- ... and many more for session, ontology, and translation management. Refer to `mcr --help` for the full list.
 
-**New `demo` Command:**
+**The `demo` Command 🎬:**
 
 The `demo` command is used to run predefined demonstrations of MCR's capabilities. These demos are non-interactive and print their progress to the console.
 
 - `mcr demo run <demoName>`: Runs a specific demo.
   - **`<demoName>`**: Can be `simpleQA` or `family`.
   - **Example**: `mcr demo run simpleQA`
-    This will execute the "Simple Q&A" demo, showing steps like session creation, fact assertion, queries, and cleanup. The original Natural Language inputs for assertions and queries are displayed as part of the demo output.
+    This will execute the "Simple Q&A" demo, showcasing steps like session creation, fact assertion, queries, and cleanup. The original Natural Language inputs for assertions and queries are displayed as part of the demo output.
 
-**New `sandbox` Command:**
+**The `sandbox` Command 🧪:**
 
 The `sandbox` command launches an interactive command-line environment for experimenting with MCR. It's designed to help understand how the system processes queries by showing various intermediate steps.
 
@@ -286,8 +311,8 @@ The `sandbox` command launches an interactive command-line environment for exper
   - **Features**:
     - Manages its own session (creates on start, deletes on exit).
     - Prompts for Natural Language (NL) input.
-    - Shows an (optional) confirmation before submitting the query.
-    - Displays:
+    - Optionally shows a confirmation before submitting the query.
+    - Displays detailed steps:
       - NL Input
       - Input (Logic - Translation from NL)
       - Query (Logic - Processed query sent to reasoner)
@@ -295,19 +320,19 @@ The `sandbox` command launches an interactive command-line environment for exper
       - Result (NL - Final answer)
     - Loops for multiple queries until the user types "exit".
 
-This sandbox is useful for developers and users who want to see "under the hood" of the reasoning process for specific queries.
+This sandbox is invaluable for developers and users who want to see "under the hood" of the reasoning process for specific queries.
 
-## Integrating with AI Clients (MCP)
+## 🤝 Integrating with AI Clients (MCP)
 
-This MCR server can be exposed as a set of tools to AI clients that support the Model Context Protocol (MCP), such as Claude Desktop. This allows the AI to leverage the reasoning capabilities of MCR.
+This MCR server can be exposed as a set of tools to AI clients that support the Model Context Protocol (MCP), such as Anthropic's Claude Desktop. This allows the AI to leverage the reasoning capabilities of MCR.
 
 ### Configuring Claude Desktop
 
 To connect Claude Desktop to this MCR server, you need to modify your `claude_desktop_config.json` file.
 
 1.  **Locate the configuration file:**
-    *   On **macOS**, this file is typically found at: `~/Library/Application Support/Claude/claude_desktop_config.json`
-    *   On other operating systems, the location may vary. Please refer to the Claude Desktop documentation.
+    - On **macOS**, this file is typically found at: `~/Library/Application Support/Claude/claude_desktop_config.json`
+    - On other operating systems, the location may vary. Please refer to the Claude Desktop documentation.
 
 2.  **Add the MCR server configuration:**
     Open `claude_desktop_config.json` in a text editor and add the following entry to the `mcpServers` object. If `mcpServers` doesn't exist, create it.
@@ -336,24 +361,24 @@ To connect Claude Desktop to this MCR server, you need to modify your `claude_de
     ```
 
     **Notes:**
-    *   Replace `"mcr-reasoner-server"` with any unique key you prefer for this server.
-    *   The `url` field defaults to `http://localhost:8080/mcp/sse`. If your MCR server is running on a different port (configured via the `PORT` environment variable) or host, update this URL accordingly.
-    *   The `allowed_tools` array lists the tools that will be available from this MCR server.
+    - Replace `"mcr-reasoner-server"` with any unique key you prefer for this server.
+    - The `url` field defaults to `http://localhost:8080/mcp/sse`. If your MCR server is running on a different port (configured via the `PORT` environment variable) or host, update this URL accordingly.
+    - The `allowed_tools` array lists the tools that will be available from this MCR server.
 
 3.  **Restart Claude Desktop:**
     After saving the changes to `claude_desktop_config.json`, restart Claude Desktop for the new configuration to take effect.
 
 Once configured, Claude Desktop should be able to discover and use the tools provided by this MCR server, enabling it to create reasoning sessions, assert facts, and perform queries.
 
-## API Reference
+## 🔌 API Reference
 
 MCR exposes a RESTful API for interaction. All requests and responses are JSON-based.
 
-### General Considerations
+### General Considerations 📝
 
 - **`X-Correlation-ID` Header**: All responses will include an `X-Correlation-ID` header, containing a unique ID for the request. This ID is also included in server logs and can be useful for debugging and tracing.
 
-- **Error Responses**: Errors are returned in a consistent JSON format.
+- **Error Responses ⚠️**: Errors are returned in a consistent JSON format.
   - **API Errors (Client-side or expected issues, e.g., 4xx status codes):**
 
     ```json
@@ -374,12 +399,12 @@ MCR exposes a RESTful API for interaction. All requests and responses are JSON-b
     {
       "error": {
         "message": "An internal server error occurred.",
-        "details": "Specific error message from the server (may be hidden in production)",
         "type": "InternalServerError",
         "correlationId": "a-unique-uuid"
       }
     }
     ```
+    *(Note: Detailed internal error messages are not exposed to the client for security reasons, but are logged server-side with the correlationId.)*
 
 ### 1. Root Endpoint
 
@@ -503,7 +528,7 @@ Ask natural language questions against a session's knowledge base. MCR translate
     ```
 
   - **Implementing Retrieval Augmented Generation (RAG) with Dynamic Knowledge Injection**:
-    The `ontology` field is key to implementing RAG with MCR. The workflow is typically as follows:
+    The `ontology` field is key to implementing RAG with MCR. Here's a typical workflow:
     1.  **User Query**: The user submits a natural language query to your application.
     2.  **Context Retrieval (Application Responsibility)**: Your application preprocesses the user's query (e.g., identifies keywords, entities). It then queries an external knowledge source (vector database, document store, knowledge graph, etc.) to retrieve relevant contextual information.
     3.  **Context Transformation (Application Responsibility)**: The retrieved context (which might be text chunks, structured data, etc.) needs to be transformed into Prolog facts or rules. This transformation can be done programmatically by your application or by using an LLM to convert natural language context into Prolog statements.

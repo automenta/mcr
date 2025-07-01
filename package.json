@@ -4,7 +4,7 @@
   "description": "Connect LLMs and Logic",
   "main": "mcr.js",
   "bin": {
-    "mcr": "./src/cli.js"
+    "mcr": "./mcr.js"
   },
   "scripts": {
     "start": "node mcr.js",
@@ -23,6 +23,7 @@
   "license": "MIT",
   "dependencies": {
     "@babel/register": "^7.24.6",
+    "@langchain/anthropic": "^0.3.23",
     "@langchain/community": "^0.3.47",
     "@langchain/core": "0.3.61",
     "@langchain/google-genai": "^0.2.14",
@@ -63,6 +64,12 @@
     "url": "https://github.com/yourusername/model-context-reasoner/issues"
   },
   "homepage": "https://github.com/yourusername/model-context-reasoner#readme",
+  "jest": {
+    "transformIgnorePatterns": [
+      "/node_modules/(?!inquirer)/",
+      "\\.pnp\\.[^\\/]+$"
+    ]
+  },
   "devDependencies": {
     "@babel/core": "^7.27.7",
     "@babel/preset-env": "^7.27.2",

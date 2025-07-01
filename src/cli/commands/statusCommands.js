@@ -1,9 +1,10 @@
 const { getServerStatus } = require('../api'); // Use the version that doesn't auto-exit
-const { handleCliOutput } = require('../utils');
+const { handleCliOutput } = require('../utils'); // getLogger removed
 const ConfigManager = require('../../config');
+const { logger: cmdLogger } = require('../../logger'); // Import the main logger
 
 // This function is intended for CLI command execution via Commander
-async function getServerStatusCliAsync(options, commandInstance) {
+async function getServerStatusCliAsync(_options, commandInstance) { // options marked as unused
   const programOpts = commandInstance.parent.opts();
   const config = ConfigManager.get(); // Get config for API URL
   const apiUrl = `http://${config.server.host}:${config.server.port}`;
@@ -11,7 +12,8 @@ async function getServerStatusCliAsync(options, commandInstance) {
   try {
     const statusData = await getServerStatus(); // This uses tuiApiClientInstance
     // For CLI, we use handleCliOutput for successful status
-    handleCliOutput(statusData, programOpts, null, 'MCR API Status:\n');
+    // Add an emoji to the prefix for successful online status
+    handleCliOutput(statusData, programOpts, null, '✅ MCR API Status (Online):\n');
     // process.exit(0); // Command successful
   } catch (error) {
     // Error here means the server is likely not running or unreachable
@@ -19,45 +21,40 @@ async function getServerStatusCliAsync(options, commandInstance) {
 
     if (error.isAxiosError && !error.response) {
       // This typically means connection refused or DNS error etc.
+      const outputMessage = {
+        status: 'offline',
+        message: `MCR API server not reachable at ${apiUrl}.`,
+      };
       if (isJsonOutput) {
-        console.log(
-          JSON.stringify({
-            status: 'offline',
-            message: `MCR API server not reachable at ${apiUrl}.`,
-          })
-        );
+        process.stdout.write(JSON.stringify(outputMessage) + '\n');
       } else {
-        console.log(
-          `MCR API server not reachable at ${apiUrl}. Status: Offline`
-        );
+        cmdLogger.info(`🔌 MCR API server not reachable at ${apiUrl}. Status: Offline`);
       }
     } else if (error.response) {
       // Server responded with an error status code
+      const outputMessage = {
+        status: 'error',
+        message: `💥 Server at ${apiUrl} responded with error ${error.response.status}.`,
+        details: error.response.data,
+      };
       if (isJsonOutput) {
-        console.log(
-          JSON.stringify({
-            status: 'error',
-            message: `Server at ${apiUrl} responded with error ${error.response.status}.`,
-            details: error.response.data,
-          })
-        );
+        process.stdout.write(JSON.stringify(outputMessage) + '\n');
       } else {
-        console.log(
-          `MCR API server at ${apiUrl} responded with error ${error.response.status}. Status: Error`
+        cmdLogger.info(
+          `💥 MCR API server at ${apiUrl} responded with error ${error.response.status}. Status: Error`
         );
       }
     } else {
       // Other types of errors
+      const outputMessage = {
+        status: 'error',
+        message: `❓ Failed to get status from ${apiUrl}: ${error.message}`,
+      };
       if (isJsonOutput) {
-        console.log(
-          JSON.stringify({
-            status: 'error',
-            message: `Failed to get status from ${apiUrl}: ${error.message}`,
-          })
-        );
+        process.stdout.write(JSON.stringify(outputMessage) + '\n');
       } else {
-        console.log(
-          `Failed to determine MCR API server status at ${apiUrl}: ${error.message}. Status: Unknown`
+        cmdLogger.info(
+          `❓ Failed to determine MCR API server status at ${apiUrl}: ${error.message}. Status: Unknown`
         );
       }
     }

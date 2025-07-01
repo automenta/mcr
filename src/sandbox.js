@@ -6,7 +6,11 @@ const { Command } = require('commander');
 const inquirer = require('inquirer');
 const api = require('./apiHandlers');
 const ConfigManager = require('./config');
-const { isServerAliveAsync, startMcrServerAsync, stopMcrServer } = require('./cli/tuiUtils/serverManager');
+const {
+  isServerAliveAsync,
+  startMcrServerAsync,
+  stopMcrServer,
+} = require('./cli/tuiUtils/serverManager');
 const { delay } = require('./cli/utils');
 
 const sandboxProgram = new Command();
@@ -29,16 +33,22 @@ async function ensureServerRunning(programOpts) {
     try {
       mcrServerProcess = await startMcrServerAsync(programOpts);
       serverStartedBySandbox = true;
-      console.log('MCR server process started. Waiting a moment for it to initialize...');
+      console.log(
+        'MCR server process started. Waiting a moment for it to initialize...'
+      );
       await delay(2000); // Wait for server to boot
       if (!(await isServerAliveAsync(healthCheckUrl, 5, 1000))) {
-        console.error('Server process was started but did not become healthy in time.');
+        console.error(
+          'Server process was started but did not become healthy in time.'
+        );
         return false;
       }
       console.log('MCR server is now running.');
       return true;
     } catch (serverStartError) {
-      console.error(`Critical: Failed to start MCR server: ${serverStartError.message}.`);
+      console.error(
+        `Critical: Failed to start MCR server: ${serverStartError.message}.`
+      );
       console.error('Please start it manually and try again.');
       return false;
     }
@@ -48,9 +58,9 @@ async function ensureServerRunning(programOpts) {
 }
 
 async function sandboxLoop(cmdObj) {
-  const programOpts = cmdObj.parent.opts(); // Access global options like --json from main 'mcr' command
+  const programOpts = cmdObj.optsWithGlobals(); // Access global options like --json from main 'mcr' command
 
-  if (!await ensureServerRunning(programOpts)) {
+  if (!(await ensureServerRunning(programOpts))) {
     process.exit(1);
   }
 
@@ -68,7 +78,8 @@ async function sandboxLoop(cmdObj) {
         {
           type: 'input',
           name: 'nlQuery',
-          message: 'Enter your Natural Language query (or type "exit" to quit):',
+          message:
+            'Enter your Natural Language query (or type "exit" to quit):',
         },
       ]);
 
@@ -96,7 +107,10 @@ async function sandboxLoop(cmdObj) {
         console.log('Processing query...');
         try {
           // Request debug information to get more details
-          const response = await api.query(sessionId, nlQuery, { style: 'verbose', debug: true });
+          const response = await api.query(sessionId, nlQuery, {
+            style: 'verbose',
+            debug: true,
+          });
 
           console.log('\n=== Sandbox Output ===');
           console.log(`NL Input: ${nlQuery}`);
@@ -117,7 +131,7 @@ async function sandboxLoop(cmdObj) {
 
           if (response.prologOutput && response.prologOutput.length > 0) {
             console.log('Results (Logic - Prolog Output):');
-            response.prologOutput.forEach(out => console.log(out));
+            response.prologOutput.forEach((out) => console.log(out));
             console.log('---');
           } else if (response.debug?.solutions) {
             console.log('Results (Logic - Solutions):');
@@ -128,15 +142,18 @@ async function sandboxLoop(cmdObj) {
           console.log('Result (NL):');
           console.log(response.answer || 'No NL answer provided.');
           console.log('======================\n');
-
         } catch (error) {
-          const errorMessage = error.response?.data?.error?.message ||
-                             error.response?.data?.message ||
-                             error.message ||
-                             'Unknown error during query processing.';
+          const errorMessage =
+            error.response?.data?.error?.message ||
+            error.response?.data?.message ||
+            error.message ||
+            'Unknown error during query processing.';
           console.error(`Query Error: ${errorMessage}`);
           if (error.response?.data) {
-            console.error('Details:', JSON.stringify(error.response.data, null, 2));
+            console.error(
+              'Details:',
+              JSON.stringify(error.response.data, null, 2)
+            );
           }
         }
       } else {
@@ -166,11 +183,12 @@ async function sandboxLoop(cmdObj) {
   }
 }
 
-
 const registerSandboxCommand = (mainProgram) => {
   mainProgram
     .command('sandbox')
-    .description('Experimental sandbox for MCR. Starts the server if not running.')
+    .description(
+      'Experimental sandbox for MCR. Starts the server if not running.'
+    )
     // Add any sandbox specific options here if needed in the future
     // .option('-s, --sessionId <id>', 'Use an existing session ID') // Example
     .action(sandboxLoop);
@@ -179,12 +197,18 @@ const registerSandboxCommand = (mainProgram) => {
 // If this script is run directly (node src/sandbox.js)
 if (require.main === module) {
   sandboxProgram
-    .name("mcr-sandbox")
-    .description('Experimental sandbox for MCR (Standalone). Starts the server if not running.')
+    .name('mcr-sandbox')
+    .description(
+      'Experimental sandbox for MCR (Standalone). Starts the server if not running.'
+    )
     .version('1.0.0')
     // Add global options if necessary, e.g., for server config path
-    .option('--config <path>', 'Path to a custom configuration file for server start')
-    .action(async (options, command) => { // Standalone action calls sandboxLoop directly
+    .option(
+      '--config <path>',
+      'Path to a custom configuration file for server start'
+    )
+    .action(async (options, command) => {
+      // Standalone action calls sandboxLoop directly
       await sandboxLoop(command); // Pass the command object itself
     });
   sandboxProgram.parse(process.argv);

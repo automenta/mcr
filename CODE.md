@@ -25,7 +25,7 @@ This section outlines how the MCR application can be extended, focusing on key a
 
 ### LLM Provider Integration
 
-The system supports multiple LLM providers (e.g., OpenAI, Gemini, Ollama) via a strategy pattern implemented in `src/llmService.js`.
+The system supports multiple LLM providers (e.g., OpenAI, Gemini, Ollama, Anthropic, Generic OpenAI-compatible) via a strategy pattern implemented in `src/llmService.js`.
 
 **To add a new LLM provider (e.g., "MyNewProvider"):**
 
@@ -79,9 +79,12 @@ The system supports multiple LLM providers (e.g., OpenAI, Gemini, Ollama) via a 
     - Add `'mynewprovider'` to the `VALID_LLM_PROVIDERS` array.
     - Update the configuration validation logic within `ConfigManager.validateConfig(config)` to check for necessary settings when `MCR_LLM_PROVIDER` is `'mynewprovider'`. This typically involves ensuring `config.llm.apiKey.mynewprovider` and `config.llm.model.mynewprovider` are present.
     - Add default model name for your provider in `defaultConfig.llm.model`.
+    - If your provider requires unique top-level configuration keys (like `ollamaBaseUrl` or `genericOpenaiBaseUrl`), add them to `defaultConfig.llm` and `loadedConfig.llm`.
+    - Ensure API keys are handled correctly in `defaultConfig.llm.apiKey` and `loadedConfig.llm.apiKey`.
 
 4.  **Update Documentation:**
     - Add configuration instructions for the new provider to `.env.example` and `README.md`.
+    - Briefly mention the new provider in the introduction to this "LLM Provider Integration" section.
 
 **Further Enhancements (Future Considerations):**
 

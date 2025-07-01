@@ -20,16 +20,17 @@ async function isServerAliveAsync(url, retries = 5, delayTime = 1000) {
 
 async function startMcrServerAsync(_programOpts) {
   // eslint-disable-next-line no-console
-  console.log('Starting MCR server (from tuiUtils/serverManager.js)...');
+  console.log('🚀 Attempting to start the MCR server automatically...');
 
   // __dirname here will be src/cli/tuiUtils
-//  const mcrScriptPath = path.resolve(__dirname, '../../../../mcr.js'); // Adjusted path: tuiUtils -> cli -> src -> project_root
+  //  const mcrScriptPath = path.resolve(__dirname, '../../../../mcr.js'); // Adjusted path: tuiUtils -> cli -> src -> project_root
   const mcrScriptPath = path.resolve(__dirname, '../../../mcr.js'); // Corrected path: tuiUtils -> cli -> src -> project_root
 
   let serverStdErr = '';
-  const serverInstance = spawn('node', [mcrScriptPath], {
+  const serverInstance = spawn('node', [mcrScriptPath, 'start-server'], {
+    // Added 'start-server'
     detached: true,
-    stdio: ['ignore', 'ignore', 'pipe'],
+    stdio: ['ignore', 'ignore', 'pipe'], // Keep stderr piped to capture issues
   });
 
   serverInstance.stderr.on('data', (data) => {
@@ -65,15 +66,21 @@ async function startMcrServerAsync(_programOpts) {
         } else {
           if (serverStdErr) {
             // eslint-disable-next-line no-console
-            console.error('MCR Server (spawned from tuiUtils) stderr before failing health check:', serverStdErr);
+            console.error(
+              'MCR Server (spawned from tuiUtils) stderr before failing health check:',
+              serverStdErr
+            );
           }
           reject(new Error('Server failed to start or become healthy.'));
         }
       })
       .catch((err) => {
         if (serverStdErr) {
-            // eslint-disable-next-line no-console
-            console.error('MCR Server (spawned from tuiUtils) stderr on error:', serverStdErr);
+          // eslint-disable-next-line no-console
+          console.error(
+            'MCR Server (spawned from tuiUtils) stderr on error:',
+            serverStdErr
+          );
         }
         reject(err);
       });

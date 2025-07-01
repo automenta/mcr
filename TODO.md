@@ -63,6 +63,13 @@ Leveraging MCR's own capabilities (LLM-powered NLP, Prolog reasoning, prompt man
 - **Fine-tuning Integration**: Support for fine-tuning LLMs specifically for Prolog translation based on user-provided examples.
 - **LLM-as-a-Reasoner (Hybrid Approach)**: For simpler queries, allow LLMs to directly reason, falling back to Prolog for complex, multi-hop, or highly structured reasoning.
 - **Prompt Template Management API**: Allow users to define, store, and manage custom prompt templates for different translation tasks.
+- **Null LLM Provider**: Implement a "Null" or "Passthrough" LLM provider. This provider would not make any external LLM calls.
+    - For translations (NL to Rules, Query to Prolog), it could return predefined canned responses or echo the input in a structured format.
+    - For NL generation (Result to NL, Rules to NL), it could return the input logic directly or a simple message indicating no LLM translation occurred.
+    - **Benefits**:
+        - Allows basic system operation and testing of core logic (session management, reasoner service) without requiring LLM API keys or connectivity.
+        - Useful for environments where LLMs are unavailable or undesired for certain tasks.
+        - Could facilitate more deterministic testing of components that interact with LlmService.
 
 ### 4. Data Integration & Knowledge Management
 
@@ -120,14 +127,14 @@ Leveraging MCR's own capabilities (LLM-powered NLP, Prolog reasoning, prompt man
 - **Community Ontologies**: A repository of pre-built ontologies for common domains (e.g., medical, legal, finance).
 - **Contribution Guidelines**: Clear guidelines for community contributions (`CONTRIBUTING.md`).
 
-## Immediate Next Steps (from README.md)
+## Short-Term Focus Areas (Refined from previous "Immediate Next Steps")
 
-- Advanced error handling and debugging to diagnose translation and reasoner issues.
-- Prompt template editing and debugging.
-- Unit test framework.
-- Demo framework: try individual operations.
-- Extensibility.
-- Integrate RAG / datastores through dynamic Prolog assertions / overlay.
+- **Enhanced Error Handling & Debugging**: Improve diagnostics for translation and reasoner issues, making it easier for users to understand and resolve problems. (Corresponds to current plan)
+- **User-Friendly Prompt Management**: While prompt debugging tools exist (`/debug-prompt`, `/debug/format-prompt`), explore ways to make viewing and understanding the core prompts more accessible to users who want to "look under the hood". Full editing is a larger feature.
+- **Comprehensive Unit & Integration Testing**: Continue to build out the test suite (Jest is set up) to cover more core functionalities, edge cases, and API endpoints. (Corresponds to current plan)
+- **Streamlined Demo and Exploration Tools**: The `mcr demo run` command and TUI provide good exploration capabilities. Ensure these are robust and showcase features effectively.
+- **Refine RAG/Dynamic Knowledge Documentation**: Ensure the existing mechanism for RAG via dynamic `ontology` injection in queries is clearly documented and its potential highlighted. Direct datastore connectors are a larger future item.
+- **CLI & TUI Polish**: Continue to refine the CLI and TUI for usability, clear output, and robust error handling. (Corresponds to current plan)
 
 ## Extended Development Plan
 
@@ -176,18 +183,12 @@ Leveraging MCR's own capabilities (LLM-powered NLP, Prolog reasoning, prompt man
 
 ### 6. Enable Agent Modes
 
-- **DONE: Initial Agent Mode CLI (`mcr-cli agent`)**
-  - Defaults to `gemini-2.5-flash` (configurable via standard MCR LLM env vars).
-  - Asks for Gemini API key if not provided.
-  - Provides a choice of prescripted demos (Simple Q&A, Family Ontology) generating real outputs.
-  - Includes a free chat mode that interacts with MCR's query endpoint.
-  - Clearly shows API interactions, NL-to-Prolog translations, and Prolog outputs.
-  - Loops allowing the user to try another demo or exit.
-- Design other agents: Reasoning (suggests facts/ontologies), Debug (detects issues), Learning (evolves ontologies), Collaboration (shares ontologies).
-- Build main loop to trigger API calls based on _specific agent goals_ (beyond current demo/chat loop).
-- Implement Reasoning Agent to monitor queries and suggest facts.
-- Test with sample task (e.g., building small ontology).
-- **Considerations**: Define clear triggers/goals for more advanced agents; ensure logging.
+- **Interactive Exploration (Current):** The `mcr chat` and `mcr sandbox` commands provide interactive modes for users to act as "agents" guiding the reasoning process.
+- **Future Agent Concepts:**
+  - Design specialized agents: e.g., a "Reasoning Agent" that proactively suggests relevant facts or ontologies based on query patterns, a "Debugging Agent" that helps diagnose complex issues, or a "Learning Agent" that evolves ontologies over time.
+  - These would likely involve a main loop triggering API calls based on specific agent goals, going beyond the current interactive demo/chat/sandbox loops.
+  - An initial step could be to implement a "Reasoning Agent" that monitors queries and suggests related facts from a broader knowledge base or common sense ontology.
+- **Considerations**: Define clear triggers, goals, and operational loops for more advanced automated agents; ensure robust logging and user oversight.
 
 ### 7. Build Peer-to-Peer Ontology Network
 
