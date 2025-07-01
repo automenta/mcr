@@ -2,11 +2,14 @@
 require('@babel/register');
 
 const { Command } = require('commander');
-const apiClient = require('./cli/api'); // Corrected: Use the CLI API client functions
+// const apiClient = require('./cli/api'); // Removed
 const ConfigManager = require('./config');
-const { isServerAliveAsync, startMcrServerAsync } = require('./cli/tuiUtils/serverManager');
+const mcrCore = require('./mcrCore'); // Added
+// const { isServerAliveAsync, startMcrServerAsync } = require('./cli/tuiUtils/serverManager'); // Removed
 const { readFileContentSafe, delay } = require('./cli/utils');
 const { logger } = require('./logger'); // Use the main logger
+// ApiError will be needed for specific error checking if mcrCore throws them
+const ApiError = require('./errors');
 
 // --- Enhanced Demo Logger ---
 const demoLogger = {
@@ -27,56 +30,7 @@ const demoLogger = {
   divider: () => console.log('\n' + '-'.repeat(60)),
 };
 
-// --- API Client Abstraction for Demos ---
-// This simplifies calls and centralizes error handling for demo purposes.
-async function callApi(apiFunctionName, ...args) {
-  const apiFunction = apiClient[apiFunctionName];
-  if (typeof apiFunction !== 'function') {
-    demoLogger.error(`API function '${apiFunctionName}' not found in apiClient.`);
-    throw new Error(`API function '${apiFunctionName}' not found.`);
-  }
-  try {
-    const response = await apiFunction(...args);
-    // demoLogger.success(`API call ${apiFunctionName} successful.`);
-    // demoLogger.info('Raw API Response', response);
-    return response;
-  } catch (err) {
-    // apiClient functions (from tuiApiClientInstance) don't auto-exit like the ones using handleApiError.
-    // They throw errors that we catch here.
-    const errorDetails = err.response ? JSON.stringify(err.response.data, null, 2) : err.message;
-    const errorStatus = err.response ? err.response.status : 'N/A';
-    demoLogger.error(`API call ${apiFunctionName} failed (Status: ${errorStatus})`, errorDetails);
-    throw err; // Re-throw to allow demo to stop or handle
-  }
-}
-
-// --- Server Management ---
-async function ensureServerRunningAsync(programOpts) {
-  const config = ConfigManager.get();
-  const serverUrl = `http://${config.server.host}:${config.server.port}/`;
-  const healthCheckUrl = serverUrl;
-
-  if (!(await isServerAliveAsync(healthCheckUrl, 1, 100))) {
-    demoLogger.step('MCR server not detected. Attempting to start it...');
-    try {
-      await startMcrServerAsync(programOpts); // serverManager now uses console.log
-      logger.info('MCR server process potentially started by demo. Waiting for it to initialize...');
-      await delay(2500); // Increased delay slightly
-      if (!(await isServerAliveAsync(healthCheckUrl, 8, 500))) { // Increased retries
-        demoLogger.error('Server process was started but did not become healthy in time.');
-        return false;
-      }
-      demoLogger.success('MCR server is now running.');
-      return true;
-    } catch (serverStartError) {
-      demoLogger.error('Failed to start MCR server', serverStartError.message);
-      console.error('Please start the MCR server manually and try running the demo again.');
-      return false;
-    }
-  }
-  demoLogger.info('MCR Server Status', 'Already running or detected.');
-  return true;
-}
+// Removed callApi and ensureServerRunningAsync functions
 
 // --- Simple Q&A Demo ---
 async function runSimpleQADemoAsync() {
@@ -85,15 +39,11 @@ async function runSimpleQADemoAsync() {
   let sessionId;
 
   try {
-    // Log LLM Provider Info
-    const serverStatus = await callApi('getServerStatus');
-    if (serverStatus && serverStatus.activeLlmProvider) {
-      demoLogger.info('LLM Used', `Provider: ${serverStatus.activeLlmProvider}, Model: ${serverStatus.activeLlmModel || 'N/A'}`);
-    }
+    // LLM Provider Info is logged during mcrCore.init by runDemoAction
 
     // 1. Create Session
     demoLogger.step('1. Creating a new reasoning session');
-    const sessionData = await callApi('createSession');
+    const sessionData = mcrCore.createSession(); // Direct call
     sessionId = sessionData.sessionId;
     demoLogger.success(`Session created successfully!`);
     demoLogger.info('Session ID', sessionId);
@@ -105,13 +55,13 @@ async function runSimpleQADemoAsync() {
     const fact1_nl = "The sky is blue.";
     const fact2_nl = "Grass is green.";
     demoLogger.nl('Fact 1 (NL)', fact1_nl);
-    let assertResponse = await callApi('assertFacts', sessionId, fact1_nl);
+    let assertResponse = await mcrCore.assertFacts(sessionId, fact1_nl); // Direct call
     demoLogger.logic('Added Facts (Prolog)', assertResponse.addedFacts);
     demoLogger.info('Total Facts in Session', assertResponse.totalFactsInSession);
 
     await delay(500);
     demoLogger.nl('Fact 2 (NL)', fact2_nl);
-    assertResponse = await callApi('assertFacts', sessionId, fact2_nl);
+    assertResponse = await mcrCore.assertFacts(sessionId, fact2_nl); // Direct call
     demoLogger.logic('Added Facts (Prolog)', assertResponse.addedFacts);
     demoLogger.info('Total Facts in Session', assertResponse.totalFactsInSession);
     demoLogger.success('Facts asserted successfully!');
@@ -121,7 +71,7 @@ async function runSimpleQADemoAsync() {
     demoLogger.step('3. Querying: "What color is the sky?"');
     const query1_nl = "What color is the sky?";
     demoLogger.nl('Query (NL)', query1_nl);
-    const query1_response = await callApi('query', sessionId, query1_nl, { debug: true });
+    const query1_response = await mcrCore.query(sessionId, query1_nl, { debug: true }); // Direct call
     demoLogger.logic('Generated Prolog Query', query1_response.queryProlog);
     demoLogger.logic('Reasoner Result (Simplified)', query1_response.result);
     demoLogger.mcrResponse('MCR Answer (NL)', query1_response.answer);
@@ -134,7 +84,8 @@ async function runSimpleQADemoAsync() {
     demoLogger.step('4. Querying: "Is grass green?"');
     const query2_nl = "Is grass green?";
     demoLogger.nl('Query (NL)', query2_nl);
-    const query2_response = await callApi('query', sessionId, query2_nl);
+    // Example of query without debug, options is an optional param for mcrCore.query
+    const query2_response = await mcrCore.query(sessionId, query2_nl); // Direct call
     demoLogger.logic('Generated Prolog Query', query2_response.queryProlog);
     demoLogger.logic('Reasoner Result (Simplified)', query2_response.result);
     demoLogger.mcrResponse('MCR Answer (NL)', query2_response.answer);
@@ -142,17 +93,20 @@ async function runSimpleQADemoAsync() {
     demoLogger.success('Query 2 processed!');
 
   } catch (err) {
-    // Error already logged by callApi
-    demoLogger.error("Simple Q&A Demo failed prematurely.", "See API call error above.");
+    // Catch errors from mcrCore calls
+    const errorDetails = err.response ? JSON.stringify(err.response.data, null, 2) : err.message;
+    demoLogger.error("Simple Q&A Demo failed prematurely.", errorDetails);
+    if (err.stack) console.error(err.stack);
   } finally {
     if (sessionId) {
       demoLogger.divider();
       demoLogger.step('Cleaning up: Deleting session');
       try {
-        await callApi('deleteSession', sessionId);
+        mcrCore.deleteSession(sessionId); // Direct call
         demoLogger.cleanup(`Session ${sessionId} deleted.`);
       } catch (cleanupError) {
         demoLogger.error(`Failed to delete session ${sessionId}`, cleanupError.message);
+        if (cleanupError.stack) console.error(cleanupError.stack);
       }
     }
     demoLogger.heading('Simple Q&A Demo Finished');
@@ -173,44 +127,39 @@ async function runFamilyOntologyDemoAsync() {
   };
 
   try {
-    // Log LLM Provider Info
-    const serverStatus = await callApi('getServerStatus');
-    if (serverStatus && serverStatus.activeLlmProvider) {
-      demoLogger.info('LLM Used', `Provider: ${serverStatus.activeLlmProvider}, Model: ${serverStatus.activeLlmModel || 'N/A'}`);
-    }
+    // LLM Provider Info is logged during mcrCore.init by runDemoAction
 
     // 1. Load Ontology
     demoLogger.step(`1. Loading '${ontologyName}' ontology from '${ontologyFilePath}'`);
     const ontologyRules = readFileContentSafe(ontologyFilePath, logFileReadError, 'Family Ontology File');
     if (!ontologyRules) {
-      // Error already logged by logFileReadError via readFileContentSafe
       demoLogger.error(`Demo cannot proceed without ontology file: ${ontologyFilePath}.`);
       return;
     }
+
     try { // Attempt to delete if it exists, to ensure a clean state for the demo
-      await callApi('deleteOntology', ontologyName);
+      // mcrCore.deleteOntology is synchronous based on SessionManager.deleteOntology
+      mcrCore.deleteOntology(ontologyName);
       demoLogger.cleanup(`Attempted to delete pre-existing ontology '${ontologyName}', if it existed.`);
     } catch (e) {
-      // Check if the error is a 404 (Not Found)
-      if (e.response && e.response.status === 404) {
+      // Check if the error is a 404 (Not Found) from ApiError
+      if (e instanceof ApiError && e.statusCode === 404) {
         demoLogger.info(`Info: Pre-existing ontology '${ontologyName}' not found. No deletion needed.`);
       } else {
-        // For other errors, log them as a warning but continue, as the main goal is to load the new one.
         demoLogger.error(`Warning: Could not delete pre-existing ontology '${ontologyName}'. Proceeding with loading.`, e.message);
+        if (e.stack) console.error(e.stack);
       }
     }
 
-    const loadedOntology = await callApi('addOntology', ontologyName, ontologyRules);
+    // mcrCore.addOntology is synchronous based on SessionManager.addOntology
+    const loadedOntology = mcrCore.addOntology(ontologyName, ontologyRules);
     demoLogger.success(`Ontology '${ontologyName}' loaded successfully!`);
     demoLogger.info('Loaded Ontology Details', loadedOntology);
     await delay(500);
 
     // 2. Create Session
     demoLogger.step('2. Creating a new reasoning session');
-    // For this demo, we'll rely on the session using global ontologies.
-    // Or, if we wanted to be specific, the query call would include the ontology content dynamically.
-    // For simplicity, this demo will assume the global ontology is picked up or used in NL->Rules translation.
-    const sessionData = await callApi('createSession');
+    const sessionData = mcrCore.createSession(); // Direct call
     sessionId = sessionData.sessionId;
     demoLogger.success(`Session created successfully!`);
     demoLogger.info('Session ID', sessionId);
@@ -220,7 +169,7 @@ async function runFamilyOntologyDemoAsync() {
     demoLogger.step('3. Asserting additional family facts');
     const family_facts_nl = "Arthur is the father of William. Guinevere is the mother of William. William is the father of Lancelot. Igraine is the mother of Arthur.";
     demoLogger.nl('Facts (NL)', family_facts_nl);
-    const assertResponse = await callApi('assertFacts', sessionId, family_facts_nl);
+    const assertResponse = await mcrCore.assertFacts(sessionId, family_facts_nl); // Direct call
     demoLogger.logic('Added Facts (Prolog)', assertResponse.addedFacts);
     demoLogger.success('Family facts asserted!');
     await delay(500);
@@ -230,8 +179,7 @@ async function runFamilyOntologyDemoAsync() {
     let query_nl = "Who is William's father?";
     demoLogger.nl('Query (NL)', query_nl);
     // Pass ontology content dynamically to ensure it's used for this query.
-    // This demonstrates the RAG-like capability.
-    let query_response = await callApi('query', sessionId, query_nl, { debug: true }, ontologyRules);
+    let query_response = await mcrCore.query(sessionId, query_nl, { debug: true }, ontologyRules); // Direct call
     demoLogger.logic('Generated Prolog Query', query_response.queryProlog);
     demoLogger.logic('Reasoner Result (Simplified)', query_response.result);
     demoLogger.mcrResponse('MCR Answer (NL)', query_response.answer);
@@ -243,7 +191,7 @@ async function runFamilyOntologyDemoAsync() {
     demoLogger.step("5. Querying: \"Who is Lancelot's grandfather?\"");
     query_nl = "Who is Lancelot's grandfather?";
     demoLogger.nl('Query (NL)', query_nl);
-    query_response = await callApi('query', sessionId, query_nl, { debug: true }, ontologyRules);
+    query_response = await mcrCore.query(sessionId, query_nl, { debug: true }, ontologyRules); // Direct call
     demoLogger.logic('Generated Prolog Query', query_response.queryProlog);
     demoLogger.logic('Reasoner Result (Simplified)', query_response.result);
     demoLogger.mcrResponse('MCR Answer (NL)', query_response.answer);
@@ -255,33 +203,41 @@ async function runFamilyOntologyDemoAsync() {
     demoLogger.step("6. Querying: \"Who is Arthur's mother?\"");
     query_nl = "Who is Arthur's mother?";
     demoLogger.nl('Query (NL)', query_nl);
-    query_response = await callApi('query', sessionId, query_nl, { debug: true }, ontologyRules);
+    query_response = await mcrCore.query(sessionId, query_nl, { debug: true }, ontologyRules); // Direct call
     demoLogger.logic('Generated Prolog Query', query_response.queryProlog);
     demoLogger.logic('Reasoner Result (Simplified)', query_response.result);
     demoLogger.mcrResponse('MCR Answer (NL)', query_response.answer);
     if (query_response.debug) demoLogger.info('Debug Info', query_response.debug);
     demoLogger.success("Query for Arthur's mother processed!");
 
-
   } catch (err) {
-    demoLogger.error("Family Ontology Demo failed prematurely.", "See API call error above.");
+    const errorDetails = err.response ? JSON.stringify(err.response.data, null, 2) : err.message;
+    demoLogger.error("Family Ontology Demo failed prematurely.", errorDetails);
+    if (err.stack) console.error(err.stack);
   } finally {
     demoLogger.divider();
     if (sessionId) {
       demoLogger.step('Cleaning up: Deleting session');
       try {
-        await callApi('deleteSession', sessionId);
+        mcrCore.deleteSession(sessionId); // Direct call
         demoLogger.cleanup(`Session ${sessionId} deleted.`);
       } catch (cleanupError) {
         demoLogger.error(`Failed to delete session ${sessionId}`, cleanupError.message);
+        if (cleanupError.stack) console.error(cleanupError.stack);
       }
     }
     demoLogger.step(`Cleaning up: Deleting ontology '${ontologyName}'`);
     try {
-      await callApi('deleteOntology', ontologyName);
+      mcrCore.deleteOntology(ontologyName); // Direct call
       demoLogger.cleanup(`Ontology '${ontologyName}' deleted.`);
     } catch (cleanupError) {
-      demoLogger.error(`Failed to delete ontology '${ontologyName}'`, cleanupError.message);
+      // Log specific 404 for ontology deletion if it's not found during cleanup, otherwise general error
+      if (cleanupError instanceof ApiError && cleanupError.statusCode === 404) {
+         demoLogger.info(`Info: Ontology '${ontologyName}' not found during cleanup. No deletion needed.`);
+      } else {
+        demoLogger.error(`Failed to delete ontology '${ontologyName}' during cleanup`, cleanupError.message);
+        if (cleanupError.stack) console.error(cleanupError.stack);
+      }
     }
     demoLogger.heading('Family Ontology Demo Finished');
   }
@@ -298,11 +254,32 @@ async function runDemoAction(demoName, options, command) {
   // then programOpts would include the --config from the immediate parent.
   // If this script is attached to mcr.js, it will inherit global options from there.
 
-  if (!(await ensureServerRunningAsync(programOpts))) {
+  // Initialize MCR Core for the demo
+  demoLogger.step('Initializing MCR Core for Demo...');
+  const config = ConfigManager.get({ exitOnFailure: true }); // Ensure demo exits if config is bad
+  // The global logger instance should pick up any level changes from config.
+  // mcrCore.init will log details about LLM provider.
+  try {
+    await mcrCore.init(config);
+    // Log active LLM provider and model using mcrCore getters
+    if (mcrCore.LlmService) { // Check if LlmService was successfully set in mcrCore
+        const providerName = mcrCore.LlmService.getActiveProviderName();
+        const modelName = mcrCore.LlmService.getActiveModelName();
+        demoLogger.success('MCR Core Initialized successfully.');
+        demoLogger.info('LLM Used', `Provider: ${providerName}, Model: ${modelName || 'N/A (Check Config)'}`);
+    } else {
+        // This case should ideally be caught by mcrCore.init() throwing an error
+        demoLogger.error('MCR Core initialized, but LlmService is not available. Cannot determine LLM info.');
+    }
+  } catch (initError) {
+    demoLogger.error('MCR Core Initialization Failed. Demo cannot run.', initError.message);
+    if (initError.stack) {
+        console.error(initError.stack);
+    }
     process.exit(1);
   }
 
-  demoLogger.info('Global CLI Options (for server start)', programOpts);
+  // demoLogger.info('Global CLI Options (potentially for server start, now unused by demo itself)', programOpts);
   demoLogger.info('Demo Specific Options', options);
 
 
