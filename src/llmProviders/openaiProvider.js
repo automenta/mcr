@@ -6,18 +6,20 @@ const OpenAiProvider = {
   initialize: (llmConfig) => {
     const { apiKey, model } = llmConfig;
     if (!apiKey.openai) {
-      logger.warn(
-        'OpenAI API key not provided. OpenAI LLM service will not be available for this provider.',
-        { internalErrorCode: 'OPENAI_API_KEY_MISSING' }
+      // logger.warn removed, will throw error instead
+      // { internalErrorCode: 'OPENAI_API_KEY_MISSING' }
+      throw new Error(
+        'OpenAI API key (OPENAI_API_KEY) not provided. OpenAI LLM service cannot be initialized.'
       );
-      return null;
     }
     try {
-      return new ChatOpenAI({
+      const client = new ChatOpenAI({
         apiKey: apiKey.openai,
         modelName: model.openai,
         temperature: 0,
       });
+      logger.info(`OpenAI provider client initialized successfully for model ${model.openai}.`);
+      return client;
     } catch (error) {
       logger.error(
         `Failed to initialize OpenAI provider client: ${error.message}`,
@@ -27,7 +29,8 @@ const OpenAiProvider = {
           stack: error.stack,
         }
       );
-      return null;
+      // Re-throw the error or a new specific error to be caught by LlmService.init
+      throw new Error(`Failed to initialize OpenAI provider: ${error.message}`);
     }
   },
 };

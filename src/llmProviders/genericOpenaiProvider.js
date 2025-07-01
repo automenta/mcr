@@ -9,19 +9,19 @@ const GenericOpenaiProvider = {
     const apiKey = llmConfig.apiKey.generic_openai; // This can be undefined
 
     if (!baseURL || baseURL.trim() === '') {
-      logger.warn(
-        'GenericOpenaiProvider: Base URL (MCR_LLM_GENERIC_OPENAI_BASE_URL) is not configured. Service will not be available.',
-        { internalErrorCode: 'GENERIC_OPENAI_BASE_URL_MISSING' }
+      // logger.warn removed, will throw error instead
+      // { internalErrorCode: 'GENERIC_OPENAI_BASE_URL_MISSING' }
+      throw new Error(
+        'GenericOpenaiProvider: Base URL (MCR_LLM_GENERIC_OPENAI_BASE_URL) is not configured. Service cannot be initialized.'
       );
-      return null;
     }
 
     if (!modelName || modelName.trim() === '') {
-      logger.warn(
-        'GenericOpenaiProvider: Model name (MCR_LLM_MODEL_GENERIC_OPENAI) is not configured. Service will not be available.',
-        { internalErrorCode: 'GENERIC_OPENAI_MODEL_MISSING' }
+      // logger.warn removed, will throw error instead
+      // { internalErrorCode: 'GENERIC_OPENAI_MODEL_MISSING' }
+      throw new Error(
+        'GenericOpenaiProvider: Model name (MCR_LLM_MODEL_GENERIC_OPENAI) is not configured. Service cannot be initialized.'
       );
-      return null;
     }
 
     try {
@@ -40,7 +40,9 @@ const GenericOpenaiProvider = {
         );
       }
 
-      return new ChatOpenAI(clientParams);
+      const client = new ChatOpenAI(clientParams);
+      logger.info(`GenericOpenaiProvider client initialized successfully for model ${modelName} at ${baseURL}.`);
+      return client;
     } catch (error) {
       logger.error(
         `Failed to initialize GenericOpenaiProvider client: ${error.message}`,
@@ -51,7 +53,8 @@ const GenericOpenaiProvider = {
           config: { modelName, baseURL, apiKeyProvided: !!apiKey },
         }
       );
-      return null;
+      // Re-throw the error or a new specific error to be caught by LlmService.init
+      throw new Error(`Failed to initialize GenericOpenaiProvider: ${error.message}`);
     }
   },
 };

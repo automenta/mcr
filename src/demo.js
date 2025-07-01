@@ -177,8 +177,16 @@ async function runFamilyOntologyDemoAsync() {
     }
     try { // Attempt to delete if it exists, to ensure a clean state for the demo
       await callApi('deleteOntology', ontologyName);
-      demoLogger.cleanup(`Pre-existing ontology '${ontologyName}' deleted if it existed.`);
-    } catch (e) { /* Ignore if not found */ }
+      demoLogger.cleanup(`Attempted to delete pre-existing ontology '${ontologyName}', if it existed.`);
+    } catch (e) {
+      // Check if the error is a 404 (Not Found)
+      if (e.response && e.response.status === 404) {
+        demoLogger.info(`Info: Pre-existing ontology '${ontologyName}' not found. No deletion needed.`);
+      } else {
+        // For other errors, log them as a warning but continue, as the main goal is to load the new one.
+        demoLogger.error(`Warning: Could not delete pre-existing ontology '${ontologyName}'. Proceeding with loading.`, e.message);
+      }
+    }
 
     const loadedOntology = await callApi('addOntology', ontologyName, ontologyRules);
     demoLogger.success(`Ontology '${ontologyName}' loaded successfully!`);
