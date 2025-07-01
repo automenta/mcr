@@ -1,30 +1,6 @@
 // src/cli/tuiUtils/tuiCommandHandlers.js
 
-async function handleHelpCommand(tuiContext /*, args */) {
-  const { addMessage } = tuiContext;
-  addMessage('system', 'Available commands:');
-  addMessage('system', '  /help                               - Show this help message');
-  addMessage('system', '  /status                             - Check MCR server status');
-  addMessage('system', '  /create-session                     - Create a new session');
-  addMessage('system', '  /get-session [id]                   - Get details for a session (current if no id)');
-  addMessage('system', '  /delete-session [id]                - Delete a session (current if no id)');
-  addMessage('system', '  /assert <text>                      - Assert facts to current session');
-  addMessage('system', '  /query <question>                   - Query current session');
-  addMessage('system', '  /explain <question>                 - Explain query for current session');
-  addMessage('system', '  /list-ontologies                    - List all global ontologies');
-  addMessage('system', '  /get-ontology <name>                - Get details of a specific ontology');
-  addMessage('system', '  /add-ontology <name> <path>         - Add a new ontology from a rules file');
-  addMessage('system', '  /update-ontology <name> <path>      - Update an ontology from a rules file');
-  addMessage('system', '  /delete-ontology <name>             - Delete an ontology');
-  addMessage('system', '  /nl2rules <text> [--facts "..."] [--ontology path/file.pl] - Translate NL to Prolog');
-  addMessage('system', '  /rules2nl <path> [--style formal|conversational] - Translate Prolog file to NL');
-  addMessage('system', '  /list-prompts                       - List all prompt templates');
-  addMessage('system', '  /show-prompt <templateName>         - Show a specific prompt template');
-  addMessage('system', '  /debug-prompt <templateName> <json> - Debug a prompt template with JSON variables');
-  addMessage('system', '  /run-demo <simpleQA|family>         - Run a demo script');
-  addMessage('system', '  /toggle-debug-chat                  - Toggle verbose output for chat messages');
-  addMessage('system', '  /exit, /quit                        - Exit the application');
-}
+
 
 async function handleStatusCommand(tuiContext /*, args */) {
   const { addMessage, tuiGetServerStatus, setServerStatus, setActiveLlmInfo } = tuiContext;
@@ -66,7 +42,6 @@ async function handleHelpCommand(tuiContext /*, args */) {
   const { addMessage } = tuiContext;
   addMessage('system', 'Available commands:');
   addMessage('system', '  /help                               - Show this help message');
-  // ... (rest of help messages as before, ensuring full list is present)
   addMessage('system', '  /status                             - Check MCR server status');
   addMessage('system', '  /create-session                     - Create a new session');
   addMessage('system', '  /get-session [id]                   - Get details for a session (current if no id)');
@@ -89,28 +64,6 @@ async function handleHelpCommand(tuiContext /*, args */) {
   addMessage('system', '  /exit, /quit                        - Exit the application');
 }
 
-async function handleStatusCommand(tuiContext /*, args */) {
-  const { addMessage, tuiGetServerStatus, setServerStatus, setActiveLlmInfo } = tuiContext;
-
-  try {
-    const statusData = await tuiGetServerStatus(); // API call
-    setServerStatus(`OK (v${statusData?.version})`);
-    if (statusData?.activeLlmProvider) {
-      setActiveLlmInfo(`LLM: ${statusData.activeLlmProvider} (${statusData.activeLlmModel || 'default'})`);
-    } else {
-      setActiveLlmInfo('LLM: N/A');
-    }
-    addMessage('system', `Server Status: OK (v${statusData?.version})`);
-    addMessage('output', `Name: ${statusData.name}`);
-    addMessage('output', `Version: ${statusData.version}`);
-    addMessage('output', `Description: ${statusData.description}`);
-  } catch (error) {
-    const errorMessage = error.response?.data?.error?.message || error.response?.data?.message || error.message || 'Unknown error';
-    addMessage('error', `Server status check failed: ${errorMessage}`);
-    setServerStatus('Unavailable');
-    setActiveLlmInfo('LLM: N/A');
-  }
-}
 
 async function handleCreateSessionCommand(tuiContext/*, args*/) {
   const { addMessage, agentApiCreateSession, setCurrentSessionId } = tuiContext;
