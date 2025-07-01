@@ -25,6 +25,13 @@ const { Command } = require('commander');
 // Babel register for CLI commands
 require('@babel/register');
 
+// --- Configuration for both Server and CLI ---
+const config = ConfigManager.get();
+reconfigureLogger(config);
+
+// --- CLI Setup ---
+const program = new Command();
+
 // Import command modules for CLI
 const registerSessionCommands = require('./src/cli/commands/sessionCommands');
 const registerOntologyCommands = require('./src/cli/commands/ontologyCommands');
@@ -35,13 +42,6 @@ const registerStatusCommand = require('./src/cli/commands/statusCommands');
 const { registerPromptCommands } = require('./src/cli/commands/promptCommands');
 const registerDemoCommand = require('./src/demo.js'); // Explicitly add .js
 const registerSandboxCommand = require('./src/sandbox');
-
-// --- Configuration for both Server and CLI ---
-const config = ConfigManager.get();
-reconfigureLogger(config);
-
-// --- CLI Setup ---
-const program = new Command();
 
 program
   .name('mcr')
@@ -179,7 +179,7 @@ async function mainAsync() {
   registerOntologyCommands(program);
   registerTranslationCommands(program);
   registerQueryCommands(program);
-  registerChatCommand(program); // This one might also try to start server
+  const registerChatCommand = require('./src/cli/commands/chatCommand'); // This one might also try to start server
   registerStatusCommand(program);
   registerPromptCommands(program);
   registerDemoCommand(program); // This one might also try to start server

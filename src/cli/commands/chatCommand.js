@@ -441,4 +441,5 @@ module.exports = (program) => {
     //   'Specify an ontology file to load at startup (its name will be shown in status)'
     // )
     .action(startAppAsync);
+}
 };

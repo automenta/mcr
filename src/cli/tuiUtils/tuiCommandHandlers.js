@@ -1,31 +1,31 @@
 // src/cli/tuiUtils/tuiCommandHandlers.js
 
-async function handleStatusCommandAsync(tuiContext /*, args */) {
-  const { addMessage, setMcrCoreStatus, setActiveLlmInfo } = tuiContext;
-  // Use mcrCore which should be initialized by now
-  if (mcrCore.isInitialized() && mcrCore.LlmService) {
-    const provider = mcrCore.LlmService.getActiveProviderName();
-    const model = mcrCore.LlmService.getActiveModelName();
-    const statusText = 'Initialized';
-    const llmInfoText = `LLM: ${provider} (${model || 'default'})`;
-
-    setMcrCoreStatus(statusText); // Update status bar in McrApp
-    setActiveLlmInfo(llmInfoText); // Update status bar in McrApp
-
-    addMessage('system', `MCR Core Status: ${statusText}`);
-    addMessage('output', llmInfoText);
-    // Could add more details from mcrCore if available, e.g., version from package.json
-  } else if (mcrCore.isInitialized()) {
-    setMcrCoreStatus('Initialized (LLM Error)');
-    setActiveLlmInfo('LLM: Error/Unavailable');
-    addMessage('error', 'MCR Core is initialized, but LLM Service is not properly configured or available.');
-  }
-  else {
-    setMcrCoreStatus('Not Initialized');
-    setActiveLlmInfo('LLM: N/A');
-    addMessage('error', 'MCR Core is not initialized.');
-  }
-}
+// async function handleStatusCommandAsync(tuiContext /*, args */) {
+//   const { addMessage, setMcrCoreStatus, setActiveLlmInfo } = tuiContext;
+//   // Use mcrCore which should be initialized by now
+//   if (mcrCore.isInitialized() && mcrCore.LlmService) {
+//     const provider = mcrCore.LlmService.getActiveProviderName();
+//     const model = mcrCore.LlmService.getActiveModelName();
+//     const statusText = 'Initialized';
+//     const llmInfoText = `LLM: ${provider} (${model || 'default'})`;
+//
+//     setMcrCoreStatus(statusText); // Update status bar in McrApp
+//     setActiveLlmInfo(llmInfoText); // Update status bar in McrApp
+//
+//     addMessage('system', `MCR Core Status: ${statusText}`);
+//     addMessage('output', llmInfoText);
+//     // Could add more details from mcrCore if available, e.g., version from package.json
+//   } else if (mcrCore.isInitialized()) {
+//     setMcrCoreStatus('Initialized (LLM Error)');
+//     setActiveLlmInfo('LLM: Error/Unavailable');
+//     addMessage('error', 'MCR Core is initialized, but LLM Service is not properly configured or available.');
+//   }
+//   else {
+//     setMcrCoreStatus('Not Initialized');
+//     setActiveLlmInfo('LLM: N/A');
+//     addMessage('error', 'MCR Core is not initialized.');
+//   }
+// }
 
 // Helper function to get current session or error
 function _getActiveSessionIdOrError(tuiContext, commandName) {
@@ -49,7 +49,6 @@ async function handleHelpCommandAsync(tuiContext /*, args */) {
   addMessage('system', '  /delete-session [id] - Delete current or specified session');
   addMessage('system', '  /exit, /quit         - Exit the application');
   addMessage('system', 'Directly type your message to chat with the MCR.');
-  );
 }
 
 async function handleCreateSessionCommandAsync(tuiContext /*, args*/) {
@@ -165,7 +164,7 @@ async function handleRules2NlCommandAsync(tuiContext, args) {
 // Keep only essential command handlers for the simplified TUI
 module.exports = {
   handleHelpCommandAsync,
-  handleStatusCommandAsync,
+  //handleStatusCommandAsync,
   handleCreateSessionCommandAsync,
   // handleGetSessionCommandAsync, // Removed
   handleDeleteSessionCommandAsync,
@@ -200,9 +199,6 @@ const handleGetOntologyCommandAsync = removedCommandHandlerPlaceholder;
 const handleAddOntologyCommandAsync = removedCommandHandlerPlaceholder;
 const handleUpdateOntologyCommandAsync = removedCommandHandlerPlaceholder;
 const handleDeleteOntologyCommandAsync = removedCommandHandlerPlaceholder;
-const handleNl2RulesCommandAsync = removedCommandHandlerPlaceholder;
-const handleRules2NlCommandAsync = removedCommandHandlerPlaceholder;
 const handleListPromptsCommandAsync = removedCommandHandlerPlaceholder;
 const handleShowPromptCommandAsync = removedCommandHandlerPlaceholder;
 const handleDebugPromptCommandAsync = removedCommandHandlerPlaceholder;
-const handleToggleDebugChatCommandAsync = removedCommandHandlerPlaceholder;
