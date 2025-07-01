@@ -48,7 +48,7 @@ async function ensureServerRunning(programOpts) {
 }
 
 async function sandboxLoop(cmdObj) {
-  const programOpts = cmdObj.parent.opts(); // Access global options like --json from main 'mcr' command
+  const programOpts = cmdObj.optsWithGlobals(); // Access global options like --json from main 'mcr' command
 
   if (!await ensureServerRunning(programOpts)) {
     process.exit(1);
