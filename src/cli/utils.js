@@ -105,66 +105,13 @@ const handleCliOutput = (
  */
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * Reads file content safely for TUI.
- * Instead of exiting, it uses the addMessage callback to report errors.
- * @param {string} filePath - The path to the file.
- * @param {function} addMessageCallback - Callback function (type, text) to add messages to TUI.
- * @param {string} fileDescription - A description of the file type.
- * @returns {string|null} The content of the file, or null if an error occurs.
- */
-const readFileContentSafe = (
-  filePath,
-  addMessageCallback,
-  fileDescription = 'File'
-) => {
-  try {
-    const resolvedPath = path.resolve(filePath);
-    if (!fs.existsSync(resolvedPath)) {
-      addMessageCallback(
-        'error',
-        `${fileDescription} not found: ${resolvedPath}. Please ensure the file path is correct.`
-      );
-      return null;
-    }
-    return fs.readFileSync(resolvedPath, 'utf8');
-  } catch (error) {
-    addMessageCallback(
-      'error',
-      `Error reading ${fileDescription} "${filePath}": ${error.message}. Please check file permissions and path.`
-    );
-    return null;
-  }
-};
+// readFileContentSafe was removed as TUI is removed.
+// parseTuiCommandArgs was removed as TUI is removed.
 
 module.exports = {
   readFileContent,
   readOntologyFile,
   printJson,
   handleCliOutput,
-  delay, // Export the new delay function
-  readFileContentSafe, // Export new safe reader for TUI
-  parseTuiCommandArgs, // Exported TUI arg parser
+  delay,
 };
-
-// Helper to parse simple command line options like --option value
-// For TUI internal commands, not a full CLI parser.
-// Moved from chatCommand.js
-function parseTuiCommandArgs(args) {
-  const options = {};
-  const remainingArgs = [];
-  let currentOption = null;
-
-  for (const arg of args) {
-    if (arg.startsWith('--')) {
-      currentOption = arg.substring(2);
-      options[currentOption] = true; // Default to true if it's a flag
-    } else if (currentOption) {
-      options[currentOption] = arg;
-      currentOption = null;
-    } else {
-      remainingArgs.push(arg);
-    }
-  }
-  return { options, _: remainingArgs };
-}

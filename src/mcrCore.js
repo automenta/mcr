@@ -80,16 +80,7 @@ const mcrCore = {
     return mcrCore.SessionManager.create();
   },
 
-  /**
-   * Retrieves an existing session.
-   * @param {string} sessionId - The ID of the session.
-   * @returns {object} The session object.
-   * @throws {Error} If MCR Core is not initialized or session not found.
-   */
-  getSession: (sessionId) => {
-    if (!coreInitialized) throw new Error("MCR Core not initialized. Call mcrCore.init() first.");
-    return mcrCore.SessionManager.get(sessionId);
-  },
+  // getSession facade removed as it's not used by demos. API handlers use SessionManager directly.
 
   /**
    * Deletes a session.
@@ -222,38 +213,9 @@ const mcrCore = {
     return mcrCore.SessionManager.addOntology(name, rules);
   },
 
-  /**
-   * Retrieves a specific global ontology.
-   * @param {string} name - The name of the ontology.
-   * @returns {object} The ontology object.
-   * @throws {Error} If MCR Core is not initialized or ontology not found.
-   */
-  getOntology: (name) => {
-    if (!coreInitialized) throw new Error("MCR Core not initialized. Call mcrCore.init() first.");
-    return mcrCore.SessionManager.getOntology(name);
-  },
-
-  /**
-   * Lists all global ontologies.
-   * @returns {Array<object>} Array of ontology objects.
-   * @throws {Error} If MCR Core is not initialized.
-   */
-  getOntologies: () => {
-    if (!coreInitialized) throw new Error("MCR Core not initialized. Call mcrCore.init() first.");
-    return mcrCore.SessionManager.getOntologies();
-  },
-
-  /**
-   * Updates an existing global ontology.
-   * @param {string} name - The name of the ontology to update.
-   * @param {string} rules - New Prolog rules as a string.
-   * @returns {object} The updated ontology object.
-   * @throws {Error} If MCR Core is not initialized or ontology not found/rules invalid.
-   */
-  updateOntology: (name, rules) => {
-    if (!coreInitialized) throw new Error("MCR Core not initialized. Call mcrCore.init() first.");
-    return mcrCore.SessionManager.updateOntology(name, rules);
-  },
+  // getOntology facade removed (demos use add/delete, API handlers use SessionManager directly).
+  // getOntologies facade removed (not used by demos).
+  // updateOntology facade removed (not used by demos).
 
   /**
    * Deletes a global ontology.
@@ -267,10 +229,7 @@ const mcrCore = {
     return mcrCore.SessionManager.deleteOntology(name);
   },
 
-  // TODO: Add other facade functions as needed, e.g., for translation, explain query
-  // For example:
-  // translateNlToRules: async (text, existingFacts, ontologyContext) => { ... LlmService.nlToRulesAsync ... }
-  // translateRulesToNl: async (rules, style) => { ... LlmService.rulesToNlAsync ... }
+  // Removed TODO for other facade functions as they are not currently needed.
 };
 
 module.exports = mcrCore;

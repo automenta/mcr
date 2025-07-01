@@ -37,11 +37,11 @@ const registerSessionCommands = require('./src/cli/commands/sessionCommands');
 const registerOntologyCommands = require('./src/cli/commands/ontologyCommands');
 const registerTranslationCommands = require('./src/cli/commands/translationCommands');
 const registerQueryCommands = require('./src/cli/commands/queryCommands');
-const registerChatCommand = require('./src/cli/commands/chatCommand');
+// const registerChatCommand = require('./src/cli/commands/chatCommand'); // Removed
 const registerStatusCommand = require('./src/cli/commands/statusCommands');
 const { registerPromptCommands } = require('./src/cli/commands/promptCommands');
 const registerDemoCommand = require('./src/demo.js'); // Explicitly add .js
-const registerSandboxCommand = require('./src/sandbox');
+// const registerSandboxCommand = require('./src/sandbox'); // Removed
 
 program
   .name('mcr')
@@ -179,11 +179,11 @@ async function mainAsync() {
   registerOntologyCommands(program);
   registerTranslationCommands(program);
   registerQueryCommands(program);
-  const registerChatCommand = require('./src/cli/commands/chatCommand'); // This one might also try to start server
+  // const registerChatCommand = require('./src/cli/commands/chatCommand'); // Removed
   registerStatusCommand(program);
   registerPromptCommands(program);
   registerDemoCommand(program); // This one might also try to start server
-  registerSandboxCommand(program); // This one might also try to start server
+  // registerSandboxCommand(program); // Removed
 
   // Add the explicit 'start-server' command
   program
@@ -223,41 +223,42 @@ async function mainAsync() {
 
   // Default 'chat' command logic:
   // If first arg is an option (e.g. --json) AND it's not help/version AND no known command is specified.
-  if (originalUserArgs.length > 0 && originalUserArgs[0].startsWith('-')) {
-    const isHelpOrVersion =
-      originalUserArgs.includes('--help') ||
-      originalUserArgs.includes('-h') ||
-      originalUserArgs.includes('--version') ||
-      originalUserArgs.includes('-V');
-    if (!isHelpOrVersion) {
-      // Check if a known command is already present
-      let knownCommandPresent = false;
-      for (const arg of originalUserArgs) {
-        if (!arg.startsWith('-')) {
-          // First non-option argument
-          if (
-            program.commands.find(
-              (cmd) => cmd.name() === arg || cmd.aliases().includes(arg)
-            )
-          ) {
-            knownCommandPresent = true;
-          }
-          break;
-        }
-      }
-      if (!knownCommandPresent) {
-        const optionIndex = argvForParsing.findIndex((arg) =>
-          arg.startsWith('-')
-        );
-        // Ensure 'chat' is inserted at the correct position relative to script name and options
-        const scriptPathIndex = argvForParsing.findIndex((arg) =>
-          arg.includes('mcr.js')
-        ); // or simply index 1
-        const insertAtIndex = Math.max(scriptPathIndex + 1, optionIndex); // Insert after script or before first option
-        argvForParsing.splice(insertAtIndex, 0, 'chat');
-      }
-    }
-  }
+  // The default 'chat' command logic has been removed as chat itself is removed.
+  // if (originalUserArgs.length > 0 && originalUserArgs[0].startsWith('-')) {
+  //   const isHelpOrVersion =
+  //     originalUserArgs.includes('--help') ||
+  //     originalUserArgs.includes('-h') ||
+  //     originalUserArgs.includes('--version') ||
+  //     originalUserArgs.includes('-V');
+  //   if (!isHelpOrVersion) {
+  //     // Check if a known command is already present
+  //     let knownCommandPresent = false;
+  //     for (const arg of originalUserArgs) {
+  //       if (!arg.startsWith('-')) {
+  //         // First non-option argument
+  //         if (
+  //           program.commands.find(
+  //             (cmd) => cmd.name() === arg || cmd.aliases().includes(arg)
+  //           )
+  //         ) {
+  //           knownCommandPresent = true;
+  //         }
+  //         break;
+  //       }
+  //     }
+  //     if (!knownCommandPresent) {
+  //       const optionIndex = argvForParsing.findIndex((arg) =>
+  //         arg.startsWith('-')
+  //       );
+  //       // Ensure 'chat' is inserted at the correct position relative to script name and options
+  //       const scriptPathIndex = argvForParsing.findIndex((arg) =>
+  //         arg.includes('mcr.js')
+  //       ); // or simply index 1
+  //       const insertAtIndex = Math.max(scriptPathIndex + 1, optionIndex); // Insert after script or before first option
+  //       argvForParsing.splice(insertAtIndex, 0, 'chat');
+  //     }
+  //   }
+  // }
 
   try {
     await program.parseAsync(argvForParsing);

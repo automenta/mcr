@@ -6,7 +6,7 @@ const { Command } = require('commander');
 const ConfigManager = require('./config');
 const mcrCore = require('./mcrCore'); // Added
 // const { isServerAliveAsync, startMcrServerAsync } = require('./cli/tuiUtils/serverManager'); // Removed
-const { readFileContentSafe, delay } = require('./cli/utils');
+const { readFileContent, delay } = require('./cli/utils'); // Changed readFileContentSafe to readFileContent
 const { logger } = require('./logger'); // Use the main logger
 // ApiError will be needed for specific error checking if mcrCore throws them
 const ApiError = require('./errors');
@@ -121,21 +121,17 @@ async function runFamilyOntologyDemoAsync() {
   const ontologyName = 'demo_family_relations';
   const ontologyFilePath = 'ontologies/family.pl'; // Standard path
 
-  // Wrapper for demoLogger.error to match readFileContentSafe's expected callback signature
-  const logFileReadError = (type, text) => { // type will be 'error' from readFileContentSafe
-    demoLogger.error(text); // Pass only the main message
-  };
-
   try {
     // LLM Provider Info is logged during mcrCore.init by runDemoAction
 
     // 1. Load Ontology
     demoLogger.step(`1. Loading '${ontologyName}' ontology from '${ontologyFilePath}'`);
-    const ontologyRules = readFileContentSafe(ontologyFilePath, logFileReadError, 'Family Ontology File');
-    if (!ontologyRules) {
-      demoLogger.error(`Demo cannot proceed without ontology file: ${ontologyFilePath}.`);
-      return;
-    }
+    // readFileContent will exit on error, so no need for logFileReadError or explicit null check for demo.
+    const ontologyRules = readFileContent(ontologyFilePath, 'Family Ontology File');
+    // if (!ontologyRules) { // This check is no longer needed as readFileContent exits on failure
+    //   demoLogger.error(`Demo cannot proceed without ontology file: ${ontologyFilePath}.`);
+    //   return;
+    // }
 
     try { // Attempt to delete if it exists, to ensure a clean state for the demo
       // mcrCore.deleteOntology is synchronous based on SessionManager.deleteOntology

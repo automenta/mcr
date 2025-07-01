@@ -1,29 +1,27 @@
-const { getServerStatus } = require('../api'); // Use the version that doesn't auto-exit
-const { handleCliOutput } = require('../utils'); // getLogger removed
+const axios = require('axios'); // Import axios directly
+const { handleCliOutput } = require('../utils');
 const ConfigManager = require('../../config');
-const { logger: cmdLogger } = require('../../logger'); // Import the main logger
+const { logger: cmdLogger } = require('../../logger');
 
-// This function is intended for CLI command execution via Commander
-async function getServerStatusCliAsync(_options, commandInstance) { // options marked as unused
+async function getServerStatusCliAsync(_options, commandInstance) {
   const programOpts = commandInstance.parent.opts();
-  const config = ConfigManager.get(); // Get config for API URL
-  const apiUrl = `http://${config.server.host}:${config.server.port}`;
+  const config = ConfigManager.get();
+  const apiUrl = `http://${config.server.host}:${config.server.port}/`; // Ensure trailing slash for root
 
   try {
-    const statusData = await getServerStatus(); // This uses tuiApiClientInstance
+    const response = await axios.get(apiUrl, { timeout: 3000 }); // Added timeout
     // For CLI, we use handleCliOutput for successful status
-    // Add an emoji to the prefix for successful online status
-    handleCliOutput(statusData, programOpts, null, '✅ MCR API Status (Online):\n');
-    // process.exit(0); // Command successful
+    handleCliOutput(response.data, programOpts, null, '✅ MCR API Status (Online):\n');
   } catch (error) {
-    // Error here means the server is likely not running or unreachable
     const isJsonOutput = programOpts.json;
+    let outputMessage;
 
-    if (error.isAxiosError && !error.response) {
-      // This typically means connection refused or DNS error etc.
-      const outputMessage = {
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.isAxiosError && !error.response) {
+      // Network error or server not running
+      outputMessage = {
         status: 'offline',
         message: `MCR API server not reachable at ${apiUrl}.`,
+        details: error.message,
       };
       if (isJsonOutput) {
         process.stdout.write(JSON.stringify(outputMessage) + '\n');
@@ -32,41 +30,38 @@ async function getServerStatusCliAsync(_options, commandInstance) { // options m
       }
     } else if (error.response) {
       // Server responded with an error status code
-      const outputMessage = {
-        status: 'error',
-        message: `💥 Server at ${apiUrl} responded with error ${error.response.status}.`,
+      outputMessage = {
+        status: 'error_response',
+        message: `💥 Server at ${apiUrl} responded with HTTP status ${error.response.status}.`,
         details: error.response.data,
+        httpStatus: error.response.status,
       };
       if (isJsonOutput) {
         process.stdout.write(JSON.stringify(outputMessage) + '\n');
       } else {
         cmdLogger.info(
-          `💥 MCR API server at ${apiUrl} responded with error ${error.response.status}. Status: Error`
+          `💥 MCR API server at ${apiUrl} responded with HTTP status ${error.response.status}. Status: Error Response`
         );
       }
     } else {
-      // Other types of errors
-      const outputMessage = {
-        status: 'error',
+      // Other types of errors (e.g., request setup issues)
+      outputMessage = {
+        status: 'client_error',
         message: `❓ Failed to get status from ${apiUrl}: ${error.message}`,
       };
       if (isJsonOutput) {
         process.stdout.write(JSON.stringify(outputMessage) + '\n');
       } else {
         cmdLogger.info(
-          `❓ Failed to determine MCR API server status at ${apiUrl}: ${error.message}. Status: Unknown`
+          `❓ Failed to determine MCR API server status at ${apiUrl}: ${error.message}. Status: Unknown Client Error`
         );
       }
     }
-    // For 'status' command, even if server is down, the command itself didn't fail.
-    // It correctly reported the status. So, we exit 0.
-    // The test `expect(error).toBeNull()` in chatCommand.integration.test.js implies this.
-    // If a non-zero exit was desired for "offline", the test would need to change.
-    process.exit(0);
+    // The 'status' command should report the status and exit 0,
+    // as it successfully determined and reported the server's state (even if offline).
   }
+  process.exit(0); // Ensure process exits cleanly after reporting status.
 }
-
-// getServerStatusAsync is already exported from api.js as getServerStatus, so no need to redefine here.
 
 module.exports = (program) => {
   program

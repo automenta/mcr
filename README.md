@@ -60,38 +60,15 @@ b. **Configure LLM:** Create a `.env` file in the project root (see [.env.exampl
 c. **Launch the Interactive TUI:** This is the easiest way to start. The TUI will also attempt to start the MCR server if it's not already running.
    ```bash
    # If you've run `npm link` or `npm install -g .`
-   mcr chat
+   mcr start-server
    # Or, run directly via Node:
-   node src/cli.js chat
+   node mcr.js start-server
+   # Or, if no command is specified, it defaults to starting the server:
+   node mcr.js
    ```
-You're now in the MCR TUI! Try typing `/help` or a simple statement like "The sky is blue." followed by "What color is the sky?".
+To interact with the server, you can use the CLI commands or send HTTP requests directly (e.g., using `curl` or tools like Postman).
 
-**2. Common Use Case: Interactive Reasoning & Knowledge Exploration (via TUI)**
-
-The `mcr chat` TUI is your primary tool for exploring MCR's capabilities:
-
-- **Build Knowledge Incrementally:**
-  ```
-  /create-session
-  > All humans are mortal.
-  MCR: Understood. I've noted that all humans are mortal.
-  > Socrates is a human.
-  MCR: Okay, I've added that Socrates is a human.
-  /query Is Socrates mortal?
-  MCR: Yes, Socrates is mortal.
-  ```
-- **Manage Ontologies:** Load predefined sets of rules and facts.
-  ```
-  /add-ontology family ontologies/family.pl
-  /query Who is johns son? (Assuming family.pl and session facts define this)
-  ```
-- **Translate & Understand:** See how natural language translates to logic.
-  ```
-  /nl2rules Every cat is an animal.
-  /toggle-debug-chat  # Then send a query to see debug info
-  ```
-
-**3. Common Use Case: Scripting MCR API for Automated Tasks**
+**2. Common Use Case: Scripting MCR API for Automated Tasks**
 
 Leverage MCR's HTTP API for programmatic reasoning in your applications or scripts.
 
@@ -196,94 +173,21 @@ This demonstrates how any application can integrate MCR's reasoning power.
 
     The server will validate this configuration on startup. If critical settings for the chosen `MCR_LLM_PROVIDER` (like API keys or Ollama URL) are missing or invalid, the server will log an error and exit.
 
-4.  **Run the Script**:
+4.  **Run the Server**:
     ```bash
     node mcr.js
     ```
+    Or explicitly:
+    ```bash
+    node mcr.js start-server
+    ```
     The script will then start the server, indicating which LLM provider is active.
 
-## 💬 Interactive TUI (Primary Interface for Exploration and Direct Use)
+## 💻 Direct CLI Commands (For Scripting, Automation, and Demos)
 
-The `mcr chat` command launches a comprehensive Text User Interface (TUI). This is the **recommended primary way for users to directly interact with MCR**, explore its features, manage sessions, and run demos.
+MCR offers a set of direct Command Line Interface (CLI) commands. These are intended for scripting, automation, and running demonstrations. Most of these commands interact with a running MCR server.
 
-To launch the TUI (it will attempt to start the MCR server if not already running):
-```bash
-# If you've run `npm link` or `npm install -g .` to make `mcr` globally available:
-mcr chat
-
-# Alternatively, run directly using Node from the project root:
-node mcr.js chat
-# Or (if you've only installed dependencies locally and not linked):
-# node src/cli.js chat
-```
-
-The `mcr chat` command starts a full-application TUI that serves as your "home" for all MCR operations.
-
-**Key TUI Features:**
-
-- **Unified Interface**: Access chat, session management, ontology management, translations, prompt utilities, and demos all from one place.
-- **Server Management**:
-  - Automatically starts the MCR server if it's not already running.
-  - Shuts down the server on exit _if_ the TUI started it.
-  - Seamlessly uses an existing MCR server if one is detected.
-- **Status Bar**: Displays current session ID, startup ontology context (from `-o` flag), server status, and chat debug mode.
-- **Command System**:
-  - Type natural language messages directly for chat.
-  - Use slash commands (e.g., `/help`, `/status`, `/create-session`) to perform specific operations.
-- **Interactive Output**: View responses from MCR, command outputs, and demo progress in the main content area.
-- **Startup Ontology**: Use the `mcr chat -o path/to/your_ontology.pl` option to specify an ontology file at startup.
-  - The content of this file will be automatically included as dynamic context in the `ontology` field for:
-    - All natural language chat messages sent to the MCR.
-    - All `/query <question>` commands.
-  - This allows you to have a base set of rules or facts active for your TUI session without manually asserting them or including them in every query.
-  - The name of the startup ontology file is displayed in the status bar.
-
-**Navigating the TUI:**
-
-- **Chat**: Simply type your message and press Enter. If no session is active, one will be created for you.
-- **Commands**: Type `/` followed by a command name and any arguments. For example:
-  - `/help`: Shows a list of all available TUI commands.
-  - `/status`: Checks and displays the MCR server status.
-  - `/create-session`: Creates a new reasoning session.
-  - `/list-ontologies`: Lists all globally stored ontologies.
-    // Demo execution is now handled by `mcr demo run <demoName>`
-- **Exiting**: Type `/exit`, `/quit`, or press `Ctrl+C`.
-
-**Key TUI Commands (obtain the full up-to-date list with `/help` inside the TUI):**
-
-- **Core:**
-  - `/help`: Show help message.
-  - `/status`: Check MCR server status.
-  - `/exit`, `/quit`: Exit the application.
-- **Session Management:**
-  - `/create-session`: Create a new session.
-  - `/get-session [id]`: Get details for a session (current if no id).
-  - `/delete-session [id]`: Delete a session (current if no id).
-- **Knowledge & Querying:**
-  - `/assert <text>`: Assert facts to the current session.
-  - `/query <question>`: Query the current session.
-  - `/explain <question>`: Explain a query for the current session.
-- **Ontology Management:**
-  - `/list-ontologies`: List all global ontologies.
-  - `/get-ontology <name>`: Get details of a specific ontology.
-  - `/add-ontology <name> <path>`: Add a new ontology from a rules file.
-  - `/update-ontology <name> <path>`: Update an ontology from a rules file.
-  - `/delete-ontology <name>`: Delete an ontology.
-- **Translation:**
-  - `/nl2rules <text> [--facts "..."] [--ontology path/file.pl]`: Translate NL to Prolog rules.
-  - `/rules2nl <path> [--style formal|conversational]`: Translate Prolog rules from a file to NL.
-- **Prompts:**
-  - `/list-prompts`: List all prompt templates.
-  - `/show-prompt <templateName>`: Show a specific prompt template.
-  - `/debug-prompt <templateName> <json>`: Debug a prompt template with JSON variables.
-- **Utilities:**
-  - `/toggle-debug-chat`: 🐛 Toggle verbose debug output for chat messages and `/query` commands.
-
-## 💻 Direct CLI Commands (For Scripting, Automation, Demos, and Sandbox)
-
-Beyond the interactive TUI (`mcr chat`), MCR offers a set of direct Command Line Interface (CLI) commands. These are intended for scripting, automation, running demonstrations, or using the experimental sandbox. Most of these commands interact with a running MCR server (and will attempt to start one if not found).
-
-You can see the list of all available direct CLI commands and their options by running `mcr --help` (if globally installed/linked) or `node src/cli.js --help`.
+You can see the list of all available direct CLI commands and their options by running `mcr --help` (if globally installed/linked) or `node mcr.js --help`.
 
 **Core CLI Commands Examples:**
 
