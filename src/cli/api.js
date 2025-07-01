@@ -57,7 +57,8 @@ const handleApiError = (error, programOptions = {}) => {
       // Keep JSON output concise for machine consumption
       console.error(JSON.stringify(errOutput, null, 2));
     } else {
-      console.error(`Error: ${status} - ${serverMessage}`); // Base message
+      const errorEmoji = status >= 500 ? '💥' : (status >= 400 ? '⚠️' : '❗');
+      console.error(`${errorEmoji} Error ${status}: ${serverMessage}`); // Base message with emoji
 
       // Add specific suggestions based on status code
       switch (status) {
@@ -147,7 +148,7 @@ const handleApiError = (error, programOptions = {}) => {
         JSON.stringify(
           {
             error: {
-              message: `Connection Issue: No response received from MCR API server at ${API_URL}.`,
+              message: `🔌 Connection Issue: No response received from MCR API server at ${API_URL}.`,
               type: 'ConnectionError',
               suggestions: [
                 'Ensure the MCR server is running.',
@@ -163,10 +164,10 @@ const handleApiError = (error, programOptions = {}) => {
       );
     } else {
       console.error(
-        `Error: Connection Issue - Could not connect to the MCR API server at ${API_URL}.`
+        `🔌 Error: Connection Issue - Could not connect to the MCR API server at ${API_URL}.`
       );
       console.error('Suggestions:');
-      console.error('  - Ensure the MCR server is running.');
+      console.error('  - ✅ Ensure the MCR server is running.');
       console.error(
         `  - Check if the API URL '${API_URL}' in your configuration is correct (e.g., .env file, environment variables).`
       );
@@ -184,7 +185,7 @@ const handleApiError = (error, programOptions = {}) => {
         JSON.stringify(
           {
             error: {
-              message: `Client Setup Error: ${error.message}`,
+              message: `🛠️ Client Setup Error: ${error.message}`,
               type: 'ClientSetupError',
               suggestion:
                 'This could be a local network problem, DNS issue, or an internal CLI error. Check your network and command parameters.',
@@ -196,7 +197,7 @@ const handleApiError = (error, programOptions = {}) => {
       );
     } else {
       console.error(
-        `Error: Client Setup - An issue occurred before the request could be sent: ${error.message}`
+        `🛠️ Error: Client Setup - An issue occurred before the request could be sent: ${error.message}`
       );
       console.error(
         'Suggestion: This could be a local network problem, DNS issue, or an internal CLI error. Check your network and command parameters.'

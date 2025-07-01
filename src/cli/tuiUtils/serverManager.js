@@ -20,7 +20,7 @@ async function isServerAliveAsync(url, retries = 5, delayTime = 1000) {
 
 async function startMcrServerAsync(_programOpts) {
   // eslint-disable-next-line no-console
-  console.log('Starting MCR server (from tuiUtils/serverManager.js)...');
+  console.log('🚀 Attempting to start the MCR server automatically...');
 
   // __dirname here will be src/cli/tuiUtils
   //  const mcrScriptPath = path.resolve(__dirname, '../../../../mcr.js'); // Adjusted path: tuiUtils -> cli -> src -> project_root

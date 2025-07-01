@@ -142,12 +142,13 @@ describe('LlmService', () => {
     // Reset LlmService internal state before each test
     LlmService._client = null;
     LlmService._activeProviderName = null;
+    LlmService._appConfig = null; // Explicitly reset _appConfig
   });
 
   describe('init', () => {
-    test('should initialize OpenAIProvider strategy when provider is openai', () => {
+    test('should initialize OpenAIProvider strategy when provider is openai', async () => { // Made async
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       const openaiProviderMock = require('../src/llmProviders/openaiProvider'); // Get the mock
       expect(openaiProviderMock.initialize).toHaveBeenCalledWith(
         mockConfig.llm
@@ -159,9 +160,9 @@ describe('LlmService', () => {
       expect(LlmService._activeProviderName).toBe('openai');
     });
 
-    test('should initialize GeminiProvider strategy when provider is gemini', () => {
+    test('should initialize GeminiProvider strategy when provider is gemini', async () => { // Made async
       mockConfig.llm.provider = 'gemini';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       const geminiProviderMock = require('../src/llmProviders/geminiProvider'); // Get the mock
       expect(geminiProviderMock.initialize).toHaveBeenCalledWith(
         mockConfig.llm
@@ -170,9 +171,9 @@ describe('LlmService', () => {
       expect(LlmService._activeProviderName).toBe('gemini');
     });
 
-    test('should initialize OllamaProvider strategy when provider is ollama', () => {
+    test('should initialize OllamaProvider strategy when provider is ollama', async () => { // Made async
       mockConfig.llm.provider = 'ollama';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       const ollamaProviderMock = require('../src/llmProviders/ollamaProvider'); // Get the mock
       expect(ollamaProviderMock.initialize).toHaveBeenCalledWith(
         mockConfig.llm
@@ -181,31 +182,33 @@ describe('LlmService', () => {
       expect(LlmService._activeProviderName).toBe('ollama');
     });
 
-    test('should set client to null if provider strategy is not found in optionalProviderStrategies', () => {
+    test('should set client to null if provider strategy is not found in optionalProviderStrategies', async () => { // Made async
       mockConfig.llm.provider = 'unknown';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       expect(LlmService._client).toBeNull();
       expect(LlmService._activeProviderName).toBeNull();
     });
 
-    test('should set client to null if provider strategy is not found (no optionalProviderStrategies provided, uses internal)', () => {
+    test('should set client to null if provider strategy is not found (no optionalProviderStrategies provided, uses internal)', async () => { // Made async
       mockConfig.llm.provider = 'unknown_internal';
-      LlmService.init(mockConfig); // No map passed, should use internal registration
+      await LlmService.init(mockConfig); // Added await, No map passed, should use internal registration
       expect(LlmService._client).toBeNull();
       expect(LlmService._activeProviderName).toBeNull();
     });
 
-    test('should set client to null if provider initialization fails (e.g., initialize throws)', () => {
+    test('should set client to null if provider initialization fails (e.g., initialize throws)', async () => { // Made async
       mockConfig.llm.provider = 'openai';
       const openaiProviderMock = require('../src/llmProviders/openaiProvider'); // Get the mock
       openaiProviderMock.initialize.mockImplementationOnce(() => {
         throw new Error('Test-induced Initialization failed');
       });
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       expect(LlmService._client).toBeNull();
       expect(LlmService._activeProviderName).toBeNull();
     });
 
+    // This test checks for synchronous errors (throwing an error, not returning a rejected promise)
+    // So, it doesn't need to be async, and LlmService.init won't be awaited here.
     test('should throw error if appConfig or appConfig.llm is missing', () => {
       expect(() => LlmService.init(null, testProviderStrategies)).toThrow(
         'LLMService configuration error: Missing LLM config.'
@@ -232,7 +235,7 @@ describe('LlmService', () => {
   describe('nlToRulesAsync', () => {
     test('should call client.pipe.invoke with correct prompt and inputs for nlToRulesAsync', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       const currentMockInvoke = mockClientInvokeImpl('openai', [
         'rule1.',
         'rule2.',
@@ -267,7 +270,7 @@ describe('LlmService', () => {
 
     test('should throw ApiError if LLM returns non-array for nlToRulesAsync', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       mockClientInvokeImpl('openai', { not_an_array: true });
       await expect(LlmService.nlToRulesAsync('text')).rejects.toThrow(
         'LLM failed to produce a valid JSON array of rules.'
@@ -276,7 +279,7 @@ describe('LlmService', () => {
 
     test('should throw if client.pipe.invoke throws for nlToRulesAsync', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       mockOpenAiClientInvoke.mockRejectedValue(new Error('Provider error'));
       await expect(LlmService.nlToRulesAsync('text')).rejects.toThrow(
         'Error communicating with LLM provider: Provider error'
@@ -287,7 +290,7 @@ describe('LlmService', () => {
   describe('queryToPrologAsync', () => {
     test('should call client.pipe.invoke with correct prompt and inputs for queryToPrologAsync', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       const currentMockInvoke = mockClientInvokeImpl('openai', 'query(X).');
 
       const question = 'What is X?';
@@ -309,7 +312,7 @@ describe('LlmService', () => {
 
     test('should append a period if LLM output for queryToPrologAsync does not have one', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       const currentMockInvoke = mockClientInvokeImpl('openai', 'query(Y)'); // No period
 
       const question = 'What is Y?';
@@ -331,7 +334,7 @@ describe('LlmService', () => {
 
     test('should handle query from LLM that already has a period and trailing space for queryToPrologAsync', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       const currentMockInvoke = mockClientInvokeImpl('openai', 'query(Z). '); // Period and space
 
       const question = 'What is Z?';
@@ -354,7 +357,7 @@ describe('LlmService', () => {
 
     test('should throw ApiError if LLM returns empty string for queryToPrologAsync', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       mockClientInvokeImpl('openai', '   ');
       await expect(LlmService.queryToPrologAsync('question')).rejects.toThrow(
         'LLM generated an empty or whitespace-only Prolog query.'
@@ -363,7 +366,7 @@ describe('LlmService', () => {
 
     test('should throw if client.pipe.invoke throws for queryToPrologAsync', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       mockOpenAiClientInvoke.mockRejectedValue(
         new Error('Provider error for query')
       );
@@ -376,7 +379,7 @@ describe('LlmService', () => {
   describe('resultToNlAsync', () => {
     test('should call client.pipe.invoke with correct prompt and inputs', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       const currentMockInvoke = mockClientInvokeImpl(
         'openai',
         'The answer is yes.'
@@ -411,7 +414,7 @@ describe('LlmService', () => {
 
     test('should use default style "conversational" if not provided', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       mockClientInvokeImpl('openai', 'Default style answer.');
       // mockLangchainFormatFn.mockResolvedValue('formatted prompt');
       mockActualFormatImplementation.mockResolvedValue('formatted prompt');
@@ -424,7 +427,7 @@ describe('LlmService', () => {
 
     test('should throw if client.pipe.invoke throws for resultToNlAsync', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       mockOpenAiClientInvoke.mockRejectedValue(
         new Error('Provider error for NL answer')
       );
@@ -437,7 +440,7 @@ describe('LlmService', () => {
   describe('rulesToNlAsync', () => {
     test('should call client.pipe.invoke with correct prompt and inputs', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       const currentMockInvoke = mockClientInvokeImpl(
         'openai',
         'These are the rules explained.'
@@ -466,7 +469,7 @@ describe('LlmService', () => {
 
     test('should use default style "formal" if not provided for rulesToNlAsync', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       mockClientInvokeImpl('openai', 'Default style rule explanation.');
       // mockLangchainFormatFn.mockResolvedValue('formatted prompt');
       mockActualFormatImplementation.mockResolvedValue('formatted prompt');
@@ -479,7 +482,7 @@ describe('LlmService', () => {
 
     test('should throw if client.pipe.invoke throws for rulesToNlAsync', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       mockOpenAiClientInvoke.mockRejectedValue(
         new Error('Provider error for rules explanation')
       );
@@ -492,7 +495,7 @@ describe('LlmService', () => {
   describe('explainQueryAsync', () => {
     test('should call client.pipe.invoke with correct prompt and inputs', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       const currentMockInvoke = mockClientInvokeImpl(
         'openai',
         'This is how the query works.'
@@ -527,7 +530,7 @@ describe('LlmService', () => {
 
     test('should handle empty facts and ontology for explainQueryAsync', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       const currentMockInvoke = mockClientInvokeImpl(
         'openai',
         'Explanation with no context.'
@@ -547,7 +550,7 @@ describe('LlmService', () => {
 
     test('should throw if client.pipe.invoke throws for explainQueryAsync', async () => {
       mockConfig.llm.provider = 'openai';
-      LlmService.init(mockConfig, testProviderStrategies);
+      await LlmService.init(mockConfig, testProviderStrategies); // Added await
       mockOpenAiClientInvoke.mockRejectedValue(
         new Error('Provider error for query explanation')
       );

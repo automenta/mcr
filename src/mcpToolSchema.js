@@ -112,7 +112,7 @@ const toolSchema = {
           name: 'ontology',
           type: 'string',
           description:
-            'Optional. Name of a specific ontology to use for this query, overriding session or default ontologies.',
+            'Optional. A string containing Prolog facts or rules (newline-separated) to be dynamically added to the knowledge base for this query only. Useful for Retrieval Augmented Generation (RAG).',
           required: false,
         },
       ],

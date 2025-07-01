@@ -148,15 +148,21 @@ jest.mock('../package.json', () => ({
   description: 'Integration Test App Description',
 }));
 
-const { app } = require('../mcr');
+// const { app } = require('../mcr'); // We will get app via getInitializedApp
+const mcr = require('../mcr');
+const testConfig = require('../src/config').get(); // Get the mocked config
+
 // Removed unused SessionManager import
 
 describe('MCR API Integration Tests (with Supertest)', () => {
+  let appForTests; // Will hold the initialized app
   let sessionId = null;
   const familyOntologyPath = path.resolve(__dirname, '../ontologies/family.pl');
   let familyOntologyContent = null;
 
-  beforeAll(() => {
+  beforeAll(async () => { // Made beforeAll async
+    appForTests = await mcr.getInitializedApp(testConfig); // Initialize the app
+
     for (const p of [TEST_SESSION_STORAGE_PATH, TEST_ONTOLOGY_STORAGE_PATH]) {
       if (fs.existsSync(p)) {
         fs.rmSync(p, { recursive: true, force: true });
@@ -170,6 +176,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
   });
 
   afterAll(() => {
+    // No specific server shutdown needed if supertest manages it with app instance
     for (const p of [TEST_SESSION_STORAGE_PATH, TEST_ONTOLOGY_STORAGE_PATH]) {
       if (fs.existsSync(p)) {
         fs.rmSync(p, { recursive: true, force: true });
@@ -178,7 +185,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
   });
 
   beforeEach(async () => {
-    const createSessionResponse = await request(app).post('/sessions');
+    const createSessionResponse = await request(appForTests).post('/sessions'); // Use appForTests
     if (
       createSessionResponse.status === 201 &&
       createSessionResponse.body.sessionId
@@ -194,7 +201,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
   afterEach(async () => {
     if (sessionId) {
       try {
-        await request(app).delete(`/sessions/${sessionId}`);
+        await request(appForTests).delete(`/sessions/${sessionId}`); // Use appForTests
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error(
@@ -206,7 +213,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
   });
 
   test('GET / should return API status from mocked package.json', async () => {
-    const response = await request(app).get('/'); // Added await
+    const response = await request(appForTests).get('/'); // Use appForTests
     expect(response.status).toBe(200);
     expect(response.body.status).toBe('ok');
     expect(response.body.name).toBe('mcr-integration-test-app');
@@ -215,16 +222,16 @@ describe('MCR API Integration Tests (with Supertest)', () => {
   });
 
   test('should create a new session, retrieve it, and then delete it', async () => {
-    const createResponse = await request(app).post('/sessions');
+    const createResponse = await request(appForTests).post('/sessions'); // Use appForTests
     expect(createResponse.status).toBe(201);
     const newSessionId = createResponse.body.sessionId;
     expect(newSessionId).toBeDefined();
 
-    const getResponse = await request(app).get(`/sessions/${newSessionId}`); // Added await
+    const getResponse = await request(appForTests).get(`/sessions/${newSessionId}`); // Use appForTests
     expect(getResponse.status).toBe(200);
     expect(getResponse.body.sessionId).toBe(newSessionId);
 
-    const deleteResponse = await request(app).delete(
+    const deleteResponse = await request(appForTests).delete( // Use appForTests
       `/sessions/${newSessionId}`
     );
     expect(deleteResponse.status).toBe(200);
@@ -232,8 +239,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
       `Session ${newSessionId} terminated.`
     );
 
-    const getAfterDeleteResponse = await request(app).get(
-      // Added await
+    const getAfterDeleteResponse = await request(appForTests).get( // Use appForTests
       `/sessions/${newSessionId}`
     );
     expect(getAfterDeleteResponse.status).toBe(404);
@@ -247,15 +253,14 @@ describe('MCR API Integration Tests (with Supertest)', () => {
 
   test('should create a new session and retrieve it', async () => {
     expect(sessionId).toBeDefined();
-    const createSessionResponse = await request(app)
+    const createSessionResponse = await request(appForTests) // Use appForTests
       .post('/sessions')
       .redirects(0);
     expect(createSessionResponse.status).toBe(201);
     const newTestSessionId = createSessionResponse.body.sessionId;
     expect(newTestSessionId).toBeDefined();
 
-    const getSessionResponse = await request(app).get(
-      // Added await
+    const getSessionResponse = await request(appForTests).get( // Use appForTests
       `/sessions/${newTestSessionId}`
     );
     expect(getSessionResponse.status).toBe(200);
@@ -267,7 +272,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
   describe('Session Assertions and Queries', () => {
     test('should assert a fact into the session', async () => {
       const factText = 'John is a parent of Mary.';
-      const assertResponse = await request(app)
+      const assertResponse = await request(appForTests) // Use appForTests
         .post(`/sessions/${sessionId}/assert`)
         .send({ text: factText });
 
@@ -278,8 +283,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
       expect(typeof assertResponse.body.totalFactsInSession).toBe('number');
       expect(assertResponse.body.totalFactsInSession).toBeGreaterThanOrEqual(1);
 
-      const getSessionResponse = await request(app).get(
-        // Added await
+      const getSessionResponse = await request(appForTests).get( // Use appForTests
         `/sessions/${sessionId}`
       );
       expect(getSessionResponse.status).toBe(200);
@@ -289,7 +293,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
     });
 
     test('should return 400 if asserting with empty text', async () => {
-      const assertResponse = await request(app)
+      const assertResponse = await request(appForTests) // Use appForTests
         .post(`/sessions/${sessionId}/assert`)
         .send({ text: '' });
 
@@ -303,12 +307,12 @@ describe('MCR API Integration Tests (with Supertest)', () => {
     });
 
     test('should query a fact from the session', async () => {
-      await request(app)
+      await request(appForTests) // Use appForTests
         .post(`/sessions/${sessionId}/assert`)
         .send({ text: 'Some fact that leads to mock_rule(a).' });
 
       const queryQuestion = 'What is the mock query for X?';
-      const queryResponse = await request(app)
+      const queryResponse = await request(appForTests) // Use appForTests
         .post(`/sessions/${sessionId}/query`)
         .send({ query: queryQuestion });
 
@@ -325,12 +329,12 @@ describe('MCR API Integration Tests (with Supertest)', () => {
         expect(familyOntologyContent).toBeFalsy();
         return;
       }
-      await request(app)
+      await request(appForTests) // Use appForTests
         .post(`/sessions/${sessionId}/assert`)
         .send({ text: 'parent(john, mary).' });
 
       const dynamicQueryQuestion = 'Is Mary a child of John?';
-      const dynamicQueryResponse = await request(app)
+      const dynamicQueryResponse = await request(appForTests) // Use appForTests
         .post(`/sessions/${sessionId}/query`)
         .send({
           query: dynamicQueryQuestion,
@@ -346,7 +350,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
 
     test('should translate natural language to rules (mocked)', async () => {
       const text = 'Birds can fly. Penguins are birds but cannot fly.';
-      const response = await request(app)
+      const response = await request(appForTests) // Use appForTests
         .post('/translate/nl-to-rules')
         .send({ text });
 
@@ -359,7 +363,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
         'parent(X, Y) :- father(X, Y).',
         'parent(X, Y) :- mother(X, Y).',
       ];
-      const response = await request(app)
+      const response = await request(appForTests) // Use appForTests
         .post('/translate/rules-to-nl')
         .send({ rules, style: 'formal' });
 
@@ -370,7 +374,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
     });
 
     test('should get prompts (mocked)', async () => {
-      const response = await request(app).get('/prompts'); // Added await
+      const response = await request(appForTests).get('/prompts'); // Use appForTests
       expect(response.status).toBe(200);
       // Expect the full set of prompts now returned by the mock
       const ActualPrompts = jest.requireActual('../src/prompts');
@@ -386,7 +390,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
     });
 
     test('should explain query (mocked)', async () => {
-      const response = await request(app)
+      const response = await request(appForTests) // Use appForTests
         .post(`/sessions/${sessionId}/explain-query`)
         .send({ query: 'Why is X true?' });
       expect(response.status).toBe(200);
@@ -400,7 +404,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
       const updatedOntologyRules = 'rule3(b).\nrule4(Y) :- other_condition(Y).';
 
       test('should create a new ontology', async () => {
-        const response = await request(app)
+        const response = await request(appForTests) // Use appForTests
           .post('/ontologies')
           .send({ name: ontologyName, rules: ontologyRules });
         expect(response.status).toBe(201);
@@ -409,22 +413,22 @@ describe('MCR API Integration Tests (with Supertest)', () => {
       });
 
       test('should get the created ontology', async () => {
-        await request(app)
+        await request(appForTests) // Use appForTests
           .post('/ontologies')
           .send({ name: ontologyName, rules: ontologyRules });
 
-        const response = await request(app).get(`/ontologies/${ontologyName}`); // Added await
+        const response = await request(appForTests).get(`/ontologies/${ontologyName}`); // Use appForTests
         expect(response.status).toBe(200);
         expect(response.body.name).toBe(ontologyName);
         expect(response.body.rules).toBe(ontologyRules);
       });
 
       test('should list all ontologies and find the created one', async () => {
-        await request(app)
+        await request(appForTests) // Use appForTests
           .post('/ontologies')
           .send({ name: `${ontologyName}_2`, rules: 'another(rule).' });
 
-        const response = await request(app).get('/ontologies'); // Added await
+        const response = await request(appForTests).get('/ontologies'); // Use appForTests
         expect(response.status).toBe(200);
         expect(Array.isArray(response.body)).toBe(true);
         const found = response.body.find((o) => o.name === ontologyName);
@@ -440,30 +444,29 @@ describe('MCR API Integration Tests (with Supertest)', () => {
       });
 
       test('should update an existing ontology', async () => {
-        await request(app)
+        await request(appForTests) // Use appForTests
           .post('/ontologies')
           .send({ name: ontologyName, rules: ontologyRules });
 
-        const response = await request(app)
+        const response = await request(appForTests) // Use appForTests
           .put(`/ontologies/${ontologyName}`)
           .send({ rules: updatedOntologyRules });
         expect(response.status).toBe(200);
         expect(response.body.name).toBe(ontologyName);
         expect(response.body.rules).toBe(updatedOntologyRules);
 
-        const getResponse = await request(app).get(
-          // Added await
+        const getResponse = await request(appForTests).get( // Use appForTests
           `/ontologies/${ontologyName}`
         );
         expect(getResponse.body.rules).toBe(updatedOntologyRules);
       });
 
       test('should delete an ontology', async () => {
-        await request(app)
+        await request(appForTests) // Use appForTests
           .post('/ontologies')
           .send({ name: ontologyName, rules: ontologyRules });
 
-        const deleteResponse = await request(app).delete(
+        const deleteResponse = await request(appForTests).delete( // Use appForTests
           `/ontologies/${ontologyName}`
         );
         expect(deleteResponse.status).toBe(200);
@@ -471,30 +474,28 @@ describe('MCR API Integration Tests (with Supertest)', () => {
           `Ontology ${ontologyName} deleted.`
         );
 
-        const getResponse = await request(app).get(
-          // Added await
+        const getResponse = await request(appForTests).get( // Use appForTests
           `/ontologies/${ontologyName}`
         );
         expect(getResponse.status).toBe(404);
       });
 
       test('should return 404 when trying to get a non-existent ontology', async () => {
-        const response = await request(app).get(
-          // Added await
+        const response = await request(appForTests).get( // Use appForTests
           '/ontologies/non_existent_ontology'
         );
         expect(response.status).toBe(404);
       });
 
       test('should return 404 when trying to update a non-existent ontology', async () => {
-        const response = await request(app)
+        const response = await request(appForTests) // Use appForTests
           .put('/ontologies/non_existent_ontology_update')
           .send({ rules: 'rule(x).' });
         expect(response.status).toBe(404);
       });
 
       test('should return 404 when trying to delete a non-existent ontology', async () => {
-        const response = await request(app).delete(
+        const response = await request(appForTests).delete( // Use appForTests
           '/ontologies/non_existent_ontology_delete'
         );
         expect(response.status).toBe(404);
@@ -505,7 +506,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
       test('POST /debug/format-prompt should format a known prompt', async () => {
         // const Prompts = require('../src/prompts'); // Removed from here
 
-        const response = await request(app)
+        const response = await request(appForTests) // Use appForTests
           .post('/debug/format-prompt')
           .send({
             templateName: 'NL_TO_RULES',
@@ -536,7 +537,7 @@ describe('MCR API Integration Tests (with Supertest)', () => {
 
       test('POST /debug/format-prompt should return 404 for non-existent template name', async () => {
         const templateName = 'NON_EXISTENT_TEMPLATE_DEBUG';
-        const response = await request(app)
+        const response = await request(appForTests) // Use appForTests
           .post('/debug/format-prompt')
           .send({
             templateName: templateName,

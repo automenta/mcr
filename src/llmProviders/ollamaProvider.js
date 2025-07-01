@@ -53,7 +53,7 @@ async function checkOllamaConnectionAsync(ollamaBaseUrl, modelName) {
 
 const OllamaProvider = {
   name: 'ollama',
-  initializeAsync: async (llmConfig) => {
+  initialize: async (llmConfig) => { // Renamed from initializeAsync
     // Made initialize async
     const { model, ollamaBaseUrl } = llmConfig;
 

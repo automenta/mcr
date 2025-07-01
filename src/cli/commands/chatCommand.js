@@ -471,17 +471,17 @@ const McrApp = ({
     >
       {/* Status Bar */}
       <Box paddingX={1} borderStyle="single" borderBottom borderColor="gray">
-        <Text color="cyan">MCR TUI</Text>
+        <Text color="cyan">🤖 MCR TUI</Text>
         <Spacer />
-        <Text>Session: {currentSessionId || 'None'}</Text>
+        <Text>🏷️ Session: {currentSessionId || 'None'}</Text>
         <Spacer />
-        <Text>Ontology: {currentOntologyDisplay}</Text>
+        <Text>📚 Ontology: {currentOntologyDisplay}</Text>
         <Spacer />
-        <Text>{activeLlmInfo}</Text>
+        <Text>🧠 {activeLlmInfo}</Text>
         <Spacer />
-        <Text>Server: {serverStatus}</Text>
+        <Text>⚡ Server: {serverStatus}</Text>
         <Spacer />
-        <Text>ChatDebug: {chatDebugMode ? 'ON' : 'OFF'}</Text>
+        <Text>🐞 ChatDebug: {chatDebugMode ? 'ON' : 'OFF'}</Text>
       </Box>
 
       {/* Main Content Area (Messages/Outputs) */}
@@ -507,15 +507,15 @@ const McrApp = ({
               }
             >
               {msg.type === 'user'
-                ? 'You: '
+                ? '👤 You: '
                 : msg.type === 'mcr'
-                  ? 'MCR: '
+                  ? '🤖 MCR: '
                   : msg.type === 'system'
-                    ? 'System: '
+                    ? '⚙️ System: '
                     : msg.type === 'command'
-                      ? 'Cmd: '
+                      ? '⌨️ Cmd: '
                       : msg.type === 'error'
-                        ? 'Error: '
+                        ? '❗ Error: '
                         : msg.type === 'output'
                           ? '  '
                           : ''}

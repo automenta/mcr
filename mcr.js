@@ -32,7 +32,7 @@ const registerQueryCommands = require('./src/cli/commands/queryCommands');
 const registerChatCommand = require('./src/cli/commands/chatCommand');
 const registerStatusCommand = require('./src/cli/commands/statusCommands');
 const { registerPromptCommands } = require('./src/cli/commands/promptCommands');
-const registerDemoCommand = require('./src/demo');
+const registerDemoCommand = require('./src/demo.js'); // Explicitly add .js
 const registerSandboxCommand = require('./src/sandbox');
 
 // --- Configuration for both Server and CLI ---
@@ -47,7 +47,7 @@ program
   .description(
     'CLI for the Model Context Reasoner (MCR) API and Server Control'
   )
-  .version('2.2.5') // Matched version from a previous successful overwrite
+  .version(require('./package.json').version) // Load version dynamically
   .option('--json', 'Output raw JSON responses from the API (CLI mode)')
   .option(
     '--config <path>',
@@ -58,7 +58,7 @@ program
 const app = express();
 let serverInstanceHttp = null;
 
-function setupApp(expressApp) {
+function setupApp(expressApp) { // Kept synchronous
   expressApp.use((req, res, next) => {
     req.correlationId = uuidv4();
     res.setHeader('X-Correlation-ID', req.correlationId);
@@ -122,13 +122,13 @@ function setupApp(expressApp) {
   });
 }
 
-function startServerInstanceInternal(expressApp, serverConfig) {
+async function startServerInstanceInternal(expressApp, serverConfig) { // Made async
   if (serverInstanceHttp && serverInstanceHttp.listening) {
     logger.info('Server is already running or starting.');
     return serverInstanceHttp;
   }
-  LlmService.init(serverConfig);
-  setupApp(expressApp);
+  await LlmService.init(serverConfig); // Await async LlmService initialization
+  setupApp(expressApp); // setupApp is synchronous
   logger.info(
     `Attempting to start MCR server on http://${serverConfig.server.host}:${serverConfig.server.port}...`
   );
@@ -191,7 +191,7 @@ async function mainAsync() {
         // Ensure this action is also wrapped
         logger.info('Executing "start-server" command...');
         try {
-          startServerInstanceInternal(app, config);
+          await startServerInstanceInternal(app, config); // Added await
           // If successful, the server keeps the process alive.
         } catch (e) {
           logger.error(
@@ -281,7 +281,7 @@ async function mainAsync() {
       'No user-specified CLI arguments or default command action. Defaulting to start MCR server...'
     );
     try {
-      startServerInstanceInternal(app, config);
+      await startServerInstanceInternal(app, config); // Added await
     } catch (e) {
       logger.error(`Failed to start server by default: ${e.message}`);
       process.exit(1); // Exit if default server start fails
@@ -294,10 +294,27 @@ async function mainAsync() {
   // If it was help/version, Commander should have exited the process already.
 }
 
+async function getInitializedApp(initialConfig) {
+  const expressApp = express();
+  // This uses the provided config and performs async LlmService.init via startServerInstanceInternal
+  // Note: startServerInstanceInternal also tries to app.listen(), which supertest does too.
+  // We need a version of startServerInstanceInternal that *doesn't* listen,
+  // or supertest needs to attach to an already listening server.
+  // For supertest, it's usually better to pass the app instance before listen.
+
+  // Let's refine: separate init logic from listen logic for testing.
+  await LlmService.init(initialConfig); // Ensure LLM Service is ready
+  setupApp(expressApp); // Configure routes and middleware on this app
+  return expressApp;
+}
+
 if (require.main === module) {
   mainAsync().catch((err) => {
     const log = typeof logger !== 'undefined' ? logger : console;
     log.error('Unhandled error in main execution:', err);
     process.exit(1);
   });
+} else {
+  // Export for testing
+  module.exports = { app, setupApp, getInitializedApp, startServerInstanceInternal };
 }

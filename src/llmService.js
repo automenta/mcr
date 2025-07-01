@@ -93,7 +93,7 @@ const LlmService = {
    * @param {object} appConfig - The application configuration object.
    * @param {object} [optionalProviderStrategies=null] - Optional object mapping provider names to strategies, for testing.
    */
-  init(appConfig, optionalProviderStrategies = null) {
+  async init(appConfig, optionalProviderStrategies = null) { // Made async
     if (!appConfig || !appConfig.llm) {
       logger.error(
         'LLMService.init() called without valid application configuration. LLM Service cannot start.'
@@ -131,7 +131,7 @@ const LlmService = {
 
     if (providerStrategy && typeof providerStrategy.initialize === 'function') {
       try {
-        this._client = providerStrategy.initialize(this._appConfig.llm); // Added await
+        this._client = await providerStrategy.initialize(this._appConfig.llm); // Added await
         if (this._client) {
           this._activeProviderName = providerStrategy.name; // Set active provider name
           logger.info(

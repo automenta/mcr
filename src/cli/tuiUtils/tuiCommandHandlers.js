@@ -123,10 +123,6 @@ async function handleHelpCommandAsync(tuiContext /*, args */) {
   );
   addMessage(
     'system',
-    '  /run-demo <simpleQA|family>         - Run a demo script'
-  );
-  addMessage(
-    'system',
     '  /toggle-debug-chat                  - Toggle verbose output for chat messages'
   );
   addMessage(
