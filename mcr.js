@@ -54,6 +54,6 @@ process.on('uncaughtException', (error) => {
   });
   // Force exit if server close takes too long
   setTimeout(() => {
-        process.exit(1);
-    }, 5000); // 5 seconds
+    process.exit(1);
+  }, 5000); // 5 seconds
 });

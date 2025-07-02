@@ -1,5 +1,6 @@
 // new/src/config.js
-require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') }); // Load .env from root
+const path = require('path');
+require('dotenv').config({ path: path.resolve(process.cwd(), '.env') }); // Load .env from root
 
 const config = {
   server: {
@@ -24,6 +25,11 @@ const config = {
       // Tau-Prolog is embedded, so no specific paths needed for it usually
       // Add any specific prolog config here if necessary
     },
+  },
+  ontology: {
+    directory:
+      process.env.MCR_ONTOLOGY_DIR ||
+      require('path').resolve(__dirname, '../../ontologies'),
   },
   // Add other configurations as needed, e.g., logging level
   logLevel: process.env.LOG_LEVEL || 'info',

@@ -6,8 +6,14 @@ const mcpHandler = require('./mcpHandler');
 function setupRoutes(app) {
   const router = express.Router();
 
-  // Basic status endpoint
-  router.get('/status', (req, res) => res.status(200).json({ status: 'ok', message: 'MCR Streamlined API is running.' }));
+  // Health check endpoint
+  router.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', message: 'MCR server is running' });
+  });
+
+  // Basic status endpoint (can be kept or removed if /health is preferred)
+  // router.get('/status', (req, res) => res.status(200).json({ status: 'ok', message: 'MCR Streamlined API is running.' }));
+  router.get('/status', apiHandlers.getStatusHandler); // Use dedicated handler
 
   // Session management
   router.post('/sessions', apiHandlers.createSessionHandler);
@@ -15,8 +21,30 @@ function setupRoutes(app) {
   router.delete('/sessions/:sessionId', apiHandlers.deleteSessionHandler); // Added DELETE session
 
   // Fact assertion and querying
-  router.post('/sessions/:sessionId/assert', apiHandlers.assertToSessionHandler);
+  router.post(
+    '/sessions/:sessionId/assert',
+    apiHandlers.assertToSessionHandler
+  );
   router.post('/sessions/:sessionId/query', apiHandlers.querySessionHandler);
+  router.post(
+    '/sessions/:sessionId/explain-query',
+    apiHandlers.explainQueryHandler
+  );
+
+  // Ontology management
+  router.post('/ontologies', apiHandlers.createOntologyHandler);
+  router.get('/ontologies', apiHandlers.listOntologiesHandler);
+  router.get('/ontologies/:name', apiHandlers.getOntologyHandler);
+  router.put('/ontologies/:name', apiHandlers.updateOntologyHandler);
+  router.delete('/ontologies/:name', apiHandlers.deleteOntologyHandler);
+
+  // Direct translation
+  router.post('/translate/nl-to-rules', apiHandlers.nlToRulesDirectHandler);
+  router.post('/translate/rules-to-nl', apiHandlers.rulesToNlDirectHandler);
+
+  // Utility & Debugging
+  router.get('/prompts', apiHandlers.getPromptsHandler);
+  router.post('/debug/format-prompt', apiHandlers.debugFormatPromptHandler);
 
   app.use('/api/v1', router); // Prefix all API routes with /api/v1
 

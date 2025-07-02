@@ -15,10 +15,14 @@ function getProvider() {
         break;
       // Future reasoner providers can be added here
       default:
-        logger.error(`Unsupported Reasoner provider configured: ${providerName}. Defaulting to Prolog.`);
+        logger.error(
+          `Unsupported Reasoner provider configured: ${providerName}. Defaulting to Prolog.`
+        );
         selectedProvider = PrologReasonerProvider; // Or throw new Error
     }
-    logger.info(`Reasoner Service initialized with provider: ${selectedProvider.name}`);
+    logger.info(
+      `Reasoner Service initialized with provider: ${selectedProvider.name}`
+    );
   }
   return selectedProvider;
 }
@@ -33,20 +37,28 @@ function getProvider() {
  */
 async function executeQuery(knowledgeBase, query, limit = 10) {
   const provider = getProvider();
-  if (!provider || typeof provider.runQuery !== 'function') {
-    logger.error('Reasoner provider is not correctly configured or does not support runQuery.');
+  if (!provider || typeof provider.executeQuery !== 'function') {
+    logger.error(
+      'Reasoner provider is not correctly configured or does not support executeQuery.'
+    );
     throw new Error('Reasoner provider misconfiguration.');
   }
 
   try {
-    logger.debug(`ReasonerService:executeQuery called with provider ${provider.name}`, { knowledgeBaseLen: knowledgeBase.length, query, limit });
-    return await provider.runQuery(knowledgeBase, query, limit);
+    logger.debug(
+      `ReasonerService:executeQuery called with provider ${provider.name}`,
+      { knowledgeBaseLen: knowledgeBase.length, query, limit }
+    );
+    return await provider.executeQuery(knowledgeBase, query, limit);
   } catch (error) {
-    logger.error(`Error during reasoner execution with ${provider.name}: ${error.message}`, {
-      provider: provider.name,
-      query,
-      error,
-    });
+    logger.error(
+      `Error during reasoner execution with ${provider.name}: ${error.message}`,
+      {
+        provider: provider.name,
+        query,
+        error,
+      }
+    );
     throw error; // Re-throw to be handled by the caller
   }
 }

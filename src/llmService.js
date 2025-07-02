@@ -22,11 +22,15 @@ function getProvider() {
       //   selectedProvider = require('./llmProviders/openaiProvider');
       //   break;
       default:
-        logger.error(`Unsupported LLM provider configured: ${providerName}. Defaulting to Ollama.`);
+        logger.error(
+          `Unsupported LLM provider configured: ${providerName}. Defaulting to Ollama.`
+        );
         // Fallback or throw error
         selectedProvider = OllamaProvider; // Or throw new Error(`Unsupported LLM provider: ${providerName}`);
     }
-    logger.info(`LLM Service initialized with provider: ${selectedProvider.name}`);
+    logger.info(
+      `LLM Service initialized with provider: ${selectedProvider.name}`
+    );
   }
   return selectedProvider;
 }
@@ -44,7 +48,9 @@ function getProvider() {
 async function generate(systemPrompt, userPrompt, options = {}) {
   const provider = getProvider();
   if (!provider || typeof provider.generateStructured !== 'function') {
-    logger.error('LLM provider is not correctly configured or does not support generateStructured.');
+    logger.error(
+      'LLM provider is not correctly configured or does not support generateStructured.'
+    );
     throw new Error('LLM provider misconfiguration.');
   }
 
@@ -52,13 +58,16 @@ async function generate(systemPrompt, userPrompt, options = {}) {
     // logger.debug(`LLMService:generate called with provider ${provider.name}`, { systemPrompt, userPrompt, options });
     return await provider.generateStructured(systemPrompt, userPrompt, options);
   } catch (error) {
-    logger.error(`Error during LLM generation with ${provider.name}: ${error.message}`, {
-      provider: provider.name,
-      systemPrompt,
-      userPrompt,
-      options,
-      error,
-    });
+    logger.error(
+      `Error during LLM generation with ${provider.name}: ${error.message}`,
+      {
+        provider: provider.name,
+        systemPrompt,
+        userPrompt,
+        options,
+        error,
+      }
+    );
     // Re-throw the error to be handled by the caller
     throw error;
   }

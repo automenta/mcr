@@ -14,16 +14,22 @@ const logger = require('../logger');
  * @returns {string|object} - A simplified representation of the answer.
  */
 function formatAnswer(answer) {
-  if (prolog.type && typeof prolog.type.is_substitution === 'function' && prolog.type.is_substitution(answer)) {
+  if (
+    prolog.type &&
+    typeof prolog.type.is_substitution === 'function' &&
+    prolog.type.is_substitution(answer)
+  ) {
     if (answer.lookup('Goal') && answer.lookup('Goal').toString() === 'true') {
-        // This case handles results from queries like `assertz(fact(a)).`
-        // which might return { Goal: true } or similar if they don't bind variables.
-        return true;
+      // This case handles results from queries like `assertz(fact(a)).`
+      // which might return { Goal: true } or similar if they don't bind variables.
+      return true;
     }
     const result = {};
     let hasBindings = false;
-    for (const V_key in answer.links) { // V_key is the variable name string like "X"
-      if (V_key.startsWith('_')) { // Skip internal/anonymous variables like _G123
+    for (const V_key in answer.links) {
+      // V_key is the variable name string like "X"
+      if (V_key.startsWith('_')) {
+        // Skip internal/anonymous variables like _G123
         continue;
       }
       // answer.links[V_key] is a Term. Its toString() method gives its value or name.
@@ -37,7 +43,6 @@ function formatAnswer(answer) {
   }
   return answer.toString(); // Fallback for other types if any (e.g., if answer is not a substitution)
 }
-
 
 /**
  * Executes a Prolog query against a given knowledge base.
@@ -67,7 +72,9 @@ async function runQuery(knowledgeBase, query, limit = 10) {
                 session.answer({
                   success: (answer) => {
                     if (answer === false) {
-                      logger.debug('Prolog query: Received answer === false. This typically means the query (or this branch of it) failed. Resolving with accumulated results.');
+                      logger.debug(
+                        'Prolog query: Received answer === false. This typically means the query (or this branch of it) failed. Resolving with accumulated results.'
+                      );
                       resolve(results); // If results is empty, this correctly returns [] for a failed query.
                       return;
                     }
@@ -75,40 +82,59 @@ async function runQuery(knowledgeBase, query, limit = 10) {
                     // This is Tau Prolog's specific way of signaling end of results in some contexts,
                     // though the 'fail' callback is usually the primary indicator.
                     // It's pl.type.is_theta_nil(answer).
-                    if (prolog.type && typeof prolog.type.is_theta_nil === 'function' && prolog.type.is_theta_nil(answer)) {
-                        logger.debug('Prolog query: No more answers (is_theta_nil).');
-                        resolve(results);
-                        return;
+                    if (
+                      prolog.type &&
+                      typeof prolog.type.is_theta_nil === 'function' &&
+                      prolog.type.is_theta_nil(answer)
+                    ) {
+                      logger.debug(
+                        'Prolog query: No more answers (is_theta_nil).'
+                      );
+                      resolve(results);
+                      return;
                     }
 
                     const formatted = formatAnswer(answer);
-                    logger.debug('Prolog answer received:', { raw: answer.toString(), formatted });
+                    logger.debug('Prolog answer received:', {
+                      raw: answer.toString(),
+                      formatted,
+                    });
                     results.push(formatted);
                     if (results.length >= limit) {
-                       logger.debug(`Prolog query: Reached result limit of ${limit}.`);
-                       resolve(results);
-                       return;
+                      logger.debug(
+                        `Prolog query: Reached result limit of ${limit}.`
+                      );
+                      resolve(results);
+                      return;
                     }
                     processNextAnswer(); // Get next answer
                   },
                   error: (err) => {
-                    logger.error(`Prolog error processing answer for query "${query}": ${err}`);
+                    logger.error(
+                      `Prolog error processing answer for query "${query}": ${err}`
+                    );
                     reject(new Error(`Prolog error processing answer: ${err}`));
                   },
                   fail: () => {
-                     logger.debug(`Prolog query "${query}" failed to find a solution (or more solutions).`);
-                     resolve(results); // Query failed, no (more) solutions
+                    logger.debug(
+                      `Prolog query "${query}" failed to find a solution (or more solutions).`
+                    );
+                    resolve(results); // Query failed, no (more) solutions
                   },
                   limit: () => {
-                    logger.warn(`Prolog query "${query}" exceeded execution limit.`);
+                    logger.warn(
+                      `Prolog query "${query}" exceeded execution limit.`
+                    );
                     resolve(results); // Query exceeded execution limits
-                  }
+                  },
                 });
               }
               processNextAnswer(); // Start processing answers
             },
             error: (err) => {
-              logger.error(`Prolog syntax error or issue in query "${query}": ${err}`);
+              logger.error(
+                `Prolog syntax error or issue in query "${query}": ${err}`
+              );
               reject(new Error(`Prolog query error: ${err}`));
             },
           });
@@ -119,7 +145,10 @@ async function runQuery(knowledgeBase, query, limit = 10) {
         },
       });
     } catch (error) {
-      logger.error(`Unexpected error during Prolog operation: ${error.message}`, { error });
+      logger.error(
+        `Unexpected error during Prolog operation: ${error.message}`,
+        { error }
+      );
       reject(new Error(`Unexpected Prolog error: ${error.message}`));
     }
   });
