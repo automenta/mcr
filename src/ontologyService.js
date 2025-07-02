@@ -15,7 +15,10 @@ async function ensureOntologyDirExists() {
   try {
     await fs.mkdir(ONTOLOGY_DIR, { recursive: true });
   } catch (error) {
-    logger.error(`[OntologyService] Failed to create ontology directory: ${ONTOLOGY_DIR}`, error);
+    logger.error(
+      `[OntologyService] Failed to create ontology directory: ${ONTOLOGY_DIR}`,
+      error
+    );
     throw new ApiError(500, 'Failed to initialize ontology storage.');
   }
 }
@@ -26,11 +29,11 @@ async function ensureOntologyDirExists() {
  * @param {string} name - The name of the ontology.
  */
 function isValidOntologyName(name) {
-    if (!name || typeof name !== 'string' || name.trim() === '') {
-        return false;
-    }
-    // Prevent path traversal and invalid characters for filenames
-    return /^[a-zA-Z0-9_-]+$/.test(name);
+  if (!name || typeof name !== 'string' || name.trim() === '') {
+    return false;
+  }
+  // Prevent path traversal and invalid characters for filenames
+  return /^[a-zA-Z0-9_-]+$/.test(name);
 }
 
 /**
@@ -42,7 +45,10 @@ function isValidOntologyName(name) {
 async function createOntology(name, rulesString) {
   await ensureOntologyDirExists();
   if (!isValidOntologyName(name)) {
-    throw new ApiError(400, 'Invalid ontology name. Use alphanumeric characters, underscores, or hyphens.');
+    throw new ApiError(
+      400,
+      'Invalid ontology name. Use alphanumeric characters, underscores, or hyphens.'
+    );
   }
   if (typeof rulesString !== 'string') {
     throw new ApiError(400, 'Ontology rules must be a string.');
@@ -73,7 +79,9 @@ async function getOntology(name) {
     // While this might seem like a 400, for GET, if the name is invalid, it effectively won't be found.
     // Consistent with returning null for non-existent valid names.
     // However, API layer might choose to return 400 if name format is strictly enforced.
-    logger.warn(`[OntologyService] Attempt to get ontology with invalid name format: ${name}`);
+    logger.warn(
+      `[OntologyService] Attempt to get ontology with invalid name format: ${name}`
+    );
     return null;
   }
   const filePath = path.join(ONTOLOGY_DIR, `${name}${ONTOLOGY_EXTENSION}`);
@@ -86,7 +94,10 @@ async function getOntology(name) {
       logger.warn(`[OntologyService] Ontology not found: ${name}`);
       return null;
     }
-    logger.error(`[OntologyService] Error retrieving ontology '${name}':`, error);
+    logger.error(
+      `[OntologyService] Error retrieving ontology '${name}':`,
+      error
+    );
     throw new ApiError(500, `Failed to retrieve ontology '${name}'.`);
   }
 }
@@ -99,16 +110,22 @@ async function listOntologies(includeRules = false) {
   await ensureOntologyDirExists(); // Ensure dir exists before trying to read
   try {
     const files = await fs.readdir(ONTOLOGY_DIR);
-    const ontologyFiles = files.filter(file => file.endsWith(ONTOLOGY_EXTENSION));
-    const ontologies = await Promise.all(ontologyFiles.map(async (file) => {
-      const name = path.basename(file, ONTOLOGY_EXTENSION);
-      if (includeRules) {
-        const content = await getOntology(name); // Reuse getOntology to get rules
-        return { name, rules: content ? content.rules : '' }; // Handle case where getOntology might fail (should be rare if file exists)
-      }
-      return { name };
-    }));
-    logger.debug(`[OntologyService] Listed ontologies. Count: ${ontologies.length}`);
+    const ontologyFiles = files.filter((file) =>
+      file.endsWith(ONTOLOGY_EXTENSION)
+    );
+    const ontologies = await Promise.all(
+      ontologyFiles.map(async (file) => {
+        const name = path.basename(file, ONTOLOGY_EXTENSION);
+        if (includeRules) {
+          const content = await getOntology(name); // Reuse getOntology to get rules
+          return { name, rules: content ? content.rules : '' }; // Handle case where getOntology might fail (should be rare if file exists)
+        }
+        return { name };
+      })
+    );
+    logger.debug(
+      `[OntologyService] Listed ontologies. Count: ${ontologies.length}`
+    );
     return ontologies;
   } catch (error) {
     logger.error('[OntologyService] Error listing ontologies:', error);
@@ -126,7 +143,7 @@ async function updateOntology(name, newRulesString) {
   if (!isValidOntologyName(name)) {
     throw new ApiError(400, 'Invalid ontology name for update.');
   }
-   if (typeof newRulesString !== 'string') {
+  if (typeof newRulesString !== 'string') {
     throw new ApiError(400, 'Ontology rules for update must be a string.');
   }
   const filePath = path.join(ONTOLOGY_DIR, `${name}${ONTOLOGY_EXTENSION}`);

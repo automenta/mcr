@@ -18,7 +18,9 @@ const apiClient = {
    */
   get: async (endpoint, params, programOptions) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}${endpoint}`, { params });
+      const response = await axios.get(`${API_BASE_URL}${endpoint}`, {
+        params,
+      });
       return response.data; // Axios wraps response in 'data'
     } catch (error) {
       handleApiError(error, { ...programOptions, apiBaseUrl: API_BASE_URL });
@@ -97,11 +99,27 @@ async function getServerStatus() {
     return { success: true, data: response.data };
   } catch (error) {
     if (error.isAxiosError && !error.response) {
-      return { success: false, status: 'offline', message: `MCR API server not reachable at ${API_BASE_URL}.`, error };
+      return {
+        success: false,
+        status: 'offline',
+        message: `MCR API server not reachable at ${API_BASE_URL}.`,
+        error,
+      };
     } else if (error.response) {
-      return { success: false, status: 'error_response', message: `Server at ${API_BASE_URL} responded with error ${error.response.status}.`, details: error.response.data, error };
+      return {
+        success: false,
+        status: 'error_response',
+        message: `Server at ${API_BASE_URL} responded with error ${error.response.status}.`,
+        details: error.response.data,
+        error,
+      };
     } else {
-      return { success: false, status: 'unknown_error', message: `Failed to get status from ${API_BASE_URL}: ${error.message}`, error };
+      return {
+        success: false,
+        status: 'unknown_error',
+        message: `Failed to get status from ${API_BASE_URL}: ${error.message}`,
+        error,
+      };
     }
   }
 }
@@ -116,21 +134,24 @@ const tuiApiClientInstance = axios.create({
 // These return Promises resolving to response.data or throw Axios errors for caller to handle.
 
 /** Creates a new MCR session. @returns {Promise<object>} Session details. */
-const createSessionTui = () => tuiApiClientInstance.post('/sessions').then((res) => res.data);
+const createSessionTui = () =>
+  tuiApiClientInstance.post('/sessions').then((res) => res.data);
 
 /**
  * Retrieves details for a specific session.
  * @param {string} sessionId - The ID of the session.
  * @returns {Promise<object>} Session details.
  */
-const getSessionTui = (sessionId) => tuiApiClientInstance.get(`/sessions/${sessionId}`).then((res) => res.data);
+const getSessionTui = (sessionId) =>
+  tuiApiClientInstance.get(`/sessions/${sessionId}`).then((res) => res.data);
 
 /**
  * Deletes a specific session.
  * @param {string} sessionId - The ID of the session to delete.
  * @returns {Promise<object>} Confirmation message.
  */
-const deleteSessionTui = (sessionId) => tuiApiClientInstance.delete(`/sessions/${sessionId}`).then((res) => res.data);
+const deleteSessionTui = (sessionId) =>
+  tuiApiClientInstance.delete(`/sessions/${sessionId}`).then((res) => res.data);
 
 /**
  * Asserts facts into a session.
@@ -139,7 +160,9 @@ const deleteSessionTui = (sessionId) => tuiApiClientInstance.delete(`/sessions/$
  * @returns {Promise<object>} Assertion results.
  */
 const assertFactsTui = (sessionId, text) =>
-  tuiApiClientInstance.post(`/sessions/${sessionId}/assert`, { text }).then((res) => res.data);
+  tuiApiClientInstance
+    .post(`/sessions/${sessionId}/assert`, { text })
+    .then((res) => res.data);
 
 /**
  * Queries a session.
@@ -149,12 +172,19 @@ const assertFactsTui = (sessionId, text) =>
  * @param {string} [dynamicOntologyContent=null] - Optional string of Prolog rules for dynamic context.
  * @returns {Promise<object>} Query results.
  */
-const queryTui = (sessionId, queryText, options = { style: 'conversational', debug: false }, dynamicOntologyContent = null) => {
+const queryTui = (
+  sessionId,
+  queryText,
+  options = { style: 'conversational', debug: false },
+  dynamicOntologyContent = null
+) => {
   const payload = { query: queryText, options };
   if (dynamicOntologyContent) {
     payload.ontology = dynamicOntologyContent;
   }
-  return tuiApiClientInstance.post(`/sessions/${sessionId}/query`, payload).then((res) => res.data);
+  return tuiApiClientInstance
+    .post(`/sessions/${sessionId}/query`, payload)
+    .then((res) => res.data);
 };
 
 /**
@@ -164,17 +194,21 @@ const queryTui = (sessionId, queryText, options = { style: 'conversational', deb
  * @returns {Promise<object>} Explanation results.
  */
 const explainQueryTui = (sessionId, queryText) =>
-  tuiApiClientInstance.post(`/sessions/${sessionId}/explain-query`, { query: queryText }).then((res) => res.data);
+  tuiApiClientInstance
+    .post(`/sessions/${sessionId}/explain-query`, { query: queryText })
+    .then((res) => res.data);
 
 /** Lists all global ontologies. @returns {Promise<Array<object>>} Array of ontology objects. */
-const listOntologiesTui = () => tuiApiClientInstance.get('/ontologies').then((res) => res.data);
+const listOntologiesTui = () =>
+  tuiApiClientInstance.get('/ontologies').then((res) => res.data);
 
 /**
  * Retrieves a specific global ontology.
  * @param {string} name - The name of the ontology.
  * @returns {Promise<object>} Ontology details.
  */
-const getOntologyTui = (name) => tuiApiClientInstance.get(`/ontologies/${name}`).then((res) => res.data);
+const getOntologyTui = (name) =>
+  tuiApiClientInstance.get(`/ontologies/${name}`).then((res) => res.data);
 
 /**
  * Adds a new global ontology.
@@ -183,7 +217,9 @@ const getOntologyTui = (name) => tuiApiClientInstance.get(`/ontologies/${name}`)
  * @returns {Promise<object>} Details of the added ontology.
  */
 const addOntologyTui = (name, rules) =>
-  tuiApiClientInstance.post('/ontologies', { name, rules }).then((res) => res.data);
+  tuiApiClientInstance
+    .post('/ontologies', { name, rules })
+    .then((res) => res.data);
 
 /**
  * Updates an existing global ontology.
@@ -192,14 +228,17 @@ const addOntologyTui = (name, rules) =>
  * @returns {Promise<object>} Details of the updated ontology.
  */
 const updateOntologyTui = (name, rules) =>
-  tuiApiClientInstance.put(`/ontologies/${name}`, { rules }).then((res) => res.data);
+  tuiApiClientInstance
+    .put(`/ontologies/${name}`, { rules })
+    .then((res) => res.data);
 
 /**
  * Deletes a global ontology.
  * @param {string} name - The name of the ontology to delete.
  * @returns {Promise<object>} Confirmation message.
  */
-const deleteOntologyTui = (name) => tuiApiClientInstance.delete(`/ontologies/${name}`).then((res) => res.data);
+const deleteOntologyTui = (name) =>
+  tuiApiClientInstance.delete(`/ontologies/${name}`).then((res) => res.data);
 
 /**
  * Translates natural language text to Prolog rules.
@@ -212,7 +251,9 @@ const nlToRulesTui = (text, existingFacts = null, ontologyContext = null) => {
   const payload = { text };
   if (existingFacts) payload.existing_facts = existingFacts; // Match old CLI key
   if (ontologyContext) payload.ontology_context = ontologyContext; // Match old CLI key
-  return tuiApiClientInstance.post('/translate/nl-to-rules', payload).then((res) => res.data);
+  return tuiApiClientInstance
+    .post('/translate/nl-to-rules', payload)
+    .then((res) => res.data);
 };
 
 /**
@@ -229,11 +270,14 @@ const rulesToNlTui = (rules, style = 'formal') => {
         .map((line) => line.trim())
         .filter((line) => line !== '')
         .map((line) => (line.endsWith('.') ? line : `${line}.`));
-  return tuiApiClientInstance.post('/translate/rules-to-nl', { rules: rulesArray, style }).then((res) => res.data);
+  return tuiApiClientInstance
+    .post('/translate/rules-to-nl', { rules: rulesArray, style })
+    .then((res) => res.data);
 };
 
 /** Lists all available prompt templates. @returns {Promise<object>} Object mapping template names to template strings. */
-const listPromptsTui = () => tuiApiClientInstance.get('/prompts').then((res) => res.data);
+const listPromptsTui = () =>
+  tuiApiClientInstance.get('/prompts').then((res) => res.data);
 
 /**
  * Formats a prompt template with given variables (dry run).
@@ -242,8 +286,9 @@ const listPromptsTui = () => tuiApiClientInstance.get('/prompts').then((res) => 
  * @returns {Promise<object>} Debugging information including the formatted prompt.
  */
 const debugFormatPromptTui = (templateName, inputVariables) =>
-  tuiApiClientInstance.post('/debug/format-prompt', { templateName, inputVariables }).then((res) => res.data);
-
+  tuiApiClientInstance
+    .post('/debug/format-prompt', { templateName, inputVariables })
+    .then((res) => res.data);
 
 module.exports = {
   apiClient, // For CLI commands that should exit on error

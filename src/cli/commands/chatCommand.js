@@ -1,11 +1,14 @@
-/* eslint-disable no-console */
+
 const React = require('react');
 const { render, Box, Text, useApp, useInput, Spacer } = require('ink');
 const TextInput = require('ink-text-input').default;
 
 const config = require('../../config'); // New config
 const api = require('../api'); // New API with TUI helpers
-const { startMcrServerAsync, isServerAliveAsync } = require('../tuiUtils/serverManager');
+const {
+  startMcrServerAsync,
+  isServerAliveAsync,
+} = require('../tuiUtils/serverManager');
 const tuiCommandHandlers = require('../tuiUtils/tuiCommandHandlers');
 // readFileContentSafe and parseTuiCommandArgs are not used by the simplified command handlers
 
@@ -16,16 +19,27 @@ const McrApp = ({ initialSessionIdFromArgs, onExitTrigger }) => {
   const [messages, setMessages] = React.useState([]);
   const [inputValue, setInputValue] = React.useState('');
   const [isExiting, setIsExiting] = React.useState(false);
-  const [currentSessionId, setCurrentSessionId] = React.useState(initialSessionIdFromArgs);
+  const [currentSessionId, setCurrentSessionId] = React.useState(
+    initialSessionIdFromArgs
+  );
 
   // Status bar state
-  const [serverStatusDisplay, setServerStatusDisplay] = React.useState('Checking...');
+  const [serverStatusDisplay, setServerStatusDisplay] =
+    React.useState('Checking...');
   const [llmInfoDisplay, setLlmInfoDisplay] = React.useState('LLM: Unknown');
-  const [sessionDisplay, setSessionDisplay] = React.useState(initialSessionIdFromArgs || 'None');
+  const [sessionDisplay, setSessionDisplay] = React.useState(
+    initialSessionIdFromArgs || 'None'
+  );
 
   const addMessage = React.useCallback((type, text) => {
-    const messageText = typeof text === 'object' && text !== null ? JSON.stringify(text, null, 2) : String(text);
-    setMessages((prev) => [...prev, { type, text: messageText, timestamp: Date.now() }]);
+    const messageText =
+      typeof text === 'object' && text !== null
+        ? JSON.stringify(text, null, 2)
+        : String(text);
+    setMessages((prev) => [
+      ...prev,
+      { type, text: messageText, timestamp: Date.now() },
+    ]);
   }, []);
 
   const updateStatusBar = React.useCallback(async () => {
@@ -42,12 +56,15 @@ const McrApp = ({ initialSessionIdFromArgs, onExitTrigger }) => {
         // new apiHandlers.js getRoot just returns { status: 'ok', message: 'MCR API is running.' }
         // This needs to be enhanced or use config directly for LLM info for status bar.
         // For now, use config directly for LLM info, and API for server liveness.
-        setLlmInfoDisplay(`LLM: ${config.llm.provider} (${config.llm.modelName[config.llm.provider] || 'default'})`);
+        setLlmInfoDisplay(
+          `LLM: ${config.llm.provider} (${config.llm.modelName[config.llm.provider] || 'default'})`
+        );
       } else {
         setServerStatusDisplay(status.status || 'Offline'); // 'offline', 'error_response'
         setLlmInfoDisplay('LLM: N/A');
       }
-    } catch (e) { // Should not happen if getServerStatus handles its own errors
+    } catch (e) {
+      // Should not happen if getServerStatus handles its own errors
       setServerStatusDisplay('Error');
       setLlmInfoDisplay('LLM: Error');
       addMessage('error', `Status Bar Update Error: ${e.message}`);
@@ -63,7 +80,10 @@ const McrApp = ({ initialSessionIdFromArgs, onExitTrigger }) => {
     if (currentSessionId) {
       addMessage('system', `Active session: ${currentSessionId}.`);
     } else {
-      addMessage('system', 'No active session. Chat to start one or use /create-session.');
+      addMessage(
+        'system',
+        'No active session. Chat to start one or use /create-session.'
+      );
     }
     updateStatusBar(); // Initial status check
     const statusInterval = setInterval(updateStatusBar, 30000); // Update status bar every 30s
@@ -84,7 +104,10 @@ const McrApp = ({ initialSessionIdFromArgs, onExitTrigger }) => {
     addMessage('command', `/${command} ${args.join(' ')}`);
     setInputValue(''); // Clear input after command execution attempt
 
-    const handler = tuiCommandHandlers[`handle${command.charAt(0).toUpperCase() + command.slice(1)}CommandAsync`];
+    const handler =
+      tuiCommandHandlers[
+        `handle${command.charAt(0).toUpperCase() + command.slice(1)}CommandAsync`
+      ];
     if (handler) {
       try {
         await handler(tuiContext, args);
@@ -98,7 +121,10 @@ const McrApp = ({ initialSessionIdFromArgs, onExitTrigger }) => {
       await onExitTrigger(currentSessionId, serverProcess); // Pass serverProcess for potential cleanup
       exit();
     } else {
-      addMessage('error', `Unknown command: /${command}. Type /help for available commands.`);
+      addMessage(
+        'error',
+        `Unknown command: /${command}. Type /help for available commands.`
+      );
     }
   };
 
@@ -123,11 +149,18 @@ const McrApp = ({ initialSessionIdFromArgs, onExitTrigger }) => {
 
     try {
       // Using api.queryTui. Options are simplified for basic chat.
-      const response = await api.queryTui(sessId, chatText, { style: 'conversational', debug: false });
+      const response = await api.queryTui(sessId, chatText, {
+        style: 'conversational',
+        debug: false,
+      });
       const mcrResponseText = response.answer || JSON.stringify(response);
       addMessage('mcr', mcrResponseText);
-      if (response.debug) { // If server sends debug info anyway
-        addMessage('output', `Debug Info: ${JSON.stringify(response.debug, null, 2)}`);
+      if (response.debug) {
+        // If server sends debug info anyway
+        addMessage(
+          'output',
+          `Debug Info: ${JSON.stringify(response.debug, null, 2)}`
+        );
       }
     } catch (error) {
       addMessage('error', `Chat Error: ${error.message}`);
@@ -157,7 +190,13 @@ const McrApp = ({ initialSessionIdFromArgs, onExitTrigger }) => {
   });
 
   return (
-    <Box flexDirection="column" width="100%" height="100%" borderStyle="round" borderColor="blue">
+    <Box
+      flexDirection="column"
+      width="100%"
+      height="100%"
+      borderStyle="round"
+      borderColor="blue"
+    >
       {/* Status Bar */}
       <Box paddingX={1} borderStyle="single" borderBottom borderColor="gray">
         <Text color="cyan">🤖 MCR Chat</Text>
@@ -172,20 +211,38 @@ const McrApp = ({ initialSessionIdFromArgs, onExitTrigger }) => {
       {/* Main Content Area */}
       <Box flexGrow={1} flexDirection="column" overflowY="auto" padding={1}>
         {messages.map((msg) => (
-          <Box key={msg.timestamp + msg.text.slice(0,10)} marginBottom={msg.type === 'output' || msg.type === 'error' ? 0 : 1}>
-            <Text color={
-                msg.type === 'user' ? 'greenBright' :
-                msg.type === 'mcr' ? 'blueBright' :
-                msg.type === 'system' ? 'yellowBright' :
-                msg.type === 'command' ? 'magentaBright' :
-                msg.type === 'error' ? 'redBright' : 'white'
-            }>
-              {msg.type === 'user' ? '👤 You: ' :
-               msg.type === 'mcr' ? '🤖 MCR: ' :
-               msg.type === 'system' ? '⚙️ System: ' :
-               msg.type === 'command' ? '⌨️ Cmd: ' :
-               msg.type === 'error' ? '❗ Error: ' :
-               msg.type === 'output' ? '  ' : ''}
+          <Box
+            key={msg.timestamp + msg.text.slice(0, 10)}
+            marginBottom={msg.type === 'output' || msg.type === 'error' ? 0 : 1}
+          >
+            <Text
+              color={
+                msg.type === 'user'
+                  ? 'greenBright'
+                  : msg.type === 'mcr'
+                    ? 'blueBright'
+                    : msg.type === 'system'
+                      ? 'yellowBright'
+                      : msg.type === 'command'
+                        ? 'magentaBright'
+                        : msg.type === 'error'
+                          ? 'redBright'
+                          : 'white'
+              }
+            >
+              {msg.type === 'user'
+                ? '👤 You: '
+                : msg.type === 'mcr'
+                  ? '🤖 MCR: '
+                  : msg.type === 'system'
+                    ? '⚙️ System: '
+                    : msg.type === 'command'
+                      ? '⌨️ Cmd: '
+                      : msg.type === 'error'
+                        ? '❗ Error: '
+                        : msg.type === 'output'
+                          ? '  '
+                          : ''}
               {msg.text}
             </Text>
           </Box>
@@ -195,8 +252,15 @@ const McrApp = ({ initialSessionIdFromArgs, onExitTrigger }) => {
       {/* Input Bar */}
       {!isExiting && (
         <Box borderStyle="round" paddingX={1} borderColor="cyan" borderTop>
-          <Box marginRight={1}><Text color="cyan">{'>'}</Text></Box>
-          <TextInput value={inputValue} onChange={setInputValue} onSubmit={handleSubmit} placeholder={'Type a message or /command (e.g. /help)...'}/>
+          <Box marginRight={1}>
+            <Text color="cyan">{'>'}</Text>
+          </Box>
+          <TextInput
+            value={inputValue}
+            onChange={setInputValue}
+            onSubmit={handleSubmit}
+            placeholder={'Type a message or /command (e.g. /help)...'}
+          />
         </Box>
       )}
     </Box>
@@ -205,7 +269,9 @@ const McrApp = ({ initialSessionIdFromArgs, onExitTrigger }) => {
 
 async function startAppAsync(optionsFromCommander, commandInstance) {
   if (!process.stdin.isTTY) {
-    console.error('ERROR: MCR Chat TUI requires an interactive terminal (TTY).');
+    console.error(
+      'ERROR: MCR Chat TUI requires an interactive terminal (TTY).'
+    );
     process.exit(1);
   }
 
@@ -219,20 +285,30 @@ async function startAppAsync(optionsFromCommander, commandInstance) {
   const alive = await isServerAliveAsync(serverUrl);
   if (!alive) {
     try {
-      console.log(`MCR server not detected at ${serverUrl}. Attempting to start...`);
+      console.log(
+        `MCR server not detected at ${serverUrl}. Attempting to start...`
+      );
       serverProcess = await startMcrServerAsync(programOpts); // Store server process globally
       serverStartedByChat = true;
-      console.log('MCR server started by TUI. Waiting for it to be fully ready...');
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Give server a couple of seconds
+      console.log(
+        'MCR server started by TUI. Waiting for it to be fully ready...'
+      );
+      await new Promise((resolve) => setTimeout(resolve, 2000)); // Give server a couple of seconds
       if (!(await isServerAliveAsync(serverUrl))) {
-        console.error('Server was started but did not become healthy. Exiting TUI.');
-        if(serverProcess) serverProcess.kill();
+        console.error(
+          'Server was started but did not become healthy. Exiting TUI.'
+        );
+        if (serverProcess) serverProcess.kill();
         process.exit(1);
       }
       console.log('Server is now alive.');
     } catch (error) {
-      console.error(`Failed to start MCR server automatically: ${error.message}`);
-      console.error('Please start the MCR server manually (e.g., `node mcr.js` or `mcr-cli start-server`) and try again.');
+      console.error(
+        `Failed to start MCR server automatically: ${error.message}`
+      );
+      console.error(
+        'Please start the MCR server manually (e.g., `node mcr.js` or `mcr-cli start-server`) and try again.'
+      );
       process.exit(1);
     }
   } else {
@@ -248,11 +324,15 @@ async function startAppAsync(optionsFromCommander, commandInstance) {
         // Attempt graceful shutdown by sending SIGINT to the detached process
         // This relies on the server having proper SIGINT handling to shut down cleanly.
         process.kill(spawnedServerProcess.pid, 'SIGINT');
-        console.log(`Sent SIGINT to server process ${spawnedServerProcess.pid}.`);
+        console.log(
+          `Sent SIGINT to server process ${spawnedServerProcess.pid}.`
+        );
         // Optionally, wait a moment and then force kill if still alive
         // setTimeout(() => { if (spawnedServerProcess && !spawnedServerProcess.killed) spawnedServerProcess.kill('SIGKILL'); }, 3000);
       } catch (e) {
-        console.error(`Error attempting to stop server process ${spawnedServerProcess.pid}: ${e.message}`);
+        console.error(
+          `Error attempting to stop server process ${spawnedServerProcess.pid}: ${e.message}`
+        );
         console.error('You may need to stop it manually.');
       }
     }
@@ -260,7 +340,10 @@ async function startAppAsync(optionsFromCommander, commandInstance) {
 
   try {
     const appInstance = render(
-      <McrApp initialSessionIdFromArgs={initialSessionId} onExitTrigger={performCleanup} />,
+      <McrApp
+        initialSessionIdFromArgs={initialSessionId}
+        onExitTrigger={performCleanup}
+      />,
       { exitOnCtrlC: false } // Manual Ctrl+C handling is inside McrApp
     );
     await appInstance.waitUntilExit(); // Keep TUI running
@@ -268,7 +351,9 @@ async function startAppAsync(optionsFromCommander, commandInstance) {
     console.error(`\nCritical error during TUI operation: ${error.message}`);
     console.error(error.stack);
     if (serverProcess && serverStartedByChat) {
-      console.log('Attempting to shut down server started by TUI due to critical error...');
+      console.log(
+        'Attempting to shut down server started by TUI due to critical error...'
+      );
       serverProcess.kill();
     }
     process.exit(1);

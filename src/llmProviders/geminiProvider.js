@@ -1,7 +1,7 @@
 // new/src/llmProviders/geminiProvider.js
-const { ChatGoogleGenerativeAI } = require("@langchain/google-genai");
-const { HumanMessage, SystemMessage } = require("@langchain/core/messages");
-const { StringOutputParser } = require("@langchain/core/output_parsers");
+const { ChatGoogleGenerativeAI } = require('@langchain/google-genai');
+const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
+const { StringOutputParser } = require('@langchain/core/output_parsers');
 
 const config = require('../config');
 const logger = require('../logger');
@@ -22,9 +22,13 @@ function getGeminiInstance() {
         // topK: 40,      // Optional: common settings
         // topP: 0.95,    // Optional: common settings
       });
-      logger.info(`Gemini provider initialized with model ${config.llm.gemini.model}`);
+      logger.info(
+        `Gemini provider initialized with model ${config.llm.gemini.model}`
+      );
     } catch (error) {
-      logger.error(`Failed to initialize Gemini provider: ${error.message}`, { error });
+      logger.error(`Failed to initialize Gemini provider: ${error.message}`, {
+        error,
+      });
       throw new Error(`Gemini initialization failed: ${error.message}`);
     }
   }
@@ -61,12 +65,21 @@ async function generateStructured(systemPrompt, userPrompt, options = {}) {
     // or if it's a direct parameter to invoke.
     // The most straightforward way with current ChatGoogleGenerativeAI is often to ask for JSON in the prompt.
     // And ensure the model version used (e.g. gemini-1.5-pro-latest) supports it well.
-    logger.info('JSON mode requested for Gemini. Ensure your prompt explicitly asks for JSON output.');
-     // Add a more explicit instruction for JSON if systemPrompt is not already doing so.
-    if (systemPrompt && !systemPrompt.toLowerCase().includes("json")) {
-        messages[0] = new SystemMessage(systemPrompt + "\nRespond ONLY with valid JSON. Do not include any explanatory text before or after the JSON object.");
+    logger.info(
+      'JSON mode requested for Gemini. Ensure your prompt explicitly asks for JSON output.'
+    );
+    // Add a more explicit instruction for JSON if systemPrompt is not already doing so.
+    if (systemPrompt && !systemPrompt.toLowerCase().includes('json')) {
+      messages[0] = new SystemMessage(
+        systemPrompt +
+          '\nRespond ONLY with valid JSON. Do not include any explanatory text before or after the JSON object.'
+      );
     } else if (!systemPrompt) {
-        messages.unshift(new SystemMessage("Respond ONLY with valid JSON. Do not include any explanatory text before or after the JSON object."));
+      messages.unshift(
+        new SystemMessage(
+          'Respond ONLY with valid JSON. Do not include any explanatory text before or after the JSON object.'
+        )
+      );
     }
   }
 
@@ -78,7 +91,10 @@ async function generateStructured(systemPrompt, userPrompt, options = {}) {
     logger.debug('Gemini generation successful. Result:', { result });
     return result;
   } catch (error) {
-    logger.error(`Gemini generation failed: ${error.message}`, { error, messages });
+    logger.error(`Gemini generation failed: ${error.message}`, {
+      error,
+      messages,
+    });
     throw new Error(`Gemini generation failed: ${error.message}`);
   }
 }

@@ -21,7 +21,8 @@ const mockConfig = {
 };
 // jest.mock('../src/config', () => mockConfig); // This line caused the error
 
-jest.mock('../src/config', () => ({ // Define the mock directly in the factory
+jest.mock('../src/config', () => ({
+  // Define the mock directly in the factory
   llm: {
     provider: 'ollama', // Default for tests, can be overridden per test
     anthropic: { apiKey: 'test-key', defaultModel: 'test-model' },
@@ -36,7 +37,6 @@ jest.mock('../src/config', () => ({ // Define the mock directly in the factory
   ontology: { storagePath: './test-ontologies', autoLoad: true },
 }));
 
-
 // Mock logger (can be done more simply if not changing levels)
 jest.mock('../src/logger', () => ({
   info: jest.fn(),
@@ -45,7 +45,6 @@ jest.mock('../src/logger', () => ({
   debug: jest.fn(),
   level: 'info', // Default, will be set to silent
 }));
-
 
 // Mock the providers before llmService is imported
 const mockOllamaGenerate = jest.fn();
@@ -111,7 +110,11 @@ describe('LlmService', () => {
 
     expect(result).toBe('Ollama says hello');
     expect(mockOllamaGenerate).toHaveBeenCalledTimes(1);
-    expect(mockOllamaGenerate).toHaveBeenCalledWith(systemPrompt, userPrompt, {});
+    expect(mockOllamaGenerate).toHaveBeenCalledWith(
+      systemPrompt,
+      userPrompt,
+      {}
+    );
     expect(mockGeminiGenerate).not.toHaveBeenCalled();
   });
 
@@ -123,11 +126,15 @@ describe('LlmService', () => {
 
     const systemPrompt = 'System: Be concise.';
     const userPrompt = 'User: Hello';
-    const result = await llmService.generate(systemPrompt, userPrompt, { jsonMode: true });
+    const result = await llmService.generate(systemPrompt, userPrompt, {
+      jsonMode: true,
+    });
 
     expect(result).toBe('Gemini says hi');
     expect(mockGeminiGenerate).toHaveBeenCalledTimes(1);
-    expect(mockGeminiGenerate).toHaveBeenCalledWith(systemPrompt, userPrompt, { jsonMode: true });
+    expect(mockGeminiGenerate).toHaveBeenCalledWith(systemPrompt, userPrompt, {
+      jsonMode: true,
+    });
     expect(mockOllamaGenerate).not.toHaveBeenCalled();
   });
 
@@ -142,7 +149,11 @@ describe('LlmService', () => {
     await llmService.generate(systemPrompt, userPrompt);
 
     expect(mockOllamaGenerate).toHaveBeenCalledTimes(1);
-    expect(mockOllamaGenerate).toHaveBeenCalledWith(systemPrompt, userPrompt, {});
+    expect(mockOllamaGenerate).toHaveBeenCalledWith(
+      systemPrompt,
+      userPrompt,
+      {}
+    );
   });
 
   test('should pass options to the provider', async () => {
@@ -166,7 +177,7 @@ describe('LlmService', () => {
     await expect(llmService.generate('s', 'u')).rejects.toThrow(errorMessage);
   });
 
-   test('should throw error if provider does not support generateStructured (conceptual test)', async () => {
+  test('should throw error if provider does not support generateStructured (conceptual test)', async () => {
     // This test is more conceptual as our current mocks always define generateStructured.
     // To truly test this, we'd need to modify a mock to not have the method.
     jest.doMock('../src/llmProviders/ollamaProvider', () => ({
@@ -190,12 +201,13 @@ describe('LlmService', () => {
     // We'll assume the check `typeof provider.generateStructured !== 'function'` in llmService.js works.
     // Awaiting a call to a non-function would naturally throw a TypeError.
     try {
-        await llmService.generate('s', 'u');
+      await llmService.generate('s', 'u');
     } catch (e) {
-        // We expect an error, either the "misconfiguration" or a TypeError if it tries to call undefined.
-        expect(e.message).toMatch(/LLM provider misconfiguration|is not a function/);
+      // We expect an error, either the "misconfiguration" or a TypeError if it tries to call undefined.
+      // eslint-disable-next-line jest/no-conditional-expect
+      expect(e.message).toMatch(
+        /LLM provider misconfiguration|is not a function/
+      );
     }
   });
-
-
 });

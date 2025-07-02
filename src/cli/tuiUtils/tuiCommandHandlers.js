@@ -11,7 +11,10 @@ async function handleHelpCommandAsync(tuiContext /*, args */) {
   addMessage('system', '  /help                - Show this help message');
   // addMessage('system', '  /status              - Show MCR Core status'); // Status is in status bar
   addMessage('system', '  /create-session      - Create a new chat session');
-  addMessage('system', '  /delete-session [id] - Delete current or specified session');
+  addMessage(
+    'system',
+    '  /delete-session [id] - Delete current or specified session'
+  );
   addMessage('system', '  /exit, /quit         - Exit the application');
   addMessage('system', 'Directly type your message to chat with the MCR.');
 }
@@ -44,13 +47,19 @@ async function handleDeleteSessionCommandAsync(tuiContext, args) {
   }
   try {
     const response = await api.deleteSessionTui(targetSessionId);
-    addMessage('system', response.message || `Session ${targetSessionId} deleted.`);
+    addMessage(
+      'system',
+      response.message || `Session ${targetSessionId} deleted.`
+    );
     if (targetSessionId === getCurrentSessionId()) {
       setCurrentSessionId(null);
       addMessage('system', 'Active session cleared.');
     }
   } catch (error) {
-    addMessage('error', `Failed to delete session ${targetSessionId}: ${error.message}`);
+    addMessage(
+      'error',
+      `Failed to delete session ${targetSessionId}: ${error.message}`
+    );
   }
 }
 

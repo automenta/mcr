@@ -8,57 +8,104 @@ const { v4: uuidv4 } = require('uuid'); // For generating invocation IDs
 const mcrTools = [
   {
     name: 'create_reasoning_session',
-    description: 'Creates a new reasoning session for asserting facts and making queries.',
+    description:
+      'Creates a new reasoning session for asserting facts and making queries.',
     input_schema: { type: 'object', properties: {} }, // No input needed
     output_schema: {
       type: 'object',
       properties: {
-        sessionId: { type: 'string', description: 'The ID of the created session.' },
-        createdAt: { type: 'string', format: 'date-time', description: 'Timestamp of session creation.' },
+        sessionId: {
+          type: 'string',
+          description: 'The ID of the created session.',
+        },
+        createdAt: {
+          type: 'string',
+          format: 'date-time',
+          description: 'Timestamp of session creation.',
+        },
         // Added from mcrService.createSession output
-        facts: { type: 'array', items: { type: 'string' }, description: 'Initial facts in the session (usually empty).' },
-        factCount: { type: 'integer', description: 'Initial number of facts in the session (usually 0).' },
+        facts: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Initial facts in the session (usually empty).',
+        },
+        factCount: {
+          type: 'integer',
+          description: 'Initial number of facts in the session (usually 0).',
+        },
       },
       required: ['sessionId', 'createdAt', 'facts', 'factCount'],
     },
   },
   {
     name: 'assert_facts_to_session',
-    description: 'Asserts natural language facts into a specified reasoning session.',
+    description:
+      'Asserts natural language facts into a specified reasoning session.',
     input_schema: {
       type: 'object',
       properties: {
-        sessionId: { type: 'string', description: 'The ID of the session to assert facts into.' },
-        naturalLanguageText: { type: 'string', description: 'The natural language text containing facts to assert.' },
+        sessionId: {
+          type: 'string',
+          description: 'The ID of the session to assert facts into.',
+        },
+        naturalLanguageText: {
+          type: 'string',
+          description: 'The natural language text containing facts to assert.',
+        },
       },
       required: ['sessionId', 'naturalLanguageText'],
     },
     output_schema: {
       type: 'object',
       properties: {
-        success: { type: 'boolean', description: 'Whether the assertion was successful.' },
-        message: { type: 'string', description: 'A message indicating the result.' },
-        addedFacts: { type: 'array', items: { type: 'string' }, description: 'The Prolog facts that were added.', nullable: true },
+        success: {
+          type: 'boolean',
+          description: 'Whether the assertion was successful.',
+        },
+        message: {
+          type: 'string',
+          description: 'A message indicating the result.',
+        },
+        addedFacts: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'The Prolog facts that were added.',
+          nullable: true,
+        },
       },
       required: ['success', 'message'],
     },
   },
   {
     name: 'query_session',
-    description: 'Queries a specified reasoning session using a natural language question.',
+    description:
+      'Queries a specified reasoning session using a natural language question.',
     input_schema: {
       type: 'object',
       properties: {
-        sessionId: { type: 'string', description: 'The ID of the session to query.' },
-        naturalLanguageQuestion: { type: 'string', description: 'The natural language question to ask.' },
+        sessionId: {
+          type: 'string',
+          description: 'The ID of the session to query.',
+        },
+        naturalLanguageQuestion: {
+          type: 'string',
+          description: 'The natural language question to ask.',
+        },
       },
       required: ['sessionId', 'naturalLanguageQuestion'],
     },
     output_schema: {
       type: 'object',
       properties: {
-        success: { type: 'boolean', description: 'Whether the query processing was successful.' },
-        answer: { type: 'string', description: 'The natural language answer from MCR.', nullable: true },
+        success: {
+          type: 'boolean',
+          description: 'Whether the query processing was successful.',
+        },
+        answer: {
+          type: 'string',
+          description: 'The natural language answer from MCR.',
+          nullable: true,
+        },
         // debugInfo could be added here if useful for the MCP client
       },
       required: ['success'],
@@ -66,42 +113,86 @@ const mcrTools = [
   },
   {
     name: 'translate_nl_to_rules',
-    description: 'Translates a piece of natural language text into logical rules.',
+    description:
+      'Translates a piece of natural language text into logical rules.',
     input_schema: {
       type: 'object',
       properties: {
-        naturalLanguageText: { type: 'string', description: 'The natural language text to translate.' },
+        naturalLanguageText: {
+          type: 'string',
+          description: 'The natural language text to translate.',
+        },
       },
       required: ['naturalLanguageText'],
     },
     output_schema: {
       type: 'object',
       properties: {
-        success: { type: 'boolean', description: 'Whether the translation was successful.' },
-        rules: { type: 'array', items: { type: 'string' }, description: 'An array of logical rules translated from the input text.', nullable: true },
-        rawOutput: { type: 'string', description: 'The raw output string from the LLM, which might contain partially formed rules or comments.', nullable: true },
-        message: { type: 'string', description: 'A message indicating the result if not successful.', nullable: true },
+        success: {
+          type: 'boolean',
+          description: 'Whether the translation was successful.',
+        },
+        rules: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'An array of logical rules translated from the input text.',
+          nullable: true,
+        },
+        rawOutput: {
+          type: 'string',
+          description:
+            'The raw output string from the LLM, which might contain partially formed rules or comments.',
+          nullable: true,
+        },
+        message: {
+          type: 'string',
+          description: 'A message indicating the result if not successful.',
+          nullable: true,
+        },
       },
       required: ['success'],
     },
   },
   {
     name: 'translate_rules_to_nl',
-    description: 'Translates a string of Prolog rules/facts into a natural language explanation.',
+    description:
+      'Translates a string of Prolog rules/facts into a natural language explanation.',
     input_schema: {
       type: 'object',
       properties: {
-        prologRules: { type: 'string', description: 'The Prolog rules/facts as a string (newline-separated).' },
-        style: { type: 'string', enum: ['formal', 'conversational'], description: 'The desired style of the explanation (defaults to conversational).', nullable: true },
+        prologRules: {
+          type: 'string',
+          description:
+            'The Prolog rules/facts as a string (newline-separated).',
+        },
+        style: {
+          type: 'string',
+          enum: ['formal', 'conversational'],
+          description:
+            'The desired style of the explanation (defaults to conversational).',
+          nullable: true,
+        },
       },
       required: ['prologRules'],
     },
     output_schema: {
       type: 'object',
       properties: {
-        success: { type: 'boolean', description: 'Whether the translation was successful.' },
-        explanation: { type: 'string', description: 'The natural language explanation of the rules.', nullable: true },
-        message: { type: 'string', description: 'A message indicating the result if not successful.', nullable: true },
+        success: {
+          type: 'boolean',
+          description: 'Whether the translation was successful.',
+        },
+        explanation: {
+          type: 'string',
+          description: 'The natural language explanation of the rules.',
+          nullable: true,
+        },
+        message: {
+          type: 'string',
+          description: 'A message indicating the result if not successful.',
+          nullable: true,
+        },
       },
       required: ['success'],
     },
@@ -123,7 +214,7 @@ async function handleSse(req, res) {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
+    Connection: 'keep-alive',
     // CORS headers might be needed if client is on a different origin
     'Access-Control-Allow-Origin': '*',
   });
@@ -133,7 +224,9 @@ async function handleSse(req, res) {
 
   req.on('data', async (chunk) => {
     const message = chunk.toString();
-    logger.debug(`[MCP SSE] Received raw data from client ${clientId}: ${message}`);
+    logger.debug(
+      `[MCP SSE] Received raw data from client ${clientId}: ${message}`
+    );
     // MCP messages are expected to be newline-separated JSON strings for invoke_tool
     // A robust parser would handle potential partial messages, but for simplicity:
     try {
@@ -144,15 +237,23 @@ async function handleSse(req, res) {
           const mcpMessage = JSON.parse(jsonData);
 
           if (mcpMessage.type === 'invoke_tool') {
-            logger.info(`[MCP SSE] Received invoke_tool from ${clientId}: ${mcpMessage.tool_name}`, { input: mcpMessage.input });
+            logger.info(
+              `[MCP SSE] Received invoke_tool from ${clientId}: ${mcpMessage.tool_name}`,
+              { input: mcpMessage.input }
+            );
             await handleToolInvocation(res, mcpMessage, clientId);
           } else {
-            logger.warn(`[MCP SSE] Received unknown MCP message type from ${clientId}: ${mcpMessage.type}`);
+            logger.warn(
+              `[MCP SSE] Received unknown MCP message type from ${clientId}: ${mcpMessage.type}`
+            );
           }
         }
       }
     } catch (error) {
-      logger.error(`[MCP SSE] Error processing message from client ${clientId}: ${error.message}`, { rawMessage: message, error });
+      logger.error(
+        `[MCP SSE] Error processing message from client ${clientId}: ${error.message}`,
+        { rawMessage: message, error }
+      );
       // Optionally send an error back to the client if the protocol supports it for malformed requests
     }
   });
@@ -182,26 +283,40 @@ async function handleToolInvocation(res, invokeMsg, clientId) {
 
       case 'assert_facts_to_session':
         if (!input || !input.sessionId || !input.naturalLanguageText) {
-          throw new ApiError(400, 'Missing sessionId or naturalLanguageText for assert_facts_to_session');
+          throw new ApiError(
+            400,
+            'Missing sessionId or naturalLanguageText for assert_facts_to_session'
+          );
         }
-        const assertResult = await mcrService.assertNLToSession(input.sessionId, input.naturalLanguageText);
+        const assertResult = await mcrService.assertNLToSession(
+          input.sessionId,
+          input.naturalLanguageText
+        );
         resultData = {
-            success: assertResult.success,
-            message: assertResult.message,
-            addedFacts: assertResult.addedFacts // Will be undefined if not successful or no facts
+          success: assertResult.success,
+          message: assertResult.message,
+          addedFacts: assertResult.addedFacts, // Will be undefined if not successful or no facts
         };
-        if (!assertResult.success && resultData.message.includes('Session not found')) {
-             throw new ApiError(404, resultData.message, 'SESSION_NOT_FOUND_TOOL');
+        if (
+          !assertResult.success &&
+          resultData.message.includes('Session not found')
+        ) {
+          throw new ApiError(404, resultData.message, 'SESSION_NOT_FOUND_TOOL');
         } else if (!assertResult.success) {
-            throw new ApiError(400, resultData.message, 'ASSERT_TOOL_FAILED');
+          throw new ApiError(400, resultData.message, 'ASSERT_TOOL_FAILED');
         }
         break;
 
       case 'translate_nl_to_rules':
         if (!input || !input.naturalLanguageText) {
-          throw new ApiError(400, 'Missing naturalLanguageText for translate_nl_to_rules');
+          throw new ApiError(
+            400,
+            'Missing naturalLanguageText for translate_nl_to_rules'
+          );
         }
-        const nlToRulesResult = await mcrService.translateNLToRulesDirect(input.naturalLanguageText);
+        const nlToRulesResult = await mcrService.translateNLToRulesDirect(
+          input.naturalLanguageText
+        );
         // Schema: { success, rules?, rawOutput?, message? }
         resultData = {
           success: nlToRulesResult.success,
@@ -210,15 +325,25 @@ async function handleToolInvocation(res, invokeMsg, clientId) {
           message: nlToRulesResult.message,
         };
         if (!nlToRulesResult.success) {
-            throw new ApiError(400, resultData.message || 'NL to Rules translation failed', 'NL_TO_RULES_TOOL_FAILED');
+          throw new ApiError(
+            400,
+            resultData.message || 'NL to Rules translation failed',
+            'NL_TO_RULES_TOOL_FAILED'
+          );
         }
         break;
 
       case 'translate_rules_to_nl':
         if (!input || !input.prologRules) {
-          throw new ApiError(400, 'Missing prologRules for translate_rules_to_nl');
+          throw new ApiError(
+            400,
+            'Missing prologRules for translate_rules_to_nl'
+          );
         }
-        const rulesToNlResult = await mcrService.translateRulesToNLDirect(input.prologRules, input.style || 'conversational');
+        const rulesToNlResult = await mcrService.translateRulesToNLDirect(
+          input.prologRules,
+          input.style || 'conversational'
+        );
         // Schema: { success, explanation?, message? }
         resultData = {
           success: rulesToNlResult.success,
@@ -226,36 +351,72 @@ async function handleToolInvocation(res, invokeMsg, clientId) {
           message: rulesToNlResult.message,
         };
         if (!rulesToNlResult.success) {
-            throw new ApiError(400, resultData.message || 'Rules to NL translation failed', 'RULES_TO_NL_TOOL_FAILED');
+          throw new ApiError(
+            400,
+            resultData.message || 'Rules to NL translation failed',
+            'RULES_TO_NL_TOOL_FAILED'
+          );
         }
         break;
 
       case 'query_session':
         if (!input || !input.sessionId || !input.naturalLanguageQuestion) {
-          throw new ApiError(400, 'Missing sessionId or naturalLanguageQuestion for query_session');
+          throw new ApiError(
+            400,
+            'Missing sessionId or naturalLanguageQuestion for query_session'
+          );
         }
-        const queryResult = await mcrService.querySessionWithNL(input.sessionId, input.naturalLanguageQuestion);
+        const queryResult = await mcrService.querySessionWithNL(
+          input.sessionId,
+          input.naturalLanguageQuestion
+        );
         resultData = {
-            success: queryResult.success,
-            answer: queryResult.answer // Will be undefined if not successful
+          success: queryResult.success,
+          answer: queryResult.answer, // Will be undefined if not successful
         };
-         if (!queryResult.success && queryResult.message.includes('Session not found')) {
-             throw new ApiError(404, queryResult.message, 'SESSION_NOT_FOUND_TOOL');
+        if (
+          !queryResult.success &&
+          queryResult.message.includes('Session not found')
+        ) {
+          throw new ApiError(
+            404,
+            queryResult.message,
+            'SESSION_NOT_FOUND_TOOL'
+          );
         } else if (!queryResult.success) {
-            throw new ApiError(500, queryResult.message || 'Query tool failed internally', 'QUERY_TOOL_FAILED');
+          throw new ApiError(
+            500,
+            queryResult.message || 'Query tool failed internally',
+            'QUERY_TOOL_FAILED'
+          );
         }
         break;
 
       default:
-        logger.warn(`[MCP Tool] Unknown tool invoked by ${clientId}: ${tool_name}`);
-        throw new ApiError(404, `Tool not found: ${tool_name}`, 'TOOL_NOT_FOUND');
+        logger.warn(
+          `[MCP Tool] Unknown tool invoked by ${clientId}: ${tool_name}`
+        );
+        throw new ApiError(
+          404,
+          `Tool not found: ${tool_name}`,
+          'TOOL_NOT_FOUND'
+        );
     }
 
-    logger.info(`[MCP Tool] Successfully invoked ${tool_name} for ${clientId}. Output:`, JSON.stringify(resultData));
-    sendSseEvent(res, 'tool_result', { invocation_id, tool_name, output: resultData });
-
+    logger.info(
+      `[MCP Tool] Successfully invoked ${tool_name} for ${clientId}. Output:`,
+      JSON.stringify(resultData)
+    );
+    sendSseEvent(res, 'tool_result', {
+      invocation_id,
+      tool_name,
+      output: resultData,
+    });
   } catch (error) {
-    logger.error(`[MCP Tool] Error invoking tool ${tool_name} for ${clientId}: ${error.message}`, { error });
+    logger.error(
+      `[MCP Tool] Error invoking tool ${tool_name} for ${clientId}: ${error.message}`,
+      { error }
+    );
     const isApiError = error instanceof ApiError;
     sendSseEvent(res, 'tool_error', {
       invocation_id,

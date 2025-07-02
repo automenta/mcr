@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+
 
 // Adapted from old/src/cli/utils.js and old/src/cli/api.js
 
@@ -26,7 +26,8 @@ const printJson = (data, isRawJson = false) => {
       const rulesLabel =
         Object.keys(restOfData).length > 0 ? '  rules:' : 'rules:';
       console.log(rulesLabel);
-      rules.split(/\\n|\n/).forEach((line) => { // Handle both escaped and direct newlines
+      rules.split(/\\n|\n/).forEach((line) => {
+        // Handle both escaped and direct newlines
         const trimmedLine = line.trim();
         if (trimmedLine.length > 0) {
           console.log(`    ${trimmedLine}`);
@@ -65,7 +66,6 @@ const handleCliOutput = (
   }
 };
 
-
 /**
  * Centralized error handler for CLI commands.
  * Formats the error output based on whether JSON output is requested and then exits the process.
@@ -75,15 +75,23 @@ const handleCliOutput = (
 const handleApiError = (error, programOptions = {}) => {
   const isJsonOutput = programOptions.json || false;
 
-  if (error.response) { // Error from server (status code received)
-    const errorData = error.response.data?.error || error.response.data || { message: error.response.statusText || 'Unknown server error' };
+  if (error.response) {
+    // Error from server (status code received)
+    const errorData = error.response.data?.error ||
+      error.response.data || {
+        message: error.response.statusText || 'Unknown server error',
+      };
     const correlationId = error.response.headers?.['x-correlation-id'];
     const status = error.response.status;
 
     const errOutput = {
       error: {
         status: status,
-        message: errorData.message || (typeof errorData === 'string' ? errorData : 'Unknown error structure'),
+        message:
+          errorData.message ||
+          (typeof errorData === 'string'
+            ? errorData
+            : 'Unknown error structure'),
         type: errorData.type,
         code: errorData.code,
         correlationId: correlationId || errorData.correlationId,
@@ -97,29 +105,46 @@ const handleApiError = (error, programOptions = {}) => {
       console.error(`Error ${status}: ${errOutput.error.message}`);
       if (errOutput.error.type) console.error(`Type: ${errOutput.error.type}`);
       if (errOutput.error.code) console.error(`Code: ${errOutput.error.code}`);
-      if (errOutput.error.correlationId) console.error(`CorrelationId: ${errOutput.error.correlationId}`);
-      if (errOutput.error.details) console.error(`Details: ${JSON.stringify(errOutput.error.details)}`);
+      if (errOutput.error.correlationId)
+        console.error(`CorrelationId: ${errOutput.error.correlationId}`);
+      if (errOutput.error.details)
+        console.error(`Details: ${JSON.stringify(errOutput.error.details)}`);
       // Add more user-friendly suggestions based on status code as in old/src/cli/api.js if desired
     }
-  } else if (error.request) { // Request made but no response received
+  } else if (error.request) {
+    // Request made but no response received
     const apiBaseUrl = programOptions.apiBaseUrl || 'http://localhost:PORT'; // Get from config or pass in
     const message = `Connection Issue: No response received from MCR API server at ${apiBaseUrl}. Ensure it's running and accessible.`;
     if (isJsonOutput) {
-      console.error(JSON.stringify({ error: { message, type: 'ConnectionError', targetHost: apiBaseUrl } }, null, 2));
+      console.error(
+        JSON.stringify(
+          {
+            error: { message, type: 'ConnectionError', targetHost: apiBaseUrl },
+          },
+          null,
+          2
+        )
+      );
     } else {
       console.error(message);
     }
-  } else { // Other errors (e.g., setup issue)
+  } else {
+    // Other errors (e.g., setup issue)
     const message = `Client Setup Error: ${error.message}`;
     if (isJsonOutput) {
-      console.error(JSON.stringify({ error: { message, type: 'ClientSetupError' } }, null, 2));
+      console.error(
+        JSON.stringify(
+          { error: { message, type: 'ClientSetupError' } },
+          null,
+          2
+        )
+      );
     } else {
       console.error(message);
     }
   }
   process.exit(1);
 };
-
 
 const fs = require('fs');
 const path = require('path');
@@ -143,7 +168,9 @@ const readFileContent = (filePath, fileDescription = 'File') => {
     }
     return fs.readFileSync(resolvedPath, 'utf8');
   } catch (error) {
-    console.error(`Error reading ${fileDescription} "${filePath}": ${error.message}`);
+    console.error(
+      `Error reading ${fileDescription} "${filePath}": ${error.message}`
+    );
     process.exit(1);
   }
 };

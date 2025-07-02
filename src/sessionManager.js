@@ -47,23 +47,35 @@ function addFacts(sessionId, newFacts) {
     logger.warn(`Cannot add facts: Session not found: ${sessionId}`);
     return false;
   }
-  if (!Array.isArray(newFacts) || !newFacts.every(f => typeof f === 'string')) {
-    logger.warn(`Cannot add facts: newFacts must be an array of strings. Session: ${sessionId}`);
+  if (
+    !Array.isArray(newFacts) ||
+    !newFacts.every((f) => typeof f === 'string')
+  ) {
+    logger.warn(
+      `Cannot add facts: newFacts must be an array of strings. Session: ${sessionId}`
+    );
     return false;
   }
 
   // Basic validation: ensure facts end with a period.
-  const validatedFacts = newFacts.map(f => f.trim()).filter(f => f.length > 0);
-  const invalidFacts = validatedFacts.filter(f => !f.endsWith('.'));
+  const validatedFacts = newFacts
+    .map((f) => f.trim())
+    .filter((f) => f.length > 0);
+  const invalidFacts = validatedFacts.filter((f) => !f.endsWith('.'));
   if (invalidFacts.length > 0) {
-      logger.warn(`Some facts do not end with a period and were not added. Session: ${sessionId}`, { invalidFacts });
-      // Optionally, filter out invalid facts or reject the whole batch
-      // For now, let's be strict and reject if any are malformed for simplicity
-      // return false;
+    logger.warn(
+      `Some facts do not end with a period and were not added. Session: ${sessionId}`,
+      { invalidFacts }
+    );
+    // Optionally, filter out invalid facts or reject the whole batch
+    // For now, let's be strict and reject if any are malformed for simplicity
+    // return false;
   }
 
   sessions[sessionId].facts.push(...validatedFacts);
-  logger.info(`${validatedFacts.length} facts added to session: ${sessionId}. Total facts: ${sessions[sessionId].facts.length}`);
+  logger.info(
+    `${validatedFacts.length} facts added to session: ${sessionId}. Total facts: ${sessions[sessionId].facts.length}`
+  );
   return true;
 }
 
@@ -87,15 +99,14 @@ function getKnowledgeBase(sessionId) {
  * @returns {boolean} True if the session was deleted, false if not found.
  */
 function deleteSession(sessionId) {
-    if (!sessions[sessionId]) {
-        logger.warn(`Cannot delete session: Session not found: ${sessionId}`);
-        return false;
-    }
-    delete sessions[sessionId];
-    logger.info(`Session deleted: ${sessionId}`);
-    return true;
+  if (!sessions[sessionId]) {
+    logger.warn(`Cannot delete session: Session not found: ${sessionId}`);
+    return false;
+  }
+  delete sessions[sessionId];
+  logger.info(`Session deleted: ${sessionId}`);
+  return true;
 }
-
 
 module.exports = {
   createSession,

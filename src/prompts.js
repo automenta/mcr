@@ -46,7 +46,7 @@ Based on the context above, translate ONLY the following NEW natural language te
 
 New Text: "{{naturalLanguageText}}"
 
-Prolog:`
+Prolog:`,
   },
 
   // For translating a natural language question into a Prolog query
@@ -78,7 +78,7 @@ Based on the context above, translate the following natural language question in
 
 Question: "{{naturalLanguageQuestion}}"
 
-Prolog Query:`
+Prolog Query:`,
   },
 
   // For translating Prolog query results back into natural language
@@ -98,7 +98,7 @@ Prolog Query:`
   - Question: "Who is mortal?", Result: \`[{"X": "socrates"}, {"X": "plato"}]\` -> Answer: "Socrates and Plato are mortal."
   - Question: "Who is Mary's father?", Result: \`[{"X": "john"}]\` -> Answer: "Mary's father is John."
   - Question: "What color is the sky?", Result: \`[{"Color": "blue"}]\` -> Answer: "The sky is blue."`,
-    user: `Original Question: "{{naturalLanguageQuestion}}"\nProlog Query Results: {{prologResultsJSON}}\nRequested Output STYLE: {{style}}\n\nNatural Language Answer:`
+    user: `Original Question: "{{naturalLanguageQuestion}}"\nProlog Query Results: {{prologResultsJSON}}\nRequested Output STYLE: {{style}}\n\nNatural Language Answer:`,
   },
   // For translating natural language text directly to Prolog facts/rules (standalone)
   NL_TO_RULES_DIRECT: {
@@ -117,7 +117,7 @@ Prolog Query:`
   - "Socrates is a human." -> \`human(socrates).\`
   - "John is Mary's father." -> \`father(john, mary).\`
   - "Cats like fish." -> \`likes(X, fish) :- cat(X).\``,
-    user: `Translate the following natural language text into Prolog facts and/or rules:\n\nText: "{{naturalLanguageText}}"\n\nProlog:`
+    user: `Translate the following natural language text into Prolog facts and/or rules:\n\nText: "{{naturalLanguageText}}"\n\nProlog:`,
   },
 
   // For translating a string of Prolog rules/facts directly to natural language
@@ -130,7 +130,7 @@ Prolog Query:`
 - Examples:
   - Rules: \`mortal(X) :- human(X).\nhuman(socrates).\`, Style: conversational -> Explanation: "This states that all humans are mortal, and Socrates is a human."
   - Rules: \`father(john, mary).\nparent(X,Y) :- father(X,Y).\`, Style: formal -> Explanation: "The system knows that John is the father of Mary. Additionally, it defines that an individual X is a parent of Y if X is the father of Y."`,
-    user: `Explain the following Prolog facts and/or rules in natural language (style: {{style}}):\n\nProlog:\n{{prologRules}}\n\nNatural Language Explanation:`
+    user: `Explain the following Prolog facts and/or rules in natural language (style: {{style}}):\n\nProlog:\n{{prologRules}}\n\nNatural Language Explanation:`,
   },
 
   // For explaining how a Prolog query would be resolved against a knowledge base
@@ -157,12 +157,12 @@ Active Global Ontology Rules:
 {{ontologyRules}}
 \`\`\`
 
-Based on all the above, provide a detailed explanation of how the Prolog query would be processed against the combined knowledge base:`
-  }
+Based on all the above, provide a detailed explanation of how the Prolog query would be processed against the combined knowledge base:`,
+  },
   // Add more specialized prompts as needed
 };
 
 module.exports = {
   prompts,
-  fillTemplate
+  fillTemplate,
 };

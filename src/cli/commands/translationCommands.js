@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+
 const path = require('path');
 const { apiClient } = require('../api');
 const { handleCliOutput, readFileContent } = require('../../cliUtils');
@@ -11,9 +11,14 @@ async function nlToRulesAsync(text, options, commandInstance) {
     // readOntologyFile from old utils was:
     // if (!filePath) return null; return readFileContent(filePath, 'Ontology file');
     // So we can replicate that here.
-    ontologyContent = readFileContent(options.ontology, 'Ontology file for context');
+    ontologyContent = readFileContent(
+      options.ontology,
+      'Ontology file for context'
+    );
     if (ontologyContent && !programOpts.json) {
-      console.log(`Using ontology for nl-to-rules: ${path.resolve(options.ontology)}`);
+      console.log(
+        `Using ontology for nl-to-rules: ${path.resolve(options.ontology)}`
+      );
     }
   }
 
@@ -42,7 +47,11 @@ async function nlToRulesAsync(text, options, commandInstance) {
     requestBody.ontology_context = ontologyContent;
   }
 
-  const responseData = await apiClient.post('/translate/nl-to-rules', requestBody, programOpts);
+  const responseData = await apiClient.post(
+    '/translate/nl-to-rules',
+    requestBody,
+    programOpts
+  );
   // Old README for POST /translate/nl-to-rules response: { "rules": ["...", "..."] }
   handleCliOutput(responseData, programOpts, null, 'Translated Rules:\n');
 }
@@ -67,12 +76,21 @@ async function rulesToNlAsync(rulesFile, options, commandInstance) {
     .filter((line) => line !== '')
     .map((line) => (line.endsWith('.') ? line : `${line}.`)); // Ensure each rule ends with a period
 
-  const responseData = await apiClient.post('/translate/rules-to-nl', {
-    rules: rulesArray, // Send as an array of rule strings
-    style: options.style,
-  }, programOpts);
+  const responseData = await apiClient.post(
+    '/translate/rules-to-nl',
+    {
+      rules: rulesArray, // Send as an array of rule strings
+      style: options.style,
+    },
+    programOpts
+  );
   // Old README for POST /translate/rules-to-nl response: { "text": "..." }
-  handleCliOutput(responseData, programOpts, 'text', 'Translated Natural Language:\n');
+  handleCliOutput(
+    responseData,
+    programOpts,
+    'text',
+    'Translated Natural Language:\n'
+  );
 }
 
 module.exports = (program) => {
@@ -83,7 +101,10 @@ module.exports = (program) => {
       '-e, --existing-facts <factsString>', // Changed from <facts> to <factsString> for clarity
       'Existing facts for context (as a single string of Prolog facts, newline-separated)'
     )
-    .option('-o, --ontology <file>', 'Path to an ontology file for context (Prolog rules)')
+    .option(
+      '-o, --ontology <file>',
+      'Path to an ontology file for context (Prolog rules)'
+    )
     .action(nlToRulesAsync);
 
   program

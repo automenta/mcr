@@ -21,9 +21,15 @@ function setupRoutes(app) {
   router.delete('/sessions/:sessionId', apiHandlers.deleteSessionHandler); // Added DELETE session
 
   // Fact assertion and querying
-  router.post('/sessions/:sessionId/assert', apiHandlers.assertToSessionHandler);
+  router.post(
+    '/sessions/:sessionId/assert',
+    apiHandlers.assertToSessionHandler
+  );
   router.post('/sessions/:sessionId/query', apiHandlers.querySessionHandler);
-  router.post('/sessions/:sessionId/explain-query', apiHandlers.explainQueryHandler);
+  router.post(
+    '/sessions/:sessionId/explain-query',
+    apiHandlers.explainQueryHandler
+  );
 
   // Ontology management
   router.post('/ontologies', apiHandlers.createOntologyHandler);

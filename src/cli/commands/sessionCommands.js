@@ -10,13 +10,20 @@ async function createSessionAsync(options, commandInstance) {
 
 async function getSessionAsync(sessionId, options, commandInstance) {
   const programOpts = commandInstance.parent.opts();
-  const responseData = await apiClient.get(`/sessions/${sessionId}`, null, programOpts);
+  const responseData = await apiClient.get(
+    `/sessions/${sessionId}`,
+    null,
+    programOpts
+  );
   handleCliOutput(responseData, programOpts, null, 'Session details:\n');
 }
 
 async function deleteSessionAsync(sessionId, options, commandInstance) {
   const programOpts = commandInstance.parent.opts();
-  const responseData = await apiClient.delete(`/sessions/${sessionId}`, programOpts);
+  const responseData = await apiClient.delete(
+    `/sessions/${sessionId}`,
+    programOpts
+  );
   // The old version used 'message' as the messageKey. Let's check API spec.
   // old/README.md for DELETE /sessions/:sessionId shows:
   // { "message": "Session a-unique-uuid terminated.", "sessionId": "a-unique-uuid" }

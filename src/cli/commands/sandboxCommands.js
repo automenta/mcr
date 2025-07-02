@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+
 const { sandboxLoop } = require('../../sandbox/sandboxLogic');
 // Any sandbox-specific CLI options could be processed here if added in the future.
 
@@ -6,7 +6,9 @@ async function runSandboxAsync(options, commandInstance) {
   // const programOpts = commandInstance.parent.optsWithGlobals(); // For global CLI opts if needed
   console.log('Starting MCR Sandbox Mode...');
   console.log('This mode assumes the MCR server is already running.');
-  console.log('If not, please start it in another terminal (e.g., `mcr-cli start-server` or `node mcr.js`).');
+  console.log(
+    'If not, please start it in another terminal (e.g., `mcr-cli start-server` or `node mcr.js`).'
+  );
   console.log('---');
 
   // Directly call the sandboxLoop.

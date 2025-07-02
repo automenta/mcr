@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+
 const { apiClient } = require('../api');
 const { handleCliOutput, printJson } = require('../../cliUtils'); // Using new cliUtils
 
@@ -43,14 +43,19 @@ async function showPromptAsync(templateName, options, commandInstance) {
     console.log(`Content of prompt template '${templateName}':`);
     // Assuming the template content is a string. If it can be an object (e.g. system/user parts):
     if (typeof templates[templateName] === 'object') {
-        printJson(templates[templateName]);
+      printJson(templates[templateName]);
     } else {
-        console.log(templates[templateName]);
+      console.log(templates[templateName]);
     }
   }
 }
 
-async function debugPromptAsync(templateName, inputVariablesJson, options, commandInstance) {
+async function debugPromptAsync(
+  templateName,
+  inputVariablesJson,
+  options,
+  commandInstance
+) {
   const programOpts = commandInstance.parent.opts();
   // templateName and inputVariablesJson are validated by Commander if required args
 
@@ -63,10 +68,14 @@ async function debugPromptAsync(templateName, inputVariablesJson, options, comma
     process.exit(1);
   }
 
-  const responseData = await apiClient.post('/debug/format-prompt', {
-    templateName,
-    inputVariables,
-  }, programOpts);
+  const responseData = await apiClient.post(
+    '/debug/format-prompt',
+    {
+      templateName,
+      inputVariables,
+    },
+    programOpts
+  );
 
   if (programOpts.json) {
     handleCliOutput(responseData, programOpts);
@@ -87,9 +96,9 @@ async function debugPromptAsync(templateName, inputVariablesJson, options, comma
 
     console.log('\\n--- Raw Template ---');
     if (typeof responseData.rawTemplate === 'object') {
-        printJson(responseData.rawTemplate);
+      printJson(responseData.rawTemplate);
     } else {
-        console.log(responseData.rawTemplate);
+      console.log(responseData.rawTemplate);
     }
 
     console.log('\\n--- Input Variables ---');
@@ -97,7 +106,9 @@ async function debugPromptAsync(templateName, inputVariablesJson, options, comma
 
     console.log('\\n--- Formatted User Prompt ---'); // Changed from "Formatted Prompt"
     // The new mcrService.debugFormatPrompt returns "formattedUserPrompt"
-    console.log(responseData.formattedUserPrompt || responseData.formattedPrompt); // Fallback if old field name is used
+    console.log(
+      responseData.formattedUserPrompt || responseData.formattedPrompt
+    ); // Fallback if old field name is used
   }
 }
 
@@ -119,6 +130,8 @@ module.exports = (program) => {
 
   promptCommand
     .command('debug <templateName> <inputVariablesJson>')
-    .description('Format a prompt template with input variables (provide variables as a JSON string)')
+    .description(
+      'Format a prompt template with input variables (provide variables as a JSON string)'
+    )
     .action(debugPromptAsync);
 };

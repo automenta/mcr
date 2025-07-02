@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+
 const inquirer = require('inquirer');
 const mcrService = require('../mcrService'); // New MCR Service
 const config = require('../config'); // For LLM info
@@ -9,9 +9,13 @@ async function sandboxLoop() {
   // Services are generally ready on require in the new model.
   // Log LLM provider from loaded config.
   if (config.llm && config.llm.provider) {
-    console.log(`MCR Services Initialized. Using LLM Provider: ${config.llm.provider}, Model: ${config.llm.modelName[config.llm.provider] || 'N/A'}`);
+    console.log(
+      `MCR Services Initialized. Using LLM Provider: ${config.llm.provider}, Model: ${config.llm.modelName[config.llm.provider] || 'N/A'}`
+    );
   } else {
-    console.error('LLM configuration not found. Sandbox might not function correctly.');
+    console.error(
+      'LLM configuration not found. Sandbox might not function correctly.'
+    );
     // Optionally exit if LLM config is critical: process.exit(1);
   }
   console.log('---');
@@ -31,7 +35,8 @@ async function sandboxLoop() {
         {
           type: 'input',
           name: 'nlQuery',
-          message: 'Enter your Natural Language query (or type "exit" to quit):',
+          message:
+            'Enter your Natural Language query (or type "exit" to quit):',
         },
       ]);
       const { nlQuery } = answers;
@@ -60,16 +65,21 @@ async function sandboxLoop() {
         console.log('Processing query...');
         try {
           // mcrService.querySessionWithNL is async and takes options object
-          const response = await mcrService.querySessionWithNL(sessionId, nlQuery, {
-            style: 'verbose', // Or 'conversational'
-            debug: true, // Request debug info
-          });
+          const response = await mcrService.querySessionWithNL(
+            sessionId,
+            nlQuery,
+            {
+              style: 'verbose', // Or 'conversational'
+              debug: true, // Request debug info
+            }
+          );
 
           console.log('\n=== Sandbox Output ===');
           console.log(`NL Input: ${nlQuery}`);
           console.log('---');
 
-          if (response.debugInfo?.prologQuery) { // Adjusted field name from old sandbox
+          if (response.debugInfo?.prologQuery) {
+            // Adjusted field name from old sandbox
             console.log('Query (Logic - Generated Prolog):');
             console.log(response.debugInfo.prologQuery);
             console.log('---');
@@ -81,7 +91,9 @@ async function sandboxLoop() {
 
           if (response.debugInfo?.prologResults) {
             console.log('Results (Logic - Reasoner Output):');
-            console.log(JSON.stringify(response.debugInfo.prologResults, null, 2));
+            console.log(
+              JSON.stringify(response.debugInfo.prologResults, null, 2)
+            );
             console.log('---');
           }
 
@@ -93,14 +105,16 @@ async function sandboxLoop() {
           // console.log('Result (NL - Zero-shot LLM for comparison):');
           // console.log(response.zeroShotLmAnswer || 'No zero-shot NL answer provided.');
           // console.log('======================\n');
-
-        } catch (error) { // Errors from mcrService calls or other issues
-          const errorMessage = error.message || 'Unknown error during query processing.';
+        } catch (error) {
+          // Errors from mcrService calls or other issues
+          const errorMessage =
+            error.message || 'Unknown error during query processing.';
           console.error(`Query Error: ${errorMessage}`);
           if (error.stack) console.error(error.stack);
           // If it's an error object from mcrService (which includes success:false)
-          if (error.error) { // Assuming mcrService might return { success:false, error: 'message' }
-             console.error('Service Error Details:', error.error);
+          if (error.error) {
+            // Assuming mcrService might return { success:false, error: 'message' }
+            console.error('Service Error Details:', error.error);
           }
         }
       } else {

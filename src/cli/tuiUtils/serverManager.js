@@ -41,14 +41,20 @@ async function startMcrServerAsync(_programOpts) {
 
   return new Promise((resolve, reject) => {
     serverInstance.on('error', (err) => {
-      logger.error('Failed to start MCR server process for TUI:', { error: err, stderr: serverStdErr });
+      logger.error('Failed to start MCR server process for TUI:', {
+        error: err,
+        stderr: serverStdErr,
+      });
       reject(err);
     });
 
     serverInstance.on('exit', (code, signal) => {
       // Log only if exit was unexpected (not a clean SIGTERM from server itself)
       if (code !== 0 && signal !== 'SIGTERM') {
-        logger.error(`MCR server process (spawned for TUI) exited unexpectedly. Code: ${code}, Signal: ${signal}.`, { stderr: serverStdErr });
+        logger.error(
+          `MCR server process (spawned for TUI) exited unexpectedly. Code: ${code}, Signal: ${signal}.`,
+          { stderr: serverStdErr }
+        );
         // Don't reject here as the process might have exited after becoming healthy,
         // or health check might still be pending. The health check is the decider.
       }
@@ -62,15 +68,27 @@ async function startMcrServerAsync(_programOpts) {
     isServerAliveAsync(healthCheckUrl, 15, 700)
       .then((alive) => {
         if (alive) {
-          logger.info(`MCR server (spawned for TUI) is alive at ${healthCheckUrl}.`);
+          logger.info(
+            `MCR server (spawned for TUI) is alive at ${healthCheckUrl}.`
+          );
           resolve(serverInstance); // Resolve with the server process instance
         } else {
-          logger.error('MCR server (spawned for TUI) failed to start or become healthy.', { stderr: serverStdErr });
-          reject(new Error('Server failed to start or become healthy. Check server logs.'));
+          logger.error(
+            'MCR server (spawned for TUI) failed to start or become healthy.',
+            { stderr: serverStdErr }
+          );
+          reject(
+            new Error(
+              'Server failed to start or become healthy. Check server logs.'
+            )
+          );
         }
       })
       .catch((err) => {
-        logger.error('Error during server health check for TUI:', { error: err, stderr: serverStdErr });
+        logger.error('Error during server health check for TUI:', {
+          error: err,
+          stderr: serverStdErr,
+        });
         reject(err);
       });
   });

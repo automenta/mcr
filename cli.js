@@ -10,7 +10,7 @@ require('@babel/register')({
 const { Command } = require('commander');
 const { version } = require('./package.json'); // To get version from package.json
 // const ConfigManager = require('./src/config'); // We'll use the new config directly
-// const { reconfigureLogger, logger } = require('./src/logger'); // For CLI specific logging if needed
+const { reconfigureLogger, logger } = require('./src/logger'); // For CLI specific logging if needed
 
 // TODO: Potentially initialize config and logger for CLI context if needed
 // Example:
@@ -74,7 +74,9 @@ program
       const HOST = config.server.host;
 
       const server = app.listen(PORT, HOST, () => {
-        logger.info(`MCR Streamlined server listening on http://${HOST}:${PORT} (started via CLI)`);
+        logger.info(
+          `MCR Streamlined server listening on http://${HOST}:${PORT} (started via CLI)`
+        );
         logger.info(`Current LLM provider: ${config.llm.provider}`);
         logger.info(`Current Reasoner provider: ${config.reasoner.provider}`);
         logger.info(`Log level set to: ${config.logLevel}`);
@@ -97,13 +99,11 @@ program
       // If mcr.js is run directly, it has its own.
       // For now, let's assume these are handled if the server is started directly.
       // If this `start-server` command makes the CLI the *only* way to start, then they are needed here.
-
     } catch (error) {
       (console || logger).error('Failed to start MCR server via CLI:', error);
       process.exit(1);
     }
   });
-
 
 async function main() {
   // Global option handling (e.g., for --config) could go here
