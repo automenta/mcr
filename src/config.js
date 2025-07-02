@@ -1,5 +1,6 @@
 // new/src/config.js
-require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') }); // Load .env from root
+const path = require('path');
+require('dotenv').config({ path: path.resolve(process.cwd(), '.env') }); // Load .env from root
 
 const config = {
   server: {

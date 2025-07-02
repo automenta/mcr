@@ -33,14 +33,14 @@ function getProvider() {
  */
 async function executeQuery(knowledgeBase, query, limit = 10) {
   const provider = getProvider();
-  if (!provider || typeof provider.runQuery !== 'function') {
-    logger.error('Reasoner provider is not correctly configured or does not support runQuery.');
+  if (!provider || typeof provider.executeQuery !== 'function') {
+    logger.error('Reasoner provider is not correctly configured or does not support executeQuery.');
     throw new Error('Reasoner provider misconfiguration.');
   }
 
   try {
     logger.debug(`ReasonerService:executeQuery called with provider ${provider.name}`, { knowledgeBaseLen: knowledgeBase.length, query, limit });
-    return await provider.runQuery(knowledgeBase, query, limit);
+    return await provider.executeQuery(knowledgeBase, query, limit);
   } catch (error) {
     logger.error(`Error during reasoner execution with ${provider.name}: ${error.message}`, {
       provider: provider.name,

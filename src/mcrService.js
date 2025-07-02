@@ -51,7 +51,9 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
         return { success: false, message: 'Input text appears to be a query, not an assertable fact.', error: 'conversion_to_fact_failed' };
     }
 
-    const addedFacts = prologFactsString.split('\n').map(f => f.trim()).filter(f => f.length > 0 && f.endsWith('.'));
+    const addedFacts = prologFactsString.split('\n').map(f => f.trim()).filter(f =>
+      f.length > 0 && f.endsWith('.')
+    );
     if (addedFacts.length === 0) {
         logger.warn(`[McrService] No valid Prolog facts extracted from LLM output for text: "${naturalLanguageText}"`);
         return { success: false, message: 'Could not translate text into valid facts.', error: 'no_facts_extracted' };
@@ -218,7 +220,10 @@ async function translateNLToRulesDirect(naturalLanguageText) {
         // For now, we'll return the raw output.
     }
 
-    const rules = prologRulesString.split('\n').map(r => r.trim()).filter(r => r.length > 0 && r.endsWith('.'));
+    const rules = prologRulesString.split('\n').map(r => r.trim()).filter(r =>
+      r.length > 0 && r.endsWith('.')
+    );
+
     if (rules.length === 0 && !prologRulesString.includes('% Cannot convert query to fact.')) { // Avoid error if it's the specific "cannot convert" message
         logger.warn(`[McrService] No valid Prolog rules extracted from LLM output (Direct) for text: "${naturalLanguageText}"`);
         return { success: false, message: 'Could not translate text into valid rules.', error: 'no_rules_extracted' };
@@ -395,6 +400,10 @@ async function getPrompts() {
  */
 async function debugFormatPrompt(templateName, inputVariables) {
   logger.info(`[McrService] Formatting prompt template: ${templateName}`, { inputVariables });
+
+  // Temporary log to see what fillTemplate is
+  // console.log('[DEBUG mcrService.debugFormatPrompt] fillTemplate type:', typeof fillTemplate, String(fillTemplate).substring(0,100) );
+
 
   if (!templateName || typeof templateName !== 'string') {
     return { success: false, message: 'Template name must be a non-empty string.', error: 'invalid_template_name' };
