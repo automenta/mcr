@@ -55,21 +55,26 @@ async function querySessionHandler(req, res, next) {
 
   // Validate options.dynamicOntology if provided
   const dynamicOntology = options && options.dynamicOntology;
-  if (dynamicOntology && (typeof dynamicOntology !== 'string'/* || dynamicOntology.trim() === ''*/)) {
-    // Allowing empty string for dynamicOntology, it will just be ignored by the service layer.
-    // Or, could enforce non-empty: dynamicOntology.trim() === ''
+  if (dynamicOntology && typeof dynamicOntology !== 'string') {
     return next(new ApiError(400, 'Invalid input: "options.dynamicOntology" must be a string if provided.'));
   }
 
   const serviceOptions = {
-    dynamicOntology: dynamicOntology // Pass it to the service
+    dynamicOntology: dynamicOntology, // Pass it to the service
+    style: options && options.style ? options.style : 'conversational', // Default if not provided
+    debug: options && typeof options.debug === 'boolean' ? options.debug : false // Default if not provided
   };
 
   try {
-    logger.info(`[API] Querying session ${sessionId}: "${query}"`, { dynamicOntologyProvided: !!dynamicOntology });
+    logger.info(`[API] Querying session ${sessionId}: "${query}"`, { options: serviceOptions });
     const result = await mcrService.querySessionWithNL(sessionId, query, serviceOptions);
     if (result.success) {
-      res.status(200).json({ answer: result.answer, debugInfo: result.debugInfo });
+      // Only include debugInfo in response if it was requested and is present
+      const responsePayload = { answer: result.answer };
+      if (serviceOptions.debug && result.debugInfo) {
+        responsePayload.debugInfo = result.debugInfo;
+      }
+      res.status(200).json(responsePayload);
     } else {
       if (result.message === 'Session not found.') {
          next(new ApiError(404, result.message, 'SESSION_NOT_FOUND'));
@@ -127,6 +132,7 @@ module.exports = {
   querySessionHandler,
   getSessionHandler,
   deleteSessionHandler,
+  getStatusHandler, // Add new handler
   createOntologyHandler,
   getOntologyHandler,
   listOntologiesHandler,
@@ -247,6 +253,29 @@ async function nlToRulesDirectHandler(req, res, next) {
   }
 }
 
+// --- Status Handler ---
+const { name, version, description } = require('../../package.json');
+
+async function getStatusHandler(req, res, next) {
+  try {
+    // More detailed status, similar to old root GET /
+    logger.info('[API] Get status handler invoked.');
+    res.status(200).json({
+      status: 'ok',
+      name,
+      version,
+      description,
+      message: 'MCR Streamlined API is running.',
+      // Could add more dynamic status info here if needed, e.g., LLM provider from config
+      llmProvider: require('./config').llm.provider,
+    });
+  } catch (error) {
+    logger.error('[API] Error in getStatusHandler:', error);
+    next(new ApiError(500, 'Failed to retrieve server status.'));
+  }
+}
+
+
 // --- Utility/Debug Handlers ---
 
 async function getPromptsHandler(req, res, next) {
@@ -339,17 +368,33 @@ async function explainQueryHandler(req, res, next) {
 }
 
 async function rulesToNlDirectHandler(req, res, next) {
-  const { rules, style } = req.body; // style is optional
-  if (!rules || typeof rules !== 'string' || rules.trim() === '') {
-    return next(new ApiError(400, 'Invalid input: "rules" property is required and must be a non-empty string.'));
+  const { rules: rulesInput, style } = req.body; // style is optional
+  let rulesString;
+
+  if (!rulesInput) {
+    return next(new ApiError(400, 'Invalid input: "rules" property is required.'));
   }
+
+  if (Array.isArray(rulesInput)) {
+    // Join array elements, ensuring each ends with a period if not already.
+    rulesString = rulesInput.map(r => r.trim()).filter(r => r.length > 0).map(r => r.endsWith('.') ? r : `${r}.`).join('\n');
+  } else if (typeof rulesInput === 'string') {
+    rulesString = rulesInput.trim();
+  } else {
+    return next(new ApiError(400, 'Invalid input: "rules" must be a string or an array of strings.'));
+  }
+
+  if (rulesString === '') {
+    return next(new ApiError(400, 'Invalid input: "rules" property must not be empty after processing.'));
+  }
+
   if (style && (typeof style !== 'string' || !['formal', 'conversational'].includes(style.toLowerCase()))) {
       return next(new ApiError(400, 'Invalid input: "style" must be "formal" or "conversational".'));
   }
 
   try {
     logger.info(`[API] Translating Rules to NL (Direct). Style: ${style || 'conversational'}`);
-    const result = await mcrService.translateRulesToNLDirect(rules, style);
+    const result = await mcrService.translateRulesToNLDirect(rulesString, style);
     if (result.success) {
       res.status(200).json({ explanation: result.explanation });
     } else {

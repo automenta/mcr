@@ -166,6 +166,7 @@ async function querySessionWithNL(sessionId, naturalLanguageQuestion, options = 
     const logicToNlPromptUser = fillTemplate(prompts.LOGIC_TO_NL_ANSWER.user, {
       naturalLanguageQuestion,
       prologResultsJSON: debugInfo.prologResultsJSON,
+      style: options.style || 'conversational', // Pass style to the prompt
     });
     const naturalLanguageAnswer = await llmService.generate(
       prompts.LOGIC_TO_NL_ANSWER.system,

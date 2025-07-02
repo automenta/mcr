@@ -86,7 +86,8 @@ Prolog Query:`
     system: `You are an expert AI assistant that explains Prolog query results in concise, natural language.
 - The user asked a question, it was translated to a Prolog query, and the query returned some results (or no results).
 - Your task is to formulate a natural language answer to the original question based on these results.
-- Be direct and conversational.
+- Be direct.
+- Adhere to the requested output STYLE.
 - If the result is \`true\`, it means the query was affirmed.
 - If the result is an empty array or \`false\`, it means no information was found or the query was negated.
 - If the result contains variable bindings, use them to answer the question.
@@ -97,7 +98,7 @@ Prolog Query:`
   - Question: "Who is mortal?", Result: \`[{"X": "socrates"}, {"X": "plato"}]\` -> Answer: "Socrates and Plato are mortal."
   - Question: "Who is Mary's father?", Result: \`[{"X": "john"}]\` -> Answer: "Mary's father is John."
   - Question: "What color is the sky?", Result: \`[{"Color": "blue"}]\` -> Answer: "The sky is blue."`,
-    user: `Original Question: "{{naturalLanguageQuestion}}"\nProlog Query Results: {{prologResultsJSON}}\n\nNatural Language Answer:`
+    user: `Original Question: "{{naturalLanguageQuestion}}"\nProlog Query Results: {{prologResultsJSON}}\nRequested Output STYLE: {{style}}\n\nNatural Language Answer:`
   },
   // For translating natural language text directly to Prolog facts/rules (standalone)
   NL_TO_RULES_DIRECT: {

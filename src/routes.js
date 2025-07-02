@@ -12,7 +12,8 @@ function setupRoutes(app) {
   });
 
   // Basic status endpoint (can be kept or removed if /health is preferred)
-  router.get('/status', (req, res) => res.status(200).json({ status: 'ok', message: 'MCR Streamlined API is running.' }));
+  // router.get('/status', (req, res) => res.status(200).json({ status: 'ok', message: 'MCR Streamlined API is running.' }));
+  router.get('/status', apiHandlers.getStatusHandler); // Use dedicated handler
 
   // Session management
   router.post('/sessions', apiHandlers.createSessionHandler);

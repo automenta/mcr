@@ -15,8 +15,11 @@ const mcrTools = [
       properties: {
         sessionId: { type: 'string', description: 'The ID of the created session.' },
         createdAt: { type: 'string', format: 'date-time', description: 'Timestamp of session creation.' },
+        // Added from mcrService.createSession output
+        facts: { type: 'array', items: { type: 'string' }, description: 'Initial facts in the session (usually empty).' },
+        factCount: { type: 'integer', description: 'Initial number of facts in the session (usually 0).' },
       },
-      required: ['sessionId', 'createdAt'],
+      required: ['sessionId', 'createdAt', 'facts', 'factCount'],
     },
   },
   {
@@ -57,6 +60,48 @@ const mcrTools = [
         success: { type: 'boolean', description: 'Whether the query processing was successful.' },
         answer: { type: 'string', description: 'The natural language answer from MCR.', nullable: true },
         // debugInfo could be added here if useful for the MCP client
+      },
+      required: ['success'],
+    },
+  },
+  {
+    name: 'translate_nl_to_rules',
+    description: 'Translates a piece of natural language text into logical rules.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        naturalLanguageText: { type: 'string', description: 'The natural language text to translate.' },
+      },
+      required: ['naturalLanguageText'],
+    },
+    output_schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', description: 'Whether the translation was successful.' },
+        rules: { type: 'array', items: { type: 'string' }, description: 'An array of logical rules translated from the input text.', nullable: true },
+        rawOutput: { type: 'string', description: 'The raw output string from the LLM, which might contain partially formed rules or comments.', nullable: true },
+        message: { type: 'string', description: 'A message indicating the result if not successful.', nullable: true },
+      },
+      required: ['success'],
+    },
+  },
+  {
+    name: 'translate_rules_to_nl',
+    description: 'Translates a string of Prolog rules/facts into a natural language explanation.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        prologRules: { type: 'string', description: 'The Prolog rules/facts as a string (newline-separated).' },
+        style: { type: 'string', enum: ['formal', 'conversational'], description: 'The desired style of the explanation (defaults to conversational).', nullable: true },
+      },
+      required: ['prologRules'],
+    },
+    output_schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', description: 'Whether the translation was successful.' },
+        explanation: { type: 'string', description: 'The natural language explanation of the rules.', nullable: true },
+        message: { type: 'string', description: 'A message indicating the result if not successful.', nullable: true },
       },
       required: ['success'],
     },
@@ -127,7 +172,12 @@ async function handleToolInvocation(res, invokeMsg, clientId) {
       case 'create_reasoning_session':
         const session = mcrService.createSession();
         // Adapt mcrService output to MCP tool output schema
-        resultData = { sessionId: session.id, createdAt: session.createdAt.toISOString() };
+        resultData = {
+          sessionId: session.id,
+          createdAt: session.createdAt.toISOString(),
+          facts: session.facts,
+          factCount: session.factCount,
+        };
         break;
 
       case 'assert_facts_to_session':
@@ -144,6 +194,39 @@ async function handleToolInvocation(res, invokeMsg, clientId) {
              throw new ApiError(404, resultData.message, 'SESSION_NOT_FOUND_TOOL');
         } else if (!assertResult.success) {
             throw new ApiError(400, resultData.message, 'ASSERT_TOOL_FAILED');
+        }
+        break;
+
+      case 'translate_nl_to_rules':
+        if (!input || !input.naturalLanguageText) {
+          throw new ApiError(400, 'Missing naturalLanguageText for translate_nl_to_rules');
+        }
+        const nlToRulesResult = await mcrService.translateNLToRulesDirect(input.naturalLanguageText);
+        // Schema: { success, rules?, rawOutput?, message? }
+        resultData = {
+          success: nlToRulesResult.success,
+          rules: nlToRulesResult.rules,
+          rawOutput: nlToRulesResult.rawOutput,
+          message: nlToRulesResult.message,
+        };
+        if (!nlToRulesResult.success) {
+            throw new ApiError(400, resultData.message || 'NL to Rules translation failed', 'NL_TO_RULES_TOOL_FAILED');
+        }
+        break;
+
+      case 'translate_rules_to_nl':
+        if (!input || !input.prologRules) {
+          throw new ApiError(400, 'Missing prologRules for translate_rules_to_nl');
+        }
+        const rulesToNlResult = await mcrService.translateRulesToNLDirect(input.prologRules, input.style || 'conversational');
+        // Schema: { success, explanation?, message? }
+        resultData = {
+          success: rulesToNlResult.success,
+          explanation: rulesToNlResult.explanation,
+          message: rulesToNlResult.message,
+        };
+        if (!rulesToNlResult.success) {
+            throw new ApiError(400, resultData.message || 'Rules to NL translation failed', 'RULES_TO_NL_TOOL_FAILED');
         }
         break;
 
@@ -168,7 +251,7 @@ async function handleToolInvocation(res, invokeMsg, clientId) {
         throw new ApiError(404, `Tool not found: ${tool_name}`, 'TOOL_NOT_FOUND');
     }
 
-    logger.info(`[MCP Tool] Successfully invoked ${tool_name} for ${clientId}. Output:`, resultData);
+    logger.info(`[MCP Tool] Successfully invoked ${tool_name} for ${clientId}. Output:`, JSON.stringify(resultData));
     sendSseEvent(res, 'tool_result', { invocation_id, tool_name, output: resultData });
 
   } catch (error) {
