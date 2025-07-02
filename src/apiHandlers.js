@@ -320,7 +320,7 @@ async function nlToRulesDirectHandler(req, res, next) {
 }
 
 // --- Status Handler ---
-const { name, version, description } = require('../../package.json');
+const { name, version, description } = require('../package.json');
 
 async function getStatusHandler(req, res, next) {
   try {

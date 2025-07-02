@@ -1,7 +1,7 @@
 
 const React = require('react');
-const { render, Box, Text, useApp, useInput, Spacer } = require('ink');
-const TextInput = require('ink-text-input').default;
+// const { render, Box, Text, useApp, useInput, Spacer } = require('ink'); // Replaced with dynamic import
+// const TextInput = require('ink-text-input').default; // Replaced with dynamic import
 
 const config = require('../../config'); // New config
 const api = require('../api'); // New API with TUI helpers
@@ -14,7 +14,7 @@ const tuiCommandHandlers = require('../tuiUtils/tuiCommandHandlers');
 
 let serverProcess = null; // To keep track of the spawned server process
 
-const McrApp = ({ initialSessionIdFromArgs, onExitTrigger }) => {
+const McrApp = ({ initialSessionIdFromArgs, onExitTrigger, Box, Text, useApp, useInput, Spacer, TextInput }) => {
   const { exit } = useApp();
   const [messages, setMessages] = React.useState([]);
   const [inputValue, setInputValue] = React.useState('');
@@ -278,6 +278,10 @@ async function startAppAsync(optionsFromCommander, commandInstance) {
   const programOpts = commandInstance.parent.opts(); // Global opts like --json, --config
   const initialSessionId = null; // TUI starts without a session unless one is passed/restored
 
+  // Dynamically import Ink and TextInput
+  const { render, Box, Text, useApp, useInput, Spacer } = await import('ink');
+  const TextInput = (await import('ink-text-input')).default;
+
   // Auto-start server logic
   const serverUrl = `http://${config.server.host}:${config.server.port}/`;
   let serverStartedByChat = false;
@@ -343,6 +347,12 @@ async function startAppAsync(optionsFromCommander, commandInstance) {
       <McrApp
         initialSessionIdFromArgs={initialSessionId}
         onExitTrigger={performCleanup}
+        Box={Box}
+        Text={Text}
+        useApp={useApp}
+        useInput={useInput}
+        Spacer={Spacer}
+        TextInput={TextInput}
       />,
       { exitOnCtrlC: false } // Manual Ctrl+C handling is inside McrApp
     );

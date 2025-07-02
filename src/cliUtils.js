@@ -175,9 +175,57 @@ const readFileContent = (filePath, fileDescription = 'File') => {
   }
 };
 
+const config = require('./config'); // To get server URL for health check
+const {
+  isServerAliveAsync,
+  startMcrServerAsync,
+} = require('./cli/tuiUtils/serverManager');
+const logger = require('./logger'); // For logging
+
+/**
+ * Checks if the MCR server is alive. If not, attempts to start it.
+ * @param {object} programOpts - Commander program options (optional).
+ * @returns {Promise<boolean>} True if the server is alive or successfully started, false otherwise.
+ */
+async function checkAndStartServer(programOpts = {}) {
+  const healthCheckUrl = `http://${config.server.host}:${config.server.port}/`; // Root endpoint for status
+
+  logger.info(`Checking server status at ${healthCheckUrl}...`);
+  let alive = await isServerAliveAsync(healthCheckUrl);
+
+  if (alive) {
+    logger.info('MCR server is already running.');
+    return true;
+  } else {
+    logger.info('MCR server is not running. Attempting to start it...');
+    try {
+      await startMcrServerAsync(programOpts); // Pass programOpts if needed by startMcrServerAsync
+      logger.info('MCR server starting up...');
+      // Wait significantly longer for the server to initialize after starting command is issued
+      await new Promise(resolve => setTimeout(resolve, (config.server.startTimeout || 5000) + 5000)); // Added additional 5s delay
+      logger.info('Initial startup period passed. Verifying server status...');
+      alive = await isServerAliveAsync(healthCheckUrl, 10, 1000); // Increased retries and delay
+      if (alive) {
+        logger.info('MCR server is now running.');
+        return true;
+      } else {
+        logger.error(
+          'Failed to confirm server is running after automated start.'
+        );
+        return false;
+      }
+    } catch (error) {
+      logger.error('Failed to start MCR server automatically:', error.message);
+      // Additional details could be logged from error object if available
+      return false;
+    }
+  }
+}
+
 module.exports = {
   printJson,
   handleCliOutput,
   handleApiError,
   readFileContent,
+  checkAndStartServer,
 };
