@@ -25,6 +25,9 @@ const config = {
       // Add any specific prolog config here if necessary
     },
   },
+  ontology: {
+    directory: process.env.MCR_ONTOLOGY_DIR || require('path').resolve(__dirname, '../../ontologies'),
+  },
   // Add other configurations as needed, e.g., logging level
   logLevel: process.env.LOG_LEVEL || 'info',
 };

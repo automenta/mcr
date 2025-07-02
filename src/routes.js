@@ -22,6 +22,22 @@ function setupRoutes(app) {
   // Fact assertion and querying
   router.post('/sessions/:sessionId/assert', apiHandlers.assertToSessionHandler);
   router.post('/sessions/:sessionId/query', apiHandlers.querySessionHandler);
+  router.post('/sessions/:sessionId/explain-query', apiHandlers.explainQueryHandler);
+
+  // Ontology management
+  router.post('/ontologies', apiHandlers.createOntologyHandler);
+  router.get('/ontologies', apiHandlers.listOntologiesHandler);
+  router.get('/ontologies/:name', apiHandlers.getOntologyHandler);
+  router.put('/ontologies/:name', apiHandlers.updateOntologyHandler);
+  router.delete('/ontologies/:name', apiHandlers.deleteOntologyHandler);
+
+  // Direct translation
+  router.post('/translate/nl-to-rules', apiHandlers.nlToRulesDirectHandler);
+  router.post('/translate/rules-to-nl', apiHandlers.rulesToNlDirectHandler);
+
+  // Utility & Debugging
+  router.get('/prompts', apiHandlers.getPromptsHandler);
+  router.post('/debug/format-prompt', apiHandlers.debugFormatPromptHandler);
 
   app.use('/api/v1', router); // Prefix all API routes with /api/v1
 
