@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 require('@babel/register')({
-  // Specify extensions to process, ensuring .js files with JSX are included
   extensions: ['.js', '.jsx', '.ts', '.tsx'],
+  // Ignore node_modules, except for specific modules if necessary
+  ignore: [/node_modules/],
   // Optionally, specify a cache directory for Babel
   // cache: true,
 });
