@@ -651,3 +651,185 @@ _Note: This README is based on analysis of the current project structure and inf
 ```
 
 ```
+
+----
+
+Of course. Here is a complete, self-contained, and implementation-agnostic specification for the Model Context Reasoner (MCR) system.
+
+This document formalizes the architecture, components, and processes, focusing on the core concept of interchangeable Translation Strategies.
+
+---
+
+### **System Specification: Model Context Reasoner (MCR)**
+
+**Version:** 1.0
+**Status:** DRAFT
+**Date:** 2025-07-03
+
+#### 1.0 Overview
+
+This document specifies the architecture and components of the Model Context Reasoner (MCR), a neuro-symbolic system designed to translate unstructured natural language into a formal, symbolic knowledge base (KB).
+
+The primary objective of the MCR is to enable precise, auditable reasoning over user-provided information by leveraging the semantic understanding of Large Language Models (LLMs) and the strict logical inference of symbolic reasoners.
+
+A foundational principle of the MCR is the explicit management of **Translation Strategies**. A Translation Strategy is a pluggable module that defines a complete, end-to-end process for converting natural language into symbolic logic. This architectural choice allows the system to empirically measure, compare, and evolve different translation methodologies, ensuring adaptability and continuous improvement.
+
+#### 2.0 Core Concepts
+
+**2.1. Session**
+A **Session** is an isolated reasoning context. It represents a single, coherent workspace for a user, containing a dedicated Knowledge Base and associated state.
+
+**2.2. Knowledge Base (KB)**
+The **Knowledge Base** is a collection of symbolic logic clauses (facts and rules) that represent the state of knowledge within a Session. The KB is expressed in a formal language amenable to symbolic reasoners (e.g., Prolog).
+
+**2.3. Translation Strategy**
+A **Translation Strategy** is an encapsulated, interchangeable component that defines the complete logic for converting natural language into one or more symbolic clauses. Each strategy embodies a specific methodology, including its own set of prompts, processing steps, and validation logic.
+
+**2.4. Structured Intermediate Representation (SIR)**
+A **Structured Intermediate Representation** is a formal data structure (e.g., a JSON object) used by advanced Translation Strategies to decouple semantic extraction from syntactic generation. The LLM's task is to populate the SIR with the meaning of a sentence, which is then programmatically and deterministically converted into the final symbolic syntax. This mitigates the risk of LLM-induced syntax errors.
+
+#### 3.0 System Architecture
+
+The MCR is defined by a multi-layered, service-oriented architecture that promotes modularity and separation of concerns.
+
+```
++-------------------------------------------------------------+
+|                     Presentation Layer                      |
+|            (e.g., GUI Workbench, CLI, API Client)           |
++-------------------------------------------------------------+
+                              | (Network API)
++-------------------------------------------------------------+
+|                          API Layer                          |
+|    (Endpoint Definitions, Request/Response Serialization)   |
++-------------------------------------------------------------+
+                              | (Service Interface)
++-------------------------------------------------------------+
+|                         Service Layer                       |
+|                   (MCR Service Orchestrator)                |
++-------------------------------------------------------------+
+      | (Uses)           | (Uses)           | (Uses)
++---------------+  +-----------------+  +------------------+
+| ITranslation  |  | ILlmProvider    |  | IReasonProvider  |
+|   Strategy    |  |   (Interface)   |  |   (Interface)    |
+|  (Interface)  |  +-----------------+  +------------------+
++---------------+           |                  |
+      | (Implements)        | (Implements)     | (Implements)
++---------------+  +-----------------+  +------------------+
+| Direct-S1     |  | OllamaProvider  |  | PrologProvider   |
+| SIR-R1        |  | GeminiProvider  |  | DatalogProvider  |
+| ...           |  | ...             |  | ...              |
++---------------+  +-----------------+  +------------------+
+```
+
+*   **Presentation Layer:** Any user-facing application that consumes the MCR's API.
+*   **API Layer:** Defines the formal contract for interacting with the MCR. It is stateless and forwards requests to the Service Layer.
+*   **Service Layer:** The core orchestrator (`MCR Service`). It manages the business logic of a request (e.g., "assert this text") by invoking the currently selected Translation Strategy and the necessary providers.
+*   **Provider & Strategy Interfaces:** A set of abstract contracts that define the capabilities of key components. This allows for pluggable implementations.
+*   **Implementation Layer:** Concrete implementations of the interfaces (e.g., a specific `OllamaProvider` for an LLM, a `PrologProvider` for reasoning, and various `TranslationStrategy` modules).
+
+#### 4.0 Component Specification
+
+**4.1. MCR Service (Orchestrator)**
+The central service responsible for executing user requests.
+*   **Responsibilities:**
+    *   Managing the lifecycle of a request.
+    *   Selecting and invoking the appropriate Translation Strategy.
+    *   Coordinating calls between the LLM Provider and the Reasoner Provider.
+    *   Managing session state via the Context Provider (not shown in diagram for simplicity, but implied for stateful operations).
+
+**4.2. ITranslationStrategy (Interface)**
+Defines the contract for any Translation Strategy.
+*   **Methods:**
+    *   `getName(): string`: Returns the unique name of the strategy (e.g., "SIR-R1").
+    *   `assert(text: string, llmProvider: ILlmProvider): Promise<Clause[]>`: Takes natural language text and returns a list of one or more symbolic clauses.
+    *   `query(text: string, llmProvider: ILlmProvider): Promise<QueryString>`: Takes a natural language question and returns a single, well-formed query string.
+*   **Types:**
+    *   `Clause`: A string representing a single, syntactically correct fact or rule.
+    *   `QueryString`: A string representing a single, syntactically correct query.
+
+**4.3. ILlmProvider (Interface)**
+Defines the contract for an LLM service provider.
+*   **Methods:**
+    *   `generate(prompt: string): Promise<string>`: Sends a prompt to the LLM and returns its raw text response.
+
+**4.4. IReasonProvider (Interface)**
+Defines the contract for a symbolic reasoning engine.
+*   **Methods:**
+    *   `query(kb: string, query: QueryString): Promise<QueryResult>`: Executes a query against a knowledge base and returns the results.
+    *   `validate(kb: string): Promise<ValidationResult>`: Checks a knowledge base for syntactic correctness.
+*   **Types:**
+    *   `QueryResult`: A structured representation of the reasoner's findings (e.g., a list of variable bindings or a boolean).
+    *   `ValidationResult`: An object indicating whether the KB is valid and providing an error message if not.
+
+#### 5.0 Example Translation Strategies
+
+**5.1. Strategy: `Direct-S1` (Direct-to-Symbolic, Level 1)**
+*   **Description:** A baseline strategy that prompts the LLM for direct symbolic output. Prone to errors but useful for benchmarking.
+*   **`assert` Logic:**
+    1.  Generate a simple prompt asking the LLM to convert the input text into one or more symbolic facts or rules.
+    2.  Invoke the `ILlmProvider`.
+    3.  Perform minimal, regex-based post-processing on the returned string to split it into clauses.
+    4.  Return the resulting list of clauses.
+*   **`query` Logic:**
+    1.  Generate a simple prompt asking the LLM to convert the input question into a symbolic query.
+    2.  Invoke the `ILlmProvider`.
+    3.  Return the cleaned-up string.
+
+**5.2. Strategy: `SIR-R1` (Structured Intermediate Representation, Robust, Level 1)**
+*   **Description:** A robust, multi-stage strategy that uses a Structured Intermediate Representation (SIR) to ensure syntactic correctness. This is the recommended production-grade approach.
+*   **`assert` Logic:**
+    1.  **Intent Classification:** Generate a prompt to classify the input text as asserting `FACTS` or a `RULE`. Invoke the LLM.
+    2.  **SIR Generation:** Based on the intent, select a prompt that instructs the LLM to generate an SIR. The prompt must include the SIR schema definition and few-shot examples. Invoke the LLM.
+    3.  **SIR Validation:** Parse and validate the returned string against the expected SIR schema.
+    4.  **Syntactic Translation:** Programmatically traverse the validated SIR data structure and deterministically generate the corresponding, syntactically perfect symbolic clauses.
+    5.  Return the list of generated clauses.
+*   **`query` Logic:**
+    1.  Generate a prompt instructing the LLM to produce a symbolic query, providing strict instructions on variable casing.
+    2.  Invoke the `ILlmProvider`.
+    3.  Perform minimal cleaning (e.g., trim whitespace) and return the result.
+
+#### 6.0 API Specification
+
+The MCR service exposes a RESTful API for interaction.
+
+*   **`POST /sessions`**
+    *   **Description:** Creates a new reasoning session.
+    *   **Response Body:** `{ "sessionId": "string" }`
+
+*   **`POST /sessions/{sessionId}/assert`**
+    *   **Description:** Asserts new knowledge into the session's KB using the currently configured Translation Strategy.
+    *   **Request Body:** `{ "text": "string" }`
+    *   **Response Body:** `{ "addedClauses": ["string"], "knowledgeBase": "string" }`
+
+*   **`POST /sessions/{sessionId}/query`**
+    *   **Description:** Poses a natural language query to the session's KB.
+    *   **Request Body:** `{ "query": "string" }`
+    *   **Response Body:** `{ "prologQuery": "string", "rawResult": object, "naturalLanguageAnswer": "string" }`
+
+*   **`PUT /sessions/{sessionId}/kb`**
+    *   **Description:** Directly overwrites the entire KB of a session. The new KB is validated before being saved.
+    *   **Request Body:** `{ "knowledgeBase": "string" }`
+    *   **Response Body:** `200 OK`
+
+*   **`PUT /config/translationStrategy`**
+    *   **Description:** Sets the active Translation Strategy for the system.
+    *   **Request Body:** `{ "strategyName": "string" }`
+    *   **Response Body:** `200 OK`
+
+#### 7.0 Evolution & Advanced Capabilities
+
+The MCR architecture is designed to support future enhancements.
+
+**7.1. Strategy Management & Evaluation**
+A meta-layer service responsible for managing the lifecycle of Translation Strategies.
+*   **Benchmarking:** The system shall support a standardized benchmark suite (a "golden dataset" of NL-to-Symbolic mappings) to evaluate strategies against metrics like syntactic accuracy, semantic correctness, and resource cost (latency, tokens).
+*   **Automated Optimization:** The system should facilitate an automated loop where a "Strategy Optimizer" agent can programmatically generate variations of existing strategy prompts, benchmark them, and promote superior versions.
+
+**7.2. Operational Enhancements**
+*   **Self-Correction:** If a strategy step fails (e.g., the LLM produces an invalid SIR), the system should be capable of automatically re-prompting the LLM with the context of the error, asking it to correct its previous output.
+*   **Knowledge Retraction:** The system shall be extended to understand commands for retracting or modifying existing knowledge, requiring extensions to intent classification and the generation of retraction clauses.
+*   **Explanatory Reasoning:** The `IReasonProvider` interface shall be extended to optionally return a proof trace. A dedicated LLM prompt will then translate this formal trace into a human-readable explanation of the reasoning steps.
+
+**7.3. Paradigm Expansion**
+*   **Hybrid Reasoning:** The system shall support a fallback mechanism where, if a symbolic query yields no results, the query can be re-posed to the base `ILlmProvider` for a general, sub-symbolic lookup.
+*   **Agentic Tooling:** The MCR service shall be designed to be easily integrated as a "tool" within a larger AI agent framework, allowing an autonomous agent to delegate structured reasoning tasks to the MCR.
