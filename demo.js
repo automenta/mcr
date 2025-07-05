@@ -1,158 +1,286 @@
 // new/demo.js
-const axios = require('axios');
-const config = require('./src/config'); // To get server URL
+const yargs = require('yargs/yargs');
+const { hideBin } = require('yargs/helpers');
+const chalk = require('chalk');
+const fs = require('fs');
+const path = require('path');
 const logger = require('./src/logger'); // Using the same logger
-const winston = require('winston'); // Import winston for format utilities
+const { demoLogger } = require('./src/demos/demoUtils');
 const { checkAndStartServer } = require('./src/cliUtils');
+const config = require('./src/config');
 
 const API_BASE_URL = `http://${config.server.host}:${config.server.port}/api/v1`;
 
-// Configure logger for demo script - simpler console output
-logger.transports.forEach((t) => {
-  if (t instanceof winston.transports.Console) {
-    t.format = winston.format.combine(
-      // Use winston.format directly
-      // winston.format.colorize(), // Optional: remove color for cleaner script output
-      winston.format.printf(
-        (info) => `${info.level.toUpperCase()}: ${info.message}`
-      )
-    );
+// Base class for all demos
+class Example {
+  constructor(apiBaseUrl, globalLogger, demoUtilsLogger) {
+    this.apiBaseUrl = apiBaseUrl;
+    this.logger = globalLogger; // for general script logging
+    this.dLog = demoUtilsLogger; // for colorful demo step logging
+    this.sessionId = null;
   }
-});
-logger.level = 'info'; // Set log level for the demo
 
-async function runDemo() {
-  let sessionId;
-  console.log('🚀 Starting MCR Demo...');
-  console.log(`   Targeting API: ${API_BASE_URL}`);
-
-  const serverReady = await checkAndStartServer();
-  if (!serverReady) {
-    console.error(
-      '❌ Demo aborted: Failed to connect to or start the MCR server.'
-    );
-    console.log(
-      '   Please check server logs and configuration. You might need to start it manually: node mcr.js'
-    );
-    return; // Exit if server cannot be started
+  getName() {
+    throw new Error("Method 'getName()' must be implemented.");
   }
-  console.log(''); // Newline for cleaner output after server check
 
-  try {
-    // 1. Create a session
-    logger.info('Step 1: Creating a new session...');
-    console.log('--- Step 1: Creating Session ---');
-    const createResponse = await axios.post(`${API_BASE_URL}/sessions`);
-    sessionId = createResponse.data.id;
-    console.log(`✅ Session created successfully. ID: ${sessionId}\n`);
-    logger.info(`Session created: ${sessionId}`);
+  getDescription() {
+    throw new Error("Method 'getDescription()' must be implemented.");
+  }
 
-    // 2. Assert facts
-    logger.info('Step 2: Asserting facts...');
-    console.log('--- Step 2: Asserting Facts ---');
-    const factsToAssert = [
-      'The sky is blue.',
-      'Socrates is a human.',
-      'All humans are mortal.',
-      "John is Mary's father.",
-      'Mary is a doctor.',
-    ];
+  async run() {
+    throw new Error("Method 'run()' must be implemented.");
+  }
 
-    for (const fact of factsToAssert) {
-      console.log(`   Asserting: "${fact}"`);
+  async createSession() {
+    this.dLog.step('Creating a new session...');
+    try {
+      // Dynamically import axios only when needed
+      const axios = (await import('axios')).default;
+      const createResponse = await axios.post(`${this.apiBaseUrl}/sessions`);
+      this.sessionId = createResponse.data.id;
+      this.dLog.success(`Session created successfully. ID: ${this.sessionId}`);
+      this.logger.info(
+        `[${this.getName()}] Session created: ${this.sessionId}`
+      );
+      return this.sessionId;
+    } catch (error) {
+      this.handleApiError(error, 'Failed to create session');
+      throw error; // Re-throw to stop the demo if session creation fails
+    }
+  }
+
+  async assertFact(fact) {
+    this.dLog.info(`Asserting fact`, fact);
+    try {
+      const axios = (await import('axios')).default;
       const assertResponse = await axios.post(
-        `${API_BASE_URL}/sessions/${sessionId}/assert`,
+        `${this.apiBaseUrl}/sessions/${this.sessionId}/assert`,
         { text: fact }
       );
-      console.log(`   ✅ Server: ${assertResponse.data.message}`);
+      this.dLog.mcrResponse(`Server`, assertResponse.data.message);
       if (
         assertResponse.data.addedFacts &&
         assertResponse.data.addedFacts.length > 0
       ) {
         assertResponse.data.addedFacts.forEach((f) =>
-          console.log(`     -> Added to KB: ${f}`)
+          this.dLog.logic(`Added to KB`, f)
         );
       }
-      logger.info(
-        `Asserted: "${fact}", Server response: ${assertResponse.data.message}`
+      this.logger.info(
+        `[${this.getName()}] Asserted: "${fact}", Server response: ${assertResponse.data.message}`
       );
+      return assertResponse.data;
+    } catch (error) {
+      this.handleApiError(error, `Failed to assert fact: "${fact}"`);
+      return null; // Allow demo to continue if possible
     }
-    console.log('✅ Facts asserted successfully.\n');
+  }
 
-    // 3. Query the session
-    logger.info('Step 3: Querying the session...');
-    console.log('--- Step 3: Querying Session ---');
-    const questions = [
-      'What color is the sky?',
-      'Is Socrates mortal?',
-      "Who is Mary's father?",
-      'Is Mary a doctor?',
-      'Who is mortal?', // A more open-ended query
-    ];
-
-    for (const question of questions) {
-      console.log(`   Querying: "${question}"`);
+  async query(question) {
+    this.dLog.info(`Querying`, question);
+    try {
+      const axios = (await import('axios')).default;
       const queryResponse = await axios.post(
-        `${API_BASE_URL}/sessions/${sessionId}/query`,
+        `${this.apiBaseUrl}/sessions/${this.sessionId}/query`,
         { query: question }
       );
-      console.log(`   🤖 MCR Answer: ${queryResponse.data.answer}`);
-      logger.info(
-        `Question: "${question}", Answer: "${queryResponse.data.answer}"`
+      this.dLog.mcrResponse(`MCR Answer`, queryResponse.data.answer);
+      this.logger.info(
+        `[${this.getName()}] Question: "${question}", Answer: "${queryResponse.data.answer}"`
       );
       if (queryResponse.data.debugInfo) {
-        logger.debug('Query Debug Info:', {
-          prologQuery: queryResponse.data.debugInfo.prologQuery,
-          prologResults: queryResponse.data.debugInfo.prologResultsJSON,
-        });
+        this.logger.debug(
+          `[${this.getName()}] Query Debug Info:`,
+          queryResponse.data.debugInfo
+        );
+      }
+      return queryResponse.data;
+    } catch (error) {
+      this.handleApiError(error, `Failed to query: "${question}"`);
+      return null; // Allow demo to continue
+    }
+  }
+
+  async cleanupSession() {
+    if (this.sessionId) {
+      this.dLog.cleanup(`Deleting session ${this.sessionId}...`);
+      try {
+        const axios = (await import('axios')).default;
+        await axios.delete(`${this.apiBaseUrl}/sessions/${this.sessionId}`);
+        this.dLog.success(`Session ${this.sessionId} deleted successfully.`);
+        this.logger.info(
+          `[${this.getName()}] Session deleted: ${this.sessionId}`
+        );
+      } catch (error) {
+        this.handleApiError(error, 'Failed to delete session');
       }
     }
-    console.log('✅ Queries completed.\n');
-  } catch (error) {
-    console.error('❌ DEMO FAILED: An error occurred.');
+  }
+
+  handleApiError(error, message) {
+    this.dLog.error(message, error.message);
     if (error.response) {
-      console.error('   Error Status:', error.response.status);
-      console.error(
-        '   Error Data:',
-        JSON.stringify(error.response.data, null, 2)
+      this.dLog.error(
+        `API Error Status`,
+        error.response.status
       );
-      logger.error('Demo failed with API error:', {
+      this.dLog.error(
+        `API Error Data`,
+        error.response.data
+      );
+      this.logger.error(`[${this.getName()}] ${message} - API Error:`, {
         status: error.response.status,
         data: error.response.data,
+        originalError: error.message,
       });
     } else {
-      console.error('   Error Message:', error.message);
-      logger.error('Demo failed with error:', error.message);
+      this.logger.error(
+        `[${this.getName()}] ${message} - Error:`,
+        error.message
+      );
     }
-  } finally {
-    // 4. Delete the session (cleanup)
-    if (sessionId) {
-      try {
-        logger.info('Step 4: Deleting the session...');
-        console.log('--- Step 4: Deleting Session ---');
-        await axios.delete(`${API_BASE_URL}/sessions/${sessionId}`);
-        console.log(`✅ Session ${sessionId} deleted successfully.\n`);
-        logger.info(`Session deleted: ${sessionId}`);
-      } catch (error) {
-        console.error(
-          '⚠️ Error deleting session:',
-          error.response ? error.response.data.error.message : error.message
-        );
-        logger.warn(
-          'Error deleting session:',
-          error.response ? error.response.data : error.message
-        );
-      }
+  }
+
+  async assertCondition(condition, successMessage, failureMessage) {
+    if (condition) {
+      this.dLog.success(`Assertion PASSED: ${successMessage}`);
+      this.logger.info(`[${this.getName()}] Assertion PASSED: ${successMessage}`);
+    } else {
+      this.dLog.error(`Assertion FAILED: ${failureMessage}`);
+      this.logger.error(`[${this.getName()}] Assertion FAILED: ${failureMessage}`);
     }
-    console.log('🏁 MCR Demo Finished.');
   }
 }
 
-console.log('MCR Demo Script');
-console.log('-------------------------');
+// Function to discover examples
+function loadExamples() {
+  const examples = {};
+  const demosDir = path.join(__dirname, 'src', 'demos');
+  const files = fs.readdirSync(demosDir);
 
-// Removed manual server start instruction and timeout, checkAndStartServer handles it.
-runDemo().catch((error) => {
-  logger.error('Critical error in demo script:', error);
-  console.error('💥 Critical error in demo script:', error.message);
-});
+  files.forEach((file) => {
+    if (file.endsWith('Demo.js') && file !== 'demoUtils.js') {
+      const exampleName = path.basename(file, '.js');
+      try {
+        const ExampleClass = require(path.join(demosDir, file));
+        if (typeof ExampleClass === 'function' && ExampleClass.prototype instanceof Example) {
+          const instance = new ExampleClass(API_BASE_URL, logger, demoLogger);
+          examples[instance.getName().toLowerCase().replace(/\s+/g, '-')] = instance;
+        } else if (typeof ExampleClass.default === 'function' && ExampleClass.default.prototype instanceof Example) {
+          // Handle ES modules default export
+          const instance = new ExampleClass.default(API_BASE_URL, logger, demoLogger);
+          examples[instance.getName().toLowerCase().replace(/\s+/g, '-')] = instance;
+        }
+      } catch (err) {
+        console.error(chalk.red(`Error loading demo ${exampleName}: ${err.message}`));
+        logger.error(`Failed to load demo ${exampleName}: ${err.stack}`);
+      }
+    }
+  });
+  return examples;
+}
+
+
+async function main() {
+  const examples = loadExamples();
+
+  const argv = yargs(hideBin(process.argv))
+    .command('$0 [exampleName]', 'Run a specific MCR demo example', (y) => {
+      y.positional('exampleName', {
+        describe: 'Name of the example to run',
+        type: 'string',
+        choices: Object.keys(examples).length > 0 ? Object.keys(examples) : undefined, // Only provide choices if examples loaded
+      });
+    })
+    .option('list', {
+      alias: 'l',
+      type: 'boolean',
+      description: 'List available examples',
+    })
+    .help()
+    .alias('help', 'h')
+    .strict() // Enforce strict command parsing
+    .argv;
+
+  demoLogger.heading('MCR Demo Runner');
+  demoLogger.info('API Target', API_BASE_URL);
+
+  if (argv.list || (!argv.exampleName && Object.keys(examples).length > 0) ) {
+    demoLogger.step('Available Examples:');
+    if (Object.keys(examples).length === 0) {
+      demoLogger.info('Status', 'No examples found. Check src/demos directory.');
+      return;
+    }
+    Object.values(examples).forEach((ex) => {
+      console.log(
+        `  ${chalk.bold.cyan(ex.getName().toLowerCase().replace(/\s+/g, '-'))}: ${chalk.italic(ex.getDescription())}`
+      );
+    });
+    return;
+  }
+
+  if (Object.keys(examples).length === 0 && !argv.exampleName) {
+     demoLogger.error('No examples found and no example specified.');
+     console.log(chalk.yellow('Please create demo files in src/demos/ ending with "Demo.js" and implementing the Example class.'));
+     return;
+  }
+
+
+  const exampleKey = argv.exampleName;
+  const exampleToRun = examples[exampleKey];
+
+  if (!exampleToRun) {
+    demoLogger.error(`Example "${exampleKey}" not found.`);
+    if (Object.keys(examples).length > 0) {
+        console.log(chalk.yellow('Use --list to see available examples.'));
+    } else {
+        console.log(chalk.yellow('No examples are currently available.'));
+    }
+    return;
+  }
+
+  const serverReady = await checkAndStartServer();
+  if (!serverReady) {
+    demoLogger.error(
+      'Demo aborted: Failed to connect to or start the MCR server.'
+    );
+    console.log(
+      chalk.yellow(
+        'Please check server logs and configuration. You might need to start it manually: node mcr.js'
+      )
+    );
+    return; // Exit if server cannot be started
+  }
+  console.log(''); // Newline for cleaner output
+
+  demoLogger.heading(`Running Demo: ${exampleToRun.getName()}`);
+  console.log(chalk.gray(`Description: ${exampleToRun.getDescription()}`));
+  demoLogger.divider();
+
+  try {
+    await exampleToRun.run();
+  } catch (error) {
+    demoLogger.error(`Critical error during demo "${exampleToRun.getName()}"`, error.message);
+    logger.error(
+      `Critical error in demo "${exampleToRun.getName()}": ${error.stack}`
+    );
+  } finally {
+    await exampleToRun.cleanupSession();
+    demoLogger.divider();
+    demoLogger.heading(`Demo ${exampleToRun.getName()} Finished`);
+  }
+}
+
+// Make sure Example class is available for demos to import/extend
+module.exports = { Example };
+
+
+// Run the main function only if this script is executed directly
+if (require.main === module) {
+  main().catch((error) => {
+    demoLogger.error('Unhandled critical error in demo runner', error.message);
+    logger.error(`Unhandled critical error in demo runner: ${error.stack}`);
+    process.exit(1);
+  });
+}
