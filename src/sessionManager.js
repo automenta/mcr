@@ -101,36 +101,48 @@ function _updateLexiconWithFacts(sessionId, facts) {
     const cleanFact = fact.replace(/%.*$/, '').trim();
     if (!cleanFact.endsWith('.')) return;
 
-    // Attempt to match predicate and arguments for facts like predicate(...).
-    // This regex is basic and might not cover all Prolog syntax (e.g., operators, complex terms).
-    // It captures the predicate name and the content within the parentheses.
-    const match = cleanFact.match(/^([a-z_][a-zA-Z0-9_]*)\((.*)\)\.$/);
+    // Remove comments and trim
+    const cleanFact = fact.replace(/%.*$/, '').trim();
+    if (!cleanFact.endsWith('.')) return; // Ensure it's a complete clause
 
-    if (match) {
-      const predicate = match[1];
-      const argsString = match[2];
+    let termToParse = cleanFact;
 
-      // Count arguments by splitting by comma, but be mindful of commas within terms (e.g., functions, lists)
-      // This simple split is naive. A real parser would handle nested structures.
-      // For now, assuming simple arguments.
+    // Check if it's a rule (contains ':-')
+    const ruleMatch = cleanFact.match(/^(.*?):-(.*)\.$/);
+    if (ruleMatch) {
+      termToParse = ruleMatch[1].trim(); // Parse only the head of the rule
+      // We could also parse predicates from ruleMatch[2] (the body) if desired in the future
+    } else {
+      // It's a fact, remove the trailing period for parsing
+      termToParse = cleanFact.slice(0, -1).trim();
+    }
+
+    // Attempt to match predicate and arguments for terms like predicate(...).
+    const structuredTermMatch = termToParse.match(/^([a-z_][a-zA-Z0-9_]*)\((.*)\)$/);
+
+    if (structuredTermMatch) {
+      const predicate = structuredTermMatch[1];
+      const argsString = structuredTermMatch[2];
+
       let arity = 0;
       if (argsString.trim() !== '') {
-        // A simple heuristic: count commas and add 1 if there's content.
-        // This will be wrong for terms like `location(city('New York'), state('NY'))`
-        // but for `name(john,smith)` it would be 2. For `isa(dog)` it would be 1 if argsString is "dog".
-        // Let's try a slightly more robust naive split for simple args:
-        // This regex splits by comma, but not if comma is inside quotes (simple case)
-        // or inside parentheses (very basic nesting, not fully robust).
+        // Heuristic for counting arguments: splits by comma, but tries to respect commas within quotes or parentheses.
+        // This is not a full parser and will have limitations with deeply nested structures or complex terms.
         const potentialArgs = argsString.match(/(?:[^,(]|\([^)]*\)|'[^']*')+/g);
         arity = potentialArgs ? potentialArgs.length : 0;
       }
       sessions[sessionId].lexicon.add(`${predicate}/${arity}`);
+      logger.debug(`[LexiconUpdate] Added ${predicate}/${arity} from structured term: ${termToParse}`);
     } else {
-      // Handle facts like 'is_raining.' (predicate without parentheses, arity 0)
-      const simpleFactMatch = cleanFact.match(/^([a-z_][a-zA-Z0-9_]*)\.$/);
-      if (simpleFactMatch) {
-        const predicate = simpleFactMatch[1];
+      // Handle simple atoms (facts or rule heads without parentheses, arity 0)
+      // e.g., 'is_raining.' or 'system_initialized :- true.' (head is 'system_initialized')
+      const simpleAtomMatch = termToParse.match(/^([a-z_][a-zA-Z0-9_]*)$/);
+      if (simpleAtomMatch) {
+        const predicate = simpleAtomMatch[1];
         sessions[sessionId].lexicon.add(`${predicate}/0`);
+        logger.debug(`[LexiconUpdate] Added ${predicate}/0 from simple atom: ${termToParse}`);
+      } else {
+        logger.debug(`[LexiconUpdate] Could not parse predicate/arity from term: ${termToParse} (original: ${fact})`);
       }
     }
   });

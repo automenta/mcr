@@ -19,17 +19,25 @@ function getProvider() {
         break;
       // Future providers can be added here
       // case 'openai':
-      //   selectedProvider = require('./llmProviders/openaiProvider');
-      //   break;
+      //   // const OpenAiProvider = require('./llmProviders/openaiProvider'); // Ensure this file exists and is correct
+      //   // selectedProvider = OpenAiProvider;
+      //   // break;
+      // case 'anthropic':
+      //   // const AnthropicProvider = require('./llmProviders/anthropicProvider'); // Ensure this file exists and is correct
+      //   // selectedProvider = AnthropicProvider;
+      //   // break;
       default:
-        logger.error(
-          `Unsupported LLM provider configured: ${providerName}. Defaulting to Ollama.`
+        // logger.error( // Previous behavior
+        //   `Unsupported LLM provider configured: ${providerName}. Defaulting to Ollama.`
+        // );
+        // selectedProvider = OllamaProvider; // Previous fallback
+        throw new Error(
+          `Configuration Error: Unsupported LLM provider configured: "${providerName}". Supported providers are "ollama", "gemini".` // Add future supported ones here.
         );
-        // Fallback or throw error
-        selectedProvider = OllamaProvider; // Or throw new Error(`Unsupported LLM provider: ${providerName}`);
     }
+    // This log will only be reached if a supported provider is successfully selected.
     logger.info(
-      `LLM Service initialized with provider: ${selectedProvider.name}`
+      `LLM Service initialized with provider: ${selectedProvider.name}.`
     );
   }
   return selectedProvider;

@@ -39,38 +39,56 @@ class SIRR1Strategy {
       }
       // Arguments are expected to be strings. Variables ALL CAPS, constants lowercase.
       // This was handled by the LLM when generating SIR.
-      // NEW: Sanitize predicate and quote arguments appropriately.
-      const predicate = term.predicate.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase();
-      if (!/^[a-z_][a-zA-Z0-9_]*$/.test(predicate)) {
-        throw new Error(`Invalid predicate name after sanitization: "${term.predicate}" became "${predicate}"`);
+      // Predicate names are expected to be valid Prolog atoms (start with lowercase, alphanumeric + underscore)
+      // or they need to be quoted by the LLM in the SIR if they contain special chars.
+      // We will validate and quote if necessary, but the primary responsibility is on the SIR generation prompt.
+
+      let predicateToFormat = term.predicate;
+
+      // Rule 1: If predicate contains characters other than letters, numbers, or underscore,
+      // or if it starts with an uppercase letter or a digit, it MUST be quoted.
+      // An unquoted atom must start with a lowercase letter.
+      // (Note: Prolog also allows operators as predicates, but SIR spec implies standard predicate names)
+      if (!/^[a-z_][a-zA-Z0-9_]*$/.test(predicateToFormat)) {
+        // Not a simple, unquoted atom. Needs quoting.
+        // Escape single quotes within the predicate name itself.
+        predicateToFormat = `'${predicateToFormat.replace(/'/g, "''")}'`;
       }
+      // No specific toLowerCase() here, assume LLM provides correct casing or quoting for predicates.
+      // If a predicate like 'Predicate' is intended, LLM should provide it as "'Predicate'".
+      // If the SIR has `term.predicate = "Predicate"`, it will become `'Predicate'`.
+      // If `term.predicate = "predicate_name"`, it remains `predicate_name`.
+      // If `term.predicate = "name with space"`, it becomes `'name with space'`.
 
       const formattedArgs = term.arguments.map((arg) => {
         if (typeof arg !== 'string') {
-          // Should not happen based on SIR spec, but good to guard
           throw new Error(`Argument is not a string: ${JSON.stringify(arg)}`);
         }
-        // Check if it's a variable (starts with uppercase or underscore followed by uppercase)
+
+        // Rule 2: Variables (start with Uppercase or _) are not quoted.
         if (arg.match(/^[A-Z_][a-zA-Z0-9_]*$/)) {
           return arg;
         }
-        // Check if it's a number
+
+        // Rule 3: Numbers are not quoted.
         if (arg.match(/^-?\d+(\.\d+)?$/)) {
           return arg;
         }
-        // Otherwise, it's an atom that might need quoting
-        // Quote if it contains spaces, special chars, or starts with non-lowercase
-        // A simple Prolog atom starts with a lowercase letter, followed by letters, digits, or underscores.
-        // Or if it's already single-quoted.
-        if (arg.match(/^[a-z][a-zA-Z0-9_]*$/) && !arg.includes('\'')) {
+
+        // Rule 4: Check if it's an atom that does NOT require quoting.
+        // An unquoted atom starts with a lowercase letter and contains only letters, digits, and underscores.
+        if (arg.match(/^[a-z_][a-zA-Z0-9_]*$/)) {
           return arg; // Simple atom, no quoting needed
         }
-        // Escape single quotes within the atom
+
+        // Rule 5: Otherwise, the atom MUST be quoted.
+        // This includes atoms with spaces, special characters, starting with uppercase (if not a var), etc.
+        // Escape single quotes within the atom name by doubling them.
         const escapedArg = arg.replace(/'/g, "''");
         return `'${escapedArg}'`;
       });
 
-      return `${predicate}(${formattedArgs.join(',')})`;
+      return `${predicateToFormat}(${formattedArgs.join(',')})`;
     };
 
     if (Array.isArray(sirJson)) {

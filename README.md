@@ -176,6 +176,8 @@ createMcrSession();
     ```
 3.  **Create `.env` file**:
     Copy `.env.example` to `.env` in the project root. Edit it to include your LLM API keys and any other necessary configurations. Refer to `.env.example` for all available options.
+    **Important:** The MCR server performs configuration validation on startup. If you select an `MCR_LLM_PROVIDER` that requires an API key (e.g., "gemini", "openai", "anthropic"), you **must** provide the corresponding API key environment variable (e.g., `GEMINI_API_KEY`). Failure to do so will prevent the server from starting. Ollama, when run locally, typically does not require an API key.
+
     Example for OpenAI:
 
     ```dotenv
@@ -190,6 +192,18 @@ createMcrSession();
     node mcr.js
     ```
     The server will log its status, including the active LLM provider and listening port.
+
+#### Debugging Configuration
+
+MCR uses an environment variable `MCR_DEBUG_LEVEL` to control the verbosity of debug information in API responses. This is useful for development and troubleshooting.
+
+-   **`MCR_DEBUG_LEVEL`**: Set this in your `.env` file.
+    -   `none` (Default): No detailed debug information is included in API responses. This is recommended for production.
+    -   `basic`: Includes essential debug fields (like the generated Prolog query) and summaries of potentially large data (like knowledge base size).
+    -   `verbose`: Includes full, detailed debug information in the `debugInfo` field of responses (e.g., full knowledge base snapshot, detailed LLM outputs for intermediate steps). **Use with caution, as this can expose large amounts of data and potentially sensitive information.**
+
+For specific endpoints like `POST /api/v1/sessions/:sessionId/query` and `POST /api/v1/sessions/:sessionId/explain-query`, clients can request debug information by including `"options": { "debug": true }` in the JSON request body.
+The actual detail level of the returned `debugInfo` object will still be governed by the server's `MCR_DEBUG_LEVEL` setting. For example, if `MCR_DEBUG_LEVEL` is "basic", sending `"debug": true` will yield basic debug info, not verbose. If `MCR_DEBUG_LEVEL` is "none", no `debugInfo` will be returned even if the client requests it.
 
 ## 💬 Interactive TUI (`./cli.js chat`)
 
@@ -349,13 +363,14 @@ MCR exposes a RESTful API. All requests and responses are JSON.
       // "sessionId": "unique-session-uuid",
       // "originalQuery": "Is the cat on the mat?",
       "debugInfo": {
-        // Included if options.debug was true and info is available
-        "llmTranslationQueryToProlog": "on(cat, mat)?",
-        "prologQuery": "on(cat, mat).", // Actual query sent to reasoner
-        "prologResultsJSON": "[\"true\"]", // JSON string of Prolog results
-        "knowledgeBaseSnapshot": "on(cat, mat).\nlikes(X, milk) :- cat(X).", // KB at query time
-        "llmTranslationResultToNL": "The LLM's raw text used to form the 'answer'.",
-        "strategy": "SIR-R1" // Name of the translation strategy used
+        // Included if options.debug was true and server's MCR_DEBUG_LEVEL is not "none".
+        // Content varies based on MCR_DEBUG_LEVEL ('basic' or 'verbose').
+        "level": "verbose", // Example: indicates the level of debug info provided
+        "prologQuery": "on(cat, mat).",
+        // "knowledgeBaseSnapshot": "on(cat, mat).\n...", // If verbose
+        // "knowledgeBaseSummary": "KB length: 123", // If basic
+        // ... other fields
+        "strategy": "SIR-R1"
       }
     }
     ```
@@ -368,7 +383,10 @@ MCR exposes a RESTful API. All requests and responses are JSON.
   - **Request Body**:
     ```json
     {
-      "query": "Who are Mary's grandparents?"
+      "query": "Who are Mary's grandparents?",
+      "options": { // Optional
+        "debug": true // To request debug information
+      }
     }
     ```
   - **Response (200 OK)**:
@@ -378,7 +396,11 @@ MCR exposes a RESTful API. All requests and responses are JSON.
       // "sessionId": "unique-session-uuid",
       // "originalQuery": "Who are Mary's grandparents?",
       "debugInfo": {
-        /* Optional: relevant facts/rules considered for the explanation */
+        // Included if options.debug was true and server's MCR_DEBUG_LEVEL is not "none".
+        // Content varies based on MCR_DEBUG_LEVEL.
+        "level": "basic", // Example
+        "prologQuery": "grandparent(X, mary)."
+        // ... other fields
       }
     }
     ```

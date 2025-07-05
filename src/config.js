@@ -17,7 +17,15 @@ const config = {
       apiKey: process.env.GEMINI_API_KEY,
       model: process.env.MCR_LLM_MODEL_GEMINI || 'gemini-pro',
     },
-    // Future providers can be added here
+    openai: { // Placeholder for future OpenAI integration
+      apiKey: process.env.OPENAI_API_KEY,
+      model: process.env.MCR_LLM_MODEL_OPENAI || 'gpt-4o', // Example default
+    },
+    anthropic: { // Placeholder for future Anthropic integration
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      model: process.env.MCR_LLM_MODEL_ANTHROPIC || 'claude-3-opus-20240229', // Example default
+    }
+    // Future providers can be added here by defining their config structure
   },
   reasoner: {
     provider: process.env.MCR_REASONER_PROVIDER || 'prolog', // Default to prolog
@@ -35,19 +43,68 @@ const config = {
   logLevel: process.env.LOG_LEVEL || 'info',
   // Default translation strategy
   translationStrategy: process.env.MCR_TRANSLATION_STRATEGY || 'SIR-R1', // Default to SIR-R1
+  // Debug level for API responses and potentially logs
+  // Options: 'none', 'basic', 'verbose'. Default: 'none' (most restrictive)
+  debugLevel: process.env.MCR_DEBUG_LEVEL || 'none',
 };
 
-// Basic validation for required keys based on provider
+// Validation for required keys based on provider
 function validateConfig() {
-  const { provider, gemini } = config.llm;
-  if (provider === 'gemini' && !gemini.apiKey) {
-    console.warn(
-      'Warning: MCR_LLM_PROVIDER is "gemini" but GEMINI_API_KEY is not set.'
-    );
+  const { provider, gemini, openai, anthropic } = config.llm; // Include new provider configs
+
+  const selectedProvider = provider.toLowerCase(); // Normalize for comparison
+
+  if (selectedProvider === 'gemini') {
+    if (!gemini.apiKey) {
+      throw new Error(
+        'Configuration Error: MCR_LLM_PROVIDER is "gemini" but GEMINI_API_KEY is not set.'
+      );
+    }
+  } else if (selectedProvider === 'openai') {
+    // This block will activate if/when 'openai' is chosen as the provider
+    if (!openai.apiKey) {
+      throw new Error(
+        'Configuration Error: MCR_LLM_PROVIDER is "openai" but OPENAI_API_KEY is not set.'
+      );
+    }
+  } else if (selectedProvider === 'anthropic') {
+    // This block will activate if/when 'anthropic' is chosen as the provider
+    if (!anthropic.apiKey) {
+      throw new Error(
+        'Configuration Error: MCR_LLM_PROVIDER is "anthropic" but ANTHROPIC_API_KEY is not set.'
+      );
+    }
   }
-  // Add more validation as needed
+  // Ollama is the default and doesn't require an API key, so no specific check here unless other params become mandatory.
+  // Add more validation for other providers or specific settings as needed.
+  // For example, if a provider requires a model to be specified:
+  // if (selectedProvider === 'some_other_provider' && !config.llm.some_other_provider.model) {
+  //   throw new Error('Configuration Error: Model for some_other_provider is not set.');
+  // }
+
+  // Validate debugLevel
+  const validDebugLevels = ['none', 'basic', 'verbose'];
+  if (!validDebugLevels.includes(config.debugLevel.toLowerCase())) {
+    console.warn( // Warn and default, rather than throw, as it's not critical for startup
+      `Warning: Invalid MCR_DEBUG_LEVEL "${config.debugLevel}". Allowed values: ${validDebugLevels.join(', ')}. Defaulting to "none".`
+    );
+    config.debugLevel = 'none';
+  } else {
+    config.debugLevel = config.debugLevel.toLowerCase(); // Ensure consistent casing
+  }
 }
 
-validateConfig();
+// Call validation immediately after config object is defined.
+// If validation fails, this will throw an error and prevent the module from being exported,
+// effectively stopping the application from starting with invalid critical configuration.
+try {
+  validateConfig();
+} catch (e) {
+  // Log the error and rethrow to ensure the application startup is halted.
+  // Using console.error directly here as logger might not be initialized yet,
+  // or its configuration might depend on this config file itself.
+  console.error(`[ConfigValidation] ${e.message}`);
+  throw e; // Rethrow to halt execution
+}
 
 module.exports = config;
