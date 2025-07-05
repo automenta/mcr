@@ -23,6 +23,7 @@ jest.mock('../src/config', () => ({
 // jest.mock('../src/llmService'); // Redundant: already mocked with factory above
 jest.mock('../src/reasonerService', () => ({
   executeQuery: jest.fn(),
+  validateKnowledgeBase: jest.fn().mockResolvedValue({ isValid: true }), // Default mock for successful validation
 }));
 jest.mock('../src/sessionManager', () => ({
   getSession: jest.fn(),
@@ -164,10 +165,16 @@ describe('MCR Service (mcrService.js)', () => {
         return prologFact;
       });
       sessionManager.addFacts.mockReturnValue(false); // But adding to session fails
+      // Ensure reasonerService.validateKnowledgeBase is explicitly mocked for this path if needed,
+      // though the default mock should cover it.
+      // reasonerService.validateKnowledgeBase.mockResolvedValue({ isValid: true }); // Already default
+
       const result = await mcrService.assertNLToSession(sessionId, nlText);
       expect(result.success).toBe(false);
-      expect(result.message).toBe('Failed to add facts to session.');
-      expect(result.error).toBe('session_add_failed');
+      // The error message changes because validation now happens before this specific failure point.
+      // If addFacts returns false AFTER validation, mcrService has a specific message.
+      expect(result.message).toBe('Failed to add facts to session manager after validation.');
+      expect(result.error).toBe('session_add_failed_post_validation');
     });
 
     it('should handle errors from ontologyService.listOntologies gracefully and still assert', async () => {
@@ -202,6 +209,34 @@ describe('MCR Service (mcrService.js)', () => {
       expect(result.message).toContain(
         'Error during assertion: LLM generation failed'
       );
+      expect(sessionManager.addFacts).not.toHaveBeenCalled();
+    });
+
+    it('should return validation error if reasonerService.validateKnowledgeBase returns isValid: false', async () => {
+      // Setup mocks for this specific test
+      sessionManager.getSession.mockReturnValue({ id: sessionId, facts: [] });
+      llmService.generate.mockImplementation(async (systemPrompt) => {
+        if (systemPrompt === prompts.NL_TO_SIR_ASSERT.system) {
+          return JSON.stringify({
+            statementType: 'fact',
+            fact: { predicate: 'is_valid', arguments: ['test'] },
+          });
+        }
+        return 'is_valid(test).';
+      });
+      // Crucially, mock validateKnowledgeBase to return a validation failure
+      const validationErrorMsg = 'Syntax error in asserted fact';
+      reasonerService.validateKnowledgeBase.mockResolvedValue({ isValid: false, error: validationErrorMsg });
+
+      const result = await mcrService.assertNLToSession(sessionId, 'A test statement.');
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Failed to assert facts: Generated Prolog is invalid.');
+      // The error message from mcrService now includes the fact string and the validation error.
+      // We need to match this more general structure.
+      expect(result.error).toContain('Generated Prolog is invalid: "is_valid(test)."');
+      expect(result.error).toContain(validationErrorMsg);
+      expect(reasonerService.validateKnowledgeBase).toHaveBeenCalledWith('is_valid(test).');
       expect(sessionManager.addFacts).not.toHaveBeenCalled();
     });
   });
