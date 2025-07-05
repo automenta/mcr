@@ -33,6 +33,8 @@ const config = {
   },
   // Add other configurations as needed, e.g., logging level
   logLevel: process.env.LOG_LEVEL || 'info',
+  // Default translation strategy
+  translationStrategy: process.env.MCR_TRANSLATION_STRATEGY || 'SIR-R1', // Default to SIR-R1
 };
 
 // Basic validation for required keys based on provider

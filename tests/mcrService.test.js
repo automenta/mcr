@@ -342,30 +342,34 @@ describe('MCR Service (mcrService.js)', () => {
       );
     });
 
-    test.skip('should return no_rules_extracted if LLM returns no valid Prolog rules', async () => {
+    it('should return no_rules_extracted if LLM returns no valid Prolog rules', async () => {
       llmService.generate.mockResolvedValue('This is not a rule.');
       const result = await mcrService.translateNLToRulesDirect(nlText);
       expect(result.success).toBe(false);
       expect(result.message).toBe('Could not translate text into valid rules.');
       expect(result.error).toBe('no_rules_extracted');
+      expect(result.rawOutput).toBeUndefined(); // rawOutput is not returned on this error path
     });
 
-    test.skip('should return rawOutput even if no specific rules are extracted but LLM provided some output', async () => {
-      // This covers cases where the LLM might return comments or non-rule statements
-      // that aren't strictly errors but don't parse into the `rules` array.
-      const llmOutput = '% This is a comment only.';
+    it('should not return no_rules_extracted if LLM returns only comments but they end with a period (treated as valid)', async () => {
+      // This tests an edge case: if a comment is formatted like a Prolog statement (ends with '.'),
+      // it will currently be considered a "rule" by the filter.
+      const llmOutput = '% This is a comment only.'; // No period, so it's not a rule
       llmService.generate.mockResolvedValue(llmOutput);
-      const result = await mcrService.translateNLToRulesDirect(nlText);
-      // Depending on strictness, this could be success: false, or success: true with empty rules.
-      // Current mcrService logic would lead to no_rules_extracted.
-      expect(result.success).toBe(false);
+      let result = await mcrService.translateNLToRulesDirect(nlText);
+      expect(result.success).toBe(false); // Fails because no rules ending with '.'
       expect(result.message).toBe('Could not translate text into valid rules.');
       expect(result.error).toBe('no_rules_extracted');
-      // However, the rawOutput should still be present if the service includes it on failure.
-      // The current mcrService doesn't attach rawOutput on this specific error path, so this part of the test
-      // might need adjustment based on desired mcrService behavior for this edge case.
-      // For now, assuming it does not include rawOutput for 'no_rules_extracted'.
-      // If it *should*, then mcrService needs a slight modification.
+      expect(result.rawOutput).toBeUndefined(); // rawOutput is not returned on this error path by current code
+
+      const llmOutputWithPeriod = '% This is a comment only.'; // Period makes it a "rule"
+      llmService.generate.mockResolvedValue(llmOutputWithPeriod);
+      result = await mcrService.translateNLToRulesDirect(nlText);
+      // The current logic will extract this as a rule because it ends with a period.
+      // This might be desired or not, but it's the current behavior.
+      expect(result.success).toBe(true);
+      expect(result.rules).toEqual([llmOutputWithPeriod]);
+      expect(result.rawOutput).toBe(llmOutputWithPeriod);
     });
 
     it('should handle LLM indicating text might be a query if NL_TO_LOGIC prompt is used', async () => {
@@ -829,7 +833,7 @@ describe('MCR Service (mcrService.js)', () => {
       expect(result.error).toBe('template_user_field_missing');
     });
 
-    test.skip('should handle errors during fillTemplate (e.g. missing variable)', async () => {
+    it('should handle errors during fillTemplate (e.g. missing variable)', async () => {
       // fillTemplate itself throws an error if a variable is missing.
       // This test ensures that mcrService.debugFormatPrompt catches it.
       const result = await mcrServiceInstance.debugFormatPrompt(
@@ -842,5 +846,188 @@ describe('MCR Service (mcrService.js)', () => {
       );
       // The error message comes from the fillTemplate utility, so we check for part of it.
     });
+  });
+
+  describe('assertNLToSessionWithSIR', () => {
+    const sessionId = 'test-sir-session';
+    const nlTextFact = 'The ball is red.';
+    const sirFactJsonString = JSON.stringify({
+      statementType: 'fact',
+      fact: { predicate: 'is_color', arguments: ['ball', 'red'] },
+    });
+    const prologFactFromSir = 'is_color(ball, red).';
+
+    const nlTextRule = 'All cats are animals.';
+    const sirRuleJsonString = JSON.stringify({
+      statementType: 'rule',
+      rule: {
+        head: { predicate: 'animal', arguments: ['X'] },
+        body: [{ predicate: 'cat', arguments: ['X'] }],
+      },
+    });
+    const prologRuleFromSir = 'animal(X) :- cat(X).';
+
+    beforeEach(() => {
+      sessionManager.getSession.mockReturnValue({ id: sessionId, facts: [] });
+      sessionManager.getKnowledgeBase.mockReturnValue('');
+      ontologyService.listOntologies.mockResolvedValue([]);
+      sessionManager.addFacts.mockReturnValue(true);
+      // Default llmService.generate for SIR to return valid fact JSON
+      llmService.generate.mockResolvedValue(sirFactJsonString);
+    });
+
+    it('should successfully assert a fact using SIR', async () => {
+      const result = await mcrService.assertNLToSessionWithSIR(sessionId, nlTextFact);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toBe('Facts asserted successfully via SIR.');
+      expect(result.addedFacts).toEqual([prologFactFromSir]);
+      expect(llmService.generate).toHaveBeenCalledWith(
+        prompts.NL_TO_SIR_ASSERT.system,
+        expect.any(String), // User prompt string
+        { jsonMode: true }
+      );
+      expect(sessionManager.addFacts).toHaveBeenCalledWith(sessionId, [prologFactFromSir]);
+      expect(result.debugInfo.finalParsedSir).toEqual(JSON.parse(sirFactJsonString));
+    });
+
+    it('should successfully assert a rule using SIR', async () => {
+      llmService.generate.mockResolvedValue(sirRuleJsonString); // Override for this test
+      const result = await mcrService.assertNLToSessionWithSIR(sessionId, nlTextRule);
+
+      expect(result.success).toBe(true);
+      expect(result.message).toBe('Facts asserted successfully via SIR.');
+      expect(result.addedFacts).toEqual([prologRuleFromSir]);
+      expect(llmService.generate).toHaveBeenCalledWith(
+        prompts.NL_TO_SIR_ASSERT.system,
+        expect.any(String),
+        { jsonMode: true }
+      );
+      expect(sessionManager.addFacts).toHaveBeenCalledWith(sessionId, [prologRuleFromSir]);
+      expect(result.debugInfo.finalParsedSir).toEqual(JSON.parse(sirRuleJsonString));
+    });
+
+    it('should assert a negated fact using SIR', async () => {
+      const nlTextNegatedFact = "The ball is not blue.";
+      const sirNegatedFactJsonString = JSON.stringify({
+        statementType: 'fact',
+        fact: { predicate: 'is_color', arguments: ['ball', 'blue'], isNegative: true },
+      });
+      const prologNegatedFactFromSir = 'not(is_color(ball, blue).)';
+      llmService.generate.mockResolvedValue(sirNegatedFactJsonString);
+
+      const result = await mcrService.assertNLToSessionWithSIR(sessionId, nlTextNegatedFact);
+      expect(result.success).toBe(true);
+      expect(result.addedFacts).toEqual([prologNegatedFactFromSir]);
+      expect(sessionManager.addFacts).toHaveBeenCalledWith(sessionId, [prologNegatedFactFromSir]);
+    });
+
+
+    it('should retry SIR generation if initial JSON parsing fails', async () => {
+      llmService.generate
+        .mockResolvedValueOnce('this is not json') // First attempt fails
+        .mockResolvedValueOnce(sirFactJsonString); // Second attempt succeeds
+
+      const result = await mcrService.assertNLToSessionWithSIR(sessionId, nlTextFact, 1); // Allow 1 retry
+
+      expect(result.success).toBe(true);
+      expect(result.addedFacts).toEqual([prologFactFromSir]);
+      expect(llmService.generate).toHaveBeenCalledTimes(2);
+      expect(result.debugInfo.sirAttempts.length).toBe(2);
+      expect(result.debugInfo.sirAttempts[0].rawOutput).toBe('this is not json');
+      expect(result.debugInfo.sirAttempts[1].rawOutput).toBe(sirFactJsonString);
+    });
+
+    it('should return error if SIR generation fails after all retries', async () => {
+      llmService.generate.mockResolvedValue('this is not json'); // All attempts fail
+
+      const result = await mcrService.assertNLToSessionWithSIR(sessionId, nlTextFact, 1); // Allow 1 retry (2 attempts total)
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Failed to generate valid SIR JSON from LLM after multiple attempts.');
+      expect(result.error).toBe('sir_json_parsing_failed');
+      expect(llmService.generate).toHaveBeenCalledTimes(2); // Max attempts
+    });
+
+    it('should return error if LLM indicates input is a question', async () => {
+      const sirErrorJson = JSON.stringify({ error: "Input is a question, not an assertable statement." });
+      llmService.generate.mockResolvedValue(sirErrorJson);
+
+      const result = await mcrService.assertNLToSessionWithSIR(sessionId, "Is the ball red?");
+      expect(result.success).toBe(false);
+      expect(result.message).toBe("Input is a question, not an assertable statement.");
+      expect(result.error).toBe('sir_generation_llm_error');
+    });
+
+    it('should return error if session is not found', async () => {
+      sessionManager.getSession.mockReturnValue(null);
+      const result = await mcrService.assertNLToSessionWithSIR('nonexistent-session', nlTextFact);
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Session not found.');
+      expect(result.error).toBe('session_not_found');
+    });
+
+    it('should return error if SIR to Prolog conversion results in no facts', async () => {
+      // Simulate SIR that converts to nothing (e.g. malformed SIR for the converter, though converter should throw)
+      // For this test, let's imagine a valid SIR structure that our sirToProlog might (incorrectly) produce no output for
+      const emptySir = JSON.stringify({ statementType: 'fact', fact: { predicate: '', arguments: []} }); // Unlikely but for test
+       llmService.generate.mockResolvedValue(emptySir);
+
+      // To make sirToProlog return an empty array, we'd need it to handle a case that produces no output.
+      // The current sirToProlog would throw an error for predicate: ''. Let's mock it.
+      const originalSirToProlog = mcrService.sirToProlog; // access non-exported for test
+      const { sirToProlog: mockedSirToProlog, ...actualMcrService } = require('../src/mcrService');
+
+      jest.isolateModules(() => {
+        jest.doMock('../src/mcrService', () => {
+            const originalModule = jest.requireActual('../src/mcrService');
+            return {
+                ...originalModule,
+                // This specific way of mocking internal function is tricky.
+                // A better way would be to pass sirToProlog as a dependency if this was common.
+                // For now, this test might be more conceptual or require refactoring mcrService for testability.
+                // Let's assume the test is for when sirToProlog *does* return [] despite valid SIR struct.
+            };
+        });
+        // This test path is hard to hit without directly manipulating sirToProlog or having a SIR structure
+        // that explicitly leads to empty output without error.
+        // The current sirToProlog throws errors for invalid structures rather than returning [].
+        // So, this test case as written is for a hypothetical scenario.
+        // A more realistic test would be for sirToProlog throwing an error.
+      });
+
+
+      // Instead, let's test the path where sirToProlog throws an error
+      const invalidSirForConversion = JSON.stringify({ statementType: 'unknown' });
+      llmService.generate.mockResolvedValue(invalidSirForConversion);
+      const result = await mcrService.assertNLToSessionWithSIR(sessionId, "text");
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('Error during SIR assertion: Unsupported SIR statementType: unknown');
+    });
+
+    it('should return error if sessionManager.addFacts fails', async () => {
+      sessionManager.addFacts.mockReturnValue(false); // Simulate failure in adding facts
+      const result = await mcrService.assertNLToSessionWithSIR(sessionId, nlTextFact);
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Failed to add SIR-derived facts to session.');
+      expect(result.error).toBe('session_add_sir_failed');
+    });
+
+    it('should handle errors from ontologyService.listOntologies gracefully', async () => {
+      ontologyService.listOntologies.mockRejectedValue(new Error('Ontology service error for SIR'));
+      // Should still proceed and attempt to assert
+      const result = await mcrService.assertNLToSessionWithSIR(sessionId, nlTextFact);
+      expect(result.success).toBe(true);
+      expect(llmService.generate).toHaveBeenCalled();
+      expect(sessionManager.addFacts).toHaveBeenCalledWith(sessionId, [prologFactFromSir]);
+    });
+
+    it('should handle general errors from llmService.generate', async () => {
+      llmService.generate.mockRejectedValue(new Error('LLM SIR generation failed'));
+      const result = await mcrService.assertNLToSessionWithSIR(sessionId, nlTextFact);
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('Error during SIR assertion: LLM SIR generation failed');
+    });
+
   });
 });

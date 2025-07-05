@@ -154,9 +154,41 @@ async function runQuery(knowledgeBase, query, limit = 10) {
   });
 }
 
+/**
+ * Validates the syntax of a given knowledge base (placeholder).
+ * @param {string} knowledgeBase - A string containing the Prolog facts and rules.
+ * @returns {Promise<{isValid: boolean, error?: string}>} A promise that resolves to an object
+ *          indicating if the knowledge base is valid.
+ */
+async function validateKnowledgeBase(knowledgeBase) {
+  // Placeholder implementation.
+  // A real implementation would try to consult the KB in a new session
+  // and catch errors. For Tau Prolog, session.consult itself can throw errors.
+  logger.info('[PrologReasonerProvider] validateKnowledgeBase called (placeholder).');
+  try {
+    const session = prolog.create(100); // Create a temporary session
+    let consultError = null;
+    session.consult(knowledgeBase, {
+        success: () => {}, // Do nothing on success
+        error: (err) => {
+            consultError = err;
+        }
+    });
+    if (consultError) {
+      logger.warn(`[PrologReasonerProvider] Knowledge base validation failed: ${consultError}`);
+      return { isValid: false, error: String(consultError) };
+    }
+    return { isValid: true };
+  } catch (e) {
+    logger.error(`[PrologReasonerProvider] Error during knowledge base validation: ${e.message}`);
+    return { isValid: false, error: e.message };
+  }
+}
+
 module.exports = {
   name: 'prolog',
-  runQuery,
+  executeQuery: runQuery, // Aligning with IReasonProvider, runQuery is the implementation
+  validate: validateKnowledgeBase,
   // Potentially add methods for asserting facts if needed, though runQuery can handle assertz/retractz
   // For example, an assertFacts(kb, factsToAssert) could internally call runQuery with assert queries.
 };
