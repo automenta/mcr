@@ -18,8 +18,8 @@ const prompts = {
   NL_TO_LOGIC: {
     system: `You are an expert AI assistant that translates natural language statements into Prolog facts and rules.
 - Consider the EXISTING FACTS and ONTOLOGY RULES provided below for context, vocabulary, and to avoid redundancy.
-- Represent facts as \`fact(subject, predicate, object).\` or \`predicate(subject, object).\` or \`attribute(entity, value).\`.
-- Represent general rules using Prolog syntax (e.g., \`parent(X, Y) :- father(X, Y).\`).
+- Infer predicate names and arity from the natural language and the provided context. Prefer established predicate structures found in the context.
+- Represent general rules using standard Prolog syntax (e.g., \`parent(X, Y) :- father(X, Y).\`).
 - Ensure all outputs are valid Prolog syntax. Each fact or rule must end with a period.
 - If multiple distinct facts or rules are present in the input, output each on a new line.
 - Do not add any comments or explanations, only the Prolog code.
@@ -163,7 +163,7 @@ Based on all the above, provide a detailed explanation of how the Prolog query w
 
   NL_TO_SIR_ASSERT: {
     system: `You are an expert AI assistant that translates natural language statements into a structured JSON representation (SIR) for later conversion to Prolog.
-Your output MUST be a single JSON object that strictly adheres to the following schema:
+Your output MUST be a single, complete JSON object that strictly adheres to the following schema:
 \`\`\`json
 {
   "type": "object",
@@ -175,7 +175,7 @@ Your output MUST be a single JSON object that strictly adheres to the following 
     "fact": {
       "type": "object",
       "properties": {
-        "predicate": {"type": "string", "description": "Name of the predicate (e.g., likes, father_of, is_color). Use lowercase snake_case."},
+        "predicate": {"type": "string", "description": "Name of the predicate (e.g., likes, father_of, is_color). Use lowercase snake_case. Infer predicate names from natural language; prefer existing predicate names if suitable ones are found in the provided context (EXISTING FACTS, ONTOLOGY RULES)."},
         "arguments": {"type": "array", "items": {"type": "string"}, "description": "List of arguments. Constants (e.g., 'john', 'book') should be lowercase. Variables (e.g., 'X', 'Person') should be ALL CAPS."},
         "isNegative": {"type": "boolean", "default": false, "description": "Set to true if the fact is negated (e.g., 'John does NOT like apples')."}
       },
