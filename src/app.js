@@ -27,9 +27,13 @@ app.use((req, res, next) => {
 });
 
 // Setup routes
+logger.info('Setting up application routes...');
 setupRoutes(app);
+logger.info('Application routes set up.');
 
 // Error handling middleware - should be last
+logger.info('Attaching error handling middleware...');
 app.use(errorHandlerMiddleware);
+logger.info('Error handling middleware attached.');
 
 module.exports = app;

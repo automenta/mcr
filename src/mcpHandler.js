@@ -199,17 +199,39 @@ const mcrTools = [
   },
 ];
 
-function sendSseEvent(res, eventName, data) {
+function sendSseEvent(
+  res,
+  eventName,
+  data,
+  clientId = 'unknown',
+  invocation_id = 'N/A'
+) {
   const eventId = uuidv4();
+  const loggedData = { ...data };
+  // Avoid logging potentially very large tool outputs by default in the main log, log them separately if needed.
+  if (eventName === 'tool_result' && loggedData.output) {
+    loggedData.output =
+      typeof loggedData.output === 'string'
+        ? `String(length:${loggedData.output.length})`
+        : `Object(keys:${Object.keys(loggedData.output)})`;
+  }
+
   res.write(`id: ${eventId}\n`);
   res.write(`event: ${eventName}\n`);
   res.write(`data: ${JSON.stringify(data)}\n\n`);
-  logger.debug(`[MCP SSE] Sent event: ${eventName}`, { eventId, data });
+  logger.http(
+    `[MCP SSE][${clientId}] Sent SSE event. Name: ${eventName}, EventID: ${eventId}, InvocationID: ${invocation_id}`,
+    { eventName, eventId, invocation_id, data: loggedData }
+  );
 }
 
 async function handleSse(req, res) {
-  const clientId = req.headers['x-mcp-client-id'] || `client-${uuidv4()}`;
-  logger.info(`[MCP SSE] Client connected: ${clientId}`);
+  const correlationId = req.correlationId || `sse-conn-${uuidv4()}`; // Use existing or generate one for the connection
+  const clientId =
+    req.headers['x-mcp-client-id'] || `client-${uuidv4().substring(0, 8)}`;
+  logger.info(
+    `[MCP SSE][${clientId}][${correlationId}] Client connected. IP: ${req.ip}`
+  );
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -220,59 +242,105 @@ async function handleSse(req, res) {
   });
 
   // Send initial tools_updated event
-  sendSseEvent(res, 'tools_updated', { tools: mcrTools });
+  logger.info(
+    `[MCP SSE][${clientId}][${correlationId}] Sending initial 'tools_updated' event.`
+  );
+  sendSseEvent(
+    res,
+    'tools_updated',
+    { tools: mcrTools },
+    clientId,
+    'initial_setup'
+  );
 
   req.on('data', async (chunk) => {
     const message = chunk.toString();
-    logger.debug(
-      `[MCP SSE] Received raw data from client ${clientId}: ${message}`
+    logger.http(
+      `[MCP SSE][${clientId}][${correlationId}] Received raw data chunk. Length: ${message.length}. Data: ${message.substring(0, 200)}${message.length > 200 ? '...' : ''}`
     );
     // MCP messages are expected to be newline-separated JSON strings for invoke_tool
-    // A robust parser would handle potential partial messages, but for simplicity:
     try {
       const lines = message.trim().split('\n');
       for (const line of lines) {
         if (line.startsWith('data:')) {
+          // Assuming messages are always prefixed with 'data:' as per SSE
           const jsonData = line.substring('data:'.length).trim();
+          if (!jsonData) {
+            logger.debug(
+              `[MCP SSE][${clientId}][${correlationId}] Received empty data line, skipping.`
+            );
+            continue;
+          }
           const mcpMessage = JSON.parse(jsonData);
+          logger.debug(
+            `[MCP SSE][${clientId}][${correlationId}] Parsed MCP message:`,
+            {
+              type: mcpMessage.type,
+              tool_name: mcpMessage.tool_name,
+              invocation_id: mcpMessage.invocation_id,
+            }
+          );
 
           if (mcpMessage.type === 'invoke_tool') {
-            logger.info(
-              `[MCP SSE] Received invoke_tool from ${clientId}: ${mcpMessage.tool_name}`,
-              { input: mcpMessage.input }
+            // Input logging is deferred to handleToolInvocation for more context
+            await handleToolInvocation(
+              res,
+              mcpMessage,
+              clientId,
+              correlationId
             );
-            await handleToolInvocation(res, mcpMessage, clientId);
           } else {
             logger.warn(
-              `[MCP SSE] Received unknown MCP message type from ${clientId}: ${mcpMessage.type}`
+              `[MCP SSE][${clientId}][${correlationId}] Received unknown MCP message type: ${mcpMessage.type}`,
+              { mcpMessage }
             );
           }
+        } else if (line.trim()) {
+          // Non-empty line that doesn't start with 'data:'
+          logger.warn(
+            `[MCP SSE][${clientId}][${correlationId}] Received non-data SSE line, ignoring: "${line}"`
+          );
         }
       }
     } catch (error) {
       logger.error(
-        `[MCP SSE] Error processing message from client ${clientId}: ${error.message}`,
-        { rawMessage: message, error }
+        `[MCP SSE][${clientId}][${correlationId}] Error processing message: ${error.message}`,
+        { rawMessage: message, error: error.stack }
       );
       // Optionally send an error back to the client if the protocol supports it for malformed requests
+      // For example: sendSseEvent(res, 'protocol_error', { message: 'Failed to parse incoming message' }, clientId);
     }
   });
 
   req.on('close', () => {
-    logger.info(`[MCP SSE] Client disconnected: ${clientId}`);
+    logger.info(
+      `[MCP SSE][${clientId}][${correlationId}] Client disconnected.`
+    );
     res.end();
   });
 }
 
-async function handleToolInvocation(res, invokeMsg, clientId) {
+async function handleToolInvocation(
+  res,
+  invokeMsg,
+  clientId,
+  parentCorrelationId
+) {
   const { tool_name, input, invocation_id } = invokeMsg;
+  const toolCorrelationId = `${parentCorrelationId}-tool-${invocation_id.substring(0, 8)}`;
+  logger.info(
+    `[MCP Tool][${clientId}][${toolCorrelationId}] Enter handleToolInvocation. Tool: ${tool_name}, InvocationID: ${invocation_id}`,
+    { tool_name, input, invocation_id } // Log full input here as it's specific to this invocation
+  );
   let resultData;
 
   try {
     switch (tool_name) {
       case 'create_reasoning_session':
+        logger.debug(
+          `[MCP Tool][${clientId}][${toolCorrelationId}] Calling mcrService.createSession for ${tool_name}`
+        );
         const session = mcrService.createSession();
-        // Adapt mcrService output to MCP tool output schema
         resultData = {
           sessionId: session.id,
           createdAt: session.createdAt.toISOString(),
@@ -283,11 +351,17 @@ async function handleToolInvocation(res, invokeMsg, clientId) {
 
       case 'assert_facts_to_session':
         if (!input || !input.sessionId || !input.naturalLanguageText) {
+          logger.warn(
+            `[MCP Tool][${clientId}][${toolCorrelationId}] Invalid input for ${tool_name}: sessionId or naturalLanguageText missing.`
+          );
           throw new ApiError(
             400,
             'Missing sessionId or naturalLanguageText for assert_facts_to_session'
           );
         }
+        logger.debug(
+          `[MCP Tool][${clientId}][${toolCorrelationId}] Calling mcrService.assertNLToSession for ${tool_name}. Session: ${input.sessionId}, Text: "${input.naturalLanguageText.substring(0, 50)}..."`
+        );
         const assertResult = await mcrService.assertNLToSession(
           input.sessionId,
           input.naturalLanguageText
@@ -295,29 +369,38 @@ async function handleToolInvocation(res, invokeMsg, clientId) {
         resultData = {
           success: assertResult.success,
           message: assertResult.message,
-          addedFacts: assertResult.addedFacts, // Will be undefined if not successful or no facts
+          addedFacts: assertResult.addedFacts,
         };
-        if (
-          !assertResult.success &&
-          resultData.message.includes('Session not found')
-        ) {
-          throw new ApiError(404, resultData.message, 'SESSION_NOT_FOUND_TOOL');
-        } else if (!assertResult.success) {
-          throw new ApiError(400, resultData.message, 'ASSERT_TOOL_FAILED');
+        if (!assertResult.success) {
+          const errorType =
+            resultData.message &&
+            resultData.message.includes('Session not found')
+              ? 'SESSION_NOT_FOUND_TOOL'
+              : 'ASSERT_TOOL_FAILED';
+          const statusCode = errorType === 'SESSION_NOT_FOUND_TOOL' ? 404 : 400;
+          logger.warn(
+            `[MCP Tool][${clientId}][${toolCorrelationId}] ${tool_name} failed. Message: ${resultData.message}, Error type: ${errorType}`
+          );
+          throw new ApiError(statusCode, resultData.message, errorType);
         }
         break;
 
       case 'translate_nl_to_rules':
         if (!input || !input.naturalLanguageText) {
+          logger.warn(
+            `[MCP Tool][${clientId}][${toolCorrelationId}] Invalid input for ${tool_name}: naturalLanguageText missing.`
+          );
           throw new ApiError(
             400,
             'Missing naturalLanguageText for translate_nl_to_rules'
           );
         }
+        logger.debug(
+          `[MCP Tool][${clientId}][${toolCorrelationId}] Calling mcrService.translateNLToRulesDirect for ${tool_name}. Text: "${input.naturalLanguageText.substring(0, 50)}..."`
+        );
         const nlToRulesResult = await mcrService.translateNLToRulesDirect(
           input.naturalLanguageText
         );
-        // Schema: { success, rules?, rawOutput?, message? }
         resultData = {
           success: nlToRulesResult.success,
           rules: nlToRulesResult.rules,
@@ -325,6 +408,9 @@ async function handleToolInvocation(res, invokeMsg, clientId) {
           message: nlToRulesResult.message,
         };
         if (!nlToRulesResult.success) {
+          logger.warn(
+            `[MCP Tool][${clientId}][${toolCorrelationId}] ${tool_name} failed. Message: ${resultData.message}`
+          );
           throw new ApiError(
             400,
             resultData.message || 'NL to Rules translation failed',
@@ -335,22 +421,30 @@ async function handleToolInvocation(res, invokeMsg, clientId) {
 
       case 'translate_rules_to_nl':
         if (!input || !input.prologRules) {
+          logger.warn(
+            `[MCP Tool][${clientId}][${toolCorrelationId}] Invalid input for ${tool_name}: prologRules missing.`
+          );
           throw new ApiError(
             400,
             'Missing prologRules for translate_rules_to_nl'
           );
         }
+        logger.debug(
+          `[MCP Tool][${clientId}][${toolCorrelationId}] Calling mcrService.translateRulesToNLDirect for ${tool_name}. Style: ${input.style || 'conversational'}, Rules: "${input.prologRules.substring(0, 50)}..."`
+        );
         const rulesToNlResult = await mcrService.translateRulesToNLDirect(
           input.prologRules,
           input.style || 'conversational'
         );
-        // Schema: { success, explanation?, message? }
         resultData = {
           success: rulesToNlResult.success,
           explanation: rulesToNlResult.explanation,
           message: rulesToNlResult.message,
         };
         if (!rulesToNlResult.success) {
+          logger.warn(
+            `[MCP Tool][${clientId}][${toolCorrelationId}] ${tool_name} failed. Message: ${resultData.message}`
+          );
           throw new ApiError(
             400,
             resultData.message || 'Rules to NL translation failed',
@@ -361,40 +455,48 @@ async function handleToolInvocation(res, invokeMsg, clientId) {
 
       case 'query_session':
         if (!input || !input.sessionId || !input.naturalLanguageQuestion) {
+          logger.warn(
+            `[MCP Tool][${clientId}][${toolCorrelationId}] Invalid input for ${tool_name}: sessionId or naturalLanguageQuestion missing.`
+          );
           throw new ApiError(
             400,
             'Missing sessionId or naturalLanguageQuestion for query_session'
           );
         }
+        logger.debug(
+          `[MCP Tool][${clientId}][${toolCorrelationId}] Calling mcrService.querySessionWithNL for ${tool_name}. Session: ${input.sessionId}, Question: "${input.naturalLanguageQuestion.substring(0, 50)}..."`
+        );
         const queryResult = await mcrService.querySessionWithNL(
           input.sessionId,
           input.naturalLanguageQuestion
+          // Note: MCP query_session tool doesn't currently expose queryOptions like dynamicOntology or style.
+          // If needed, the MCP tool schema and this call would need to be updated.
         );
         resultData = {
           success: queryResult.success,
-          answer: queryResult.answer, // Will be undefined if not successful
+          answer: queryResult.answer,
         };
-        if (
-          !queryResult.success &&
-          queryResult.message.includes('Session not found')
-        ) {
-          throw new ApiError(
-            404,
-            queryResult.message,
-            'SESSION_NOT_FOUND_TOOL'
+        if (!queryResult.success) {
+          const errorType =
+            queryResult.message &&
+            queryResult.message.includes('Session not found')
+              ? 'SESSION_NOT_FOUND_TOOL'
+              : 'QUERY_TOOL_FAILED';
+          const statusCode = errorType === 'SESSION_NOT_FOUND_TOOL' ? 404 : 500; // Default to 500 for other query failures
+          logger.warn(
+            `[MCP Tool][${clientId}][${toolCorrelationId}] ${tool_name} failed. Message: ${queryResult.message}, Error type: ${errorType}`
           );
-        } else if (!queryResult.success) {
           throw new ApiError(
-            500,
-            queryResult.message || 'Query tool failed internally',
-            'QUERY_TOOL_FAILED'
+            statusCode,
+            queryResult.message || 'Query tool failed',
+            errorType
           );
         }
         break;
 
       default:
         logger.warn(
-          `[MCP Tool] Unknown tool invoked by ${clientId}: ${tool_name}`
+          `[MCP Tool][${clientId}][${toolCorrelationId}] Unknown tool invoked: ${tool_name}`
         );
         throw new ApiError(
           404,
@@ -403,30 +505,45 @@ async function handleToolInvocation(res, invokeMsg, clientId) {
         );
     }
 
+    // Sensitive data (like full rule sets or long NL answers) is in resultData.
+    // The sendSseEvent function already has logic to summarize 'output' for general logging.
+    // For more detailed logging of specific tool outputs, one could add it here conditionally.
     logger.info(
-      `[MCP Tool] Successfully invoked ${tool_name} for ${clientId}. Output:`,
-      JSON.stringify(resultData)
+      `[MCP Tool][${clientId}][${toolCorrelationId}] Successfully invoked ${tool_name}.`
+      // Specific output details logged by sendSseEvent to avoid duplication and manage verbosity.
     );
-    sendSseEvent(res, 'tool_result', {
-      invocation_id,
-      tool_name,
-      output: resultData,
-    });
+    sendSseEvent(
+      res,
+      'tool_result',
+      {
+        invocation_id,
+        tool_name,
+        output: resultData,
+      },
+      clientId,
+      invocation_id
+    );
   } catch (error) {
     logger.error(
-      `[MCP Tool] Error invoking tool ${tool_name} for ${clientId}: ${error.message}`,
-      { error }
+      `[MCP Tool][${clientId}][${toolCorrelationId}] Error invoking tool ${tool_name}: ${error.message}`,
+      { error: error.stack } // Log stack for all errors from tools
     );
     const isApiError = error instanceof ApiError;
-    sendSseEvent(res, 'tool_error', {
-      invocation_id,
-      tool_name,
-      error: {
-        message: error.message,
-        code: isApiError ? error.errorCode : 'TOOL_EXECUTION_ERROR',
-        details: isApiError ? error.details : undefined,
+    sendSseEvent(
+      res,
+      'tool_error',
+      {
+        invocation_id,
+        tool_name,
+        error: {
+          message: error.message,
+          code: isApiError ? error.errorCode : 'TOOL_EXECUTION_ERROR',
+          details: isApiError ? error.details : undefined, // Only include details if it's a structured ApiError
+        },
       },
-    });
+      clientId,
+      invocation_id
+    );
   }
 }
 

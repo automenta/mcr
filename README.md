@@ -267,6 +267,7 @@ MCR exposes a RESTful API. All requests and responses are JSON.
 #### Session Management
 
 - `POST /api/v1/sessions`
+
   - **Description**: Creates a new reasoning session.
   - **Response (201 Created)**:
     ```json
@@ -279,6 +280,7 @@ MCR exposes a RESTful API. All requests and responses are JSON.
     _(Note: `factCount`, `llmProvider`, `reasonerProvider` may be included by some session managers but are not part of the core MCR session object upon creation)._
 
 - `GET /api/v1/sessions/:sessionId`
+
   - **Description**: Retrieves the details of a specific session.
   - **Parameters**: `sessionId` (path) - The ID of the session.
   - **Response (200 OK)**: Same structure as `POST /sessions` response, but reflecting the current state of the session.
@@ -324,6 +326,7 @@ MCR exposes a RESTful API. All requests and responses are JSON.
 #### Querying the Knowledge Base
 
 - `POST /api/v1/sessions/:sessionId/query`
+
   - **Description**: Translates a natural language question into a Prolog query, executes it, and returns a natural language answer.
   - **Parameters**: `sessionId` (path) - The ID of the session.
   - **Request Body**:
@@ -384,6 +387,7 @@ MCR exposes a RESTful API. All requests and responses are JSON.
 #### Direct Translation Endpoints
 
 - `POST /api/v1/translate/nl-to-rules`
+
   - **Description**: Translates natural language text into a list of Prolog facts/rules.
   - **Request Body**:
     ```json
@@ -431,6 +435,7 @@ MCR exposes a RESTful API. All requests and responses are JSON.
 Ontologies are global collections of Prolog facts/rules.
 
 - `POST /api/v1/ontologies`
+
   - **Description**: Creates a new global ontology.
   - **Request Body**:
     ```json
@@ -449,6 +454,7 @@ Ontologies are global collections of Prolog facts/rules.
   - **Response (400 Bad Request)**: If `name` or `rules` are missing, or name conflict.
 
 - `GET /api/v1/ontologies`
+
   - **Description**: Retrieves a list of all global ontologies.
   - **Query Parameters**: `?includeRules=true` (optional) to include the `rules` content in the list.
   - **Response (200 OK)**: Array of ontology objects.
@@ -460,12 +466,14 @@ Ontologies are global collections of Prolog facts/rules.
     ```
 
 - `GET /api/v1/ontologies/:name`
+
   - **Description**: Retrieves a specific global ontology by its name.
   - **Parameters**: `name` (path) - The name of the ontology.
   - **Response (200 OK)**: The ontology object.
   - **Response (404 Not Found)**: If ontology does not exist.
 
 - `PUT /api/v1/ontologies/:name`
+
   - **Description**: Updates an existing global ontology.
   - **Parameters**: `name` (path) - The name of the ontology to update.
   - **Request Body**:
@@ -491,6 +499,7 @@ Ontologies are global collections of Prolog facts/rules.
 #### Utility & Debugging Endpoints
 
 - `GET /api/v1/prompts`
+
   - **Description**: Retrieves all raw prompt templates loaded by the MCR server.
   - **Response (200 OK)**: An object where keys are template names (e.g., `NL_TO_RULES`) and values are the template strings.
     ```json
@@ -586,6 +595,7 @@ Claude should then be able to discover and use the MCR tools.
 To add support for a new LLM provider (e.g., "MyNewLLM"):
 
 1.  **Create Provider Module**:
+
     - Add a new file, e.g., `src/llmProviders/myNewLlmProvider.js`.
     - This module must export an object with at least:
       - `name` (string): The identifier for the provider (e.g., `'mynewllm'`).
@@ -616,10 +626,12 @@ To add support for a new LLM provider (e.g., "MyNewLLM"):
       ```
 
 2.  **Register in `src/llmService.js`**:
+
     - Import your new provider: `const MyNewLlmProvider = require('./llmProviders/myNewLlmProvider');`
     - Add a `case` for `'mynewllm'` in the `switch` statement within the `getProvider()` function to set `selectedProvider = MyNewLlmProvider;`.
 
 3.  **Update Configuration (`src/config.js`)**:
+
     - Add a configuration section for your provider under `config.llm`:
       ```javascript
       // In config.js, inside the config object:
@@ -636,6 +648,7 @@ To add support for a new LLM provider (e.g., "MyNewLLM"):
     - Update `validateConfig()` in `src/config.js` if your provider has mandatory configuration (e.g., API key).
 
 4.  **Update `.env.example`**:
+
     - Add environment variable examples for your new provider (e.g., `MYNEWLLM_API_KEY`, `MCR_LLM_MODEL_MYNEWLLM`).
 
 5.  **Documentation**:
@@ -796,20 +809,24 @@ Defines the contract for a symbolic reasoning engine.
 The MCR service exposes a RESTful API for interaction.
 
 - **`POST /sessions`**
+
   - **Description:** Creates a new reasoning session.
   - **Response Body:** `{ "sessionId": "string" }`
 
 - **`POST /sessions/{sessionId}/assert`**
+
   - **Description:** Asserts new knowledge into the session's KB using the currently configured Translation Strategy.
   - **Request Body:** `{ "text": "string" }`
   - **Response Body:** `{ "addedClauses": ["string"], "knowledgeBase": "string" }`
 
 - **`POST /sessions/{sessionId}/query`**
+
   - **Description:** Poses a natural language query to the session's KB.
   - **Request Body:** `{ "query": "string" }`
   - **Response Body:** `{ "prologQuery": "string", "rawResult": object, "naturalLanguageAnswer": "string" }`
 
 - **`PUT /sessions/{sessionId}/kb`**
+
   - **Description:** Directly overwrites the entire KB of a session. The new KB is validated before being saved.
   - **Request Body:** `{ "knowledgeBase": "string" }`
   - **Response Body:** `200 OK`

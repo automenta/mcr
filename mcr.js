@@ -12,11 +12,23 @@ const HOST = config.server.host;
 // mcrService.init().then(() => { ... start server ... }).catch(err => ...);
 
 const server = app.listen(PORT, HOST, () => {
-  logger.info(`MCR Streamlined server listening on http://${HOST}:${PORT}`);
-  logger.info(`Current LLM provider: ${config.llm.provider}`);
-  logger.info(`Current Reasoner provider: ${config.reasoner.provider}`);
-  logger.info(`Log level set to: ${config.logLevel}`);
-  // Log important config paths or settings if helpful
+  // logger.info(`MCR Streamlined server listening on http://${HOST}:${PORT}`);
+  logger.info('Server is running'); // Exact match for tool detection
+  logger.info('--- Configuration ---');
+  logger.info(`  Log Level: ${config.logLevel}`);
+  logger.info(`  LLM Provider: ${config.llm.provider}`);
+  if (config.llm.provider === 'ollama') {
+    logger.info(`    Ollama Model: ${config.llm.ollama.model}`);
+    logger.info(`    Ollama Base URL: ${config.llm.ollama.baseURL}`);
+  } else if (config.llm.provider === 'gemini') {
+    logger.info(`    Gemini Model: ${config.llm.gemini.model}`);
+    // Do NOT log API keys
+  }
+  logger.info(`  Reasoner Provider: ${config.reasoner.provider}`);
+  // Add reasoner specifics if any in the future
+  logger.info(`  Ontology Directory: ${config.ontology.directory}`);
+  logger.info(`  Default Translation Strategy: ${config.translationStrategy}`);
+  logger.info('---------------------');
 });
 
 // Graceful shutdown
@@ -39,13 +51,13 @@ process.on('SIGINT', () => {
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', { promise, reason });
+  logger.error('Unhandled Rejection at:', reason, { promise });
   // Application specific logging, throwing an error, or other logic here
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception:', { error });
+  logger.error('Uncaught Exception:', error);
   // Application specific logging, shutdown, or other logic here
   // It's often recommended to gracefully shut down the server on uncaught exceptions
   server.close(() => {
