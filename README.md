@@ -197,10 +197,10 @@ createMcrSession();
 
 MCR uses an environment variable `MCR_DEBUG_LEVEL` to control the verbosity of debug information in API responses. This is useful for development and troubleshooting.
 
--   **`MCR_DEBUG_LEVEL`**: Set this in your `.env` file.
-    -   `none` (Default): No detailed debug information is included in API responses. This is recommended for production.
-    -   `basic`: Includes essential debug fields (like the generated Prolog query) and summaries of potentially large data (like knowledge base size).
-    -   `verbose`: Includes full, detailed debug information in the `debugInfo` field of responses (e.g., full knowledge base snapshot, detailed LLM outputs for intermediate steps). **Use with caution, as this can expose large amounts of data and potentially sensitive information.**
+- **`MCR_DEBUG_LEVEL`**: Set this in your `.env` file.
+  - `none` (Default): No detailed debug information is included in API responses. This is recommended for production.
+  - `basic`: Includes essential debug fields (like the generated Prolog query) and summaries of potentially large data (like knowledge base size).
+  - `verbose`: Includes full, detailed debug information in the `debugInfo` field of responses (e.g., full knowledge base snapshot, detailed LLM outputs for intermediate steps). **Use with caution, as this can expose large amounts of data and potentially sensitive information.**
 
 For specific endpoints like `POST /api/v1/sessions/:sessionId/query` and `POST /api/v1/sessions/:sessionId/explain-query`, clients can request debug information by including `"options": { "debug": true }` in the JSON request body.
 The actual detail level of the returned `debugInfo` object will still be governed by the server's `MCR_DEBUG_LEVEL` setting. For example, if `MCR_DEBUG_LEVEL` is "basic", sending `"debug": true` will yield basic debug info, not verbose. If `MCR_DEBUG_LEVEL` is "none", no `debugInfo` will be returned even if the client requests it.
@@ -384,7 +384,8 @@ MCR exposes a RESTful API. All requests and responses are JSON.
     ```json
     {
       "query": "Who are Mary's grandparents?",
-      "options": { // Optional
+      "options": {
+        // Optional
         "debug": true // To request debug information
       }
     }

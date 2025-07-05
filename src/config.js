@@ -17,14 +17,16 @@ const config = {
       apiKey: process.env.GEMINI_API_KEY,
       model: process.env.MCR_LLM_MODEL_GEMINI || 'gemini-pro',
     },
-    openai: { // Placeholder for future OpenAI integration
+    openai: {
+      // Placeholder for future OpenAI integration
       apiKey: process.env.OPENAI_API_KEY,
       model: process.env.MCR_LLM_MODEL_OPENAI || 'gpt-4o', // Example default
     },
-    anthropic: { // Placeholder for future Anthropic integration
+    anthropic: {
+      // Placeholder for future Anthropic integration
       apiKey: process.env.ANTHROPIC_API_KEY,
       model: process.env.MCR_LLM_MODEL_ANTHROPIC || 'claude-3-opus-20240229', // Example default
-    }
+    },
     // Future providers can be added here by defining their config structure
   },
   reasoner: {
@@ -85,7 +87,8 @@ function validateConfig() {
   // Validate debugLevel
   const validDebugLevels = ['none', 'basic', 'verbose'];
   if (!validDebugLevels.includes(config.debugLevel.toLowerCase())) {
-    console.warn( // Warn and default, rather than throw, as it's not critical for startup
+    console.warn(
+      // Warn and default, rather than throw, as it's not critical for startup
       `Warning: Invalid MCR_DEBUG_LEVEL "${config.debugLevel}". Allowed values: ${validDebugLevels.join(', ')}. Defaulting to "none".`
     );
     config.debugLevel = 'none';

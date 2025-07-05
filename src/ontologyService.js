@@ -56,7 +56,8 @@ async function createOntology(name, rulesString) {
   }
 
   // Validate Prolog syntax before saving
-  const validationResult = await reasonerService.validateKnowledgeBase(rulesString);
+  const validationResult =
+    await reasonerService.validateKnowledgeBase(rulesString);
   if (!validationResult.isValid) {
     logger.warn(
       `[OntologyService] Validation failed for new ontology "${name}". Error: ${validationResult.error}`
@@ -73,7 +74,9 @@ async function createOntology(name, rulesString) {
 
   try {
     await fs.writeFile(filePath, rulesString, { flag: 'wx' }); // 'wx' fails if path exists
-    logger.info(`[OntologyService] Created ontology: ${name} after validation.`);
+    logger.info(
+      `[OntologyService] Created ontology: ${name} after validation.`
+    );
     return { name, rules: rulesString };
   } catch (error) {
     if (error.code === 'EEXIST') {
@@ -163,7 +166,8 @@ async function updateOntology(name, newRulesString) {
   }
 
   // Validate Prolog syntax before saving
-  const validationResult = await reasonerService.validateKnowledgeBase(newRulesString);
+  const validationResult =
+    await reasonerService.validateKnowledgeBase(newRulesString);
   if (!validationResult.isValid) {
     logger.warn(
       `[OntologyService] Validation failed for updating ontology "${name}". Error: ${validationResult.error}`
@@ -181,7 +185,9 @@ async function updateOntology(name, newRulesString) {
     // Check if file exists first to provide a 404 if it doesn't
     await fs.access(filePath); // Throws if doesn't exist
     await fs.writeFile(filePath, newRulesString, 'utf-8'); // Overwrite existing file
-    logger.info(`[OntologyService] Updated ontology: ${name} after validation.`);
+    logger.info(
+      `[OntologyService] Updated ontology: ${name} after validation.`
+    );
     return { name, rules: newRulesString };
   } catch (error) {
     if (error.code === 'ENOENT') {

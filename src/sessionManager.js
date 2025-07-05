@@ -22,7 +22,11 @@ function createSession() {
   logger.info(`Session created: ${sessionId}`);
   // Return a copy, ensuring lexicon is also copied if it's to be exposed directly
   // For now, getSession will not expose lexicon directly, only through getLexiconSummary
-  return { id: session.id, createdAt: session.createdAt, facts: [...session.facts] };
+  return {
+    id: session.id,
+    createdAt: session.createdAt,
+    facts: [...session.facts],
+  };
 }
 
 /**
@@ -37,7 +41,11 @@ function getSession(sessionId) {
   }
   const session = sessions[sessionId];
   // Return a copy, excluding direct lexicon access from this general getter
-  return { id: session.id, createdAt: session.createdAt, facts: [...session.facts] };
+  return {
+    id: session.id,
+    createdAt: session.createdAt,
+    facts: [...session.facts],
+  };
 }
 
 /**
@@ -96,11 +104,7 @@ function addFacts(sessionId, newFacts) {
 function _updateLexiconWithFacts(sessionId, facts) {
   if (!sessions[sessionId]) return;
 
-  facts.forEach(fact => {
-    // Remove comments and trim
-    const cleanFact = fact.replace(/%.*$/, '').trim();
-    if (!cleanFact.endsWith('.')) return;
-
+  facts.forEach((fact) => {
     // Remove comments and trim
     const cleanFact = fact.replace(/%.*$/, '').trim();
     if (!cleanFact.endsWith('.')) return; // Ensure it's a complete clause
@@ -118,7 +122,9 @@ function _updateLexiconWithFacts(sessionId, facts) {
     }
 
     // Attempt to match predicate and arguments for terms like predicate(...).
-    const structuredTermMatch = termToParse.match(/^([a-z_][a-zA-Z0-9_]*)\((.*)\)$/);
+    const structuredTermMatch = termToParse.match(
+      /^([a-z_][a-zA-Z0-9_]*)\((.*)\)$/
+    );
 
     if (structuredTermMatch) {
       const predicate = structuredTermMatch[1];
@@ -132,7 +138,9 @@ function _updateLexiconWithFacts(sessionId, facts) {
         arity = potentialArgs ? potentialArgs.length : 0;
       }
       sessions[sessionId].lexicon.add(`${predicate}/${arity}`);
-      logger.debug(`[LexiconUpdate] Added ${predicate}/${arity} from structured term: ${termToParse}`);
+      logger.debug(
+        `[LexiconUpdate] Added ${predicate}/${arity} from structured term: ${termToParse}`
+      );
     } else {
       // Handle simple atoms (facts or rule heads without parentheses, arity 0)
       // e.g., 'is_raining.' or 'system_initialized :- true.' (head is 'system_initialized')
@@ -140,9 +148,13 @@ function _updateLexiconWithFacts(sessionId, facts) {
       if (simpleAtomMatch) {
         const predicate = simpleAtomMatch[1];
         sessions[sessionId].lexicon.add(`${predicate}/0`);
-        logger.debug(`[LexiconUpdate] Added ${predicate}/0 from simple atom: ${termToParse}`);
+        logger.debug(
+          `[LexiconUpdate] Added ${predicate}/0 from simple atom: ${termToParse}`
+        );
       } else {
-        logger.debug(`[LexiconUpdate] Could not parse predicate/arity from term: ${termToParse} (original: ${fact})`);
+        logger.debug(
+          `[LexiconUpdate] Could not parse predicate/arity from term: ${termToParse} (original: ${fact})`
+        );
       }
     }
   });

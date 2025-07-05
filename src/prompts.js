@@ -353,7 +353,6 @@ Question: "{{naturalLanguageQuestion}}"
 
 Prolog Query:`;
 
-
 module.exports = {
   prompts,
   fillTemplate,

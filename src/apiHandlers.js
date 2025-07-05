@@ -92,7 +92,13 @@ async function assertToSessionHandler(req, res, next) {
       `[API][${correlationId}] Unexpected error asserting to session ${sessionId}:`,
       { error: error.stack }
     );
-    next(new ApiError(500, `An unexpected error occurred during assertion: ${error.message}`, 'UNEXPECTED_ASSERT_ERROR'));
+    next(
+      new ApiError(
+        500,
+        `An unexpected error occurred during assertion: ${error.message}`,
+        'UNEXPECTED_ASSERT_ERROR'
+      )
+    );
   }
 }
 
@@ -134,19 +140,8 @@ async function querySessionHandler(req, res, next) {
   // Server's debugLevel from config
   const serverDebugLevel = require('./config').debugLevel;
   // Client's requested debug flag
-  const clientRequestedDebug = options && typeof options.debug === 'boolean' ? options.debug : false;
-
-  // Determine effective debug status for the service call and API response
-  // Client can only get verbose debugInfo if server is also in verbose mode.
-  // If server is 'none', client gets no debugInfo.
-  // If server is 'basic', client gets 'basic' debugInfo, even if requesting verbose.
-  let effectiveDebugForService = false;
-  if (serverDebugLevel === 'verbose' && clientRequestedDebug) {
-    effectiveDebugForService = true; // Request verbose from service
-  } else if (serverDebugLevel === 'basic' && clientRequestedDebug) {
-    effectiveDebugForService = true; // Request basic from service (service will provide basic)
-  }
-  // If serverDebugLevel is 'none', effectiveDebugForService remains false.
+  const clientRequestedDebug =
+    options && typeof options.debug === 'boolean' ? options.debug : false;
 
   const serviceOptions = {
     dynamicOntology: dynamicOntology,
@@ -179,7 +174,11 @@ async function querySessionHandler(req, res, next) {
       // Only include debugInfo in response if client requested it AND server's level allows some form of it.
       // mcrService now shapes debugInfo based on its config.debugLevel.
       // apiHandler respects client's "options.debug" to include it or not.
-      if (clientRequestedDebug && result.debugInfo && serverDebugLevel !== 'none') {
+      if (
+        clientRequestedDebug &&
+        result.debugInfo &&
+        serverDebugLevel !== 'none'
+      ) {
         responsePayload.debugInfo = result.debugInfo;
         logger.debug(
           `[API][${correlationId}] Including debugInfo in response for session ${sessionId} (level: ${result.debugInfo.level}).`
@@ -195,11 +194,17 @@ async function querySessionHandler(req, res, next) {
       let statusCode = 500; // Default to internal server error
       let errorCode = (result.error || 'QUERY_FAILED').toUpperCase();
       // debugInfo from mcrService might contain the original error message if it's a STRATEGY_QUERY_FAILED
-      let errorDetails = result.debugInfo && result.debugInfo.error ? { serviceError: result.debugInfo.error, ...result.debugInfo } : result.debugInfo;
-      if (result.details) { // If mcrService explicitly provides details
-        errorDetails = { ...(errorDetails || {}), serviceDetails: result.details };
+      let errorDetails =
+        result.debugInfo && result.debugInfo.error
+          ? { serviceError: result.debugInfo.error, ...result.debugInfo }
+          : result.debugInfo;
+      if (result.details) {
+        // If mcrService explicitly provides details
+        errorDetails = {
+          ...(errorDetails || {}),
+          serviceDetails: result.details,
+        };
       }
-
 
       if (errorCode === 'SESSION_NOT_FOUND') {
         statusCode = 404;
@@ -208,7 +213,7 @@ async function querySessionHandler(req, res, next) {
         // Add other specific 400 error codes from mcrService.querySessionWithNL if any
       ) {
         statusCode = 400; // Or 500 if it's truly an internal strategy problem not due to input
-      } else if (errorCode === 'INTERNAL_KB_NOT_FOUND_FOR_SESSION'){
+      } else if (errorCode === 'INTERNAL_KB_NOT_FOUND_FOR_SESSION') {
         statusCode = 500; // This is an internal server error
       }
       // For other errors, 500 is appropriate.
@@ -228,7 +233,13 @@ async function querySessionHandler(req, res, next) {
       `[API][${correlationId}] Unexpected error querying session ${sessionId}:`,
       { error: error.stack }
     );
-    next(new ApiError(500, `An unexpected error occurred during query: ${error.message}`, 'UNEXPECTED_QUERY_ERROR'));
+    next(
+      new ApiError(
+        500,
+        `An unexpected error occurred during query: ${error.message}`,
+        'UNEXPECTED_QUERY_ERROR'
+      )
+    );
   }
 }
 
@@ -489,18 +500,24 @@ async function nlToRulesDirectHandler(req, res, next) {
         new ApiError(
           result.error === 'no_rules_extracted_by_strategy' ? 400 : 500, // Corrected error code
           result.message || 'Failed to translate NL to Rules.',
-        result.error ? result.error.toUpperCase() : 'NL_TO_RULES_FAILED', // Use standardized code from mcrService
-        result.details // Pass details if provided by mcrService
-      )
-    );
-  }
+          result.error ? result.error.toUpperCase() : 'NL_TO_RULES_FAILED', // Use standardized code from mcrService
+          result.details // Pass details if provided by mcrService
+        )
+      );
+    }
   } catch (error) {
-  // This catch block is for unexpected errors not handled by mcrService's structured return
+    // This catch block is for unexpected errors not handled by mcrService's structured return
     logger.error(
-    `[API][${correlationId}] Unexpected error in nlToRulesDirectHandler: ${error.message}`,
+      `[API][${correlationId}] Unexpected error in nlToRulesDirectHandler: ${error.message}`,
       { error: error.stack }
     );
-  next(new ApiError(500, `An unexpected error occurred during NL to Rules translation: ${error.message}`, 'UNEXPECTED_NL_TO_RULES_ERROR'));
+    next(
+      new ApiError(
+        500,
+        `An unexpected error occurred during NL to Rules translation: ${error.message}`,
+        'UNEXPECTED_NL_TO_RULES_ERROR'
+      )
+    );
   }
 }
 
@@ -617,7 +634,6 @@ async function debugFormatPromptHandler(req, res, next) {
         `[API][${correlationId}] Failed to format prompt for debug: ${templateName}. Message: ${result.message}, Error: ${result.error}`
       );
       let statusCode = 500;
-      if (
       // mcrService now returns uppercase error codes
       if (
         result.error === 'INVALID_TEMPLATE_NAME' ||
@@ -635,14 +651,20 @@ async function debugFormatPromptHandler(req, res, next) {
           result.details
         )
       );
-      }
+    }
   } catch (error) {
     logger.error(
       `[API][${correlationId}] Unexpected error in debugFormatPromptHandler for ${templateName}: ${error.message}`,
       { error: error.stack }
-      );
-    next(new ApiError(500, `An unexpected error occurred during prompt formatting: ${error.message}`, 'UNEXPECTED_DEBUG_FORMAT_ERROR'));
-    }
+    );
+    next(
+      new ApiError(
+        500,
+        `An unexpected error occurred during prompt formatting: ${error.message}`,
+        'UNEXPECTED_DEBUG_FORMAT_ERROR'
+      )
+    );
+  }
 }
 
 // --- Explain Query Handler ---
@@ -675,13 +697,9 @@ async function explainQueryHandler(req, res, next) {
     logger.debug(
       `[API][${correlationId}] Calling mcrService.explainQuery for session ${sessionId}. NLQ: "${naturalLanguageQuestion}"`
     );
-    const result = await mcrService.explainQuery(
-      sessionId,
-      naturalLanguageQuestion
-    );
-
     // Pass client's debug request to mcrService for explainQuery
-    const clientRequestedDebugExplain = options && typeof options.debug === 'boolean' ? options.debug : false;
+    const clientRequestedDebugExplain =
+      options && typeof options.debug === 'boolean' ? options.debug : false;
     const serverDebugLevelExplain = require('./config').debugLevel;
 
     const result = await mcrService.explainQuery(
@@ -696,7 +714,11 @@ async function explainQueryHandler(req, res, next) {
       );
       const responsePayload = { explanation: result.explanation };
       // Similar logic for including debugInfo as in querySessionHandler
-      if (clientRequestedDebugExplain && result.debugInfo && serverDebugLevelExplain !== 'none') {
+      if (
+        clientRequestedDebugExplain &&
+        result.debugInfo &&
+        serverDebugLevelExplain !== 'none'
+      ) {
         responsePayload.debugInfo = result.debugInfo;
         logger.debug(
           `[API][${correlationId}] Including debugInfo in explain response for session ${sessionId} (level: ${result.debugInfo.level}).`
@@ -710,9 +732,15 @@ async function explainQueryHandler(req, res, next) {
       );
       let statusCode = 500;
       let errorCode = (result.error || 'EXPLAIN_QUERY_FAILED').toUpperCase();
-      let errorDetails = result.debugInfo && result.debugInfo.error ? { serviceError: result.debugInfo.error, ...result.debugInfo } : result.debugInfo;
+      let errorDetails =
+        result.debugInfo && result.debugInfo.error
+          ? { serviceError: result.debugInfo.error, ...result.debugInfo }
+          : result.debugInfo;
       if (result.details) {
-         errorDetails = { ...(errorDetails || {}), serviceDetails: result.details };
+        errorDetails = {
+          ...(errorDetails || {}),
+          serviceDetails: result.details,
+        };
       }
 
       if (errorCode === 'SESSION_NOT_FOUND') {
@@ -738,7 +766,13 @@ async function explainQueryHandler(req, res, next) {
       `[API][${correlationId}] Unexpected error in explainQueryHandler for session ${sessionId}: ${error.message}`,
       { error: error.stack }
     );
-    next(new ApiError(500, `An unexpected error occurred during query explanation: ${error.message}`, 'UNEXPECTED_EXPLAIN_QUERY_ERROR'));
+    next(
+      new ApiError(
+        500,
+        `An unexpected error occurred during query explanation: ${error.message}`,
+        'UNEXPECTED_EXPLAIN_QUERY_ERROR'
+      )
+    );
   }
 }
 
@@ -858,6 +892,12 @@ async function rulesToNlDirectHandler(req, res, next) {
       `[API][${correlationId}] Unexpected error in rulesToNlDirectHandler: ${error.message}`,
       { error: error.stack }
     );
-    next(new ApiError(500, `An unexpected error occurred during Rules to NL translation: ${error.message}`, 'UNEXPECTED_RULES_TO_NL_ERROR'));
+    next(
+      new ApiError(
+        500,
+        `An unexpected error occurred during Rules to NL translation: ${error.message}`,
+        'UNEXPECTED_RULES_TO_NL_ERROR'
+      )
+    );
   }
 }
