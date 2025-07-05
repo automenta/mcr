@@ -1,20 +1,11 @@
 {
   "name": "model-context-reasoner",
   "version": "1.0.0",
-  "description": "Model Context Reasoner (MCR): Connects Large Language Models (LLMs) with formal logic reasoners (Prolog) for advanced AI applications.",
-  "main": "mcr.js",
-  "bin": {
-    "mcr-cli": "./cli.js"
-  },
+  "description": "Model Context Reasoner (MCR): Connects Large Language Models (LLMs) with formal logic reasoners (Prolog) for advanced AI applications. This project is now primarily implemented in the Aethelred system.",
+  "main": "aethelred/index.ts",
   "scripts": {
-    "start": "node mcr.js",
-    "demo": "node demo.js",
-    "chat": "node chat.js",
-    "chat:tui": "node cli.js chat",
-    "test": "jest",
-    "test:coverage": "jest --coverage",
-    "format": "prettier --write .",
-    "lint": "eslint . --fix"
+    "start": "bun run aethelred/index.ts",
+    "format": "prettier --write ."
   },
   "keywords": [
     "llm",
@@ -23,19 +14,17 @@
     "ai",
     "api",
     "nlp",
-    "logic programming"
+    "logic programming",
+    "aethelred"
   ],
   "author": "Your Name or Organization",
   "license": "MIT",
   "type": "commonjs",
   "files": [
-    "mcr.js",
-    "cli.js",
-    "chat.js",
-    "demo.js",
-    "src/",
+    "aethelred/",
     "ontologies/",
     "README.md",
+    "aethelred/README.md",
     ".env.example",
     "LICENSE"
   ],
@@ -48,50 +37,13 @@
   },
   "homepage": "https://github.com/yourusername/model-context-reasoner#readme",
   "dependencies": {
-    "@langchain/anthropic": "^0.1.15",
-    "@langchain/community": "^0.0.52",
-    "@langchain/core": "^0.1.62",
-    "@langchain/google-genai": "^0.0.12",
-    "@langchain/openai": "^0.0.28",
-    "axios": "^1.6.0",
-    "commander": "^12.0.0",
-    "dotenv": "^16.0.0",
-    "express": "^4.17.1",
-    "ink": "^6.0.1",
-    "ink-text-input": "^6.0.0",
-    "inquirer": "^8.2.0",
-    "langchain": "^0.1.37",
-    "react": "^19.1.0",
-    "tau-prolog": "^0.3.4",
-    "uuid": "^9.0.0",
-    "winston": "^3.0.0"
+    "dotenv": "^16.0.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.28.0",
-    "@babel/preset-env": "^7.24.0",
-    "@babel/preset-react": "^7.27.1",
-    "@babel/register": "^7.27.1",
-    "@eslint/js": "^9.30.1",
-    "babel-jest": "^30.0.2",
-    "eslint": "^9.1.1",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-jest": "^28.2.0",
-    "eslint-plugin-react": "^7.37.5",
-    "globals": "^15.0.0",
-    "jest": "^29.0.0",
-    "prettier": "^3.2.5",
-    "supertest": "^6.0.0"
-  },
-  "jest": {
-    "testPathIgnorePatterns": [
-      "/node_modules/",
-      "/old/test/"
-    ],
-    "modulePathIgnorePatterns": [
-      "<rootDir>/old/"
-    ]
+    "prettier": "^3.2.5"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
   }
 }
