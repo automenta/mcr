@@ -281,7 +281,200 @@ module.exports = {
   explainQuery,
   getPrompts,
   debugFormatPrompt,
+  assertNLToSessionWithSIR, // Export the new function
 };
+
+// Helper function to convert a single SIR fact object to a Prolog string
+function sirFactToProlog(sirFact) {
+  if (!sirFact || !sirFact.predicate || !sirFact.arguments) {
+    throw new Error('Invalid SIR fact structure for Prolog conversion.');
+  }
+  const pred = sirFact.predicate;
+  const args = sirFact.arguments.join(', ');
+  const factStr = `${pred}(${args}).`;
+  return sirFact.isNegative ? `not(${factStr})` : factStr;
+}
+
+// Helper function to convert SIR object to Prolog string(s)
+function sirToProlog(sir) {
+  if (!sir || !sir.statementType) {
+    throw new Error('Invalid SIR object: missing statementType.');
+  }
+
+  if (sir.statementType === 'fact') {
+    if (!sir.fact) throw new Error('SIR fact object missing.');
+    return [sirFactToProlog(sir.fact)];
+  }
+
+  if (sir.statementType === 'rule') {
+    if (!sir.rule || !sir.rule.head || !sir.rule.body) {
+      throw new Error('SIR rule object missing or incomplete.');
+    }
+    const headStr = sirFactToProlog(sir.rule.head);
+    // Remove the trailing period for the head in a rule
+    const headWithoutPeriod = headStr.endsWith('.') ? headStr.slice(0, -1) : headStr;
+
+    if (sir.rule.body.length === 0) {
+      // Fact-like rule (e.g., head :- true.)
+      return [`${headWithoutPeriod}.`];
+    } else {
+      const bodyStr = sir.rule.body.map(f => {
+        const factStr = sirFactToProlog(f);
+        // Remove trailing period for body literals
+        return factStr.endsWith('.') ? factStr.slice(0, -1) : factStr;
+      }).join(', ');
+      return [`${headWithoutPeriod} :- ${bodyStr}.`];
+    }
+  }
+  throw new Error(`Unsupported SIR statementType: ${sir.statementType}`);
+}
+
+/**
+ * Asserts natural language text as facts/rules into a session using the SIR (Structured Intermediate Representation) method.
+ * It involves translating NL to SIR JSON, validating SIR, then deterministically converting SIR to Prolog.
+ * @param {string} sessionId - The ID of the session.
+ * @param {string} naturalLanguageText - The natural language text to assert.
+ * @param {number} [retryCount=1] - Number of retries for LLM SIR generation if JSON parsing fails.
+ * @returns {Promise<{success: boolean, message: string, addedFacts?: string[], error?: string, debugInfo?: object}>}
+ */
+async function assertNLToSessionWithSIR(sessionId, naturalLanguageText, retryCount = 1) {
+  logger.info(
+    `[McrService] Asserting NL to session ${sessionId} using SIR: "${naturalLanguageText}"`
+  );
+
+  if (!sessionManager.getSession(sessionId)) {
+    logger.warn(`[McrService] Session ${sessionId} not found for SIR assertion.`);
+    return { success: false, message: 'Session not found.', error: 'session_not_found' };
+  }
+
+  const debugInfo = {
+    sirAttempts: [],
+  };
+
+  try {
+    const existingFacts = sessionManager.getKnowledgeBase(sessionId) || '';
+    let ontologyRules = '';
+    try {
+      const globalOntologies = await ontologyService.listOntologies(true);
+      if (globalOntologies && globalOntologies.length > 0) {
+        ontologyRules = globalOntologies.map((ont) => ont.rules).join('\n');
+      }
+    } catch (ontError) {
+      logger.warn(
+        `[McrService] Error fetching global ontologies for SIR context (session ${sessionId}): ${ontError.message}`
+      );
+      // Non-fatal, proceed without ontology context for the prompt
+    }
+
+    let sirJsonString;
+    let parsedSir;
+    let attempt = 0;
+    const maxAttempts = retryCount + 1;
+
+    while (attempt < maxAttempts) {
+      attempt++;
+      logger.debug(`[McrService] SIR generation attempt ${attempt}/${maxAttempts} for session ${sessionId}`);
+      const nlToSirPromptUser = fillTemplate(prompts.NL_TO_SIR_ASSERT.user, {
+        naturalLanguageText,
+        existingFacts,
+        ontologyRules,
+        // We could add previous error messages here for a more sophisticated retry
+      });
+
+      const currentLlmOptions = { jsonMode: true }; // Hint to LLM if provider supports it
+
+      sirJsonString = await llmService.generate(
+        prompts.NL_TO_SIR_ASSERT.system,
+        nlToSirPromptUser,
+        currentLlmOptions
+      );
+      debugInfo.sirAttempts.push({ attempt, rawOutput: sirJsonString });
+
+      try {
+        parsedSir = JSON.parse(sirJsonString);
+        // Basic validation: check for error message from LLM prompt
+        if (parsedSir.error) {
+            logger.warn(`[McrService] LLM indicated error in SIR generation: ${parsedSir.error}`);
+            return { success: false, message: parsedSir.error, error: 'sir_generation_llm_error', debugInfo };
+        }
+        // TODO: Implement more robust JSON schema validation here if needed
+        // For now, we assume if it parses and isn't an LLM error, it's usable.
+        break; // Successfully parsed
+      } catch (jsonError) {
+        logger.warn(
+          `[McrService] Failed to parse SIR JSON (attempt ${attempt}/${maxAttempts}): ${jsonError.message}`
+        );
+        if (attempt >= maxAttempts) {
+          return {
+            success: false,
+            message: 'Failed to generate valid SIR JSON from LLM after multiple attempts.',
+            error: 'sir_json_parsing_failed',
+            debugInfo,
+          };
+        }
+        // Optionally, add the error to the next prompt for self-correction
+        // naturalLanguageText = `PREVIOUS ATTEMPT FAILED: ${jsonError.message}. Please correct. Original text: ${naturalLanguageText}`;
+      }
+    }
+
+    if (!parsedSir) {
+        // Should have been caught by the loop's error handling, but as a safeguard:
+        return { success: false, message: 'Failed to obtain parsed SIR.', error: 'sir_parsing_failed_unexpectedly', debugInfo };
+    }
+
+    logger.debug('[McrService] Successfully parsed SIR JSON:', parsedSir);
+    debugInfo.finalParsedSir = parsedSir;
+
+    // Convert SIR to Prolog
+    const addedFactsProlog = sirToProlog(parsedSir);
+    logger.debug('[McrService] SIR converted to Prolog:', addedFactsProlog);
+    debugInfo.convertedProlog = addedFactsProlog;
+
+    if (!addedFactsProlog || addedFactsProlog.length === 0) {
+      logger.warn('[McrService] SIR to Prolog conversion resulted in no facts.');
+      return {
+        success: false,
+        message: 'Failed to convert SIR to any Prolog facts.',
+        error: 'sir_to_prolog_conversion_empty',
+        debugInfo,
+      };
+    }
+
+    // Add facts to session
+    const success = sessionManager.addFacts(sessionId, addedFactsProlog);
+    if (success) {
+      logger.info(
+        `[McrService] Facts from SIR successfully added to session ${sessionId}.`
+      );
+      return {
+        success: true,
+        message: 'Facts asserted successfully via SIR.',
+        addedFacts: addedFactsProlog,
+        debugInfo,
+      };
+    } else {
+      logger.error(`[McrService] Failed to add SIR-derived facts to session ${sessionId}.`);
+      return {
+        success: false,
+        message: 'Failed to add SIR-derived facts to session.',
+        error: 'session_add_sir_failed',
+        debugInfo,
+      };
+    }
+  } catch (error) {
+    logger.error(
+      `[McrService] Error asserting NL to session with SIR ${sessionId}: ${error.message}`,
+      { error, stack: error.stack }
+    );
+    return {
+      success: false,
+      message: `Error during SIR assertion: ${error.message}`,
+      error: error.message,
+      debugInfo,
+    };
+  }
+}
+
 
 /**
  * Translates natural language text directly to Prolog facts/rules.

@@ -160,6 +160,79 @@ Active Global Ontology Rules:
 Based on all the above, provide a detailed explanation of how the Prolog query would be processed against the combined knowledge base:`,
   },
   // Add more specialized prompts as needed
+
+  NL_TO_SIR_ASSERT: {
+    system: `You are an expert AI assistant that translates natural language statements into a structured JSON representation (SIR) for later conversion to Prolog.
+Your output MUST be a single JSON object that strictly adheres to the following schema:
+\`\`\`json
+{
+  "type": "object",
+  "properties": {
+    "statementType": {
+      "type": "string",
+      "enum": ["fact", "rule"]
+    },
+    "fact": {
+      "type": "object",
+      "properties": {
+        "predicate": {"type": "string", "description": "Name of the predicate (e.g., likes, father_of, is_color). Use lowercase snake_case."},
+        "arguments": {"type": "array", "items": {"type": "string"}, "description": "List of arguments. Constants (e.g., 'john', 'book') should be lowercase. Variables (e.g., 'X', 'Person') should be ALL CAPS."},
+        "isNegative": {"type": "boolean", "default": false, "description": "Set to true if the fact is negated (e.g., 'John does NOT like apples')."}
+      },
+      "required": ["predicate", "arguments"]
+    },
+    "rule": {
+      "type": "object",
+      "properties": {
+        "head": { "$ref": "#/properties/fact", "description": "The conclusion of the rule, structured as a fact." },
+        "body": {
+          "type": "array",
+          "items": { "$ref": "#/properties/fact" },
+          "description": "A list of conditions (literals) for the rule, each structured as a fact. An empty list means the head is unconditionally true (like a fact)."
+        }
+      },
+      "required": ["head", "body"]
+    }
+  },
+  "required": ["statementType"],
+  "oneOf": [
+    { "description": "If statementType is 'fact', this object must be present.", "required": ["fact"] },
+    { "description": "If statementType is 'rule', this object must be present.", "required": ["rule"] }
+  ]
+}
+\`\`\`
+- Classify the input text as asserting a single 'fact' or a single 'rule'.
+- For facts:
+  - "The sky is blue." -> \`{"statementType": "fact", "fact": {"predicate": "is_color", "arguments": ["sky", "blue"]}}\`
+  - "John likes Mary." -> \`{"statementType": "fact", "fact": {"predicate": "likes", "arguments": ["john", "mary"]}}\`
+  - "Fido is a dog." -> \`{"statementType": "fact", "fact": {"predicate": "is_a", "arguments": ["fido", "dog"]}}\`
+  - "Paris is not in Germany." -> \`{"statementType": "fact", "fact": {"predicate": "is_in", "arguments": ["paris", "germany"], "isNegative": true}}\`
+- For rules:
+  - "All humans are mortal." -> \`{"statementType": "rule", "rule": {"head": {"predicate": "mortal", "arguments": ["X"]}, "body": [{"predicate": "human", "arguments": ["X"]}]}}\`
+  - "If X is a parent of Y and Y is a parent of Z, then X is a grandparent of Z." ->
+    \`{"statementType": "rule", "rule": {"head": {"predicate": "grandparent_of", "arguments": ["X", "Z"]}, "body": [{"predicate": "parent_of", "arguments": ["X", "Y"]}, {"predicate": "parent_of", "arguments": ["Y", "Z"]}]}}\`
+  - "Birds fly." (interpreted as a general rule) -> \`{"statementType": "rule", "rule": {"head": {"predicate": "flies", "arguments": ["X"]}, "body": [{"predicate": "bird", "arguments": ["X"]}]}}\`
+- Pay close attention to variable names (ALL CAPS) vs. constants (lowercase).
+- Ensure the JSON output is syntactically correct and validates against the schema.
+- Do NOT add any text before or after the JSON object. Output only the JSON.
+- If the input text contains multiple distinct statements, focus on translating only the most prominent one or the first one if prominence is unclear. This tool is designed for single assertions.
+- If the input is a question, not an assertion, output: \`{"error": "Input is a question, not an assertable statement."}\``,
+    user: `EXISTING FACTS (for context, do not translate these):
+\`\`\`prolog
+{{existingFacts}}
+\`\`\`
+
+ONTOLOGY RULES (for context, do not translate these):
+\`\`\`prolog
+{{ontologyRules}}
+\`\`\`
+
+Based on the context above, translate ONLY the following NEW natural language text into the SIR JSON format:
+
+New Text: "{{naturalLanguageText}}"
+
+SIR JSON Output:`
+  }
 };
 
 module.exports = {

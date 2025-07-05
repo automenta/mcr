@@ -15,9 +15,42 @@ async function handleHelpCommandAsync(tuiContext /*, args */) {
     'system',
     '  /delete-session [id] - Delete current or specified session'
   );
+  addMessage('system', '  /assert <text>       - Assert a fact/rule using default method');
+  addMessage('system', '  /assert-sir <text>   - Assert a fact/rule using SIR method');
   addMessage('system', '  /exit, /quit         - Exit the application');
-  addMessage('system', 'Directly type your message to chat with the MCR.');
+  addMessage('system', 'Directly type your message to query the MCR.');
 }
+
+async function handleAssertCommandAsync(tuiContext, args) {
+    const { addMessage, api, getCurrentSessionId } = tuiContext;
+    const currentSessionId = getCurrentSessionId();
+    if (!currentSessionId) {
+        addMessage('error', 'No active session. Use /create-session first.');
+        return;
+    }
+    if (args.length === 0) {
+        addMessage('error', 'Usage: /assert <natural language text>');
+        return;
+    }
+    const textToAssert = args.join(' ');
+    addMessage('system', `Asserting: "${textToAssert}"`);
+    try {
+        // This uses the existing assert endpoint
+        const result = await api.assertTui(currentSessionId, textToAssert);
+        if (result.success) {
+            addMessage('mcr', `Asserted: ${result.message}`);
+            if (result.addedFacts) {
+                addMessage('output', `Added: ${result.addedFacts.join(' ')}`);
+            }
+        } else {
+            addMessage('error', `Assert failed: ${result.message || result.error}`);
+        }
+    } catch (err) {
+        addMessage('error', `Assert Error: ${err.message}`);
+        console.error(err);
+    }
+}
+
 
 async function handleCreateSessionCommandAsync(tuiContext /*, args*/) {
   const { addMessage, api, setCurrentSessionId } = tuiContext;
@@ -67,5 +100,6 @@ module.exports = {
   handleHelpCommandAsync,
   handleCreateSessionCommandAsync,
   handleDeleteSessionCommandAsync,
+  handleAssertCommandAsync, // Export new assert handler
   // Other handlers from old file are intentionally omitted for a simpler TUI.
 };
