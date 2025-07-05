@@ -4,6 +4,7 @@ const path = require('path');
 const config = require('./config');
 const logger = require('./logger');
 const { ApiError } = require('./errors');
+const reasonerService = require('./reasonerService'); // Import reasonerService
 
 const ONTOLOGY_DIR = config.ontology.directory;
 const ONTOLOGY_EXTENSION = '.pl';
@@ -54,11 +55,25 @@ async function createOntology(name, rulesString) {
     throw new ApiError(400, 'Ontology rules must be a string.');
   }
 
+  // Validate Prolog syntax before saving
+  const validationResult = await reasonerService.validateKnowledgeBase(rulesString);
+  if (!validationResult.isValid) {
+    logger.warn(
+      `[OntologyService] Validation failed for new ontology "${name}". Error: ${validationResult.error}`
+    );
+    throw new ApiError(
+      400,
+      `Invalid Prolog syntax in ontology rules: ${validationResult.error}`,
+      'PROLOG_VALIDATION_FAILED',
+      { details: validationResult.error }
+    );
+  }
+
   const filePath = path.join(ONTOLOGY_DIR, `${name}${ONTOLOGY_EXTENSION}`);
 
   try {
     await fs.writeFile(filePath, rulesString, { flag: 'wx' }); // 'wx' fails if path exists
-    logger.info(`[OntologyService] Created ontology: ${name}`);
+    logger.info(`[OntologyService] Created ontology: ${name} after validation.`);
     return { name, rules: rulesString };
   } catch (error) {
     if (error.code === 'EEXIST') {
@@ -146,12 +161,27 @@ async function updateOntology(name, newRulesString) {
   if (typeof newRulesString !== 'string') {
     throw new ApiError(400, 'Ontology rules for update must be a string.');
   }
+
+  // Validate Prolog syntax before saving
+  const validationResult = await reasonerService.validateKnowledgeBase(newRulesString);
+  if (!validationResult.isValid) {
+    logger.warn(
+      `[OntologyService] Validation failed for updating ontology "${name}". Error: ${validationResult.error}`
+    );
+    throw new ApiError(
+      400,
+      `Invalid Prolog syntax in updated ontology rules: ${validationResult.error}`,
+      'PROLOG_VALIDATION_FAILED',
+      { details: validationResult.error }
+    );
+  }
+
   const filePath = path.join(ONTOLOGY_DIR, `${name}${ONTOLOGY_EXTENSION}`);
   try {
     // Check if file exists first to provide a 404 if it doesn't
     await fs.access(filePath); // Throws if doesn't exist
     await fs.writeFile(filePath, newRulesString, 'utf-8'); // Overwrite existing file
-    logger.info(`[OntologyService] Updated ontology: ${name}`);
+    logger.info(`[OntologyService] Updated ontology: ${name} after validation.`);
     return { name, rules: newRulesString };
   } catch (error) {
     if (error.code === 'ENOENT') {

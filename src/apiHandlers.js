@@ -8,7 +8,7 @@ async function createSessionHandler(req, res, next) {
   const correlationId = req.correlationId;
   logger.info(`[API][${correlationId}] Enter createSessionHandler`);
   try {
-    const session = mcrService.createSession();
+    const session = await mcrService.createSession(); // Await async call
     logger.info(
       `[API][${correlationId}] Session created successfully: ${session.id}`
     );
@@ -194,7 +194,7 @@ async function getSessionHandler(req, res, next) {
     `[API][${correlationId}] Enter getSessionHandler for session ${sessionId}`
   );
   try {
-    const session = mcrService.getSession(sessionId);
+    const session = await mcrService.getSession(sessionId); // Await async call
     if (session) {
       logger.info(
         `[API][${correlationId}] Successfully retrieved session ${sessionId}.`

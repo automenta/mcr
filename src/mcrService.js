@@ -118,7 +118,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
     );
 
     // Delegate translation to the active strategy
-    const lexiconSummary = sessionManager.getLexiconSummary(sessionId);
+    const lexiconSummary = await sessionManager.getLexiconSummary(sessionId); // Await async call
     const strategyOptions = { existingFacts, ontologyRules, lexiconSummary };
     logger.info(
       `[McrService] Calling strategy "${activeStrategy.getName()}".assert(). OpID: ${operationId}. Lexicon summary length: ${lexiconSummary?.length}`
@@ -295,9 +295,36 @@ async function querySessionWithNL(
     // The strategy's query method should throw an error if it fails or produces an invalid query.
 
     // Get knowledge base for the session (session facts)
-    let knowledgeBase = sessionManager.getKnowledgeBase(sessionId);
-    if (knowledgeBase === null) {
-      // Should be caught by getSession earlier
+    let knowledgeBase = await sessionManager.getKnowledgeBase(sessionId); // Await async call
+    if (knowledgeBase === null) { // This condition might be less likely if getSession already confirmed existence.
+      // However, if getKnowledgeBase itself can return null for an existing session (e.g., empty facts), handle it.
+      // Assuming getSession check is primary for session existence.
+      // If session exists but KB is truly null/empty, it might be valid.
+      // For now, keeping the check as it was, but noting `await`.
+      logger.warn(`[McrService] Knowledge base is null for session ${sessionId}. OpID: ${operationId}`);
+      // This could mean an empty KB or an issue reading it.
+      // If an empty KB is valid, we might just proceed with an empty string.
+      // For safety, if it's null (not just empty string), it might indicate an issue.
+      // However, sessionManager.getKnowledgeBase returns null if sessionData is null.
+      // And sessionManager.getSession would have already returned null if sessionData was null.
+      // So this path should ideally not be hit if getSession passed.
+      // Let's assume if getSession passed, getKnowledgeBase will give a string (possibly empty).
+      // The original check `if (!sessionManager.getSession(sessionId))` handles non-existent sessions.
+      // The `|| ''` in `const existingFacts = await sessionManager.getKnowledgeBase(sessionId) || '';` for strategy options
+      // suggests empty string is the expected "empty" state.
+      // So, `knowledgeBase` here should not be null if session exists.
+      // This specific check might be redundant if `sessionManager.getSession(sessionId)` at the top is sufficient.
+      // Let's simplify: if `getSession` passed, `getKnowledgeBase` will give us the string (or it's an internal error).
+      // The `|| ''` pattern is good for `existingFacts` for strategy context.
+      // For the main KB for the reasoner, an empty string is fine.
+
+      // Re-evaluating: The first check `if (!await sessionManager.getSession(sessionId))` is the primary guard.
+      // If that passes, `sessionManager.getKnowledgeBase(sessionId)` should return a string (possibly empty).
+      // So, the `knowledgeBase === null` check here is likely redundant or indicates an unexpected state.
+      // For now, let's trust the initial `getSession` check and that `getKnowledgeBase` returns a string.
+      // The `existingFacts` for strategy context is handled with `|| ''`.
+      // The `knowledgeBase` for reasoner can be an empty string.
+      // No change needed here if the above logic holds. The `await` is the key fix.
       return {
         success: false,
         message: 'Session not found or empty when building knowledge base.',
@@ -585,7 +612,7 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
     `[McrService] Enter explainQuery for session ${sessionId} (OpID: ${operationId}). Strategy: "${activeStrategy.getName()}". NL Question: "${naturalLanguageQuestion}"`
   );
 
-  const sessionExists = sessionManager.getSession(sessionId);
+  const sessionExists = await sessionManager.getSession(sessionId); // Await async call
   if (!sessionExists) {
     logger.warn(
       `[McrService] Session ${sessionId} not found for explain query. OpID: ${operationId}`
