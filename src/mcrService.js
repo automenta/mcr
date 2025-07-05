@@ -45,16 +45,18 @@ logger.info(
  * @returns {boolean} True if the strategy was successfully set, false otherwise.
  */
 function setTranslationStrategy(strategyName) {
+  logger.debug(`[McrService] Attempting to set translation strategy to: ${strategyName}`);
   if (strategies[strategyName]) {
+    const oldStrategyName = activeStrategyName;
     activeStrategy = strategies[strategyName];
     activeStrategyName = strategyName;
     logger.info(
-      `[McrService] Translation strategy changed to: ${activeStrategy.getName()}`
+      `[McrService] Translation strategy changed from "${oldStrategyName}" to "${activeStrategy.getName()}"`
     );
     return true;
   }
   logger.warn(
-    `[McrService] Attempted to set unknown translation strategy: ${strategyName}`
+    `[McrService] Attempted to set unknown translation strategy: ${strategyName}. Available strategies: ${Object.keys(strategies).join(', ')}`
   );
   return false;
 }
@@ -75,11 +77,12 @@ function getActiveStrategyName() {
  */
 async function assertNLToSession(sessionId, naturalLanguageText) {
   logger.info(
-    `[McrService] Asserting NL to session ${sessionId} using strategy "${activeStrategy.getName()}": "${naturalLanguageText}"`
+    `[McrService] Enter assertNLToSession for session ${sessionId} using strategy "${activeStrategy.getName()}". NL Text: "${naturalLanguageText}"`
   );
+  const operationId = `assert-${Date.now()}`; // Unique ID for this operation for tracing
 
   if (!sessionManager.getSession(sessionId)) {
-    logger.warn(`[McrService] Session ${sessionId} not found for assertion.`);
+    logger.warn(`[McrService] Session ${sessionId} not found for assertion. Operation ID: ${operationId}`);
     return {
       success: false,
       message: 'Session not found.',
@@ -101,21 +104,23 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
       );
       // Non-fatal for translation, proceed without ontology context for the strategy
     }
+    logger.debug(`[McrService] Context for strategy assertion (OpID: ${operationId}):`, { sessionId, existingFactsLength: existingFacts.length, ontologyRulesLength: ontologyRules.length });
 
     // Delegate translation to the active strategy
+    const strategyOptions = { existingFacts, ontologyRules };
+    logger.info(`[McrService] Calling strategy "${activeStrategy.getName()}".assert(). OpID: ${operationId}`);
     const addedFacts = await activeStrategy.assert(
       naturalLanguageText,
       llmService,
-      {
-        existingFacts,
-        ontologyRules,
-      }
+      strategyOptions
     );
+    logger.debug(`[McrService] Strategy "${activeStrategy.getName()}".assert() returned (OpID: ${operationId}):`, { addedFacts });
+
 
     if (!addedFacts || addedFacts.length === 0) {
       // This case should ideally be handled by the strategy's assert method throwing an error
       logger.warn(
-        `[McrService] Strategy "${activeStrategy.getName()}" returned no facts for text: "${naturalLanguageText}"`
+        `[McrService] Strategy "${activeStrategy.getName()}" returned no facts for text: "${naturalLanguageText}". OpID: ${operationId}`
       );
       return {
         success: false,
@@ -127,10 +132,11 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
     }
 
     // Add facts to session
+    logger.info(`[McrService] Attempting to add ${addedFacts.length} fact(s) to session ${sessionId}. OpID: ${operationId}`);
     const success = sessionManager.addFacts(sessionId, addedFacts);
     if (success) {
       logger.info(
-        `[McrService] Facts successfully added to session ${sessionId} using strategy "${activeStrategy.getName()}".`
+        `[McrService] Facts successfully added to session ${sessionId} using strategy "${activeStrategy.getName()}". OpID: ${operationId}. Facts:`, { addedFacts }
       );
       return {
         success: true,
@@ -139,7 +145,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
         strategy: activeStrategy.getName(),
       };
     } else {
-      logger.error(`[McrService] Failed to add facts to session ${sessionId}.`);
+      logger.error(`[McrService] Failed to add facts to session ${sessionId}. OpID: ${operationId}`);
       return {
         success: false,
         message: 'Failed to add facts to session.',
@@ -175,12 +181,13 @@ async function querySessionWithNL(
 ) {
   const { dynamicOntology, style = 'conversational' } = queryOptions; // Extract style for LOGIC_TO_NL_ANSWER
   logger.info(
-    `[McrService] Querying session ${sessionId} with NL using strategy "${activeStrategy.getName()}": "${naturalLanguageQuestion}"`,
-    { dynamicOntologyProvided: !!dynamicOntology, style }
+    `[McrService] Enter querySessionWithNL for session ${sessionId} using strategy "${activeStrategy.getName()}". NL Question: "${naturalLanguageQuestion}"`,
+    { queryOptions }
   );
+  const operationId = `query-${Date.now()}`; // Unique ID for this operation
 
   if (!sessionManager.getSession(sessionId)) {
-    logger.warn(`[McrService] Session ${sessionId} not found for query.`);
+    logger.warn(`[McrService] Session ${sessionId} not found for query. OpID: ${operationId}`);
     return {
       success: false,
       message: 'Session not found.',
@@ -188,39 +195,39 @@ async function querySessionWithNL(
     };
   }
 
-  const debugInfo = { strategy: activeStrategy.getName() };
+  const debugInfo = { strategy: activeStrategy.getName(), operationId };
 
   try {
     const existingFacts = sessionManager.getKnowledgeBase(sessionId) || '';
-    let ontologyRules = '';
+    let ontologyRules = ''; // For strategy context
     try {
       const globalOntologies = await ontologyService.listOntologies(true);
       if (globalOntologies && globalOntologies.length > 0) {
         ontologyRules = globalOntologies.map((ont) => ont.rules).join('\n');
+        logger.debug(`[McrService] Loaded ${globalOntologies.length} global ontologies for strategy query context. OpID: ${operationId}`);
       }
     } catch (ontError) {
       logger.warn(
-        `[McrService] Error fetching global ontologies for query context in session ${sessionId}: ${ontError.message}`
+        `[McrService] Error fetching global ontologies for query strategy context in session ${sessionId}: ${ontError.message}. OpID: ${operationId}`
       );
       // Non-fatal, proceed without ontology context for strategy
     }
+    logger.debug(`[McrService] Context for strategy query (OpID: ${operationId}):`, { sessionId, existingFactsLength: existingFacts.length, ontologyRulesLength: ontologyRules.length });
 
     // Delegate NL to Prolog query translation to the active strategy
+    const strategyOptions = { existingFacts, ontologyRules };
+    logger.info(`[McrService] Calling strategy "${activeStrategy.getName()}".query(). OpID: ${operationId}`);
     const prologQuery = await activeStrategy.query(
       naturalLanguageQuestion,
       llmService,
-      {
-        existingFacts,
-        ontologyRules,
-      }
+      strategyOptions
     );
-    logger.debug(
-      `[McrService] Strategy "${activeStrategy.getName()}" translated NL question to Prolog query: ${prologQuery}`
+    logger.info(
+      `[McrService] Strategy "${activeStrategy.getName()}" translated NL question to Prolog query (OpID: ${operationId}): ${prologQuery}`
     );
     debugInfo.prologQuery = prologQuery;
 
     // The strategy's query method should throw an error if it fails or produces an invalid query.
-    // No need to re-validate prologQuery string here as strategy is responsible.
 
     // Get knowledge base for the session (session facts)
     let knowledgeBase = sessionManager.getKnowledgeBase(sessionId);
@@ -269,35 +276,43 @@ async function querySessionWithNL(
       debugInfo.dynamicOntologyProvided = true;
     }
 
-    debugInfo.knowledgeBaseSnapshot = knowledgeBase; // For debugging, might be large
+    debugInfo.knowledgeBaseSnapshot = knowledgeBase; // For debugging, might be large. Consider logging length or hash in production.
+    logger.debug(`[McrService] Knowledge base for query execution (OpID: ${operationId}). Length: ${knowledgeBase.length}`);
+
 
     // 3. Execute Prolog query
+    logger.info(`[McrService] Executing Prolog query with reasonerService. OpID: ${operationId}`);
     const prologResults = await reasonerService.executeQuery(
       knowledgeBase,
       prologQuery
     );
-    logger.debug(`[McrService] Prolog query execution results:`, prologResults);
+    logger.debug(`[McrService] Prolog query execution results (OpID: ${operationId}):`, prologResults);
     debugInfo.prologResults = prologResults;
     debugInfo.prologResultsJSON = JSON.stringify(prologResults);
 
     // 4. Translate Prolog results to NL answer
-    const logicToNlPromptUser = fillTemplate(prompts.LOGIC_TO_NL_ANSWER.user, {
+    const logicToNlPromptContext = {
       naturalLanguageQuestion,
       prologResultsJSON: debugInfo.prologResultsJSON,
       style: style, // Use the extracted style, defaulting to 'conversational' if not provided
-    });
+    };
+    logger.info(`[McrService] Generating NL answer from Prolog results using LLM. OpID: ${operationId}`);
+    logger.debug(`[McrService] Context for LOGIC_TO_NL_ANSWER prompt (OpID: ${operationId}):`, logicToNlPromptContext);
+    const logicToNlPromptUser = fillTemplate(prompts.LOGIC_TO_NL_ANSWER.user, logicToNlPromptContext);
+
     const naturalLanguageAnswer = await llmService.generate(
       prompts.LOGIC_TO_NL_ANSWER.system,
       logicToNlPromptUser
     );
-    logger.info(`[McrService] NL answer generated: "${naturalLanguageAnswer}"`);
+    logger.info(`[McrService] NL answer generated (OpID: ${operationId}): "${naturalLanguageAnswer}"`);
     debugInfo.naturalLanguageAnswer = naturalLanguageAnswer;
 
+    logger.info(`[McrService] Exit querySessionWithNL for session ${sessionId} successfully. OpID: ${operationId}`);
     return { success: true, answer: naturalLanguageAnswer, debugInfo };
   } catch (error) {
     logger.error(
-      `[McrService] Error querying session ${sessionId} with NL: ${error.message}`,
-      { error } // Log full error for strategy related issues
+      `[McrService] Error querying session ${sessionId} with NL (OpID: ${operationId}): ${error.message}`,
+      { error: error.stack } // Log full error for strategy related issues
     );
     debugInfo.error = error.message;
     return {
@@ -325,14 +340,15 @@ async function translateNLToRulesDirect(
   naturalLanguageText,
   strategyName = activeStrategyName
 ) {
+  const operationId = `transNLToRules-${Date.now()}`;
   logger.info(
-    `[McrService] Translating NL to Rules (Direct) using strategy "${strategyName}": "${naturalLanguageText}"`
+    `[McrService] Enter translateNLToRulesDirect (OpID: ${operationId}). Strategy: "${strategyName}". NL Text: "${naturalLanguageText}"`
   );
 
   const strategyToUse = strategies[strategyName] || activeStrategy;
   if (!strategyToUse) {
     logger.error(
-      `[McrService] No valid strategy found for translateNLToRulesDirect (requested: ${strategyName}, active: ${activeStrategyName})`
+      `[McrService] No valid strategy found for translateNLToRulesDirect (OpID: ${operationId}). Requested: ${strategyName}, Active: ${activeStrategyName}. Available: ${Object.keys(strategies).join(', ')}`
     );
     return {
       success: false,
@@ -344,16 +360,18 @@ async function translateNLToRulesDirect(
   try {
     // The `assert` method of a strategy is designed to return Prolog facts/rules.
     // We don't have session context here (existingFacts, ontologyRules) for this direct translation.
-    // Strategies should be able to handle missing options if they are designed to.
+    // Strategies should be able to handle missing options if they are designed for this use case.
+    logger.info(`[McrService] Calling strategy "${strategyToUse.getName()}".assert() for direct NL to Rules. OpID: ${operationId}`);
     const prologRules = await strategyToUse.assert(
       naturalLanguageText,
       llmService,
-      {}
+      {} // No session context for direct translation
     );
+    logger.debug(`[McrService] Strategy "${strategyToUse.getName()}".assert() returned (OpID: ${operationId}):`, { prologRules });
 
     if (!prologRules || prologRules.length === 0) {
       logger.warn(
-        `[McrService] Strategy "${strategyToUse.getName()}" extracted no rules from text: "${naturalLanguageText}"`
+        `[McrService] Strategy "${strategyToUse.getName()}" extracted no rules from text (OpID: ${operationId}): "${naturalLanguageText}"`
       );
       return {
         success: false,
@@ -362,7 +380,7 @@ async function translateNLToRulesDirect(
         strategy: strategyToUse.getName(),
       };
     }
-
+    logger.info(`[McrService] Successfully translated NL to Rules (Direct). OpID: ${operationId}. Rules count: ${prologRules.length}`);
     return {
       success: true,
       rules: prologRules,
@@ -370,7 +388,7 @@ async function translateNLToRulesDirect(
     };
   } catch (error) {
     logger.error(
-      `[McrService] Error translating NL to Rules (Direct) using strategy "${strategyToUse.getName()}": ${error.message}`,
+      `[McrService] Error translating NL to Rules (Direct) using strategy "${strategyToUse.getName()}" (OpID: ${operationId}): ${error.message}`,
       { error: error.stack }
     );
     return {
@@ -389,9 +407,10 @@ async function translateNLToRulesDirect(
  * @returns {Promise<{success: boolean, explanation?: string, error?: string}>}
  */
 async function translateRulesToNLDirect(prologRules, style = 'conversational') {
-  logger.info(`[McrService] Translating Rules to NL (Direct). Style: ${style}`);
+  const operationId = `transRulesToNL-${Date.now()}`;
+  logger.info(`[McrService] Enter translateRulesToNLDirect (OpID: ${operationId}). Style: ${style}. Rules length: ${prologRules?.length}`);
   logger.debug(
-    `[McrService] Rules for direct translation to NL:\n${prologRules}`
+    `[McrService] Rules for direct translation to NL (OpID: ${operationId}):\n${prologRules}`
   );
 
   if (
@@ -399,6 +418,7 @@ async function translateRulesToNLDirect(prologRules, style = 'conversational') {
     typeof prologRules !== 'string' ||
     prologRules.trim() === ''
   ) {
+    logger.warn(`[McrService] translateRulesToNLDirect called with empty or invalid prologRules. OpID: ${operationId}`);
     return {
       success: false,
       message: 'Input Prolog rules must be a non-empty string.',
@@ -407,16 +427,17 @@ async function translateRulesToNLDirect(prologRules, style = 'conversational') {
   }
 
   try {
-    const rulesToNLPromptUser = fillTemplate(prompts.RULES_TO_NL_DIRECT.user, {
-      prologRules,
-      style,
-    });
+    const promptContext = { prologRules, style };
+    logger.info(`[McrService] Generating NL explanation from rules using LLM. OpID: ${operationId}`);
+    logger.debug(`[McrService] Context for RULES_TO_NL_DIRECT prompt (OpID: ${operationId}):`, promptContext);
+    const rulesToNLPromptUser = fillTemplate(prompts.RULES_TO_NL_DIRECT.user, promptContext);
+
     const naturalLanguageExplanation = await llmService.generate(
       prompts.RULES_TO_NL_DIRECT.system,
       rulesToNLPromptUser
     );
     logger.debug(
-      `[McrService] Prolog rules translated to NL (Direct):\n${naturalLanguageExplanation}`
+      `[McrService] Prolog rules translated to NL (Direct) (OpID: ${operationId}):\n${naturalLanguageExplanation}`
     );
 
     if (
@@ -424,7 +445,7 @@ async function translateRulesToNLDirect(prologRules, style = 'conversational') {
       naturalLanguageExplanation.trim() === ''
     ) {
       logger.warn(
-        `[McrService] Empty explanation generated for rules to NL (Direct).`
+        `[McrService] Empty explanation generated for rules to NL (Direct). OpID: ${operationId}`
       );
       return {
         success: false,
@@ -432,11 +453,11 @@ async function translateRulesToNLDirect(prologRules, style = 'conversational') {
         error: 'empty_explanation_generated',
       };
     }
-
+    logger.info(`[McrService] Successfully translated Rules to NL (Direct). OpID: ${operationId}. Explanation length: ${naturalLanguageExplanation.length}`);
     return { success: true, explanation: naturalLanguageExplanation };
   } catch (error) {
     logger.error(
-      `[McrService] Error translating Rules to NL (Direct): ${error.message}`,
+      `[McrService] Error translating Rules to NL (Direct) (OpID: ${operationId}): ${error.message}`,
       { error: error.stack }
     );
     return {
@@ -454,14 +475,15 @@ async function translateRulesToNLDirect(prologRules, style = 'conversational') {
  * @returns {Promise<{success: boolean, explanation?: string, debugInfo?: object, error?: string, strategy?: string}>}
  */
 async function explainQuery(sessionId, naturalLanguageQuestion) {
+  const operationId = `explain-${Date.now()}`;
   logger.info(
-    `[McrService] Explaining query for session ${sessionId} using strategy "${activeStrategy.getName()}": "${naturalLanguageQuestion}"`
+    `[McrService] Enter explainQuery for session ${sessionId} (OpID: ${operationId}). Strategy: "${activeStrategy.getName()}". NL Question: "${naturalLanguageQuestion}"`
   );
 
   const sessionExists = sessionManager.getSession(sessionId);
   if (!sessionExists) {
     logger.warn(
-      `[McrService] Session ${sessionId} not found for explain query.`
+      `[McrService] Session ${sessionId} not found for explain query. OpID: ${operationId}`
     );
     return {
       success: false,
@@ -474,80 +496,76 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
   const debugInfo = {
     naturalLanguageQuestion,
     strategy: activeStrategy.getName(),
+    operationId,
   };
 
   try {
     const existingFacts = sessionManager.getKnowledgeBase(sessionId) || '';
-    // let globalOntologyRules = ''; // This variable is unused.
     let contextOntologyRulesForQueryTranslation = ''; // For the strategy.query context
 
     try {
       const globalOntologies = await ontologyService.listOntologies(true); // For NL_TO_QUERY context
       if (globalOntologies && globalOntologies.length > 0) {
         contextOntologyRulesForQueryTranslation = globalOntologies.map((ont) => ont.rules).join('\n');
-        logger.debug(`[McrService] Fetched ${globalOntologies.length} global ontologies for NL_TO_QUERY context in explain.`);
+        logger.debug(`[McrService] Fetched ${globalOntologies.length} global ontologies for NL_TO_QUERY context in explain. OpID: ${operationId}`);
       }
     } catch (ontError) {
-      logger.warn(`[McrService] Error fetching global ontologies for NL_TO_QUERY context in explain (session ${sessionId}): ${ontError.message}`);
-      // Record this error if it occurs, as it affects the context provided to the strategy.
-      debugInfo.ontologyError = `Failed to load global ontologies for query translation context: ${ontError.message}`;
+      logger.warn(`[McrService] Error fetching global ontologies for NL_TO_QUERY context in explain (session ${sessionId}, OpID: ${operationId}): ${ontError.message}`);
+      debugInfo.ontologyErrorForStrategy = `Failed to load global ontologies for query translation context: ${ontError.message}`;
     }
+    logger.debug(`[McrService] Context for strategy query in explain (OpID: ${operationId}):`, { sessionId, existingFactsLength: existingFacts.length, ontologyRulesLength: contextOntologyRulesForQueryTranslation.length });
 
-    // Translate NL question to Prolog query using the active strategy
-    // The strategy itself might fetch ontologies or accept them as options.
-    // The current activeStrategy.query takes ontologyRules in its options.
+
+    logger.info(`[McrService] Calling strategy "${activeStrategy.getName()}".query() for explanation. OpID: ${operationId}`);
+    const strategyOptions = {
+        existingFacts,
+        ontologyRules: contextOntologyRulesForQueryTranslation,
+    };
     const prologQuery = await activeStrategy.query(
       naturalLanguageQuestion,
       llmService,
-      {
-        existingFacts, // Provide existing facts as context to the strategy
-        ontologyRules: contextOntologyRulesForQueryTranslation, // Provide ontology rules as context
-      }
+      strategyOptions
     );
-    logger.debug(
-      `[McrService] Strategy "${activeStrategy.getName()}" translated NL to Prolog query for explanation: ${prologQuery}`
+    logger.info(
+      `[McrService] Strategy "${activeStrategy.getName()}" translated NL to Prolog query for explanation (OpID: ${operationId}): ${prologQuery}`
     );
     debugInfo.prologQuery = prologQuery;
 
-    // The strategy's query method should throw an error if it fails.
 
-    // Session facts for the main explanation prompt
-    debugInfo.sessionFacts = existingFacts; // Already fetched
+    debugInfo.sessionFacts = existingFacts;
 
-    // Re-fetch global ontologies specifically for the EXPLAIN_PROLOG_QUERY prompt context
-    // This ensures that if the first fetch (for strategy context) failed, we try again here,
-    // and if this one fails, it's specifically logged for this part of the process.
     let explainPromptOntologyRules = '';
     try {
         const ontologiesForExplainPrompt = await ontologyService.listOntologies(true);
         if (ontologiesForExplainPrompt && ontologiesForExplainPrompt.length > 0) {
             explainPromptOntologyRules = ontologiesForExplainPrompt.map(ont => ont.rules).join('\n');
-            logger.debug(`[McrService] Fetched ${ontologiesForExplainPrompt.length} global ontologies for EXPLAIN_PROLOG_QUERY prompt.`);
+            logger.debug(`[McrService] Fetched ${ontologiesForExplainPrompt.length} global ontologies for EXPLAIN_PROLOG_QUERY prompt. OpID: ${operationId}`);
         }
     } catch (ontErrorForExplain) {
-        logger.warn(`[McrService] Error fetching global ontologies for EXPLAIN_PROLOG_QUERY prompt context (session ${sessionId}): ${ontErrorForExplain.message}`);
-        debugInfo.ontologyError = `Failed to load global ontologies for explanation: ${ontErrorForExplain.message}`;
-        // Continue, the prompt will just have empty ontologyRules
+        logger.warn(`[McrService] Error fetching global ontologies for EXPLAIN_PROLOG_QUERY prompt context (session ${sessionId}, OpID: ${operationId}): ${ontErrorForExplain.message}`);
+        debugInfo.ontologyErrorForPrompt = `Failed to load global ontologies for explanation prompt: ${ontErrorForExplain.message}`;
     }
-    debugInfo.ontologyRules = explainPromptOntologyRules; // Record what was actually used in the prompt
+    debugInfo.ontologyRulesForPrompt = explainPromptOntologyRules;
 
-    // Generate explanation using LLM with the EXPLAIN_PROLOG_QUERY prompt
-    const explainPromptUser = fillTemplate(prompts.EXPLAIN_PROLOG_QUERY.user, {
+    const explainPromptContext = {
       naturalLanguageQuestion,
       prologQuery,
       sessionFacts: existingFacts,
-      ontologyRules: explainPromptOntologyRules, // Use the specifically fetched rules for this prompt
-    });
+      ontologyRules: explainPromptOntologyRules,
+    };
+    logger.info(`[McrService] Generating explanation using LLM with EXPLAIN_PROLOG_QUERY prompt. OpID: ${operationId}`);
+    logger.debug(`[McrService] Context for EXPLAIN_PROLOG_QUERY prompt (OpID: ${operationId}):`, explainPromptContext);
+    const explainPromptUser = fillTemplate(prompts.EXPLAIN_PROLOG_QUERY.user, explainPromptContext);
 
     const explanation = await llmService.generate(
       prompts.EXPLAIN_PROLOG_QUERY.system,
       explainPromptUser
     );
-    logger.info(`[McrService] Explanation generated for session ${sessionId}`);
+    logger.info(`[McrService] Explanation generated for session ${sessionId}. OpID: ${operationId}. Length: ${explanation?.length}`);
     debugInfo.rawExplanation = explanation;
 
     if (!explanation || explanation.trim() === '') {
-      logger.warn(`[McrService] Empty explanation generated for query.`);
+      logger.warn(`[McrService] Empty explanation generated for query. OpID: ${operationId}`);
       return {
         success: false,
         message: 'Failed to generate an explanation for the query.',
@@ -555,11 +573,11 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
         error: 'empty_explanation_generated',
       };
     }
-
+    logger.info(`[McrService] Exit explainQuery successfully for session ${sessionId}. OpID: ${operationId}`);
     return { success: true, explanation, debugInfo };
   } catch (error) {
     logger.error(
-      `[McrService] Error explaining query for session ${sessionId}: ${error.message}`,
+      `[McrService] Error explaining query for session ${sessionId} (OpID: ${operationId}): ${error.message}`,
       { error: error.stack }
     );
     debugInfo.error = error.message;
@@ -580,15 +598,16 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
 // This function can be synchronous if prompts are statically imported and not fetched.
 // Making it async for consistency if we ever decide to load prompts dynamically.
 async function getPrompts() {
-  logger.info(`[McrService] Retrieving all prompt templates.`);
+  const operationId = `getPrompts-${Date.now()}`;
+  logger.info(`[McrService] Enter getPrompts (OpID: ${operationId})`);
   try {
     // The 'prompts' object is directly imported from './prompts.js'
-    // No complex logic needed, just return it.
+    logger.debug(`[McrService] Successfully retrieved prompts. OpID: ${operationId}. Prompt count: ${Object.keys(prompts).length}`);
     return { success: true, prompts: prompts }; // prompts is the imported object
   } catch (error) {
     // This catch is unlikely to be hit if 'prompts' is a static import.
-    logger.error(`[McrService] Error retrieving prompts: ${error.message}`, {
-      error,
+    logger.error(`[McrService] Error retrieving prompts (OpID: ${operationId}): ${error.message}`, {
+      error: error.stack,
     });
     return {
       success: false,
@@ -605,11 +624,13 @@ async function getPrompts() {
  * @returns {Promise<{success: boolean, templateName?: string, rawTemplate?: object, formattedPrompt?: string, error?: string}>}
  */
 async function debugFormatPrompt(templateName, inputVariables) {
-  logger.info(`[McrService] Formatting prompt template: ${templateName}`, {
-    inputVariables,
+  const operationId = `debugFormat-${Date.now()}`;
+  logger.info(`[McrService] Enter debugFormatPrompt (OpID: ${operationId}). Template: ${templateName}`, {
+    inputVariables, // Log input variables carefully if they might contain sensitive data
   });
 
   if (!templateName || typeof templateName !== 'string') {
+    logger.warn(`[McrService] Invalid template name for debugFormatPrompt. OpID: ${operationId}`, { templateName });
     return {
       success: false,
       message: 'Template name must be a non-empty string.',
@@ -617,6 +638,7 @@ async function debugFormatPrompt(templateName, inputVariables) {
     };
   }
   if (!inputVariables || typeof inputVariables !== 'object') {
+    logger.warn(`[McrService] Invalid input variables for debugFormatPrompt. OpID: ${operationId}`, { inputVariables });
     return {
       success: false,
       message: 'Input variables must be an object.',
@@ -626,6 +648,7 @@ async function debugFormatPrompt(templateName, inputVariables) {
 
   const template = prompts[templateName];
   if (!template) {
+    logger.warn(`[McrService] Prompt template "${templateName}" not found for debugFormatPrompt. OpID: ${operationId}`);
     return {
       success: false,
       message: `Prompt template "${templateName}" not found.`,
@@ -633,7 +656,7 @@ async function debugFormatPrompt(templateName, inputVariables) {
     };
   }
   if (!template.user) {
-    // Assuming all usable templates have a 'user' part
+    logger.warn(`[McrService] Prompt template "${templateName}" has no 'user' field for debugFormatPrompt. OpID: ${operationId}`);
     return {
       success: false,
       message: `Prompt template "${templateName}" does not have a 'user' field to format.`,
@@ -642,23 +665,25 @@ async function debugFormatPrompt(templateName, inputVariables) {
   }
 
   try {
+    logger.debug(`[McrService] Attempting to fill template "${templateName}" with variables. OpID: ${operationId}`);
     const formattedUserPrompt = fillTemplate(template.user, inputVariables); // This line can throw
+    logger.info(`[McrService] Successfully formatted prompt "${templateName}". OpID: ${operationId}`);
     return {
       success: true,
       templateName,
       rawTemplate: template,
-      formattedUserPrompt, // Use the value from fillTemplate
+      formattedUserPrompt,
       inputVariables,
     };
   } catch (error) {
     logger.error(
-      `[McrService] Error formatting prompt ${templateName}: ${error.message}`,
-      { error: error.stack } // Log stack for better debugging of fillTemplate errors
+      `[McrService] Error formatting prompt ${templateName} (OpID: ${operationId}): ${error.message}`,
+      { error: error.stack }
     );
     return {
       success: false,
-      message: `Error formatting prompt: ${error.message}`, // Pass through the specific error from fillTemplate
-      error: error.message, // Keep the original error message for the 'error' field
+      message: `Error formatting prompt: ${error.message}`,
+      error: error.message,
     };
   }
 }

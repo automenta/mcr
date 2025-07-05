@@ -2,8 +2,10 @@
 const express = require('express');
 const apiHandlers = require('./apiHandlers');
 const mcpHandler = require('./mcpHandler');
+const logger = require('./logger'); // Import logger
 
 function setupRoutes(app) {
+  logger.info('[Routes] Setting up API routes...');
   const router = express.Router();
 
   // Health check endpoint
@@ -55,6 +57,7 @@ function setupRoutes(app) {
   app.get('/', (req, res) => {
     res.status(200).send('Welcome to MCR Streamlined. API is at /api/v1');
   });
+  logger.info('[Routes] API routes setup complete. MCP SSE route also configured.');
 }
 
 module.exports = setupRoutes;
