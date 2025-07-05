@@ -12,12 +12,7 @@ export interface ValidationResult {
   error?: string;
 }
 
-export interface Session {
-  sessionId: string;
-  knowledgeBase: string;
-  createdAt: Date;
-  lastModified: Date;
-}
+// Removed Session interface from here, as it's now defined in core/knowledge/Session.ts
 
 export interface SIRSchema {
   intent: 'FACTS' | 'RULE';

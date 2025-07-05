@@ -11,7 +11,9 @@
     // Bundler mode
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
+    "verbatimModuleSyntax": true, // Keep this, but esModuleInterop might help ts-jest
+    "esModuleInterop": true, // Add this
+    "isolatedModules": true, // Add this, often good with verbatimModuleSyntax
     "noEmit": true,
 
     // Best practices

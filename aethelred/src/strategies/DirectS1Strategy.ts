@@ -1,16 +1,12 @@
 // aethelred/src/strategies/DirectS1Strategy.ts
 
 import type { ITranslationStrategy } from '../interfaces/ITranslationStrategy.js';
-// import { ILlmProvider } from '../interfaces'; // No longer used directly
-// import { Clause, QueryString } from '../types'; // Old types
-
-import type { Workflow, WorkflowNode, WorkflowEdge } from '../core/workflow/Workflow.js'; // Workflow is a type, others too but used as types
+import type { Workflow } from '../core/workflow/Workflow.js';
 import type { Stage } from '../core/workflow/Stage.js';
-import { ActionType } from '../core/workflow/Action.js'; // ActionType is an enum
-import type { LlmGenerateAction, LlmGenerateParams } from '../core/workflow/Action.js'; // These are interfaces (types)
-import { ArtifactType } from '../core/workflow/Artifact.js'; // ArtifactType is an enum
-import type { Artifact, NLTextArtifact } from '../core/workflow/Artifact.js'; // Artifact, NLTextArtifact are types
-// createNLTextArtifact is not used in this file
+import { ActionType } from '../core/workflow/Action.js';
+import type { LlmGenerateAction, LlmGenerateParams } from '../core/workflow/Action.js';
+import { ArtifactType } from '../core/workflow/Artifact.js';
+import type { Artifact, NLTextArtifact } from '../core/workflow/Artifact.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export class DirectS1Strategy implements ITranslationStrategy {
@@ -21,23 +17,20 @@ export class DirectS1Strategy implements ITranslationStrategy {
 
   public defineAssertWorkflow(
     nlTextArtifact: NLTextArtifact,
-    _context?: Map<string, Artifact> // Context not used in this simple strategy yet
+    _context?: Map<string, Artifact>
   ): Workflow {
     const stageId = `s1_assert_stage_nl_to_prolog_${uuidv4().substring(0,8)}`;
 
     const llmActionParams: LlmGenerateParams = {
-      // Ideally, we'd use a named prompt template registered elsewhere.
-      // For Direct-S1, the prompt is simple enough to define inline or load.
-      // Let's assume a direct user prompt construction for now.
-      directUserPrompt: `Convert the following natural language text into one or more Prolog facts or rules.
-Each fact should be on a separate line, ending with a period.
-Facts should use lowercase predicates and proper Prolog syntax.
-
-Natural language text: "${nlTextArtifact.content}"
-
-Prolog facts/rules:`,
-      outputArtifactType: ArtifactType.PROLOG_KB, // Expecting a block of Prolog clauses
-      // options: { temperature: 0.3 } // Example LLM option
+      directSystemPrompt: "You are an expert in translating natural language to Prolog. " +
+                          "Convert the user's text into one or more concise Prolog facts or rules. " +
+                          "Each fact or rule must end with a period. Output each on a new line. " +
+                          "Use standard Prolog syntax. For example, 'John likes Mary' becomes 'likes(john, mary).'. " +
+                          "'All birds fly' becomes 'flies(X) :- bird(X).'. " +
+                          "If the input is a statement of fact, produce a fact. If it is a general rule, produce a rule.",
+      directUserPrompt: `Translate the following text to Prolog clauses:\n\n"${nlTextArtifact.content}"`,
+      outputArtifactType: ArtifactType.PROLOG_KB,
+      // options: { temperature: 0.3 }
     };
 
     const llmAction: LlmGenerateAction = {
@@ -60,7 +53,7 @@ Prolog facts/rules:`,
       nodes: {
         [stageId]: translationStage,
       },
-      edges: [], // Linear workflow with one stage
+      edges: [],
       expectedInputArtifacts: [
         { name: "naturalLanguageText", type: ArtifactType.NL_TEXT, description: "The NL text to assert." }
       ],
@@ -78,18 +71,18 @@ Prolog facts/rules:`,
 
   public defineQueryWorkflow(
     nlQuestionArtifact: NLTextArtifact,
-    _context?: Map<string, Artifact> // Context not used
+    _context?: Map<string, Artifact>
   ): Workflow {
     const stageId = `s1_query_stage_nl_to_prolog_${uuidv4().substring(0,8)}`;
 
     const llmActionParams: LlmGenerateParams = {
-      directUserPrompt: `Convert the following natural language question into a Prolog query.
-The query should use proper Prolog syntax with variables starting with uppercase letters.
-Do not include the ?- prefix, just the query ending with a period.
-
-Natural language question: "${nlQuestionArtifact.content}"
-
-Prolog query:`,
+      directSystemPrompt: "You are an expert in translating natural language questions into Prolog queries. " +
+                          "Convert the user's question into a syntactically correct Prolog query. " +
+                          "The query should end with a period. Variables should be uppercase. " +
+                          "For example, 'Who likes Mary?' becomes 'likes(X, mary).'. " +
+                          "'Does John like fish?' becomes 'likes(john, fish).'. " +
+                          "Do not include the ?- prefix.",
+      directUserPrompt: `Translate the following question to a Prolog query:\n\n"${nlQuestionArtifact.content}"`,
       outputArtifactType: ArtifactType.QUERY_STRING,
       // options: { temperature: 0.1 }
     };
@@ -114,7 +107,7 @@ Prolog query:`,
       nodes: {
         [stageId]: translationStage,
       },
-      edges: [], // Linear workflow with one stage
+      edges: [],
       expectedInputArtifacts: [
         { name: "naturalLanguageQuestion", type: ArtifactType.NL_TEXT, description: "The NL question." }
       ],
