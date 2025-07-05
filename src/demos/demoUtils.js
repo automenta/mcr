@@ -1,36 +1,54 @@
 // Adapted from old/src/demo.js
+const chalk = require('chalk');
 
 const demoLogger = {
-  heading: (text) => console.log(`\n🚀 \x1b[1m\x1b[34m${text}\x1b[0m`), // Bold Blue
-  step: (text) => console.log(`\n➡️  \x1b[1m${text}\x1b[0m`), // Bold
-  info: (label, data) =>
-    console.log(
-      `   \x1b[36m${label}:\x1b[0m ${typeof data === 'object' ? JSON.stringify(data, null, 2) : data}`
-    ), // Cyan label
-  nl: (label, text) => console.log(`   🗣️ \x1b[33m${label}:\x1b[0m "${text}"`), // Yellow NL
-  logic: (label, text) =>
-    console.log(
-      `   🧠 \x1b[35m${label}:\x1b[0m ${typeof text === 'object' ? JSON.stringify(text) : text}`
-    ), // Magenta Logic
-  mcrResponse: (label, text) =>
-    console.log(`   🤖 \x1b[32m${label}:\x1b[0m ${text}`), // Green MCR
-  success: (text) => console.log(`   ✅ \x1b[32m${text}\x1b[0m`), // Green
+  heading: (text) => console.log(`\n🚀 ${chalk.bold.blue(text)}`),
+  step: (text) => console.log(`\n➡️  ${chalk.bold(text)}`),
+  info: (label, data) => {
+    const dataString = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+    console.log(`   ${chalk.cyan(label)}: ${dataString}`);
+  },
+  nl: (label, text) => console.log(`   🗣️ ${chalk.yellow(label)}: "${text}"`),
+  logic: (label, text) => {
+    const textString = typeof text === 'object' ? JSON.stringify(text) : text;
+    console.log(`   🧠 ${chalk.magenta(label)}: ${textString}`);
+  },
+  apiCall: (method, url, body = null) => {
+    let logString = `   📞 ${chalk.bold.yellow(method.toUpperCase())} ${chalk.underline.yellow(url)}`;
+    if (body) {
+      // For bodies that might be very large (like ontology text), truncate them.
+      let bodyStr = JSON.stringify(body, null, 2);
+      if (bodyStr.length > 500) {
+        bodyStr = bodyStr.substring(0, 497) + '...';
+      }
+      logString += `\n     ${chalk.gray('Body:')} ${chalk.gray(bodyStr)}`;
+    }
+    console.log(logString);
+  },
+  mcrResponse: (label, text) => console.log(`   🤖 ${chalk.green(label)}: ${text}`),
+  success: (text) => console.log(`   ✅ ${chalk.green(text)}`),
   error: (text, details) => {
-    console.error(`   ❌ \x1b[31mError: ${text}\x1b[0m`); // Red
+    console.error(`   ❌ ${chalk.red.bold('Error:')} ${chalk.red(text)}`);
     if (details) {
       const detailString =
         typeof details === 'object'
           ? JSON.stringify(details, null, 2)
           : String(details);
-      // Ensure details are not excessively long for console output
-      const maxDetailLength = 500;
+      const maxDetailLength = 1000; // Increased max length
       console.error(
-        `      \x1b[90mDetails: ${detailString.substring(0, maxDetailLength)}${detailString.length > maxDetailLength ? '...' : ''}\x1b[0m`
+        `      ${chalk.dim('Details:')} ${chalk.gray(detailString.substring(0, maxDetailLength))}${detailString.length > maxDetailLength ? chalk.gray('... (truncated)') : ''}`
       );
     }
   },
-  cleanup: (text) => console.log(`   🧹 \x1b[90m${text}\x1b[0m`), // Dim/Gray
-  divider: () => console.log('\n' + '-'.repeat(60)),
+  assertion: (status, message) => {
+    if (status) {
+      console.log(`   👍 ${chalk.bold.green('ASSERT OK:')} ${chalk.green(message)}`);
+    } else {
+      console.log(`   👎 ${chalk.bold.red('ASSERT FAIL:')} ${chalk.red(message)}`);
+    }
+  },
+  cleanup: (text) => console.log(`   🧹 ${chalk.dim(text)}`), // Dim/Gray
+  divider: (char = '-', length = 60) => console.log('\n' + chalk.gray(char.repeat(length))),
 };
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

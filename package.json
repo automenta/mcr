@@ -54,6 +54,7 @@
     "@langchain/google-genai": "^0.2.14",
     "@langchain/openai": "^0.5.18",
     "axios": "^1.6.0",
+    "chalk": "^4.1.2",
     "commander": "^14.0.0",
     "dotenv": "^16.6.1",
     "express": "^4.17.1",
@@ -64,7 +65,8 @@
     "react": "^19.1.0",
     "tau-prolog": "^0.3.4",
     "uuid": "^11.1.0",
-    "winston": "^3.0.0"
+    "winston": "^3.0.0",
+    "yargs": "^18.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",

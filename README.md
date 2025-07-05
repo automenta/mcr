@@ -234,8 +234,89 @@ MCR offers direct Command Line Interface (CLI) commands via `./cli.js` (or `mcr-
 - `./cli.js assert <sessionId> "Fact"`: Asserts a fact.
 - `./cli.js query <sessionId> "Question?"`: Queries a session.
 - `./cli.js list-ontologies`: Lists global ontologies.
-- `./cli.js demo run <simpleQA|family>`: Runs predefined demonstrations.
+- `./cli.js demo run <example-name>`: Runs predefined demonstrations. See below for more details.
 - `./cli.js sandbox`: Starts an interactive sandbox for experimenting with NL to Logic steps.
+
+## 🧪 Enhanced Demo Runner (`node demo.js`)
+
+A new enhanced demo runner (`demo.js`) is available to showcase various MCR capabilities and to help with debugging and telemetry gathering.
+
+**Features:**
+
+- **Multiple Examples:** Includes a range of examples from simple assertions to complex ontology-based reasoning and error handling scenarios.
+- **Command-Line Selection:** Specify which example to run.
+- **Detailed Logging:** Colorized and structured logs for all activities, API calls, and internal logic. Very useful for debugging.
+- **Assertions:** Examples can include assertions to test specific logic conditions.
+
+**How to Use:**
+
+1.  **Ensure the MCR server is running:**
+    ```bash
+    node mcr.js
+    # OR
+    ./cli.js start-server
+    ```
+
+2.  **List available examples:**
+    ```bash
+    node demo.js --list
+    # or
+    node demo.js -l
+    ```
+    This will output a list of example keys and their descriptions.
+
+3.  **Run a specific example:**
+    Replace `[example-name]` with one of the keys obtained from the list.
+    ```bash
+    node demo.js [example-name]
+    ```
+    For example:
+    ```bash
+    node demo.js simple-assertions
+    node demo.js family-ontology
+    node demo.js scientific-kb
+    node demo.js error-handling
+    ```
+
+**Available Examples (as of this writing):**
+
+-   `simple-assertions`: A basic demo asserting simple facts and querying them.
+-   `family-ontology`: Demonstrates reasoning with a pre-loaded family ontology (`family.pl`).
+-   `scientific-kb`: A demo asserting facts about a simple scientific domain (chemistry/physics) and querying them.
+-   `error-handling`: Demonstrates how the system handles various error conditions and invalid inputs.
+
+**Adding New Examples:**
+
+1.  Create a new JavaScript file in the `src/demos/` directory (e.g., `myNewDemo.js`).
+2.  The file should export a class that extends the `Example` class (from `demo.js`).
+    ```javascript
+    // src/demos/myNewDemo.js
+    const { Example } = require('../../demo'); // Adjust path if structure changes
+
+    class MyNewDemo extends Example {
+      getName() {
+        return 'My New Demo'; // User-friendly name
+      }
+
+      getDescription() {
+        return 'This is a description of my new demo.';
+      }
+
+      async run() {
+        this.dLog.heading(`Starting ${this.getName()}`);
+        // Your demo logic here
+        // Use this.createSession(), this.assertFact(), this.query(), this.assertCondition(), etc.
+        // All these methods use this.dLog for detailed logging.
+        await this.createSession();
+        await this.assertFact('My demo is working.');
+        const result = await this.query('Is my demo working?');
+        await this.assertCondition(result && result.answer.includes('yes'), 'Demo works!', 'Demo failed!');
+        this.dLog.success('My New Demo completed!');
+      }
+    }
+    module.exports = MyNewDemo;
+    ```
+3.  The `demo.js` script will automatically discover any `*Demo.js` files in `src/demos/` that export a class extending `Example`. The command-line key for the demo will be derived from its `getName()` method (e.g., "My New Demo" becomes "my-new-demo").
 
 ## 🔌 API Reference
 
