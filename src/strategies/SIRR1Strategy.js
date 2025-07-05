@@ -115,15 +115,16 @@ class SIRR1Strategy {
    * @throws {Error} If translation or SIR processing fails.
    */
   async assert(naturalLanguageText, llmProvider, options = {}) {
-    const { existingFacts = '', ontologyRules = '' } = options;
+    const { existingFacts = '', ontologyRules = '', lexiconSummary = 'No lexicon summary available.' } = options;
     logger.debug(
-      `[SIRR1Strategy] Asserting NL via SIR: "${naturalLanguageText}"`
+      `[SIRR1Strategy] Asserting NL via SIR: "${naturalLanguageText}". Lexicon summary: ${lexiconSummary.substring(0,100)}...`
     );
 
     const sirPromptUser = fillTemplate(prompts.NL_TO_SIR_ASSERT.user, {
       naturalLanguageText,
       existingFacts,
       ontologyRules,
+      lexiconSummary,
     });
 
     const llmJsonOutput = await llmProvider.generate(
@@ -207,9 +208,9 @@ class SIRR1Strategy {
    * @throws {Error} If translation fails or the generated query is invalid.
    */
   async query(naturalLanguageQuestion, llmProvider, options = {}) {
-    const { existingFacts = '', ontologyRules = '' } = options;
+    const { existingFacts = '', ontologyRules = '', lexiconSummary = 'No lexicon summary available.' } = options;
     logger.debug(
-      `[SIRR1Strategy] Translating NL query (direct): "${naturalLanguageQuestion}"`
+      `[SIRR1Strategy] Translating NL query (direct): "${naturalLanguageQuestion}". Lexicon summary: ${lexiconSummary.substring(0,100)}...`
     );
 
     // Using the same NL_TO_QUERY prompt as DirectS1Strategy for now.
@@ -218,6 +219,7 @@ class SIRR1Strategy {
       naturalLanguageQuestion,
       existingFacts,
       ontologyRules,
+      lexiconSummary,
     });
 
     const prologQuery = await llmProvider.generate(
