@@ -33,6 +33,7 @@ This combination unlocks possibilities for more robust, explainable, and sophist
 
 - **🧩 Modularity**: Structured into logical components (Config, Logger, LLM Service, Reasoner Service, API Handlers).
 - **🤖 Extensible LLM Support**: Supports multiple LLM providers (OpenAI, Gemini, Ollama, etc.), selectable via configuration. (Refer to `.env.example` for details).
+- **📚 Dynamic Lexicon Summary**: Automatically builds a lexicon of known predicates (name/arity) from asserted facts within a session. This summary is provided to the LLM during translation to improve consistency and accuracy in generating Prolog facts, rules, and queries. It helps the LLM prefer existing predicates and understand their usage.
 - **🛡️ Robust Error Handling**: Custom `ApiError` class and centralized error-handling.
 - **✅ Configuration Validation**: Checks for required API keys and settings on startup.
 - **📦 Dependency Management**: Uses `package.json` for Node.js dependencies.

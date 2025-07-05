@@ -30,9 +30,12 @@ jest.mock('../src/sessionManager', () => ({
   addFacts: jest.fn(),
   createSession: jest.fn(),
   deleteSession: jest.fn(),
+  getLexiconSummary: jest.fn().mockReturnValue('lexicon_entry/1'), // Added mock for getLexiconSummary
 }));
 jest.mock('../src/ontologyService', () => ({
   listOntologies: jest.fn(),
+  // Adding a mock for getGlobalOntologyRulesAsString as it's used in mcrService
+  getGlobalOntologyRulesAsString: jest.fn().mockResolvedValue('global_ontology_rule_from_mock.'),
 }));
 jest.mock('../src/logger', () => ({
   info: jest.fn(),

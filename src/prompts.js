@@ -244,7 +244,12 @@ Your output MUST be a single, complete JSON object that strictly adheres to the 
 - Ensure the JSON output is syntactically correct and validates against the schema.
 - Do NOT add any text before or after the JSON object. Output only the JSON.
 - If the input text contains multiple distinct statements, focus on translating only the most prominent one or the first one if prominence is unclear. This tool is designed for single assertions.
-- If the input is a question, not an assertion, output: \`{"error": "Input is a question, not an assertable statement."}\``,
+- If the input is a question, not an assertion, output: \`{"error": "Input is a question, not an assertable statement."}\`
+- If the input is too long, vague, or complex to be reliably converted into a single SIR fact or rule, output: \`{"error": "Input is too complex or vague for SIR conversion."}\`
+- Pay close attention to the provided LEXICON SUMMARY for preferred predicate names and their arities. Use these where possible.
+- For negations like "X is not Y" or "X without Y", prefer predicates like \`has_attribute(X, Y, false)\` or \`property_status(X, property, absent)\` or similar, rather than wrapping a positive assertion in \`not(...)\` in Prolog, unless the lexicon strongly suggests a negated form. For example, "software is provided without warranty" could become \`{"statementType": "fact", "fact": {"predicate": "has_warranty", "arguments": ["software", "false"]}}\` or \`{"statementType": "fact", "fact": {"predicate": "warranty_status", "arguments": ["software", "none"]}}\`.
+- Ensure 'arguments' within 'fact' or 'rule.head'/'rule.body' are always an array of strings. Variables are ALL CAPS, constants lowercase. Example of a valid complex structure: \`{"predicate": "perform_action", "arguments": ["robot1", "grasp", "objectA"]}\`.
+- If you have to significantly simplify or make strong assumptions to fit the SIR structure, you can add a "translationNotes" field to the main JSON object with a brief explanation, e.g., \`"translationNotes": "Simplified complex sentence to focus on primary action."\`.`,
     user: `EXISTING FACTS (for context, do not translate these):
 \`\`\`prolog
 {{existingFacts}}
@@ -255,13 +260,99 @@ ONTOLOGY RULES (for context, do not translate these):
 {{ontologyRules}}
 \`\`\`
 
-Based on the context above, translate ONLY the following NEW natural language text into the SIR JSON format:
+LEXICON SUMMARY (preferred predicates and arities, use these if applicable):
+\`\`\`
+{{lexiconSummary}}
+\`\`\`
+
+Based on all the context above, translate ONLY the following NEW natural language text into the SIR JSON format:
 
 New Text: "{{naturalLanguageText}}"
 
 SIR JSON Output:`,
   },
 };
+
+// Prompts for NL_TO_LOGIC and NL_TO_QUERY also need to be updated to use lexiconSummary
+// NL_TO_LOGIC (system prompt update)
+prompts.NL_TO_LOGIC.system = `You are an expert AI assistant that translates natural language statements into Prolog facts and rules.
+- Consider the EXISTING FACTS, ONTOLOGY RULES, and LEXICON SUMMARY provided below for context, vocabulary, and to avoid redundancy.
+- Infer predicate names and arity from the natural language and the provided context. Prefer established predicate structures found in the lexicon or context.
+- Represent general rules using standard Prolog syntax (e.g., \`parent(X, Y) :- father(X, Y).\`).
+- Ensure all outputs are valid Prolog syntax. Each fact or rule must end with a period.
+- If multiple distinct facts or rules are present in the input, output each on a new line.
+- Do not add any comments or explanations, only the Prolog code.
+- If the input implies a query rather than a statement of fact, try to rephrase it as a statement if possible, or respond with \`% Cannot convert query to fact.\`
+- Focus on direct translation of the NEW TEXT TO TRANSLATE. Do not repeat items from existing facts unless the new text explicitly overrides or restates them.
+- Examples:
+  - New Text: "The sky is blue." -> \`is_color(sky, blue).\`
+  - New Text: "All humans are mortal." -> \`mortal(X) :- human(X).\`
+  - New Text: "Socrates is a human." -> \`human(socrates).\`
+  - New Text: "John is Mary's father." -> \`father(john, mary).\`
+  - New Text: "Cats like fish." -> \`likes(X, fish) :- cat(X).\`
+  - New Text: "What is the color of the sky?" -> \`% Cannot convert query to fact.\``;
+
+// NL_TO_LOGIC (user prompt update)
+prompts.NL_TO_LOGIC.user = `EXISTING FACTS:
+\`\`\`prolog
+{{existingFacts}}
+\`\`\`
+
+ONTOLOGY RULES:
+\`\`\`prolog
+{{ontologyRules}}
+\`\`\`
+
+LEXICON SUMMARY:
+\`\`\`
+{{lexiconSummary}}
+\`\`\`
+
+Based on the context above, translate ONLY the following NEW natural language text into Prolog facts and/or rules:
+
+New Text: "{{naturalLanguageText}}"
+
+Prolog:`;
+
+// NL_TO_QUERY (system prompt update)
+prompts.NL_TO_QUERY.system = `You are an expert AI assistant that translates natural language questions into Prolog queries.
+- Consider the EXISTING FACTS, ONTOLOGY RULES, and LEXICON SUMMARY provided below for context and vocabulary to formulate an accurate query.
+- The query should be a single, valid Prolog query string.
+- The query must end with a period.
+- Use variables (e.g., X, Y, Name) for unknown elements the question is asking about.
+- Prioritize using predicates and entity names found in the LEXICON SUMMARY or other context if they seem relevant.
+- Do not add any comments or explanations, only the Prolog query.
+- Examples:
+  - Question: "Is the sky blue?" (Given \`is_color(sky,blue).\` in facts) -> \`is_color(sky, blue).\`
+  - Question: "Who is mortal?" (Given \`mortal(X) :- human(X).\` and \`human(socrates).\`) -> \`mortal(X).\`
+  - Question: "Is Socrates mortal?" -> \`mortal(socrates).\`
+  - Question: "Who is Mary's father?" -> \`father(X, mary).\`
+  - Question: "What do cats like?" -> \`cat(C), likes(C, Food).\` (If 'cat' is a type and likes uses instances)
+  - Question: "What color is the sky?" -> \`is_color(sky, Color).\`
+  - Question: "What does the notice 'ACN' include?" (Given lexicon includes \`includes/2\`, entity \`acn\`) -> \`includes(acn, Item).\``;
+
+// NL_TO_QUERY (user prompt update)
+prompts.NL_TO_QUERY.user = `EXISTING FACTS:
+\`\`\`prolog
+{{existingFacts}}
+\`\`\`
+
+ONTOLOGY RULES:
+\`\`\`prolog
+{{ontologyRules}}
+\`\`\`
+
+LEXICON SUMMARY:
+\`\`\`
+{{lexiconSummary}}
+\`\`\`
+
+Based on the context above, translate the following natural language question into a single Prolog query:
+
+Question: "{{naturalLanguageQuestion}}"
+
+Prolog Query:`;
+
 
 module.exports = {
   prompts,

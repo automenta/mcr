@@ -16,14 +16,17 @@ function createSession() {
     id: sessionId,
     createdAt: new Date(),
     facts: [], // Stores Prolog facts as strings
+    lexicon: new Set(), // Stores predicate/arity strings e.g., "is_color/2"
   };
   sessions[sessionId] = session;
   logger.info(`Session created: ${sessionId}`);
-  return { ...session }; // Return a copy
+  // Return a copy, ensuring lexicon is also copied if it's to be exposed directly
+  // For now, getSession will not expose lexicon directly, only through getLexiconSummary
+  return { id: session.id, createdAt: session.createdAt, facts: [...session.facts] };
 }
 
 /**
- * Retrieves a session by its ID.
+ * Retrieves a session by its ID (excluding lexicon for direct external access).
  * @param {string} sessionId - The ID of the session.
  * @returns {{id: string, createdAt: Date, facts: string[]}|null} The session object or null if not found.
  */
@@ -32,7 +35,9 @@ function getSession(sessionId) {
     logger.warn(`Session not found: ${sessionId}`);
     return null;
   }
-  return { ...sessions[sessionId] }; // Return a copy
+  const session = sessions[sessionId];
+  // Return a copy, excluding direct lexicon access from this general getter
+  return { id: session.id, createdAt: session.createdAt, facts: [...session.facts] };
 }
 
 /**
@@ -72,11 +77,63 @@ function addFacts(sessionId, newFacts) {
     // return false;
   }
 
+  // Update lexicon before adding facts
+  _updateLexiconWithFacts(sessionId, validatedFacts);
+
   sessions[sessionId].facts.push(...validatedFacts);
   logger.info(
-    `${validatedFacts.length} facts added to session: ${sessionId}. Total facts: ${sessions[sessionId].facts.length}`
+    `${validatedFacts.length} facts added to session: ${sessionId}. Total facts: ${sessions[sessionId].facts.length}. Lexicon size: ${sessions[sessionId].lexicon.size}`
   );
   return true;
+}
+
+/**
+ * Helper function to parse facts and update the session's lexicon.
+ * This is a simplified parser. A robust Prolog parser would be more accurate.
+ * @param {string} sessionId - The ID of the session.
+ * @param {string[]} facts - An array of Prolog fact strings.
+ */
+function _updateLexiconWithFacts(sessionId, facts) {
+  if (!sessions[sessionId]) return;
+
+  facts.forEach(fact => {
+    // Remove comments and trim
+    const cleanFact = fact.replace(/%.*$/, '').trim();
+    if (!cleanFact.endsWith('.')) return;
+
+    // Attempt to match predicate and arguments for facts like predicate(...).
+    // This regex is basic and might not cover all Prolog syntax (e.g., operators, complex terms).
+    // It captures the predicate name and the content within the parentheses.
+    const match = cleanFact.match(/^([a-z_][a-zA-Z0-9_]*)\((.*)\)\.$/);
+
+    if (match) {
+      const predicate = match[1];
+      const argsString = match[2];
+
+      // Count arguments by splitting by comma, but be mindful of commas within terms (e.g., functions, lists)
+      // This simple split is naive. A real parser would handle nested structures.
+      // For now, assuming simple arguments.
+      let arity = 0;
+      if (argsString.trim() !== '') {
+        // A simple heuristic: count commas and add 1 if there's content.
+        // This will be wrong for terms like `location(city('New York'), state('NY'))`
+        // but for `name(john,smith)` it would be 2. For `isa(dog)` it would be 1 if argsString is "dog".
+        // Let's try a slightly more robust naive split for simple args:
+        // This regex splits by comma, but not if comma is inside quotes (simple case)
+        // or inside parentheses (very basic nesting, not fully robust).
+        const potentialArgs = argsString.match(/(?:[^,(]|\([^)]*\)|'[^']*')+/g);
+        arity = potentialArgs ? potentialArgs.length : 0;
+      }
+      sessions[sessionId].lexicon.add(`${predicate}/${arity}`);
+    } else {
+      // Handle facts like 'is_raining.' (predicate without parentheses, arity 0)
+      const simpleFactMatch = cleanFact.match(/^([a-z_][a-zA-Z0-9_]*)\.$/);
+      if (simpleFactMatch) {
+        const predicate = simpleFactMatch[1];
+        sessions[sessionId].lexicon.add(`${predicate}/0`);
+      }
+    }
+  });
 }
 
 /**
@@ -113,5 +170,25 @@ module.exports = {
   getSession,
   addFacts,
   getKnowledgeBase,
-  deleteSession, // Added delete functionality as it's standard for session management
+  deleteSession,
+  getLexiconSummary, // Expose the new function
 };
+
+/**
+ * Retrieves a summary of the lexicon for a given session.
+ * @param {string} sessionId - The ID of the session.
+ * @returns {string|null} A string representing the lexicon summary or null if session not found.
+ */
+function getLexiconSummary(sessionId) {
+  const session = sessions[sessionId];
+  if (!session) {
+    logger.warn(`Cannot get lexicon summary: Session not found: ${sessionId}`);
+    return null;
+  }
+  if (session.lexicon.size === 0) {
+    return "No specific predicates identified in the current session's knowledge base yet.";
+  }
+  // Sort for consistent output, helpful for prompts and testing
+  const sortedLexicon = Array.from(session.lexicon).sort();
+  return `Known Predicates (name/arity):\n- ${sortedLexicon.join('\n- ')}`;
+}

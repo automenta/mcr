@@ -37,8 +37,8 @@ async function createSession() {
     );
     console.error(
       '\n❌ Error creating session:',
-      error.response
-        ? JSON.stringify(error.response.data, null, 2)
+      error.response && error.response.data && error.response.data.error
+        ? `${error.response.data.error.message}${error.response.data.error.details ? ` (Details: ${JSON.stringify(error.response.data.error.details)})` : ''}`
         : error.message
     );
   }
@@ -72,12 +72,22 @@ async function assertFact(text) {
       'Error asserting fact:',
       error.response ? error.response.data : error.message
     );
-    console.error(
-      '\n❌ Error asserting fact:',
-      error.response
-        ? JSON.stringify(error.response.data, null, 2)
-        : error.message
-    );
+    let displayErrorMessage = error.message;
+    if (error.response && error.response.data && error.response.data.error) {
+      const errData = error.response.data.error;
+      displayErrorMessage = errData.message;
+      if (errData.details) {
+        displayErrorMessage += ` (Details: ${JSON.stringify(errData.details)})`;
+      }
+
+      // Add contextual help
+      if (errData.message && errData.message.includes('Input is not an assertable statement')) {
+        displayErrorMessage += '\n   ➡️ Tip: The system could not understand this as a simple fact or rule. Try rephrasing, breaking it into smaller parts, or ensuring it is a declarative statement.';
+      } else if (errData.message && errData.message.includes('Invalid term structure in SIR JSON')) {
+        displayErrorMessage += '\n   ➡️ Tip: The system struggled to structure this information. This can happen with very complex sentences. Try simplifying the statement.';
+      }
+    }
+    console.error('\n❌ Error asserting fact:', displayErrorMessage);
   }
 }
 
@@ -118,21 +128,22 @@ async function querySession(question) {
     );
     console.error(
       '\n❌ Error querying session:',
-      error.response
-        ? JSON.stringify(error.response.data, null, 2)
+      error.response && error.response.data && error.response.data.error
+        ? `${error.response.data.error.message}${error.response.data.error.details ? ` (Details: ${JSON.stringify(error.response.data.error.details)})` : ''}`
         : error.message
     );
-    if (
-      error.response &&
-      error.response.data &&
-      error.response.data.error &&
-      error.response.data.error.details
-    ) {
-      console.error(
-        '   Server Details:',
-        JSON.stringify(error.response.data.error.details, null, 2)
-      );
-    }
+    // The details are now part of the main error message if they exist, so the separate block below is redundant.
+    // if (
+    //   error.response &&
+    //   error.response.data &&
+    //   error.response.data.error &&
+    //   error.response.data.error.details
+    // ) {
+    //   console.error(
+    //     '   Server Details:',
+    //     JSON.stringify(error.response.data.error.details, null, 2)
+    //   );
+    // }
   }
 }
 
@@ -228,6 +239,7 @@ async function mainLoop() {
             `\n❓ Unknown command: ${cmd}. Type /help for available commands.`
           );
       }
+      console.log(); // Add a blank line for spacing before next prompt
     } else if (input.length > 0) {
       // Natural language input
       if (!currentSessionId) {
@@ -259,7 +271,9 @@ async function mainLoop() {
       } else {
         await assertFact(input);
       }
+      console.log(); // Add a blank line for spacing before next prompt
     }
+    // No console.log() here for empty input, as it would just add unnecessary lines.
   }
 }
 

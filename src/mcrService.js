@@ -118,9 +118,10 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
     );
 
     // Delegate translation to the active strategy
-    const strategyOptions = { existingFacts, ontologyRules };
+    const lexiconSummary = sessionManager.getLexiconSummary(sessionId);
+    const strategyOptions = { existingFacts, ontologyRules, lexiconSummary };
     logger.info(
-      `[McrService] Calling strategy "${activeStrategy.getName()}".assert(). OpID: ${operationId}`
+      `[McrService] Calling strategy "${activeStrategy.getName()}".assert(). OpID: ${operationId}. Lexicon summary length: ${lexiconSummary?.length}`
     );
     const addedFacts = await activeStrategy.assert(
       naturalLanguageText,
@@ -246,9 +247,10 @@ async function querySessionWithNL(
     );
 
     // Delegate NL to Prolog query translation to the active strategy
-    const strategyOptions = { existingFacts, ontologyRules };
+    const lexiconSummary = sessionManager.getLexiconSummary(sessionId);
+    const strategyOptions = { existingFacts, ontologyRules, lexiconSummary };
     logger.info(
-      `[McrService] Calling strategy "${activeStrategy.getName()}".query(). OpID: ${operationId}`
+      `[McrService] Calling strategy "${activeStrategy.getName()}".query(). OpID: ${operationId}. Lexicon summary length: ${lexiconSummary?.length}`
     );
     const prologQuery = await activeStrategy.query(
       naturalLanguageQuestion,
@@ -418,7 +420,8 @@ async function translateNLToRulesDirect(
     const prologRules = await strategyToUse.assert(
       naturalLanguageText,
       llmService,
-      {} // No session context for direct translation
+      // No session-specific lexicon for direct translation, could consider a global lexicon if available
+      { ontologyRules: await ontologyService.getGlobalOntologyRulesAsString() }
     );
     logger.debug(
       `[McrService] Strategy "${strategyToUse.getName()}".assert() returned (OpID: ${operationId}):`,
@@ -600,12 +603,14 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
       }
     );
 
+    const lexiconSummary = sessionManager.getLexiconSummary(sessionId);
     logger.info(
-      `[McrService] Calling strategy "${activeStrategy.getName()}".query() for explanation. OpID: ${operationId}`
+      `[McrService] Calling strategy "${activeStrategy.getName()}".query() for explanation. OpID: ${operationId}. Lexicon length: ${lexiconSummary?.length}`
     );
     const strategyOptions = {
       existingFacts,
       ontologyRules: contextOntologyRulesForQueryTranslation,
+      lexiconSummary,
     };
     const prologQuery = await activeStrategy.query(
       naturalLanguageQuestion,
@@ -825,6 +830,7 @@ module.exports = {
   createSession: sessionManager.createSession,
   getSession: sessionManager.getSession,
   deleteSession: sessionManager.deleteSession,
+  getLexiconSummary: sessionManager.getLexiconSummary, // Expose if API needs it directly
   translateNLToRulesDirect,
   translateRulesToNLDirect,
   explainQuery,
