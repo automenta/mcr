@@ -177,7 +177,6 @@ async function mainLoop() {
 
   console.log('Type /help for commands, or /create to start.');
 
-
   while (true) {
     const { command } = await inquirer.prompt([
       {

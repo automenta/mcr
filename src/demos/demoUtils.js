@@ -1,5 +1,3 @@
-
-
 // Adapted from old/src/demo.js
 
 const demoLogger = {

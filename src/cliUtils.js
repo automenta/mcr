@@ -1,5 +1,3 @@
-
-
 // Adapted from old/src/cli/utils.js and old/src/cli/api.js
 
 /**
@@ -202,7 +200,9 @@ async function checkAndStartServer(programOpts = {}) {
       await startMcrServerAsync(programOpts); // Pass programOpts if needed by startMcrServerAsync
       logger.info('MCR server starting up...');
       // Wait significantly longer for the server to initialize after starting command is issued
-      await new Promise(resolve => setTimeout(resolve, (config.server.startTimeout || 5000) + 5000)); // Added additional 5s delay
+      await new Promise((resolve) =>
+        setTimeout(resolve, (config.server.startTimeout || 5000) + 5000)
+      ); // Added additional 5s delay
       logger.info('Initial startup period passed. Verifying server status...');
       alive = await isServerAliveAsync(healthCheckUrl, 10, 1000); // Increased retries and delay
       if (alive) {

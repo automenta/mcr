@@ -96,62 +96,69 @@ After installation, MCR primarily provides two ways to be utilized:
 **1. Running the MCR Server:**
 The core functionality of MCR is delivered via its server. You can start it from your project's `node_modules` directory or using a script in your `package.json`.
 
-   - **From `node_modules`:**
-     ```bash
-     node ./node_modules/model-context-reasoner/mcr.js
-     ```
-     Ensure you have a `.env` file configured in your project's root directory, or that the necessary environment variables (like `MCR_LLM_PROVIDER`, `OPENAI_API_KEY`, etc.) are set in your environment. MCR will look for a `.env` file in the current working directory from where `node` is executed.
+- **From `node_modules`:**
 
-   - **Using `npx` (recommended for easy execution):**
-     `npx` can execute package binaries. If MCR's server script was made a bin entry, this would be simpler. For now, `npx model-context-reasoner` would attempt to run `mcr.js` if `mcr.js` itself were the bin, but `cli.js` is the registered bin.
-     Starting the server directly via `npx` for `mcr.js` is not straightforward unless `mcr.js` is also added to `bin` in `package.json`.
+  ```bash
+  node ./node_modules/model-context-reasoner/mcr.js
+  ```
 
-   - **Via `package.json` script in your project:**
-     In your project's `package.json`:
-     ```json
-     "scripts": {
-       "start-mcr": "node ./node_modules/model-context-reasoner/mcr.js"
-     }
-     ```
-     Then run:
-     ```bash
-     npm run start-mcr
-     ```
+  Ensure you have a `.env` file configured in your project's root directory, or that the necessary environment variables (like `MCR_LLM_PROVIDER`, `OPENAI_API_KEY`, etc.) are set in your environment. MCR will look for a `.env` file in the current working directory from where `node` is executed.
+
+- **Using `npx` (recommended for easy execution):**
+  `npx` can execute package binaries. If MCR's server script was made a bin entry, this would be simpler. For now, `npx model-context-reasoner` would attempt to run `mcr.js` if `mcr.js` itself were the bin, but `cli.js` is the registered bin.
+  Starting the server directly via `npx` for `mcr.js` is not straightforward unless `mcr.js` is also added to `bin` in `package.json`.
+
+- **Via `package.json` script in your project:**
+  In your project's `package.json`:
+  ```json
+  "scripts": {
+    "start-mcr": "node ./node_modules/model-context-reasoner/mcr.js"
+  }
+  ```
+  Then run:
+  ```bash
+  npm run start-mcr
+  ```
 
 **2. Using the `mcr-cli` Command-Line Tool:**
 When you install the `model-context-reasoner` package, the `mcr-cli` command should become available in your environment (if `npm install -g` was used or if your local `node_modules/.bin` is in your PATH).
 
-   ```bash
-   mcr-cli --help # See available commands
-   mcr-cli start-server # Starts the MCR server
-   mcr-cli chat # Starts the TUI chat (requires server to be running)
-   mcr-cli status
-   mcr-cli create-session
-   # ... and other CLI commands
-   ```
-   The `mcr-cli` will also respect the `.env` file in the directory from which it's run.
+```bash
+mcr-cli --help # See available commands
+mcr-cli start-server # Starts the MCR server
+mcr-cli chat # Starts the TUI chat (requires server to be running)
+mcr-cli status
+mcr-cli create-session
+# ... and other CLI commands
+```
+
+The `mcr-cli` will also respect the `.env` file in the directory from which it's run.
 
 **3. Programmatic API Interaction:**
 Once the MCR server is running (either started from a cloned MCR repository or from an installed package as described above), your application can interact with it programmatically by making HTTP requests to its REST API.
 
-   Refer to the **🔌 API Reference** section below for details on available endpoints, request formats, and response structures. You can use any HTTP client library in your language of choice (e.g., `axios` or `node-fetch` for Node.js, `requests` for Python).
+Refer to the **🔌 API Reference** section below for details on available endpoints, request formats, and response structures. You can use any HTTP client library in your language of choice (e.g., `axios` or `node-fetch` for Node.js, `requests` for Python).
 
-   **Example (Node.js using `axios`):**
-   ```javascript
-   const axios = require('axios');
+**Example (Node.js using `axios`):**
 
-   async function createMcrSession() {
-     try {
-       const response = await axios.post('http://localhost:8080/api/v1/sessions'); // Adjust URL if needed
-       console.log('Session created:', response.data);
-       return response.data.id;
-     } catch (error) {
-       console.error('Error creating MCR session:', error.response ? error.response.data : error.message);
-     }
-   }
+```javascript
+const axios = require('axios');
 
-   createMcrSession();
-   ```
+async function createMcrSession() {
+  try {
+    const response = await axios.post('http://localhost:8080/api/v1/sessions'); // Adjust URL if needed
+    console.log('Session created:', response.data);
+    return response.data.id;
+  } catch (error) {
+    console.error(
+      'Error creating MCR session:',
+      error.response ? error.response.data : error.message
+    );
+  }
+}
+
+createMcrSession();
+```
 
 ## 🛠️ Development Setup and Installation
 
@@ -258,7 +265,6 @@ MCR exposes a RESTful API. All requests and responses are JSON.
 #### Session Management
 
 - `POST /api/v1/sessions`
-
   - **Description**: Creates a new reasoning session.
   - **Response (201 Created)**:
     ```json
@@ -273,7 +279,6 @@ MCR exposes a RESTful API. All requests and responses are JSON.
     ```
 
 - `GET /api/v1/sessions/:sessionId`
-
   - **Description**: Retrieves the details of a specific session.
   - **Parameters**: `sessionId` (path) - The ID of the session.
   - **Response (200 OK)**: Same structure as `POST /sessions` response, but reflecting the current state of the session.
@@ -306,7 +311,8 @@ MCR exposes a RESTful API. All requests and responses are JSON.
     {
       "message": "Facts asserted successfully", // Or a more descriptive message from the service
       // "sessionId": "unique-session-uuid", // Often included, but main info is below
-      "addedFacts": ["on(cat, mat).", "likes(X, milk) :- cat(X)."] // Actual Prolog facts added
+      "addedFacts": ["on(cat, mat).", "likes(X, milk) :- cat(X)."], // Actual Prolog facts added
+      "strategy": "SIR-R1" // Name of the translation strategy used
       // "originalText": "The cat is on the mat. All cats like milk.",
       // "currentFactCount": 2 // Updated fact count in the session
     }
@@ -318,7 +324,6 @@ MCR exposes a RESTful API. All requests and responses are JSON.
 #### Querying the Knowledge Base
 
 - `POST /api/v1/sessions/:sessionId/query`
-
   - **Description**: Translates a natural language question into a Prolog query, executes it, and returns a natural language answer.
   - **Parameters**: `sessionId` (path) - The ID of the session.
   - **Request Body**:
@@ -345,7 +350,8 @@ MCR exposes a RESTful API. All requests and responses are JSON.
         "prologQuery": "on(cat, mat).", // Actual query sent to reasoner
         "prologResultsJSON": "[\"true\"]", // JSON string of Prolog results
         "knowledgeBaseSnapshot": "on(cat, mat).\nlikes(X, milk) :- cat(X).", // KB at query time
-        "llmTranslationResultToNL": "The LLM's raw text used to form the 'answer'."
+        "llmTranslationResultToNL": "The LLM's raw text used to form the 'answer'.",
+        "strategy": "SIR-R1" // Name of the translation strategy used
       }
     }
     ```
@@ -378,7 +384,6 @@ MCR exposes a RESTful API. All requests and responses are JSON.
 #### Direct Translation Endpoints
 
 - `POST /api/v1/translate/nl-to-rules`
-
   - **Description**: Translates natural language text into a list of Prolog facts/rules.
   - **Request Body**:
     ```json
@@ -396,7 +401,8 @@ MCR exposes a RESTful API. All requests and responses are JSON.
         "bird(penguin).",
         "not(can_fly(penguin))."
       ],
-      "rawOutput": "Full LLM output string, may include comments or partial rules."
+      "rawOutput": "Full LLM output string, may include comments or partial rules.",
+      "strategy": "SIR-R1" // Name of the translation strategy used
       // "originalText": "Birds can fly. Penguins are birds but cannot fly."
     }
     ```
@@ -425,7 +431,6 @@ MCR exposes a RESTful API. All requests and responses are JSON.
 Ontologies are global collections of Prolog facts/rules.
 
 - `POST /api/v1/ontologies`
-
   - **Description**: Creates a new global ontology.
   - **Request Body**:
     ```json
@@ -444,7 +449,6 @@ Ontologies are global collections of Prolog facts/rules.
   - **Response (400 Bad Request)**: If `name` or `rules` are missing, or name conflict.
 
 - `GET /api/v1/ontologies`
-
   - **Description**: Retrieves a list of all global ontologies.
   - **Query Parameters**: `?includeRules=true` (optional) to include the `rules` content in the list.
   - **Response (200 OK)**: Array of ontology objects.
@@ -456,14 +460,12 @@ Ontologies are global collections of Prolog facts/rules.
     ```
 
 - `GET /api/v1/ontologies/:name`
-
   - **Description**: Retrieves a specific global ontology by its name.
   - **Parameters**: `name` (path) - The name of the ontology.
   - **Response (200 OK)**: The ontology object.
   - **Response (404 Not Found)**: If ontology does not exist.
 
 - `PUT /api/v1/ontologies/:name`
-
   - **Description**: Updates an existing global ontology.
   - **Parameters**: `name` (path) - The name of the ontology to update.
   - **Request Body**:
@@ -489,7 +491,6 @@ Ontologies are global collections of Prolog facts/rules.
 #### Utility & Debugging Endpoints
 
 - `GET /api/v1/prompts`
-
   - **Description**: Retrieves all raw prompt templates loaded by the MCR server.
   - **Response (200 OK)**: An object where keys are template names (e.g., `NL_TO_RULES`) and values are the template strings.
     ```json
@@ -585,7 +586,6 @@ Claude should then be able to discover and use the MCR tools.
 To add support for a new LLM provider (e.g., "MyNewLLM"):
 
 1.  **Create Provider Module**:
-
     - Add a new file, e.g., `src/llmProviders/myNewLlmProvider.js`.
     - This module must export an object with at least:
       - `name` (string): The identifier for the provider (e.g., `'mynewllm'`).
@@ -616,12 +616,10 @@ To add support for a new LLM provider (e.g., "MyNewLLM"):
       ```
 
 2.  **Register in `src/llmService.js`**:
-
     - Import your new provider: `const MyNewLlmProvider = require('./llmProviders/myNewLlmProvider');`
     - Add a `case` for `'mynewllm'` in the `switch` statement within the `getProvider()` function to set `selectedProvider = MyNewLlmProvider;`.
 
 3.  **Update Configuration (`src/config.js`)**:
-
     - Add a configuration section for your provider under `config.llm`:
       ```javascript
       // In config.js, inside the config object:
@@ -638,7 +636,6 @@ To add support for a new LLM provider (e.g., "MyNewLLM"):
     - Update `validateConfig()` in `src/config.js` if your provider has mandatory configuration (e.g., API key).
 
 4.  **Update `.env.example`**:
-
     - Add environment variable examples for your new provider (e.g., `MYNEWLLM_API_KEY`, `MCR_LLM_MODEL_MYNEWLLM`).
 
 5.  **Documentation**:
@@ -652,7 +649,7 @@ _Note: This README is based on analysis of the current project structure and inf
 
 ```
 
-----
+---
 
 Of course. Here is a complete, self-contained, and implementation-agnostic specification for the Model Context Reasoner (MCR) system.
 
@@ -721,100 +718,106 @@ The MCR is defined by a multi-layered, service-oriented architecture that promot
 +---------------+  +-----------------+  +------------------+
 ```
 
-*   **Presentation Layer:** Any user-facing application that consumes the MCR's API.
-*   **API Layer:** Defines the formal contract for interacting with the MCR. It is stateless and forwards requests to the Service Layer.
-*   **Service Layer:** The core orchestrator (`MCR Service`). It manages the business logic of a request (e.g., "assert this text") by invoking the currently selected Translation Strategy and the necessary providers.
-*   **Provider & Strategy Interfaces:** A set of abstract contracts that define the capabilities of key components. This allows for pluggable implementations.
-*   **Implementation Layer:** Concrete implementations of the interfaces (e.g., a specific `OllamaProvider` for an LLM, a `PrologProvider` for reasoning, and various `TranslationStrategy` modules).
+- **Presentation Layer:** Any user-facing application that consumes the MCR's API.
+- **API Layer:** Defines the formal contract for interacting with the MCR. It is stateless and forwards requests to the Service Layer.
+- **Service Layer:** The core orchestrator (`MCR Service`). It manages the business logic of a request (e.g., "assert this text") by invoking the currently selected Translation Strategy and the necessary providers.
+- **Provider & Strategy Interfaces:** A set of abstract contracts that define the capabilities of key components. This allows for pluggable implementations.
+- **Implementation Layer:** Concrete implementations of the interfaces (e.g., a specific `OllamaProvider` for an LLM, a `PrologProvider` for reasoning, and various `TranslationStrategy` modules).
 
 #### 4.0 Component Specification
 
 **4.1. MCR Service (Orchestrator)**
 The central service responsible for executing user requests.
-*   **Responsibilities:**
-    *   Managing the lifecycle of a request.
-    *   Selecting and invoking the appropriate Translation Strategy.
-    *   Coordinating calls between the LLM Provider and the Reasoner Provider.
-    *   Managing session state via the Context Provider (not shown in diagram for simplicity, but implied for stateful operations).
+
+- **Responsibilities:**
+  - Managing the lifecycle of a request.
+  - Selecting and invoking the appropriate Translation Strategy.
+  - Coordinating calls between the LLM Provider and the Reasoner Provider.
+  - Managing session state via the Context Provider (not shown in diagram for simplicity, but implied for stateful operations).
 
 **4.2. ITranslationStrategy (Interface)**
 Defines the contract for any Translation Strategy.
-*   **Methods:**
-    *   `getName(): string`: Returns the unique name of the strategy (e.g., "SIR-R1").
-    *   `assert(text: string, llmProvider: ILlmProvider): Promise<Clause[]>`: Takes natural language text and returns a list of one or more symbolic clauses.
-    *   `query(text: string, llmProvider: ILlmProvider): Promise<QueryString>`: Takes a natural language question and returns a single, well-formed query string.
-*   **Types:**
-    *   `Clause`: A string representing a single, syntactically correct fact or rule.
-    *   `QueryString`: A string representing a single, syntactically correct query.
+
+- **Methods:**
+  - `getName(): string`: Returns the unique name of the strategy (e.g., "SIR-R1").
+  - `assert(text: string, llmProvider: ILlmProvider): Promise<Clause[]>`: Takes natural language text and returns a list of one or more symbolic clauses.
+  - `query(text: string, llmProvider: ILlmProvider): Promise<QueryString>`: Takes a natural language question and returns a single, well-formed query string.
+- **Types:**
+  - `Clause`: A string representing a single, syntactically correct fact or rule.
+  - `QueryString`: A string representing a single, syntactically correct query.
 
 **4.3. ILlmProvider (Interface)**
 Defines the contract for an LLM service provider.
-*   **Methods:**
-    *   `generate(prompt: string): Promise<string>`: Sends a prompt to the LLM and returns its raw text response.
+
+- **Methods:**
+  - `generate(prompt: string): Promise<string>`: Sends a prompt to the LLM and returns its raw text response.
 
 **4.4. IReasonProvider (Interface)**
 Defines the contract for a symbolic reasoning engine.
-*   **Methods:**
-    *   `query(kb: string, query: QueryString): Promise<QueryResult>`: Executes a query against a knowledge base and returns the results.
-    *   `validate(kb: string): Promise<ValidationResult>`: Checks a knowledge base for syntactic correctness.
-*   **Types:**
-    *   `QueryResult`: A structured representation of the reasoner's findings (e.g., a list of variable bindings or a boolean).
-    *   `ValidationResult`: An object indicating whether the KB is valid and providing an error message if not.
+
+- **Methods:**
+  - `query(kb: string, query: QueryString): Promise<QueryResult>`: Executes a query against a knowledge base and returns the results.
+  - `validate(kb: string): Promise<ValidationResult>`: Checks a knowledge base for syntactic correctness.
+- **Types:**
+  - `QueryResult`: A structured representation of the reasoner's findings (e.g., a list of variable bindings or a boolean).
+  - `ValidationResult`: An object indicating whether the KB is valid and providing an error message if not.
 
 #### 5.0 Example Translation Strategies
 
 **5.1. Strategy: `Direct-S1` (Direct-to-Symbolic, Level 1)**
-*   **Description:** A baseline strategy that prompts the LLM for direct symbolic output. Prone to errors but useful for benchmarking.
-*   **`assert` Logic:**
-    1.  Generate a simple prompt asking the LLM to convert the input text into one or more symbolic facts or rules.
-    2.  Invoke the `ILlmProvider`.
-    3.  Perform minimal, regex-based post-processing on the returned string to split it into clauses.
-    4.  Return the resulting list of clauses.
-*   **`query` Logic:**
-    1.  Generate a simple prompt asking the LLM to convert the input question into a symbolic query.
-    2.  Invoke the `ILlmProvider`.
-    3.  Return the cleaned-up string.
+
+- **Description:** A baseline strategy that prompts the LLM for direct symbolic output. Prone to errors but useful for benchmarking.
+- **`assert` Logic:**
+  1.  Generate a simple prompt asking the LLM to convert the input text into one or more symbolic facts or rules.
+  2.  Invoke the `ILlmProvider`.
+  3.  Perform minimal, regex-based post-processing on the returned string to split it into clauses.
+  4.  Return the resulting list of clauses.
+- **`query` Logic:**
+  1.  Generate a simple prompt asking the LLM to convert the input question into a symbolic query.
+  2.  Invoke the `ILlmProvider`.
+  3.  Return the cleaned-up string.
 
 **5.2. Strategy: `SIR-R1` (Structured Intermediate Representation, Robust, Level 1)**
-*   **Description:** A robust, multi-stage strategy that uses a Structured Intermediate Representation (SIR) to ensure syntactic correctness. This is the recommended production-grade approach.
-*   **`assert` Logic:**
-    1.  **Intent Classification:** Generate a prompt to classify the input text as asserting `FACTS` or a `RULE`. Invoke the LLM.
-    2.  **SIR Generation:** Based on the intent, select a prompt that instructs the LLM to generate an SIR. The prompt must include the SIR schema definition and few-shot examples. Invoke the LLM.
-    3.  **SIR Validation:** Parse and validate the returned string against the expected SIR schema.
-    4.  **Syntactic Translation:** Programmatically traverse the validated SIR data structure and deterministically generate the corresponding, syntactically perfect symbolic clauses.
-    5.  Return the list of generated clauses.
-*   **`query` Logic:**
-    1.  Generate a prompt instructing the LLM to produce a symbolic query, providing strict instructions on variable casing.
-    2.  Invoke the `ILlmProvider`.
-    3.  Perform minimal cleaning (e.g., trim whitespace) and return the result.
+
+- **Description:** A robust, multi-stage strategy that uses a Structured Intermediate Representation (SIR) to ensure syntactic correctness. This is the recommended production-grade approach.
+- **`assert` Logic:**
+  1.  **Intent Classification:** Generate a prompt to classify the input text as asserting `FACTS` or a `RULE`. Invoke the LLM.
+  2.  **SIR Generation:** Based on the intent, select a prompt that instructs the LLM to generate an SIR. The prompt must include the SIR schema definition and few-shot examples. Invoke the LLM.
+  3.  **SIR Validation:** Parse and validate the returned string against the expected SIR schema.
+  4.  **Syntactic Translation:** Programmatically traverse the validated SIR data structure and deterministically generate the corresponding, syntactically perfect symbolic clauses.
+  5.  Return the list of generated clauses.
+- **`query` Logic:**
+  1.  Generate a prompt instructing the LLM to produce a symbolic query, providing strict instructions on variable casing.
+  2.  Invoke the `ILlmProvider`.
+  3.  Perform minimal cleaning (e.g., trim whitespace) and return the result.
 
 #### 6.0 API Specification
 
 The MCR service exposes a RESTful API for interaction.
 
-*   **`POST /sessions`**
-    *   **Description:** Creates a new reasoning session.
-    *   **Response Body:** `{ "sessionId": "string" }`
+- **`POST /sessions`**
+  - **Description:** Creates a new reasoning session.
+  - **Response Body:** `{ "sessionId": "string" }`
 
-*   **`POST /sessions/{sessionId}/assert`**
-    *   **Description:** Asserts new knowledge into the session's KB using the currently configured Translation Strategy.
-    *   **Request Body:** `{ "text": "string" }`
-    *   **Response Body:** `{ "addedClauses": ["string"], "knowledgeBase": "string" }`
+- **`POST /sessions/{sessionId}/assert`**
+  - **Description:** Asserts new knowledge into the session's KB using the currently configured Translation Strategy.
+  - **Request Body:** `{ "text": "string" }`
+  - **Response Body:** `{ "addedClauses": ["string"], "knowledgeBase": "string" }`
 
-*   **`POST /sessions/{sessionId}/query`**
-    *   **Description:** Poses a natural language query to the session's KB.
-    *   **Request Body:** `{ "query": "string" }`
-    *   **Response Body:** `{ "prologQuery": "string", "rawResult": object, "naturalLanguageAnswer": "string" }`
+- **`POST /sessions/{sessionId}/query`**
+  - **Description:** Poses a natural language query to the session's KB.
+  - **Request Body:** `{ "query": "string" }`
+  - **Response Body:** `{ "prologQuery": "string", "rawResult": object, "naturalLanguageAnswer": "string" }`
 
-*   **`PUT /sessions/{sessionId}/kb`**
-    *   **Description:** Directly overwrites the entire KB of a session. The new KB is validated before being saved.
-    *   **Request Body:** `{ "knowledgeBase": "string" }`
-    *   **Response Body:** `200 OK`
+- **`PUT /sessions/{sessionId}/kb`**
+  - **Description:** Directly overwrites the entire KB of a session. The new KB is validated before being saved.
+  - **Request Body:** `{ "knowledgeBase": "string" }`
+  - **Response Body:** `200 OK`
 
-*   **`PUT /config/translationStrategy`**
-    *   **Description:** Sets the active Translation Strategy for the system.
-    *   **Request Body:** `{ "strategyName": "string" }`
-    *   **Response Body:** `200 OK`
+- **`PUT /config/translationStrategy`**
+  - **Description:** Sets the active Translation Strategy for the system.
+  - **Request Body:** `{ "strategyName": "string" }`
+  - **Response Body:** `200 OK`
 
 #### 7.0 Evolution & Advanced Capabilities
 
@@ -822,14 +825,17 @@ The MCR architecture is designed to support future enhancements.
 
 **7.1. Strategy Management & Evaluation**
 A meta-layer service responsible for managing the lifecycle of Translation Strategies.
-*   **Benchmarking:** The system shall support a standardized benchmark suite (a "golden dataset" of NL-to-Symbolic mappings) to evaluate strategies against metrics like syntactic accuracy, semantic correctness, and resource cost (latency, tokens).
-*   **Automated Optimization:** The system should facilitate an automated loop where a "Strategy Optimizer" agent can programmatically generate variations of existing strategy prompts, benchmark them, and promote superior versions.
+
+- **Benchmarking:** The system shall support a standardized benchmark suite (a "golden dataset" of NL-to-Symbolic mappings) to evaluate strategies against metrics like syntactic accuracy, semantic correctness, and resource cost (latency, tokens).
+- **Automated Optimization:** The system should facilitate an automated loop where a "Strategy Optimizer" agent can programmatically generate variations of existing strategy prompts, benchmark them, and promote superior versions.
 
 **7.2. Operational Enhancements**
-*   **Self-Correction:** If a strategy step fails (e.g., the LLM produces an invalid SIR), the system should be capable of automatically re-prompting the LLM with the context of the error, asking it to correct its previous output.
-*   **Knowledge Retraction:** The system shall be extended to understand commands for retracting or modifying existing knowledge, requiring extensions to intent classification and the generation of retraction clauses.
-*   **Explanatory Reasoning:** The `IReasonProvider` interface shall be extended to optionally return a proof trace. A dedicated LLM prompt will then translate this formal trace into a human-readable explanation of the reasoning steps.
+
+- **Self-Correction:** If a strategy step fails (e.g., the LLM produces an invalid SIR), the system should be capable of automatically re-prompting the LLM with the context of the error, asking it to correct its previous output.
+- **Knowledge Retraction:** The system shall be extended to understand commands for retracting or modifying existing knowledge, requiring extensions to intent classification and the generation of retraction clauses.
+- **Explanatory Reasoning:** The `IReasonProvider` interface shall be extended to optionally return a proof trace. A dedicated LLM prompt will then translate this formal trace into a human-readable explanation of the reasoning steps.
 
 **7.3. Paradigm Expansion**
-*   **Hybrid Reasoning:** The system shall support a fallback mechanism where, if a symbolic query yields no results, the query can be re-posed to the base `ILlmProvider` for a general, sub-symbolic lookup.
-*   **Agentic Tooling:** The MCR service shall be designed to be easily integrated as a "tool" within a larger AI agent framework, allowing an autonomous agent to delegate structured reasoning tasks to the MCR.
+
+- **Hybrid Reasoning:** The system shall support a fallback mechanism where, if a symbolic query yields no results, the query can be re-posed to the base `ILlmProvider` for a general, sub-symbolic lookup.
+- **Agentic Tooling:** The MCR service shall be designed to be easily integrated as a "tool" within a larger AI agent framework, allowing an autonomous agent to delegate structured reasoning tasks to the MCR.

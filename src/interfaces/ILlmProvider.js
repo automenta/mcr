@@ -29,7 +29,6 @@
  * @returns {string} The name of the LLM provider (e.g., "openai", "ollama").
  */
 
-
 // Note: Since JavaScript doesn't have formal interfaces, this file serves as documentation
 // for the expected structure of an LLM provider class or module.
 // The existing llmService.js should be adapted or checked to conform to this,

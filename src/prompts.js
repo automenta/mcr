@@ -231,8 +231,8 @@ Based on the context above, translate ONLY the following NEW natural language te
 
 New Text: "{{naturalLanguageText}}"
 
-SIR JSON Output:`
-  }
+SIR JSON Output:`,
+  },
 };
 
 module.exports = {

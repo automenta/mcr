@@ -52,11 +52,11 @@ const mockGeminiGenerate = jest.fn();
 
 jest.mock('../src/llmProviders/ollamaProvider', () => ({
   name: 'ollama',
-  generateStructured: mockOllamaGenerate,
+  generate: mockOllamaGenerate,
 }));
 jest.mock('../src/llmProviders/geminiProvider', () => ({
   name: 'gemini',
-  generateStructured: mockGeminiGenerate,
+  generate: mockGeminiGenerate,
 }));
 
 // Import llmService after mocks are set up

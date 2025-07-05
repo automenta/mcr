@@ -1,4 +1,3 @@
-
 const readline = require('readline');
 const path = require('path'); // For resolving ontology file path
 const { apiClient } = require('../api');

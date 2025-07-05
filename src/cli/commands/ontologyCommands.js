@@ -1,4 +1,3 @@
-
 const path = require('path');
 const { apiClient } = require('../api');
 const { handleCliOutput, readFileContent } = require('../../cliUtils');

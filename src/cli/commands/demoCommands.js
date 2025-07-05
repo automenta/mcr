@@ -1,4 +1,3 @@
-
 const { demoLogger } = require('../../demos/demoUtils');
 const { runSimpleQADemoAsync } = require('../../demos/simpleQADemo');
 const {

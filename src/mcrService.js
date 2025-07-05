@@ -22,16 +22,22 @@ let activeStrategyName = config.translationStrategy;
 let activeStrategy = strategies[activeStrategyName];
 
 if (!activeStrategy) {
-  logger.warn(`[McrService] Configured strategy "${activeStrategyName}" not found. Defaulting to "SIR-R1".`);
+  logger.warn(
+    `[McrService] Configured strategy "${activeStrategyName}" not found. Defaulting to "SIR-R1".`
+  );
   activeStrategyName = 'SIR-R1'; // Fallback to a default
   activeStrategy = strategies[activeStrategyName];
-  if (!activeStrategy) { // Should not happen if SIR-R1 is in strategies
-      logger.error("[McrService] Fallback strategy 'SIR-R1' also not found. MCR Service may not function correctly.");
-      // Or throw an error: throw new Error("Default strategy 'SIR-R1' not found.");
+  if (!activeStrategy) {
+    // Should not happen if SIR-R1 is in strategies
+    logger.error(
+      "[McrService] Fallback strategy 'SIR-R1' also not found. MCR Service may not function correctly."
+    );
+    // Or throw an error: throw new Error("Default strategy 'SIR-R1' not found.");
   }
 }
-logger.info(`[McrService] Initialized with active translation strategy: ${activeStrategy.getName()}`);
-
+logger.info(
+  `[McrService] Initialized with active translation strategy: ${activeStrategy.getName()}`
+);
 
 /**
  * Sets the active translation strategy for the MCR service.
@@ -42,10 +48,14 @@ function setTranslationStrategy(strategyName) {
   if (strategies[strategyName]) {
     activeStrategy = strategies[strategyName];
     activeStrategyName = strategyName;
-    logger.info(`[McrService] Translation strategy changed to: ${activeStrategy.getName()}`);
+    logger.info(
+      `[McrService] Translation strategy changed to: ${activeStrategy.getName()}`
+    );
     return true;
   }
-  logger.warn(`[McrService] Attempted to set unknown translation strategy: ${strategyName}`);
+  logger.warn(
+    `[McrService] Attempted to set unknown translation strategy: ${strategyName}`
+  );
   return false;
 }
 
@@ -56,7 +66,6 @@ function setTranslationStrategy(strategyName) {
 function getActiveStrategyName() {
   return activeStrategyName;
 }
-
 
 /**
  * Asserts natural language text as facts/rules into a session using the active translation strategy.
@@ -71,7 +80,11 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
 
   if (!sessionManager.getSession(sessionId)) {
     logger.warn(`[McrService] Session ${sessionId} not found for assertion.`);
-    return { success: false, message: 'Session not found.', strategy: activeStrategy.getName() };
+    return {
+      success: false,
+      message: 'Session not found.',
+      strategy: activeStrategy.getName(),
+    };
   }
 
   try {
@@ -90,10 +103,14 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
     }
 
     // Delegate translation to the active strategy
-    const addedFacts = await activeStrategy.assert(naturalLanguageText, llmService, {
-      existingFacts,
-      ontologyRules,
-    });
+    const addedFacts = await activeStrategy.assert(
+      naturalLanguageText,
+      llmService,
+      {
+        existingFacts,
+        ontologyRules,
+      }
+    );
 
     if (!addedFacts || addedFacts.length === 0) {
       // This case should ideally be handled by the strategy's assert method throwing an error
@@ -102,7 +119,8 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
       );
       return {
         success: false,
-        message: 'Could not translate text into valid facts using the current strategy.',
+        message:
+          'Could not translate text into valid facts using the current strategy.',
         error: 'no_facts_extracted_by_strategy',
         strategy: activeStrategy.getName(),
       };
@@ -163,7 +181,11 @@ async function querySessionWithNL(
 
   if (!sessionManager.getSession(sessionId)) {
     logger.warn(`[McrService] Session ${sessionId} not found for query.`);
-    return { success: false, message: 'Session not found.', strategy: activeStrategy.getName() };
+    return {
+      success: false,
+      message: 'Session not found.',
+      strategy: activeStrategy.getName(),
+    };
   }
 
   const debugInfo = { strategy: activeStrategy.getName() };
@@ -184,10 +206,14 @@ async function querySessionWithNL(
     }
 
     // Delegate NL to Prolog query translation to the active strategy
-    const prologQuery = await activeStrategy.query(naturalLanguageQuestion, llmService, {
-      existingFacts,
-      ontologyRules,
-    });
+    const prologQuery = await activeStrategy.query(
+      naturalLanguageQuestion,
+      llmService,
+      {
+        existingFacts,
+        ontologyRules,
+      }
+    );
     logger.debug(
       `[McrService] Strategy "${activeStrategy.getName()}" translated NL question to Prolog query: ${prologQuery}`
     );
@@ -289,29 +315,41 @@ async function querySessionWithNL(
 // own retry mechanism (if any), it would need to be part of the SIRR1Strategy.
 // For now, assertNLToSessionWithSIR is removed as its functionality is covered by the strategy pattern.
 
-
 /**
  * Translates natural language text directly to Prolog facts/rules.
  * @param {string} naturalLanguageText - The natural language text.
  * @param {string} [strategyName] - Optional: specific strategy to use for this translation. Defaults to active strategy.
  * @returns {Promise<{success: boolean, rules?: string[], error?: string, strategy?: string, rawOutput?: string}>}
  */
-async function translateNLToRulesDirect(naturalLanguageText, strategyName = activeStrategyName) {
+async function translateNLToRulesDirect(
+  naturalLanguageText,
+  strategyName = activeStrategyName
+) {
   logger.info(
     `[McrService] Translating NL to Rules (Direct) using strategy "${strategyName}": "${naturalLanguageText}"`
   );
 
   const strategyToUse = strategies[strategyName] || activeStrategy;
   if (!strategyToUse) {
-    logger.error(`[McrService] No valid strategy found for translateNLToRulesDirect (requested: ${strategyName}, active: ${activeStrategyName})`);
-    return { success: false, message: "No valid translation strategy available.", error: "strategy_not_found" };
+    logger.error(
+      `[McrService] No valid strategy found for translateNLToRulesDirect (requested: ${strategyName}, active: ${activeStrategyName})`
+    );
+    return {
+      success: false,
+      message: 'No valid translation strategy available.',
+      error: 'strategy_not_found',
+    };
   }
 
   try {
     // The `assert` method of a strategy is designed to return Prolog facts/rules.
     // We don't have session context here (existingFacts, ontologyRules) for this direct translation.
     // Strategies should be able to handle missing options if they are designed to.
-    const prologRules = await strategyToUse.assert(naturalLanguageText, llmService, {});
+    const prologRules = await strategyToUse.assert(
+      naturalLanguageText,
+      llmService,
+      {}
+    );
 
     if (!prologRules || prologRules.length === 0) {
       logger.warn(
@@ -325,7 +363,11 @@ async function translateNLToRulesDirect(naturalLanguageText, strategyName = acti
       };
     }
 
-    return { success: true, rules: prologRules, strategy: strategyToUse.getName() };
+    return {
+      success: true,
+      rules: prologRules,
+      strategy: strategyToUse.getName(),
+    };
   } catch (error) {
     logger.error(
       `[McrService] Error translating NL to Rules (Direct) using strategy "${strategyToUse.getName()}": ${error.message}`,
@@ -429,7 +471,10 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
     };
   }
 
-  const debugInfo = { naturalLanguageQuestion, strategy: activeStrategy.getName() };
+  const debugInfo = {
+    naturalLanguageQuestion,
+    strategy: activeStrategy.getName(),
+  };
 
   try {
     const existingFacts = sessionManager.getKnowledgeBase(sessionId) || '';
@@ -455,10 +500,14 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
     }
 
     // Translate NL question to Prolog query using the active strategy
-    const prologQuery = await activeStrategy.query(naturalLanguageQuestion, llmService, {
+    const prologQuery = await activeStrategy.query(
+      naturalLanguageQuestion,
+      llmService,
+      {
         existingFacts, // Provide existing facts as context to the strategy
         ontologyRules: contextOntologyRulesForQueryTranslation, // Provide ontology rules as context
-    });
+      }
+    );
     logger.debug(
       `[McrService] Strategy "${activeStrategy.getName()}" translated NL to Prolog query for explanation: ${prologQuery}`
     );
