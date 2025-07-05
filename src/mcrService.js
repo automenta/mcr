@@ -147,12 +147,40 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
       };
     }
 
-    // Add facts to session
+    // NEW: Validate each generated Prolog fact/rule before adding to session
+    for (const factString of addedFacts) {
+      // reasonerService.validate is actually validateKnowledgeBase,
+      // so it expects a full KB. We are validating individual facts/rules here.
+      // A more granular validateFact(factString) in reasonerService would be ideal.
+      // For now, we use validateKnowledgeBase by passing the single fact string.
+      // This might not be perfect if a fact is only valid in a larger context,
+      // but it's good for catching syntax errors within the fact itself.
+      const validationResult = await reasonerService.validateKnowledgeBase(
+        factString
+      );
+      if (!validationResult.isValid) {
+        const validationErrorMsg = `Generated Prolog is invalid: "${factString}". Error: ${validationResult.error}`;
+        logger.error(
+          `[McrService] Validation failed for generated Prolog. OpID: ${operationId}. Details: ${validationErrorMsg}`
+        );
+        return {
+          success: false,
+          message: 'Failed to assert facts: Generated Prolog is invalid.',
+          error: validationErrorMsg,
+          strategy: activeStrategy.getName(),
+        };
+      }
+    }
+    logger.info(
+      `[McrService] All ${addedFacts.length} generated facts validated successfully. OpID: ${operationId}`
+    );
+
+    // Add facts to session if all are valid
     logger.info(
       `[McrService] Attempting to add ${addedFacts.length} fact(s) to session ${sessionId}. OpID: ${operationId}`
     );
-    const success = sessionManager.addFacts(sessionId, addedFacts);
-    if (success) {
+    const addSuccess = sessionManager.addFacts(sessionId, addedFacts);
+    if (addSuccess) {
       logger.info(
         `[McrService] Facts successfully added to session ${sessionId} using strategy "${activeStrategy.getName()}". OpID: ${operationId}. Facts:`,
         { addedFacts }
@@ -164,13 +192,15 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
         strategy: activeStrategy.getName(),
       };
     } else {
+      // This case should be less likely if sessionManager.addFacts is robust,
+      // but kept for safety.
       logger.error(
-        `[McrService] Failed to add facts to session ${sessionId}. OpID: ${operationId}`
+        `[McrService] Failed to add facts to session ${sessionId} after validation. OpID: ${operationId}`
       );
       return {
         success: false,
-        message: 'Failed to add facts to session.',
-        error: 'session_add_failed',
+        message: 'Failed to add facts to session manager after validation.',
+        error: 'session_add_failed_post_validation',
         strategy: activeStrategy.getName(),
       };
     }
