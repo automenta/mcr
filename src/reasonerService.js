@@ -63,6 +63,29 @@ async function executeQuery(knowledgeBase, query, limit = 10) {
   }
 }
 
+async function validateKnowledgeBase(knowledgeBase) {
+  const provider = getProvider();
+  if (!provider || typeof provider.validate !== 'function') {
+    logger.error(
+      'Reasoner provider is not correctly configured or does not support validate.'
+    );
+    throw new Error('Reasoner provider misconfiguration for validate.');
+  }
+  try {
+    logger.debug(
+      `ReasonerService:validateKnowledgeBase called with provider ${provider.name}`
+    );
+    return await provider.validate(knowledgeBase);
+  } catch (error) {
+    logger.error(
+      `Error during reasoner validation with ${provider.name}: ${error.message}`,
+      { provider: provider.name, error }
+    );
+    throw error;
+  }
+}
+
 module.exports = {
   executeQuery,
+  validateKnowledgeBase,
 };

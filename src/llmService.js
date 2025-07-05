@@ -47,16 +47,16 @@ function getProvider() {
  */
 async function generate(systemPrompt, userPrompt, options = {}) {
   const provider = getProvider();
-  if (!provider || typeof provider.generateStructured !== 'function') {
+  if (!provider || typeof provider.generate !== 'function') {
     logger.error(
-      'LLM provider is not correctly configured or does not support generateStructured.'
+      'LLM provider is not correctly configured or does not support a generate function.'
     );
     throw new Error('LLM provider misconfiguration.');
   }
 
   try {
     // logger.debug(`LLMService:generate called with provider ${provider.name}`, { systemPrompt, userPrompt, options });
-    return await provider.generateStructured(systemPrompt, userPrompt, options);
+    return await provider.generate(systemPrompt, userPrompt, options);
   } catch (error) {
     logger.error(
       `Error during LLM generation with ${provider.name}: ${error.message}`,

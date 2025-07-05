@@ -44,7 +44,7 @@ function getGeminiInstance() {
  * (Note: Gemini has specific ways to enable JSON mode, often via `response_mime_type`)
  * @returns {Promise<string>} The generated text.
  */
-async function generateStructured(systemPrompt, userPrompt, options = {}) {
+async function generate(systemPrompt, userPrompt, options = {}) {
   const gemini = getGeminiInstance();
   const messages = [];
 
@@ -101,5 +101,5 @@ async function generateStructured(systemPrompt, userPrompt, options = {}) {
 
 module.exports = {
   name: 'gemini',
-  generateStructured,
+  generate,
 };

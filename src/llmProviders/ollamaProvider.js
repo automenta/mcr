@@ -39,7 +39,7 @@ function getOllamaInstance() {
  * (Note: Actual JSON mode enforcement depends on model capabilities and specific prompting)
  * @returns {Promise<string>} The generated text.
  */
-async function generateStructured(systemPrompt, userPrompt, options = {}) {
+async function generate(systemPrompt, userPrompt, options = {}) {
   const ollama = getOllamaInstance();
   let fullPromptContent = systemPrompt
     ? `${systemPrompt}\n\n${userPrompt}`
@@ -77,6 +77,6 @@ async function generateStructured(systemPrompt, userPrompt, options = {}) {
 
 module.exports = {
   name: 'ollama',
-  generateStructured,
+  generate,
   // Potentially add a more generic generate(promptString) if needed later
 };
