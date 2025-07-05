@@ -39,7 +39,38 @@ class SIRR1Strategy {
       }
       // Arguments are expected to be strings. Variables ALL CAPS, constants lowercase.
       // This was handled by the LLM when generating SIR.
-      return `${term.predicate}(${term.arguments.join(',')})`;
+      // NEW: Sanitize predicate and quote arguments appropriately.
+      const predicate = term.predicate.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase();
+      if (!/^[a-z_][a-zA-Z0-9_]*$/.test(predicate)) {
+        throw new Error(`Invalid predicate name after sanitization: "${term.predicate}" became "${predicate}"`);
+      }
+
+      const formattedArgs = term.arguments.map((arg) => {
+        if (typeof arg !== 'string') {
+          // Should not happen based on SIR spec, but good to guard
+          throw new Error(`Argument is not a string: ${JSON.stringify(arg)}`);
+        }
+        // Check if it's a variable (starts with uppercase or underscore followed by uppercase)
+        if (arg.match(/^[A-Z_][a-zA-Z0-9_]*$/)) {
+          return arg;
+        }
+        // Check if it's a number
+        if (arg.match(/^-?\d+(\.\d+)?$/)) {
+          return arg;
+        }
+        // Otherwise, it's an atom that might need quoting
+        // Quote if it contains spaces, special chars, or starts with non-lowercase
+        // A simple Prolog atom starts with a lowercase letter, followed by letters, digits, or underscores.
+        // Or if it's already single-quoted.
+        if (arg.match(/^[a-z][a-zA-Z0-9_]*$/) && !arg.includes('\'')) {
+          return arg; // Simple atom, no quoting needed
+        }
+        // Escape single quotes within the atom
+        const escapedArg = arg.replace(/'/g, "''");
+        return `'${escapedArg}'`;
+      });
+
+      return `${predicate}(${formattedArgs.join(',')})`;
     };
 
     if (Array.isArray(sirJson)) {
