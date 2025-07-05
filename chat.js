@@ -81,10 +81,18 @@ async function assertFact(text) {
       }
 
       // Add contextual help
-      if (errData.message && errData.message.includes('Input is not an assertable statement')) {
-        displayErrorMessage += '\n   ➡️ Tip: The system could not understand this as a simple fact or rule. Try rephrasing, breaking it into smaller parts, or ensuring it is a declarative statement.';
-      } else if (errData.message && errData.message.includes('Invalid term structure in SIR JSON')) {
-        displayErrorMessage += '\n   ➡️ Tip: The system struggled to structure this information. This can happen with very complex sentences. Try simplifying the statement.';
+      if (
+        errData.message &&
+        errData.message.includes('Input is not an assertable statement')
+      ) {
+        displayErrorMessage +=
+          '\n   ➡️ Tip: The system could not understand this as a simple fact or rule. Try rephrasing, breaking it into smaller parts, or ensuring it is a declarative statement.';
+      } else if (
+        errData.message &&
+        errData.message.includes('Invalid term structure in SIR JSON')
+      ) {
+        displayErrorMessage +=
+          '\n   ➡️ Tip: The system struggled to structure this information. This can happen with very complex sentences. Try simplifying the statement.';
       }
     }
     console.error('\n❌ Error asserting fact:', displayErrorMessage);

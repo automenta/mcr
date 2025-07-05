@@ -8,7 +8,7 @@ async function createSessionHandler(req, res, next) {
   const correlationId = req.correlationId;
   logger.info(`[API][${correlationId}] Enter createSessionHandler`);
   try {
-    const session = mcrService.createSession();
+    const session = await mcrService.createSession(); // Await async call
     logger.info(
       `[API][${correlationId}] Session created successfully: ${session.id}`
     );
@@ -58,29 +58,47 @@ async function assertToSessionHandler(req, res, next) {
         `[API][${correlationId}] Failed to assert to session ${sessionId}. Message: ${result.message}, Error: ${result.error}`
       );
       // Determine appropriate status code based on error type
-      if (result.message === 'Session not found.') {
-        next(new ApiError(404, result.message, 'SESSION_NOT_FOUND'));
+      // Standardized error codes from mcrService are now in result.error
+      let statusCode = 500; // Default to internal server error
+      let errorCode = (result.error || 'ASSERT_FAILED').toUpperCase();
+      let errorDetails = result.details;
+
+      if (errorCode === 'SESSION_NOT_FOUND') {
+        statusCode = 404;
       } else if (
-        result.error === 'conversion_to_fact_failed' ||
-        result.error === 'no_facts_extracted_by_strategy' // Corrected error code based on mcrService
+        errorCode === 'NO_FACTS_EXTRACTED_BY_STRATEGY' ||
+        errorCode === 'INVALID_GENERATED_PROLOG' ||
+        errorCode === 'STRATEGY_ASSERT_FAILED' // Assuming strategy errors might be client-correctable if prompt is bad
       ) {
-        next(new ApiError(400, result.message, result.error.toUpperCase()));
-      } else {
-        next(
-          new ApiError(
-            500,
-            result.message || 'Failed to assert to session.',
-            result.error || 'ASSERT_FAILED'
-          )
-        );
+        // Consider 400 if the error implies a bad request (e.g., text cannot be translated)
+        // For INVALID_GENERATED_PROLOG, it's a server-side translation producing bad output, but from client text.
+        // Let's use 400 for these as they often stem from the nature of the input text.
+        statusCode = 400;
       }
+      // For other errors like SESSION_ADD_FACTS_FAILED, 500 is appropriate.
+
+      next(
+        new ApiError(
+          statusCode,
+          result.message || 'Failed to assert to session.',
+          errorCode,
+          errorDetails // Pass details to ApiError
+        )
+      );
     }
   } catch (error) {
+    // This catch block is for unexpected errors not handled by mcrService's structured return
     logger.error(
-      `[API][${correlationId}] Error asserting to session ${sessionId}:`,
+      `[API][${correlationId}] Unexpected error asserting to session ${sessionId}:`,
       { error: error.stack }
     );
-    next(new ApiError(500, `Failed to assert to session: ${error.message}`));
+    next(
+      new ApiError(
+        500,
+        `An unexpected error occurred during assertion: ${error.message}`,
+        'UNEXPECTED_ASSERT_ERROR'
+      )
+    );
   }
 }
 
@@ -119,14 +137,22 @@ async function querySessionHandler(req, res, next) {
     );
   }
 
+  // Server's debugLevel from config
+  const serverDebugLevel = require('./config').debugLevel;
+  // Client's requested debug flag
+  const clientRequestedDebug =
+    options && typeof options.debug === 'boolean' ? options.debug : false;
+
   const serviceOptions = {
-    dynamicOntology: dynamicOntology, // Pass it to the service
-    style: options && options.style ? options.style : 'conversational', // Default if not provided
-    debug:
-      options && typeof options.debug === 'boolean' ? options.debug : false, // Default if not provided
+    dynamicOntology: dynamicOntology,
+    style: options && options.style ? options.style : 'conversational',
+    // Pass the client's debug request to mcrService,
+    // mcrService will then use its own config.debugLevel to shape the actual debugInfo content.
+    // The 'debug' flag here tells mcrService that the client is interested in debug output.
+    debug: clientRequestedDebug,
   };
   logger.debug(
-    `[API][${correlationId}] Service options for query:`,
+    `[API][${correlationId}] Service options for query (clientDebug: ${clientRequestedDebug}, serverDebug: ${serverDebugLevel}):`,
     serviceOptions
   );
 
@@ -144,46 +170,76 @@ async function querySessionHandler(req, res, next) {
         `[API][${correlationId}] Successfully queried session ${sessionId}. Answer length: ${result.answer?.length}`
       );
       const responsePayload = { answer: result.answer };
-      if (serviceOptions.debug && result.debugInfo) {
-        responsePayload.debugInfo = result.debugInfo; // Consider redacting sensitive parts of debugInfo if necessary
+
+      // Only include debugInfo in response if client requested it AND server's level allows some form of it.
+      // mcrService now shapes debugInfo based on its config.debugLevel.
+      // apiHandler respects client's "options.debug" to include it or not.
+      if (
+        clientRequestedDebug &&
+        result.debugInfo &&
+        serverDebugLevel !== 'none'
+      ) {
+        responsePayload.debugInfo = result.debugInfo;
         logger.debug(
-          `[API][${correlationId}] Including debugInfo in response for session ${sessionId}.`
+          `[API][${correlationId}] Including debugInfo in response for session ${sessionId} (level: ${result.debugInfo.level}).`
         );
       }
       res.status(200).json(responsePayload);
     } else {
       logger.warn(
-        `[API][${correlationId}] Failed to query session ${sessionId}. Message: ${result.message}, Error: ${result.error}`,
+        `[API][${correlationId}] Failed to query session ${sessionId}. Message: ${result.message}, Error: ${result.error}, Details: ${JSON.stringify(result.details)}`,
         { debugInfo: result.debugInfo }
       );
-      if (result.message === 'Session not found.') {
-        next(new ApiError(404, result.message, 'SESSION_NOT_FOUND'));
-      } else if (result.error === 'invalid_prolog_query') {
-        next(
-          new ApiError(
-            400,
-            result.message,
-            result.error.toUpperCase(),
-            result.debugInfo // Consider redacting
-          )
-        );
-      } else {
-        next(
-          new ApiError(
-            500,
-            result.message || 'Failed to query session.',
-            result.error || 'QUERY_FAILED',
-            result.debugInfo // Consider redacting
-          )
-        );
+      // Standardized error codes from mcrService are now in result.error
+      let statusCode = 500; // Default to internal server error
+      let errorCode = (result.error || 'QUERY_FAILED').toUpperCase();
+      // debugInfo from mcrService might contain the original error message if it's a STRATEGY_QUERY_FAILED
+      let errorDetails =
+        result.debugInfo && result.debugInfo.error
+          ? { serviceError: result.debugInfo.error, ...result.debugInfo }
+          : result.debugInfo;
+      if (result.details) {
+        // If mcrService explicitly provides details
+        errorDetails = {
+          ...(errorDetails || {}),
+          serviceDetails: result.details,
+        };
       }
+
+      if (errorCode === 'SESSION_NOT_FOUND') {
+        statusCode = 404;
+      } else if (
+        errorCode === 'STRATEGY_QUERY_FAILED' // Assuming strategy errors might be client-correctable
+        // Add other specific 400 error codes from mcrService.querySessionWithNL if any
+      ) {
+        statusCode = 400; // Or 500 if it's truly an internal strategy problem not due to input
+      } else if (errorCode === 'INTERNAL_KB_NOT_FOUND_FOR_SESSION') {
+        statusCode = 500; // This is an internal server error
+      }
+      // For other errors, 500 is appropriate.
+
+      next(
+        new ApiError(
+          statusCode,
+          result.message || 'Failed to query session.',
+          errorCode,
+          errorDetails // Pass potentially augmented debugInfo as details
+        )
+      );
     }
   } catch (error) {
+    // This catch block is for unexpected errors not handled by mcrService's structured return
     logger.error(
-      `[API][${correlationId}] Error querying session ${sessionId}:`,
+      `[API][${correlationId}] Unexpected error querying session ${sessionId}:`,
       { error: error.stack }
     );
-    next(new ApiError(500, `Failed to query session: ${error.message}`));
+    next(
+      new ApiError(
+        500,
+        `An unexpected error occurred during query: ${error.message}`,
+        'UNEXPECTED_QUERY_ERROR'
+      )
+    );
   }
 }
 
@@ -194,7 +250,7 @@ async function getSessionHandler(req, res, next) {
     `[API][${correlationId}] Enter getSessionHandler for session ${sessionId}`
   );
   try {
-    const session = mcrService.getSession(sessionId);
+    const session = await mcrService.getSession(sessionId); // Await async call
     if (session) {
       logger.info(
         `[API][${correlationId}] Successfully retrieved session ${sessionId}.`
@@ -444,16 +500,24 @@ async function nlToRulesDirectHandler(req, res, next) {
         new ApiError(
           result.error === 'no_rules_extracted_by_strategy' ? 400 : 500, // Corrected error code
           result.message || 'Failed to translate NL to Rules.',
-          result.error ? result.error.toUpperCase() : 'NL_TO_RULES_FAILED'
+          result.error ? result.error.toUpperCase() : 'NL_TO_RULES_FAILED', // Use standardized code from mcrService
+          result.details // Pass details if provided by mcrService
         )
       );
     }
   } catch (error) {
+    // This catch block is for unexpected errors not handled by mcrService's structured return
     logger.error(
-      `[API][${correlationId}] Error in nlToRulesDirectHandler: ${error.message}`,
+      `[API][${correlationId}] Unexpected error in nlToRulesDirectHandler: ${error.message}`,
       { error: error.stack }
     );
-    next(new ApiError(500, `Translation failed: ${error.message}`));
+    next(
+      new ApiError(
+        500,
+        `An unexpected error occurred during NL to Rules translation: ${error.message}`,
+        'UNEXPECTED_NL_TO_RULES_ERROR'
+      )
+    );
   }
 }
 
@@ -570,11 +634,12 @@ async function debugFormatPromptHandler(req, res, next) {
         `[API][${correlationId}] Failed to format prompt for debug: ${templateName}. Message: ${result.message}, Error: ${result.error}`
       );
       let statusCode = 500;
+      // mcrService now returns uppercase error codes
       if (
-        result.error === 'invalid_template_name' ||
-        result.error === 'invalid_input_variables' ||
-        result.error === 'template_not_found' ||
-        result.error === 'template_user_field_missing'
+        result.error === 'INVALID_TEMPLATE_NAME' ||
+        result.error === 'INVALID_INPUT_VARIABLES' ||
+        result.error === 'TEMPLATE_NOT_FOUND' ||
+        result.error === 'TEMPLATE_USER_FIELD_MISSING'
       ) {
         statusCode = 400;
       }
@@ -582,18 +647,23 @@ async function debugFormatPromptHandler(req, res, next) {
         new ApiError(
           statusCode,
           result.message || 'Failed to format prompt.',
-          result.error
-            ? result.error.toUpperCase()
-            : 'DEBUG_FORMAT_PROMPT_FAILED'
+          result.error || 'DEBUG_FORMAT_PROMPT_FAILED', // Already uppercase from mcrService or default
+          result.details
         )
       );
     }
   } catch (error) {
     logger.error(
-      `[API][${correlationId}] Error in debugFormatPromptHandler for ${templateName}: ${error.message}`,
+      `[API][${correlationId}] Unexpected error in debugFormatPromptHandler for ${templateName}: ${error.message}`,
       { error: error.stack }
     );
-    next(new ApiError(500, `Failed to format prompt: ${error.message}`));
+    next(
+      new ApiError(
+        500,
+        `An unexpected error occurred during prompt formatting: ${error.message}`,
+        'UNEXPECTED_DEBUG_FORMAT_ERROR'
+      )
+    );
   }
 }
 
@@ -601,9 +671,10 @@ async function debugFormatPromptHandler(req, res, next) {
 async function explainQueryHandler(req, res, next) {
   const correlationId = req.correlationId;
   const { sessionId } = req.params;
-  const { query: naturalLanguageQuestion } = req.body;
+  const { query: naturalLanguageQuestion, options } = req.body; // Allow options for debug
   logger.info(
-    `[API][${correlationId}] Enter explainQueryHandler for session ${sessionId}. NLQ length: ${naturalLanguageQuestion?.length}`
+    `[API][${correlationId}] Enter explainQueryHandler for session ${sessionId}. NLQ length: ${naturalLanguageQuestion?.length}`,
+    { options }
   );
 
   if (
@@ -626,47 +697,82 @@ async function explainQueryHandler(req, res, next) {
     logger.debug(
       `[API][${correlationId}] Calling mcrService.explainQuery for session ${sessionId}. NLQ: "${naturalLanguageQuestion}"`
     );
+    // Pass client's debug request to mcrService for explainQuery
+    const clientRequestedDebugExplain =
+      options && typeof options.debug === 'boolean' ? options.debug : false;
+    const serverDebugLevelExplain = require('./config').debugLevel;
+
     const result = await mcrService.explainQuery(
       sessionId,
-      naturalLanguageQuestion
+      naturalLanguageQuestion,
+      { debug: clientRequestedDebugExplain } // Pass debug hint to service
     );
 
     if (result.success) {
       logger.info(
         `[API][${correlationId}] Successfully explained query for session ${sessionId}. Explanation length: ${result.explanation?.length}`
       );
-      res.status(200).json({
-        explanation: result.explanation,
-        debugInfo: result.debugInfo, // Consider redacting
-      });
+      const responsePayload = { explanation: result.explanation };
+      // Similar logic for including debugInfo as in querySessionHandler
+      if (
+        clientRequestedDebugExplain &&
+        result.debugInfo &&
+        serverDebugLevelExplain !== 'none'
+      ) {
+        responsePayload.debugInfo = result.debugInfo;
+        logger.debug(
+          `[API][${correlationId}] Including debugInfo in explain response for session ${sessionId} (level: ${result.debugInfo.level}).`
+        );
+      }
+      res.status(200).json(responsePayload);
     } else {
       logger.warn(
-        `[API][${correlationId}] Failed to explain query for session ${sessionId}. Message: ${result.message}, Error: ${result.error}`,
+        `[API][${correlationId}] Failed to explain query for session ${sessionId}. Message: ${result.message}, Error: ${result.error}, Details: ${JSON.stringify(result.details)}`,
         { debugInfo: result.debugInfo }
       );
       let statusCode = 500;
-      if (result.error === 'session_not_found') statusCode = 404;
-      if (
-        result.error === 'invalid_prolog_query_explain' || // This error is not explicitly thrown by mcrService, but keeping for safety
-        result.error === 'empty_explanation_generated'
-      )
-        statusCode = 400;
+      let errorCode = (result.error || 'EXPLAIN_QUERY_FAILED').toUpperCase();
+      let errorDetails =
+        result.debugInfo && result.debugInfo.error
+          ? { serviceError: result.debugInfo.error, ...result.debugInfo }
+          : result.debugInfo;
+      if (result.details) {
+        errorDetails = {
+          ...(errorDetails || {}),
+          serviceDetails: result.details,
+        };
+      }
+
+      if (errorCode === 'SESSION_NOT_FOUND') {
+        statusCode = 404;
+      } else if (
+        errorCode === 'EMPTY_EXPLANATION_GENERATED' ||
+        errorCode === 'STRATEGY_QUERY_FAILED' // If query translation by strategy fails
+      ) {
+        statusCode = 400; // Problem with input or translation leading to no explanation
+      }
 
       next(
         new ApiError(
           statusCode,
           result.message || 'Failed to explain query.',
-          result.error ? result.error.toUpperCase() : 'EXPLAIN_QUERY_FAILED',
-          result.debugInfo // Consider redacting
+          errorCode,
+          errorDetails
         )
       );
     }
   } catch (error) {
     logger.error(
-      `[API][${correlationId}] Error in explainQueryHandler for session ${sessionId}: ${error.message}`,
+      `[API][${correlationId}] Unexpected error in explainQueryHandler for session ${sessionId}: ${error.message}`,
       { error: error.stack }
     );
-    next(new ApiError(500, `Failed to explain query: ${error.message}`));
+    next(
+      new ApiError(
+        500,
+        `An unexpected error occurred during query explanation: ${error.message}`,
+        'UNEXPECTED_EXPLAIN_QUERY_ERROR'
+      )
+    );
   }
 }
 
@@ -761,22 +867,37 @@ async function rulesToNlDirectHandler(req, res, next) {
       logger.warn(
         `[API][${correlationId}] Failed to translate Rules to NL (Direct). Message: ${result.message}, Error: ${result.error}`
       );
+      let statusCode = 500;
+      let errorCode = (result.error || 'RULES_TO_NL_FAILED').toUpperCase();
+
+      if (
+        errorCode === 'EMPTY_RULES_INPUT' ||
+        errorCode === 'EMPTY_EXPLANATION_GENERATED'
+      ) {
+        statusCode = 400;
+      }
+      // Consider other mcrService error codes if any
+
       next(
         new ApiError(
-          result.error === 'empty_rules_input' ||
-          result.error === 'empty_explanation_generated'
-            ? 400
-            : 500,
+          statusCode,
           result.message || 'Failed to translate Rules to NL.',
-          result.error ? result.error.toUpperCase() : 'RULES_TO_NL_FAILED'
+          errorCode,
+          result.details
         )
       );
     }
   } catch (error) {
     logger.error(
-      `[API][${correlationId}] Error in rulesToNlDirectHandler: ${error.message}`,
+      `[API][${correlationId}] Unexpected error in rulesToNlDirectHandler: ${error.message}`,
       { error: error.stack }
     );
-    next(new ApiError(500, `Translation failed: ${error.message}`));
+    next(
+      new ApiError(
+        500,
+        `An unexpected error occurred during Rules to NL translation: ${error.message}`,
+        'UNEXPECTED_RULES_TO_NL_ERROR'
+      )
+    );
   }
 }

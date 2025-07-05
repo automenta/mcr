@@ -90,6 +90,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
     return {
       success: false,
       message: 'Session not found.',
+      error: 'SESSION_NOT_FOUND', // Standardized error code
       strategy: activeStrategy.getName(),
     };
   }
@@ -118,7 +119,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
     );
 
     // Delegate translation to the active strategy
-    const lexiconSummary = sessionManager.getLexiconSummary(sessionId);
+    const lexiconSummary = await sessionManager.getLexiconSummary(sessionId); // Await async call
     const strategyOptions = { existingFacts, ontologyRules, lexiconSummary };
     logger.info(
       `[McrService] Calling strategy "${activeStrategy.getName()}".assert(). OpID: ${operationId}. Lexicon summary length: ${lexiconSummary?.length}`
@@ -142,12 +143,12 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
         success: false,
         message:
           'Could not translate text into valid facts using the current strategy.',
-        error: 'no_facts_extracted_by_strategy',
+        error: 'NO_FACTS_EXTRACTED_BY_STRATEGY', // Standardized error code
         strategy: activeStrategy.getName(),
       };
     }
 
-    // NEW: Validate each generated Prolog fact/rule before adding to session
+    // Validate each generated Prolog fact/rule before adding to session
     for (const factString of addedFacts) {
       // reasonerService.validate is actually validateKnowledgeBase,
       // so it expects a full KB. We are validating individual facts/rules here.
@@ -155,9 +156,8 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
       // For now, we use validateKnowledgeBase by passing the single fact string.
       // This might not be perfect if a fact is only valid in a larger context,
       // but it's good for catching syntax errors within the fact itself.
-      const validationResult = await reasonerService.validateKnowledgeBase(
-        factString
-      );
+      const validationResult =
+        await reasonerService.validateKnowledgeBase(factString);
       if (!validationResult.isValid) {
         const validationErrorMsg = `Generated Prolog is invalid: "${factString}". Error: ${validationResult.error}`;
         logger.error(
@@ -166,7 +166,8 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
         return {
           success: false,
           message: 'Failed to assert facts: Generated Prolog is invalid.',
-          error: validationErrorMsg,
+          error: 'INVALID_GENERATED_PROLOG', // Standardized error code
+          details: validationErrorMsg, // Keep detailed message in details
           strategy: activeStrategy.getName(),
         };
       }
@@ -200,19 +201,21 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
       return {
         success: false,
         message: 'Failed to add facts to session manager after validation.',
-        error: 'session_add_failed_post_validation',
+        error: 'SESSION_ADD_FACTS_FAILED', // Standardized error code
         strategy: activeStrategy.getName(),
       };
     }
   } catch (error) {
+    // Errors from strategy.assert() or llmService.generate()
     logger.error(
-      `[McrService] Error asserting NL to session ${sessionId} using strategy "${activeStrategy.getName()}": ${error.message}`,
-      { error: error.stack } // Log stack for better debugging
+      `[McrService] Strategy/LLM Error asserting NL to session ${sessionId} using strategy "${activeStrategy.getName()}": ${error.message}`,
+      { error: error.stack, errorCode: error.code } // Log stack for better debugging
     );
     return {
       success: false,
-      message: `Error during assertion: ${error.message}`,
-      error: error.message,
+      message: `Error during assertion: ${error.message}`, // User-friendly message
+      error: error.code || 'STRATEGY_ASSERT_FAILED', // Specific error code from strategy/LLM if available, else generic
+      details: error.message, // Full error message in details
       strategy: activeStrategy.getName(),
     };
   }
@@ -244,11 +247,16 @@ async function querySessionWithNL(
     return {
       success: false,
       message: 'Session not found.',
+      error: 'SESSION_NOT_FOUND', // Standardized error code
       strategy: activeStrategy.getName(),
     };
   }
 
-  const debugInfo = { strategy: activeStrategy.getName(), operationId };
+  const debugInfo = {
+    strategy: activeStrategy.getName(),
+    operationId,
+    level: config.debugLevel, // Include current debug level being applied
+  };
 
   try {
     const existingFacts = sessionManager.getKnowledgeBase(sessionId) || '';
@@ -257,52 +265,102 @@ async function querySessionWithNL(
       const globalOntologies = await ontologyService.listOntologies(true);
       if (globalOntologies && globalOntologies.length > 0) {
         ontologyRules = globalOntologies.map((ont) => ont.rules).join('\n');
-        logger.debug(
-          `[McrService] Loaded ${globalOntologies.length} global ontologies for strategy query context. OpID: ${operationId}`
-        );
+        if (config.debugLevel === 'verbose') {
+          logger.debug(
+            `[McrService] Loaded ${globalOntologies.length} global ontologies for strategy query context. OpID: ${operationId}`
+          );
+        }
       }
     } catch (ontError) {
       logger.warn(
         `[McrService] Error fetching global ontologies for query strategy context in session ${sessionId}: ${ontError.message}. OpID: ${operationId}`
       );
-      // Non-fatal, proceed without ontology context for strategy
-    }
-    logger.debug(
-      `[McrService] Context for strategy query (OpID: ${operationId}):`,
-      {
-        sessionId,
-        existingFactsLength: existingFacts.length,
-        ontologyRulesLength: ontologyRules.length,
+      if (config.debugLevel !== 'none') {
+        debugInfo.ontologyErrorForStrategy = `Failed to load global ontologies for query translation: ${ontError.message}`;
       }
-    );
+    }
+
+    if (config.debugLevel === 'verbose') {
+      logger.debug(
+        `[McrService] Context for strategy query (OpID: ${operationId}):`,
+        {
+          sessionId,
+          existingFactsLength: existingFacts.length,
+          ontologyRulesLength: ontologyRules.length,
+        }
+      );
+    }
 
     // Delegate NL to Prolog query translation to the active strategy
     const lexiconSummary = sessionManager.getLexiconSummary(sessionId);
     const strategyOptions = { existingFacts, ontologyRules, lexiconSummary };
-    logger.info(
-      `[McrService] Calling strategy "${activeStrategy.getName()}".query(). OpID: ${operationId}. Lexicon summary length: ${lexiconSummary?.length}`
-    );
+
+    if (config.debugLevel === 'verbose') {
+      logger.info(
+        `[McrService] Calling strategy "${activeStrategy.getName()}".query(). OpID: ${operationId}. Lexicon summary length: ${lexiconSummary?.length}`
+      );
+    }
     const prologQuery = await activeStrategy.query(
       naturalLanguageQuestion,
       llmService,
       strategyOptions
     );
     logger.info(
+      // Always log the generated prolog query at info level for traceability
       `[McrService] Strategy "${activeStrategy.getName()}" translated NL question to Prolog query (OpID: ${operationId}): ${prologQuery}`
     );
-    debugInfo.prologQuery = prologQuery;
+
+    if (config.debugLevel !== 'none') {
+      debugInfo.prologQuery = prologQuery;
+    }
 
     // The strategy's query method should throw an error if it fails or produces an invalid query.
 
     // Get knowledge base for the session (session facts)
-    let knowledgeBase = sessionManager.getKnowledgeBase(sessionId);
+    let knowledgeBase = await sessionManager.getKnowledgeBase(sessionId); // Await async call
     if (knowledgeBase === null) {
-      // Should be caught by getSession earlier
+      // This condition might be less likely if getSession already confirmed existence.
+      // However, if getKnowledgeBase itself can return null for an existing session (e.g., empty facts), handle it.
+      // Assuming getSession check is primary for session existence.
+      // If session exists but KB is truly null/empty, it might be valid.
+      // For now, keeping the check as it was, but noting `await`.
+      logger.warn(
+        `[McrService] Knowledge base is null for session ${sessionId}. OpID: ${operationId}`
+      );
+      // This could mean an empty KB or an issue reading it.
+      // If an empty KB is valid, we might just proceed with an empty string.
+      // For safety, if it's null (not just empty string), it might indicate an issue.
+      // However, sessionManager.getKnowledgeBase returns null if sessionData is null.
+      // And sessionManager.getSession would have already returned null if sessionData was null.
+      // So this path should ideally not be hit if getSession passed.
+      // Let's assume if getSession passed, getKnowledgeBase will give a string (possibly empty).
+      // The original check `if (!sessionManager.getSession(sessionId))` handles non-existent sessions.
+      // The `|| ''` in `const existingFacts = await sessionManager.getKnowledgeBase(sessionId) || '';` for strategy options
+      // suggests empty string is the expected "empty" state.
+      // So, `knowledgeBase` here should not be null if session exists.
+      // This specific check might be redundant if `sessionManager.getSession(sessionId)` at the top is sufficient.
+      // Let's simplify: if `getSession` passed, `getKnowledgeBase` will give us the string (or it's an internal error).
+      // The `|| ''` pattern is good for `existingFacts` for strategy context.
+      // For the main KB for the reasoner, an empty string is fine.
+
+      // Re-evaluating: The first check `if (!await sessionManager.getSession(sessionId))` is the primary guard.
+      // If that passes, `sessionManager.getKnowledgeBase(sessionId)` should return a string (possibly empty).
+      // So, the `knowledgeBase === null` check here is likely redundant or indicates an unexpected state.
+      // For now, let's trust the initial `getSession` check and that `getKnowledgeBase` returns a string.
+      // The `existingFacts` for strategy context is handled with `|| ''`.
+      // The `knowledgeBase` for reasoner can be an empty string.
+      // No change needed here if the above logic holds. The `await` is the key fix.
+      // This case should ideally not be hit if the primary session check passed.
+      // If it does, it implies an internal inconsistency or an issue with getKnowledgeBase.
+      logger.error(
+        `[McrService] Knowledge base is null for existing session ${sessionId}. OpID: ${operationId}. This indicates an unexpected state.`
+      );
       return {
         success: false,
-        message: 'Session not found or empty when building knowledge base.',
+        message:
+          'Internal error: Knowledge base not found for an existing session.',
         debugInfo,
-        error: 'session_kb_not_found',
+        error: 'INTERNAL_KB_NOT_FOUND_FOR_SESSION', // More specific internal error code
       };
     }
 
@@ -341,55 +399,76 @@ async function querySessionWithNL(
       debugInfo.dynamicOntologyProvided = true;
     }
 
-    debugInfo.knowledgeBaseSnapshot = knowledgeBase; // For debugging, might be large. Consider logging length or hash in production.
-    logger.debug(
-      `[McrService] Knowledge base for query execution (OpID: ${operationId}). Length: ${knowledgeBase.length}`
-    );
+    if (config.debugLevel === 'verbose') {
+      debugInfo.knowledgeBaseSnapshot = knowledgeBase;
+      logger.debug(
+        `[McrService] Knowledge base for query execution (OpID: ${operationId}). Length: ${knowledgeBase.length}`
+      );
+    } else if (config.debugLevel === 'basic') {
+      debugInfo.knowledgeBaseSummary = `KB length: ${knowledgeBase.length}, Dynamic RAG provided: ${!!debugInfo.dynamicOntologyProvided}`;
+    }
 
     // 3. Execute Prolog query
-    logger.info(
-      `[McrService] Executing Prolog query with reasonerService. OpID: ${operationId}`
-    );
+    if (config.debugLevel === 'verbose') {
+      logger.info(
+        `[McrService] Executing Prolog query with reasonerService. OpID: ${operationId}`
+      );
+    }
     const prologResults = await reasonerService.executeQuery(
       knowledgeBase,
       prologQuery
     );
-    logger.debug(
-      `[McrService] Prolog query execution results (OpID: ${operationId}):`,
-      prologResults
-    );
-    debugInfo.prologResults = prologResults;
-    debugInfo.prologResultsJSON = JSON.stringify(prologResults);
+
+    if (config.debugLevel === 'verbose') {
+      logger.debug(
+        `[McrService] Prolog query execution results (OpID: ${operationId}):`,
+        prologResults
+      );
+      debugInfo.prologResults = prologResults; // Full results for verbose
+      debugInfo.prologResultsJSON = JSON.stringify(prologResults);
+    } else if (config.debugLevel === 'basic') {
+      // For basic, maybe just a summary of results, e.g., number of solutions or true/false
+      debugInfo.prologResultsSummary = Array.isArray(prologResults)
+        ? `${prologResults.length} solution(s) found.`
+        : `Result: ${prologResults}`;
+      // Avoid sending full JSON unless verbose
+    }
 
     // 4. Translate Prolog results to NL answer
+    const prologResultsForPrompt =
+      config.debugLevel === 'verbose'
+        ? debugInfo.prologResultsJSON
+        : JSON.stringify(prologResults);
     const logicToNlPromptContext = {
       naturalLanguageQuestion,
-      prologResultsJSON: debugInfo.prologResultsJSON,
-      style: style, // Use the extracted style, defaulting to 'conversational' if not provided
+      prologResultsJSON: prologResultsForPrompt, // Use potentially summarized or full JSON
+      style: style,
     };
-    logger.info(
-      `[McrService] Generating NL answer from Prolog results using LLM. OpID: ${operationId}`
-    );
-    logger.debug(
-      `[McrService] Context for LOGIC_TO_NL_ANSWER prompt (OpID: ${operationId}):`,
-      logicToNlPromptContext
-    );
-    const logicToNlPromptUser = fillTemplate(
-      prompts.LOGIC_TO_NL_ANSWER.user,
-      logicToNlPromptContext
-    );
+    if (config.debugLevel === 'verbose') {
+      logger.info(
+        `[McrService] Generating NL answer from Prolog results using LLM. OpID: ${operationId}`
+      );
+      logger.debug(
+        `[McrService] Context for LOGIC_TO_NL_ANSWER prompt (OpID: ${operationId}):`,
+        logicToNlPromptContext
+      );
+    }
 
     const naturalLanguageAnswer = await llmService.generate(
       prompts.LOGIC_TO_NL_ANSWER.system,
-      logicToNlPromptUser
+      fillTemplate(prompts.LOGIC_TO_NL_ANSWER.user, logicToNlPromptContext)
     );
     logger.info(
+      // Always log the final NL answer at info level
       `[McrService] NL answer generated (OpID: ${operationId}): "${naturalLanguageAnswer}"`
     );
-    debugInfo.naturalLanguageAnswer = naturalLanguageAnswer;
+
+    if (config.debugLevel === 'verbose') {
+      debugInfo.llmTranslationResultToNL = naturalLanguageAnswer; // LLM's raw output for this step
+    }
 
     logger.info(
-      `[McrService] Exit querySessionWithNL for session ${sessionId} successfully. OpID: ${operationId}`
+      `[McrService] Exit querySessionWithNL for session ${sessionId} successfully. OpID: ${operationId}. Strategy: ${activeStrategy.getName()}`
     );
     return { success: true, answer: naturalLanguageAnswer, debugInfo };
   } catch (error) {
@@ -400,9 +479,10 @@ async function querySessionWithNL(
     debugInfo.error = error.message;
     return {
       success: false,
-      message: `Error during query: ${error.message}`,
-      debugInfo,
-      error: error.message,
+      message: `Error during query: ${error.message}`, // User-friendly message
+      debugInfo, // Contains detailed error from the catch block if any
+      error: error.code || 'STRATEGY_QUERY_FAILED', // Specific error code from strategy/LLM if available, else generic
+      details: error.message, // Full error message in details
       strategy: activeStrategy.getName(),
     };
   }
@@ -436,7 +516,7 @@ async function translateNLToRulesDirect(
     return {
       success: false,
       message: 'No valid translation strategy available.',
-      error: 'strategy_not_found',
+      error: 'STRATEGY_NOT_FOUND', // Standardized error code
     };
   }
 
@@ -465,12 +545,12 @@ async function translateNLToRulesDirect(
       return {
         success: false,
         message: 'Could not translate text into valid rules.',
-        error: 'no_rules_extracted_by_strategy',
+        error: 'NO_RULES_EXTRACTED_BY_STRATEGY', // Standardized error code
         strategy: strategyToUse.getName(),
       };
     }
     logger.info(
-      `[McrService] Successfully translated NL to Rules (Direct). OpID: ${operationId}. Rules count: ${prologRules.length}`
+      `[McrService] Successfully translated NL to Rules (Direct). OpID: ${operationId}. Rules count: ${prologRules.length}. Strategy: ${strategyToUse.getName()}`
     );
     return {
       success: true,
@@ -484,8 +564,9 @@ async function translateNLToRulesDirect(
     );
     return {
       success: false,
-      message: `Error during NL to Rules translation: ${error.message}`,
-      error: error.message,
+      message: `Error during NL to Rules translation: ${error.message}`, // User-friendly message
+      error: error.code || 'NL_TO_RULES_TRANSLATION_FAILED', // Specific error code if available
+      details: error.message, // Full error message in details
       strategy: strategyToUse.getName(),
     };
   }
@@ -517,7 +598,7 @@ async function translateRulesToNLDirect(prologRules, style = 'conversational') {
     return {
       success: false,
       message: 'Input Prolog rules must be a non-empty string.',
-      error: 'empty_rules_input',
+      error: 'EMPTY_RULES_INPUT', // Standardized error code
     };
   }
 
@@ -553,11 +634,11 @@ async function translateRulesToNLDirect(prologRules, style = 'conversational') {
       return {
         success: false,
         message: 'Failed to generate a natural language explanation.',
-        error: 'empty_explanation_generated',
+        error: 'EMPTY_EXPLANATION_GENERATED', // Standardized error code
       };
     }
     logger.info(
-      `[McrService] Successfully translated Rules to NL (Direct). OpID: ${operationId}. Explanation length: ${naturalLanguageExplanation.length}`
+      `[McrService] Successfully translated Rules to NL (Direct). OpID: ${operationId}. Explanation length: ${naturalLanguageExplanation.length}.`
     );
     return { success: true, explanation: naturalLanguageExplanation };
   } catch (error) {
@@ -567,8 +648,9 @@ async function translateRulesToNLDirect(prologRules, style = 'conversational') {
     );
     return {
       success: false,
-      message: `Error during Rules to NL translation: ${error.message}`,
-      error: error.message,
+      message: `Error during Rules to NL translation: ${error.message}`, // User-friendly message
+      error: error.code || 'RULES_TO_NL_TRANSLATION_FAILED', // Specific error code if available
+      details: error.message, // Full error message in details
     };
   }
 }
@@ -585,7 +667,7 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
     `[McrService] Enter explainQuery for session ${sessionId} (OpID: ${operationId}). Strategy: "${activeStrategy.getName()}". NL Question: "${naturalLanguageQuestion}"`
   );
 
-  const sessionExists = sessionManager.getSession(sessionId);
+  const sessionExists = await sessionManager.getSession(sessionId); // Await async call
   if (!sessionExists) {
     logger.warn(
       `[McrService] Session ${sessionId} not found for explain query. OpID: ${operationId}`
@@ -593,50 +675,60 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
     return {
       success: false,
       message: 'Session not found.',
-      error: 'session_not_found',
+      error: 'SESSION_NOT_FOUND', // Standardized error code
       strategy: activeStrategy.getName(),
     };
   }
 
   const debugInfo = {
-    naturalLanguageQuestion,
+    naturalLanguageQuestion, // Always include original question
     strategy: activeStrategy.getName(),
     operationId,
+    level: config.debugLevel,
   };
 
   try {
     const existingFacts = sessionManager.getKnowledgeBase(sessionId) || '';
-    let contextOntologyRulesForQueryTranslation = ''; // For the strategy.query context
+    let contextOntologyRulesForQueryTranslation = '';
 
     try {
-      const globalOntologies = await ontologyService.listOntologies(true); // For NL_TO_QUERY context
+      const globalOntologies = await ontologyService.listOntologies(true);
       if (globalOntologies && globalOntologies.length > 0) {
         contextOntologyRulesForQueryTranslation = globalOntologies
           .map((ont) => ont.rules)
           .join('\n');
-        logger.debug(
-          `[McrService] Fetched ${globalOntologies.length} global ontologies for NL_TO_QUERY context in explain. OpID: ${operationId}`
-        );
+        if (config.debugLevel === 'verbose') {
+          logger.debug(
+            `[McrService] Fetched ${globalOntologies.length} global ontologies for NL_TO_QUERY context in explain. OpID: ${operationId}`
+          );
+        }
       }
     } catch (ontError) {
       logger.warn(
         `[McrService] Error fetching global ontologies for NL_TO_QUERY context in explain (session ${sessionId}, OpID: ${operationId}): ${ontError.message}`
       );
-      debugInfo.ontologyErrorForStrategy = `Failed to load global ontologies for query translation context: ${ontError.message}`;
-    }
-    logger.debug(
-      `[McrService] Context for strategy query in explain (OpID: ${operationId}):`,
-      {
-        sessionId,
-        existingFactsLength: existingFacts.length,
-        ontologyRulesLength: contextOntologyRulesForQueryTranslation.length,
+      if (config.debugLevel !== 'none') {
+        debugInfo.ontologyErrorForStrategy = `Failed to load global ontologies for query translation context: ${ontError.message}`;
       }
-    );
+    }
+
+    if (config.debugLevel === 'verbose') {
+      logger.debug(
+        `[McrService] Context for strategy query in explain (OpID: ${operationId}):`,
+        {
+          sessionId,
+          existingFactsLength: existingFacts.length,
+          ontologyRulesLength: contextOntologyRulesForQueryTranslation.length,
+        }
+      );
+    }
 
     const lexiconSummary = sessionManager.getLexiconSummary(sessionId);
-    logger.info(
-      `[McrService] Calling strategy "${activeStrategy.getName()}".query() for explanation. OpID: ${operationId}. Lexicon length: ${lexiconSummary?.length}`
-    );
+    if (config.debugLevel === 'verbose') {
+      logger.info(
+        `[McrService] Calling strategy "${activeStrategy.getName()}".query() for explanation. OpID: ${operationId}. Lexicon length: ${lexiconSummary?.length}`
+      );
+    }
     const strategyOptions = {
       existingFacts,
       ontologyRules: contextOntologyRulesForQueryTranslation,
@@ -648,13 +740,20 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
       strategyOptions
     );
     logger.info(
+      // Always log translated query
       `[McrService] Strategy "${activeStrategy.getName()}" translated NL to Prolog query for explanation (OpID: ${operationId}): ${prologQuery}`
     );
-    debugInfo.prologQuery = prologQuery;
+    if (config.debugLevel !== 'none') {
+      debugInfo.prologQuery = prologQuery;
+    }
 
-    debugInfo.sessionFacts = existingFacts;
+    if (config.debugLevel === 'verbose') {
+      debugInfo.sessionFactsSnapshot = existingFacts; // Verbose only
+    } else if (config.debugLevel === 'basic') {
+      debugInfo.sessionFactsSummary = `Session facts length: ${existingFacts.length}`;
+    }
 
-    let explainPromptOntologyRules = '';
+    let explainPromptOntologyRules = ''; // For the EXPLAIN_PROLOG_QUERY prompt context
     try {
       const ontologiesForExplainPrompt =
         await ontologyService.listOntologies(true);
@@ -662,58 +761,69 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
         explainPromptOntologyRules = ontologiesForExplainPrompt
           .map((ont) => ont.rules)
           .join('\n');
-        logger.debug(
-          `[McrService] Fetched ${ontologiesForExplainPrompt.length} global ontologies for EXPLAIN_PROLOG_QUERY prompt. OpID: ${operationId}`
-        );
+        if (config.debugLevel === 'verbose') {
+          logger.debug(
+            `[McrService] Fetched ${ontologiesForExplainPrompt.length} global ontologies for EXPLAIN_PROLOG_QUERY prompt. OpID: ${operationId}`
+          );
+        }
       }
     } catch (ontErrorForExplain) {
       logger.warn(
         `[McrService] Error fetching global ontologies for EXPLAIN_PROLOG_QUERY prompt context (session ${sessionId}, OpID: ${operationId}): ${ontErrorForExplain.message}`
       );
-      debugInfo.ontologyErrorForPrompt = `Failed to load global ontologies for explanation prompt: ${ontErrorForExplain.message}`;
+      if (config.debugLevel !== 'none') {
+        debugInfo.ontologyErrorForPrompt = `Failed to load global ontologies for explanation prompt: ${ontErrorForExplain.message}`;
+      }
     }
-    debugInfo.ontologyRulesForPrompt = explainPromptOntologyRules;
+    if (config.debugLevel === 'verbose') {
+      debugInfo.ontologyRulesForPromptSnapshot = explainPromptOntologyRules; // Verbose only
+    }
 
     const explainPromptContext = {
       naturalLanguageQuestion,
       prologQuery,
-      sessionFacts: existingFacts,
-      ontologyRules: explainPromptOntologyRules,
+      sessionFacts: existingFacts, // Full facts for prompt, regardless of debugInfo level for API response
+      ontologyRules: explainPromptOntologyRules, // Full rules for prompt
     };
-    logger.info(
-      `[McrService] Generating explanation using LLM with EXPLAIN_PROLOG_QUERY prompt. OpID: ${operationId}`
-    );
-    logger.debug(
-      `[McrService] Context for EXPLAIN_PROLOG_QUERY prompt (OpID: ${operationId}):`,
-      explainPromptContext
-    );
-    const explainPromptUser = fillTemplate(
-      prompts.EXPLAIN_PROLOG_QUERY.user,
-      explainPromptContext
-    );
+
+    if (config.debugLevel === 'verbose') {
+      logger.info(
+        `[McrService] Generating explanation using LLM with EXPLAIN_PROLOG_QUERY prompt. OpID: ${operationId}`
+      );
+      logger.debug(
+        `[McrService] Context for EXPLAIN_PROLOG_QUERY prompt (OpID: ${operationId}):`,
+        explainPromptContext // This context itself can be large
+      );
+    }
 
     const explanation = await llmService.generate(
       prompts.EXPLAIN_PROLOG_QUERY.system,
-      explainPromptUser
+      fillTemplate(prompts.EXPLAIN_PROLOG_QUERY.user, explainPromptContext)
     );
     logger.info(
+      // Always log generated explanation
       `[McrService] Explanation generated for session ${sessionId}. OpID: ${operationId}. Length: ${explanation?.length}`
     );
-    debugInfo.rawExplanation = explanation;
+
+    if (config.debugLevel === 'verbose') {
+      debugInfo.llmRawExplanation = explanation; // Verbose only
+    } else if (config.debugLevel === 'basic' && explanation) {
+      debugInfo.explanationSummary = `Explanation length: ${explanation.length}`;
+    }
 
     if (!explanation || explanation.trim() === '') {
       logger.warn(
-        `[McrService] Empty explanation generated for query. OpID: ${operationId}`
+        `[McrService] Empty explanation generated for query. OpID: ${operationId}. Strategy: ${activeStrategy.getName()}`
       );
       return {
         success: false,
         message: 'Failed to generate an explanation for the query.',
         debugInfo,
-        error: 'empty_explanation_generated',
+        error: 'EMPTY_EXPLANATION_GENERATED', // Standardized error code
       };
     }
     logger.info(
-      `[McrService] Exit explainQuery successfully for session ${sessionId}. OpID: ${operationId}`
+      `[McrService] Exit explainQuery successfully for session ${sessionId}. OpID: ${operationId}. Strategy: ${activeStrategy.getName()}`
     );
     return { success: true, explanation, debugInfo };
   } catch (error) {
@@ -724,9 +834,10 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
     debugInfo.error = error.message;
     return {
       success: false,
-      message: `Error during query explanation: ${error.message}`,
-      debugInfo,
-      error: error.message,
+      message: `Error during query explanation: ${error.message}`, // User-friendly message
+      debugInfo, // Contains detailed error from the catch block if any
+      error: error.code || 'EXPLAIN_QUERY_FAILED', // Specific error code if available
+      details: error.message, // Full error message in details
       strategy: activeStrategy.getName(),
     };
   }
@@ -757,8 +868,9 @@ async function getPrompts() {
     );
     return {
       success: false,
-      message: `Error retrieving prompts: ${error.message}`,
-      error: error.message,
+      message: `Error retrieving prompts: ${error.message}`, // User-friendly message
+      error: error.code || 'GET_PROMPTS_FAILED', // Specific error code if available
+      details: error.message, // Full error message in details
     };
   }
 }
@@ -786,18 +898,18 @@ async function debugFormatPrompt(templateName, inputVariables) {
     return {
       success: false,
       message: 'Template name must be a non-empty string.',
-      error: 'invalid_template_name',
+      error: 'INVALID_TEMPLATE_NAME', // Standardized error code
     };
   }
   if (!inputVariables || typeof inputVariables !== 'object') {
     logger.warn(
-      `[McrService] Invalid input variables for debugFormatPrompt. OpID: ${operationId}`,
+      `[McrService] Invalid input variables for debugFormatPrompt (OpID: ${operationId}). Received: ${typeof inputVariables}`,
       { inputVariables }
     );
     return {
       success: false,
       message: 'Input variables must be an object.',
-      error: 'invalid_input_variables',
+      error: 'INVALID_INPUT_VARIABLES', // Standardized error code
     };
   }
 
@@ -809,7 +921,7 @@ async function debugFormatPrompt(templateName, inputVariables) {
     return {
       success: false,
       message: `Prompt template "${templateName}" not found.`,
-      error: 'template_not_found',
+      error: 'TEMPLATE_NOT_FOUND', // Standardized error code
     };
   }
   if (!template.user) {
@@ -819,7 +931,7 @@ async function debugFormatPrompt(templateName, inputVariables) {
     return {
       success: false,
       message: `Prompt template "${templateName}" does not have a 'user' field to format.`,
-      error: 'template_user_field_missing',
+      error: 'TEMPLATE_USER_FIELD_MISSING', // Standardized error code
     };
   }
 
@@ -845,8 +957,9 @@ async function debugFormatPrompt(templateName, inputVariables) {
     );
     return {
       success: false,
-      message: `Error formatting prompt: ${error.message}`,
-      error: error.message,
+      message: `Error formatting prompt: ${error.message}`, // User-friendly message
+      error: error.code || 'PROMPT_FORMATTING_FAILED', // Specific error code if available
+      details: error.message, // Full error message in details
     };
   }
 }

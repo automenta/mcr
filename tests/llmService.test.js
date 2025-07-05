@@ -146,14 +146,10 @@ describe('LlmService', () => {
 
     const systemPrompt = 'System: Default test.';
     const userPrompt = 'User: Test';
-    await llmService.generate(systemPrompt, userPrompt);
-
-    expect(mockOllamaGenerate).toHaveBeenCalledTimes(1);
-    expect(mockOllamaGenerate).toHaveBeenCalledWith(
-      systemPrompt,
-      userPrompt,
-      {}
+    await expect(llmService.generate(systemPrompt, userPrompt)).rejects.toThrow(
+      /Configuration Error: Unsupported LLM provider configured: "unsupported_provider". Supported providers are "ollama", "gemini"./
     );
+    expect(mockOllamaGenerate).not.toHaveBeenCalled(); // Ensure it didn't try to call Ollama
   });
 
   test('should pass options to the provider', async () => {
@@ -178,36 +174,21 @@ describe('LlmService', () => {
   });
 
   test('should throw error if provider does not support generateStructured (conceptual test)', async () => {
-    // This test is more conceptual as our current mocks always define generateStructured.
-    // To truly test this, we'd need to modify a mock to not have the method.
+    // This test checks if llmService correctly identifies a misconfigured provider
+    // (i.e., one that is loaded but doesn't have the 'generate' method).
+
+    // Configure to use 'ollama', but then mock the ollamaProvider to be broken.
+    config.llm.provider = 'ollama';
+
     jest.doMock('../src/llmProviders/ollamaProvider', () => ({
-      name: 'ollama_broken',
-      // generateStructured is missing
+      name: 'ollama', // Keep the name consistent for lookup
+      // generate method is intentionally missing
     }));
-    // config is already re-required in beforeEach after jest.resetModules()
-    config.llm.provider = 'ollama_broken'; // A hypothetical name for this test
 
-    // Need to ensure the module cache is cleared for llmService AND its dynamic require of providers
-    // jest.resetModules(); // Already done in beforeEach
-    // const configModule = require('../src/config'); // config is already available
-    // configModule.llm.provider = 'ollama_broken'; // Already set on 'config'
+    llmService = require('../src/llmService'); // llmService will now load the "broken" ollamaProvider
 
-    llmService = require('../src/llmService'); // Assign to the describe-scoped variable
-
-    // This setup is tricky because llmService caches its provider.
-    // The ideal way is if llmService had an init() or reset() for testing.
-    // Given the current structure, this specific error condition ("does not support generateStructured")
-    // is hard to trigger reliably without altering llmService.js for testability.
-    // We'll assume the check `typeof provider.generateStructured !== 'function'` in llmService.js works.
-    // Awaiting a call to a non-function would naturally throw a TypeError.
-    try {
-      await llmService.generate('s', 'u');
-    } catch (e) {
-      // We expect an error, either the "misconfiguration" or a TypeError if it tries to call undefined.
-      // eslint-disable-next-line jest/no-conditional-expect
-      expect(e.message).toMatch(
-        /LLM provider misconfiguration|is not a function/
-      );
-    }
+    await expect(llmService.generate('s', 'u')).rejects.toThrow(
+      'LLM provider misconfiguration.'
+    );
   });
 });
