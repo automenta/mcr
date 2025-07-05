@@ -1,6 +1,6 @@
 // new/tests/llmService.test.js
-const config = require('../src/config');
-const logger = require('../src/logger');
+// const config = require('../src/config'); // Unused at top level
+// const logger = require('../src/logger'); // Unused at top level
 
 // new/tests/llmService.test.js
 
@@ -65,7 +65,7 @@ jest.mock('../src/llmProviders/geminiProvider', () => ({
 describe('LlmService', () => {
   let llmService; // To hold the re-required llmService instance
   let config; // To hold the re-required (mocked) config instance
-  let logger; // To hold the re-required (mocked) logger instance
+  // let logger; // This was unused after removing its assignment in beforeEach
 
   beforeAll(() => {
     // Set logger level to silent for all tests in this suite
@@ -83,7 +83,7 @@ describe('LlmService', () => {
 
     // Re-require the mocked config and logger
     config = require('../src/config');
-    logger = require('../src/logger'); // Re-require to get the fresh (mocked) instance
+    // logger = require('../src/logger'); // logger variable in this scope is unused
 
     // Reset call counts for provider mocks
     mockOllamaGenerate.mockReset();

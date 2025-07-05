@@ -271,12 +271,10 @@ MCR exposes a RESTful API. All requests and responses are JSON.
     {
       "id": "unique-session-uuid",
       "createdAt": "2023-10-27T10:00:00.000Z",
-      "facts": [], // Initial facts (empty)
-      "factCount": 0, // Initial fact count
-      "llmProvider": "current-llm-provider",
-      "reasonerProvider": "prolog" // Current reasoner
+      "facts": [] // Initial facts (empty)
     }
     ```
+    _(Note: `factCount`, `llmProvider`, `reasonerProvider` may be included by some session managers but are not part of the core MCR session object upon creation)._
 
 - `GET /api/v1/sessions/:sessionId`
   - **Description**: Retrieves the details of a specific session.
@@ -401,7 +399,7 @@ MCR exposes a RESTful API. All requests and responses are JSON.
         "bird(penguin).",
         "not(can_fly(penguin))."
       ],
-      "rawOutput": "Full LLM output string, may include comments or partial rules.",
+      // "rawOutput": "Full LLM output string (strategy-dependent, e.g., not typically present for SIR-R1)",
       "strategy": "SIR-R1" // Name of the translation strategy used
       // "originalText": "Birds can fly. Penguins are birds but cannot fly."
     }
@@ -589,7 +587,7 @@ To add support for a new LLM provider (e.g., "MyNewLLM"):
     - Add a new file, e.g., `src/llmProviders/myNewLlmProvider.js`.
     - This module must export an object with at least:
       - `name` (string): The identifier for the provider (e.g., `'mynewllm'`).
-      - `generateStructured` (async function): A function `async (systemPrompt, userPrompt, options) => { ... }` that interacts with the LLM and returns the generated text string.
+      - `generate` (async function): A function `async (systemPrompt, userPrompt, options) => { ... }` that interacts with the LLM and returns the generated text string.
     - Example:
 
       ```javascript
@@ -599,7 +597,7 @@ To add support for a new LLM provider (e.g., "MyNewLLM"):
 
       const MyNewLlmProvider = {
         name: 'mynewllm',
-        async generateStructured(systemPrompt, userPrompt, options = {}) {
+        async generate(systemPrompt, userPrompt, options = {}) {
           // const apiKey = config.llm.mynewllm.apiKey; // Get from config
           // const model = config.llm.mynewllm.model;
           // if (!apiKey) throw new Error('MyNewLLM API key not configured');

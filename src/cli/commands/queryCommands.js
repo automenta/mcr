@@ -71,10 +71,10 @@ async function runInteractiveQueryModeAsync(
           true
         );
       }
-    } catch (e) {
+    } catch (error) {
       // apiClient already handles errors by exiting, so this catch might not be strictly needed
       // unless apiClient is changed to not exit.
-      console.error(`Could not start interactive session: ${e.message}`);
+      console.error(`Could not start interactive session: ${error.message}`);
       process.exit(1);
     }
   } else {
@@ -84,10 +84,10 @@ async function runInteractiveQueryModeAsync(
       if (!programOpts.json) {
         console.log(`Continuing session: ${currentSessionId}`);
       }
-    } catch (e) {
+    } catch (error) {
       // apiClient handles exit, this is more for local console message if we change that
       console.error(
-        `Error verifying session ${currentSessionId}. It may not exist or server is down.`
+        `Error verifying session ${currentSessionId}. It may not exist or server is down: ${error.message}`
       );
       process.exit(1); // Ensure exit if apiClient didn't (e.g. if it's changed)
     }
