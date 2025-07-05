@@ -1,4 +1,3 @@
-
 const { demoLogger } = require('../../demos/demoUtils');
 const { runSimpleQADemoAsync } = require('../../demos/simpleQADemo');
 const {
@@ -10,7 +9,8 @@ const config = require('../../config'); // To log LLM provider
 // If specific per-demo setup for services is needed, it would have to be added.
 // For now, demos will use the globally configured services.
 
-async function runDemoAction(demoName, options, commandInstance) {
+async function runDemoAction(demoName /*, options, commandInstance */) {
+  // options and commandInstance are unused
   // const programOpts = commandInstance.parent.optsWithGlobals(); // For global CLI opts if needed
 
   demoLogger.step('Initializing MCR Services for Demo...');

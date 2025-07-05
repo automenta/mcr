@@ -1,4 +1,3 @@
-
 const React = require('react');
 // const { render, Box, Text, useApp, useInput, Spacer } = require('ink'); // Replaced with dynamic import
 // const TextInput = require('ink-text-input').default; // Replaced with dynamic import
@@ -14,7 +13,16 @@ const tuiCommandHandlers = require('../tuiUtils/tuiCommandHandlers');
 
 let serverProcess = null; // To keep track of the spawned server process
 
-const McrApp = ({ initialSessionIdFromArgs, onExitTrigger, Box, Text, useApp, useInput, Spacer, TextInput }) => {
+const McrApp = ({
+  initialSessionIdFromArgs,
+  onExitTrigger,
+  Box,
+  Text,
+  useApp,
+  useInput,
+  Spacer,
+  TextInput,
+}) => {
   const { exit } = useApp();
   const [messages, setMessages] = React.useState([]);
   const [inputValue, setInputValue] = React.useState('');
@@ -115,38 +123,45 @@ const McrApp = ({ initialSessionIdFromArgs, onExitTrigger, Box, Text, useApp, us
         addMessage('error', `Command Error (/${command}): ${error.message}`);
         console.error(error); // Log full error to console for debugging
       }
-    } else if (command === 'assert-sir') { // Handle /assert-sir directly for now
-        if (!currentSessionId) {
-            addMessage('error', 'No active session. Use /create-session first.');
-            return;
+    } else if (command === 'assert-sir') {
+      // Handle /assert-sir directly for now
+      if (!currentSessionId) {
+        addMessage('error', 'No active session. Use /create-session first.');
+        return;
+      }
+      if (args.length === 0) {
+        addMessage('error', 'Usage: /assert-sir <natural language text>');
+        return;
+      }
+      const textToAssert = args.join(' ');
+      addMessage('system', `Asserting (SIR): "${textToAssert}"`);
+      try {
+        // Assuming api.js will have a tui wrapper for assertNLToSessionWithSIR
+        // If not, we'd call the direct mcrService function or construct the API call.
+        // For now, let's assume api.assertSirTui exists or we add it.
+        // Let's mock what the call would look like if it was direct to a hypothetical api.assertSirTui
+        const result = await api.assertSirTui(currentSessionId, textToAssert); // This function needs to be added to api.js
+        if (result.success) {
+          addMessage('mcr', `Asserted (SIR): ${result.message}`);
+          if (result.addedFacts) {
+            addMessage('output', `Added: ${result.addedFacts.join(' ')}`);
+          }
+        } else {
+          addMessage(
+            'error',
+            `Assert (SIR) failed: ${result.message || result.error}`
+          );
         }
-        if (args.length === 0) {
-            addMessage('error', 'Usage: /assert-sir <natural language text>');
-            return;
+        if (result.debugInfo) {
+          addMessage(
+            'output',
+            `SIR Debug: ${JSON.stringify(result.debugInfo, null, 2)}`
+          );
         }
-        const textToAssert = args.join(' ');
-        addMessage('system', `Asserting (SIR): "${textToAssert}"`);
-        try {
-            // Assuming api.js will have a tui wrapper for assertNLToSessionWithSIR
-            // If not, we'd call the direct mcrService function or construct the API call.
-            // For now, let's assume api.assertSirTui exists or we add it.
-            // Let's mock what the call would look like if it was direct to a hypothetical api.assertSirTui
-             const result = await api.assertSirTui(currentSessionId, textToAssert); // This function needs to be added to api.js
-            if (result.success) {
-                addMessage('mcr', `Asserted (SIR): ${result.message}`);
-                if (result.addedFacts) {
-                    addMessage('output', `Added: ${result.addedFacts.join(' ')}`);
-                }
-            } else {
-                addMessage('error', `Assert (SIR) failed: ${result.message || result.error}`);
-            }
-            if (result.debugInfo) {
-                 addMessage('output', `SIR Debug: ${JSON.stringify(result.debugInfo, null, 2)}`);
-            }
-        } catch (err) {
-            addMessage('error', `Assert (SIR) Error: ${err.message}`);
-            console.error(err);
-        }
+      } catch (err) {
+        addMessage('error', `Assert (SIR) Error: ${err.message}`);
+        console.error(err);
+      }
     } else if (command === 'exit' || command === 'quit') {
       setIsExiting(true);
       addMessage('system', 'Exiting application...');

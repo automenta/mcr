@@ -19,8 +19,8 @@ async function isServerAliveAsync(url, retries = 5, delayTime = 1000) {
   return false;
 }
 
-// programOpts is passed but not used in old version, keeping signature for now
-async function startMcrServerAsync(_programOpts) {
+// _programOpts was passed but not used.
+async function startMcrServerAsync(/* _programOpts */) {
   logger.info('🚀 Attempting to start the MCR server automatically for TUI...');
 
   // __dirname here will be src/cli/tuiUtils

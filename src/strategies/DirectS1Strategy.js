@@ -32,7 +32,9 @@ class DirectS1Strategy {
    */
   async assert(naturalLanguageText, llmProvider, options = {}) {
     const { existingFacts = '', ontologyRules = '' } = options;
-    logger.debug(`[DirectS1Strategy] Asserting NL: "${naturalLanguageText}" with context.`);
+    logger.debug(
+      `[DirectS1Strategy] Asserting NL: "${naturalLanguageText}" with context.`
+    );
 
     const nlToLogicPromptUser = fillTemplate(prompts.NL_TO_LOGIC.user, {
       naturalLanguageText,
@@ -44,25 +46,36 @@ class DirectS1Strategy {
       prompts.NL_TO_LOGIC.system,
       nlToLogicPromptUser
     );
-    logger.debug(`[DirectS1Strategy] LLM Raw Output for NL_TO_LOGIC: \n${prologFactsString}`);
+    logger.debug(
+      `[DirectS1Strategy] LLM Raw Output for NL_TO_LOGIC: \n${prologFactsString}`
+    );
 
     if (prologFactsString.includes('% Cannot convert query to fact.')) {
       logger.warn(
         `[DirectS1Strategy] LLM indicated text is a query, not an assertable fact: "${naturalLanguageText}"`
       );
-      throw new Error('Input text appears to be a query, not an assertable fact.');
+      throw new Error(
+        'Input text appears to be a query, not an assertable fact.'
+      );
     }
 
     const addedFacts = prologFactsString
       .split('\n')
       .map((f) => f.trim())
       .filter((f) => f.length > 0 && !f.startsWith('%') && f.endsWith('.')) // Ensure it's not a comment and ends with a period
-      .map(line => { // Additional check to ensure period if accidentally missed by LLM but line seems valid
+      .map((line) => {
+        // Additional check to ensure period if accidentally missed by LLM but line seems valid
         if (line.includes(':-') && !line.endsWith('.')) return line + '.';
-        if (!line.includes(':-') && line.includes('(') && line.includes(')') && !line.endsWith('.')) return line + '.';
+        if (
+          !line.includes(':-') &&
+          line.includes('(') &&
+          line.includes(')') &&
+          !line.endsWith('.')
+        )
+          return line + '.';
         return line;
       })
-      .filter(f => f.endsWith('.')); // Final filter for those ending with a period
+      .filter((f) => f.endsWith('.')); // Final filter for those ending with a period
 
     if (addedFacts.length === 0) {
       logger.warn(
@@ -70,7 +83,9 @@ class DirectS1Strategy {
       );
       throw new Error('Could not translate text into valid facts.');
     }
-    logger.info(`[DirectS1Strategy] Translated to Prolog facts: ${JSON.stringify(addedFacts)}`);
+    logger.info(
+      `[DirectS1Strategy] Translated to Prolog facts: ${JSON.stringify(addedFacts)}`
+    );
     return addedFacts;
   }
 
@@ -88,7 +103,9 @@ class DirectS1Strategy {
    */
   async query(naturalLanguageQuestion, llmProvider, options = {}) {
     const { existingFacts = '', ontologyRules = '' } = options;
-    logger.debug(`[DirectS1Strategy] Translating NL query: "${naturalLanguageQuestion}" with context.`);
+    logger.debug(
+      `[DirectS1Strategy] Translating NL query: "${naturalLanguageQuestion}" with context.`
+    );
 
     const nlToQueryPromptUser = fillTemplate(prompts.NL_TO_QUERY.user, {
       naturalLanguageQuestion,
@@ -100,7 +117,9 @@ class DirectS1Strategy {
       prompts.NL_TO_QUERY.system,
       nlToQueryPromptUser
     );
-    logger.debug(`[DirectS1Strategy] LLM Raw Output for NL_TO_QUERY: ${prologQuery}`);
+    logger.debug(
+      `[DirectS1Strategy] LLM Raw Output for NL_TO_QUERY: ${prologQuery}`
+    );
 
     let cleanedQuery = prologQuery.trim();
 
@@ -112,37 +131,46 @@ class DirectS1Strategy {
     // Ensure query ends with a period
     if (!cleanedQuery.endsWith('.')) {
       // Check if it's a substantial query before appending a period
-      if (cleanedQuery.length > 1 && cleanedQuery.includes('(')) { // Simple heuristic
+      if (cleanedQuery.length > 1 && cleanedQuery.includes('(')) {
+        // Simple heuristic
         cleanedQuery += '.';
       } else {
         logger.error(
           `[DirectS1Strategy] LLM generated invalid or empty Prolog query: "${prologQuery}"`
         );
-        throw new Error('Failed to translate question to a valid Prolog query (empty or malformed).');
+        throw new Error(
+          'Failed to translate question to a valid Prolog query (empty or malformed).'
+        );
       }
     }
 
     // Final validation for common Prolog query structure
-    if (!cleanedQuery.match(/^[a-z_][a-zA-Z0-9_]*\(.*\)\.$/) && !cleanedQuery.match(/^[a-z_][a-zA-Z0-9_]*\.$/)) {
-        // This regex is a basic check and might need refinement
-        // It checks for predicate(...) or atom.
-        if (!cleanedQuery.includes('true.') && !cleanedQuery.includes('fail.')) { // Allow true. and fail.
-             logger.warn(
-                `[DirectS1Strategy] Generated query "${cleanedQuery}" might be malformed.`
-            );
-            // Depending on strictness, one might throw an error here.
-            // For now, we'll allow it but log a warning.
-        }
+    if (
+      !cleanedQuery.match(/^[a-z_][a-zA-Z0-9_]*\(.*\)\.$/) &&
+      !cleanedQuery.match(/^[a-z_][a-zA-Z0-9_]*\.$/)
+    ) {
+      // This regex is a basic check and might need refinement
+      // It checks for predicate(...) or atom.
+      if (!cleanedQuery.includes('true.') && !cleanedQuery.includes('fail.')) {
+        // Allow true. and fail.
+        logger.warn(
+          `[DirectS1Strategy] Generated query "${cleanedQuery}" might be malformed.`
+        );
+        // Depending on strictness, one might throw an error here.
+        // For now, we'll allow it but log a warning.
+      }
     }
 
-
-    if (!cleanedQuery || !cleanedQuery.endsWith('.')) { // Redundant check, but good for safety
+    if (!cleanedQuery || !cleanedQuery.endsWith('.')) {
+      // Redundant check, but good for safety
       logger.error(
         `[DirectS1Strategy] LLM generated invalid Prolog query after cleaning: "${cleanedQuery}" (Original: "${prologQuery}")`
       );
       throw new Error('Failed to translate question to a valid query.');
     }
-    logger.info(`[DirectS1Strategy] Translated to Prolog query: ${cleanedQuery}`);
+    logger.info(
+      `[DirectS1Strategy] Translated to Prolog query: ${cleanedQuery}`
+    );
     return cleanedQuery;
   }
 }

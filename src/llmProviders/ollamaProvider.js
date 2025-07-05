@@ -1,9 +1,8 @@
 // new/src/llmProviders/ollamaProvider.js
-const {
-  Ollama: OllamaLangchain,
-} = require('@langchain/community/chat_models/ollama');
-const { StringOutputParser } = require('@langchain/core/output_parsers');
-const { PromptTemplate } = require('@langchain/core/prompts');
+const { ChatOllama } = require('@langchain/community/chat_models/ollama');
+// StringOutputParser and PromptTemplate are no longer used directly in this simplified version
+// const { StringOutputParser } = require('@langchain/core/output_parsers');
+// const { PromptTemplate } = require('@langchain/core/prompts');
 const config = require('../config');
 const logger = require('../logger');
 
@@ -12,7 +11,7 @@ let ollamaInstance;
 function getOllamaInstance() {
   if (!ollamaInstance) {
     try {
-      ollamaInstance = new OllamaLangchain({
+      ollamaInstance = new ChatOllama({ // Changed from OllamaLangchain
         baseUrl: config.llm.ollama.baseURL,
         model: config.llm.ollama.model,
         // temperature: 0, // Optional: for more deterministic output
@@ -54,16 +53,26 @@ async function generate(systemPrompt, userPrompt, options = {}) {
     // logger.debug('Attempting JSON mode with prompt adjustment.');
   }
 
-  const promptTemplate = PromptTemplate.fromTemplate(fullPromptContent);
-  const chain = promptTemplate.pipe(ollama).pipe(new StringOutputParser());
+  const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
+
+  const messages = [];
+  if (systemPrompt) {
+    messages.push(new SystemMessage(systemPrompt));
+  }
+  messages.push(new HumanMessage(userPrompt)); // userPrompt is the core content.
+
+  // If options.jsonMode is true, we might append to the last message or add a specific instruction.
+  // For now, the jsonMode instruction is appended to userPrompt by mcrService or strategy.
+  // Let's assume userPrompt (which becomes fullPromptContent if no systemPrompt) already has JSON instructions.
 
   try {
-    logger.debug(`Ollama generating with prompt: "${fullPromptContent}"`, {
-      systemPrompt,
-      userPrompt,
-      options,
-    });
-    const result = await chain.invoke({}); // Invoke with empty object as variables are in the template string
+    logger.debug(`Ollama generating with messages:`, { messages, options });
+
+    // ChatOllama models are invoked with a list of messages or a single message string (interpreted as HumanMessage)
+    // To include a system message, we must pass an array.
+    const response = await ollama.invoke(messages);
+    const result = typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
+
     logger.debug(`Ollama generation successful. Result: "${result}"`);
     return result;
   } catch (error) {

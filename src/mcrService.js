@@ -22,16 +22,22 @@ let activeStrategyName = config.translationStrategy;
 let activeStrategy = strategies[activeStrategyName];
 
 if (!activeStrategy) {
-  logger.warn(`[McrService] Configured strategy "${activeStrategyName}" not found. Defaulting to "SIR-R1".`);
+  logger.warn(
+    `[McrService] Configured strategy "${activeStrategyName}" not found. Defaulting to "SIR-R1".`
+  );
   activeStrategyName = 'SIR-R1'; // Fallback to a default
   activeStrategy = strategies[activeStrategyName];
-  if (!activeStrategy) { // Should not happen if SIR-R1 is in strategies
-      logger.error("[McrService] Fallback strategy 'SIR-R1' also not found. MCR Service may not function correctly.");
-      // Or throw an error: throw new Error("Default strategy 'SIR-R1' not found.");
+  if (!activeStrategy) {
+    // Should not happen if SIR-R1 is in strategies
+    logger.error(
+      "[McrService] Fallback strategy 'SIR-R1' also not found. MCR Service may not function correctly."
+    );
+    // Or throw an error: throw new Error("Default strategy 'SIR-R1' not found.");
   }
 }
-logger.info(`[McrService] Initialized with active translation strategy: ${activeStrategy.getName()}`);
-
+logger.info(
+  `[McrService] Initialized with active translation strategy: ${activeStrategy.getName()}`
+);
 
 /**
  * Sets the active translation strategy for the MCR service.
@@ -42,10 +48,14 @@ function setTranslationStrategy(strategyName) {
   if (strategies[strategyName]) {
     activeStrategy = strategies[strategyName];
     activeStrategyName = strategyName;
-    logger.info(`[McrService] Translation strategy changed to: ${activeStrategy.getName()}`);
+    logger.info(
+      `[McrService] Translation strategy changed to: ${activeStrategy.getName()}`
+    );
     return true;
   }
-  logger.warn(`[McrService] Attempted to set unknown translation strategy: ${strategyName}`);
+  logger.warn(
+    `[McrService] Attempted to set unknown translation strategy: ${strategyName}`
+  );
   return false;
 }
 
@@ -56,7 +66,6 @@ function setTranslationStrategy(strategyName) {
 function getActiveStrategyName() {
   return activeStrategyName;
 }
-
 
 /**
  * Asserts natural language text as facts/rules into a session using the active translation strategy.
@@ -71,7 +80,11 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
 
   if (!sessionManager.getSession(sessionId)) {
     logger.warn(`[McrService] Session ${sessionId} not found for assertion.`);
-    return { success: false, message: 'Session not found.', strategy: activeStrategy.getName() };
+    return {
+      success: false,
+      message: 'Session not found.',
+      strategy: activeStrategy.getName(),
+    };
   }
 
   try {
@@ -90,10 +103,14 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
     }
 
     // Delegate translation to the active strategy
-    const addedFacts = await activeStrategy.assert(naturalLanguageText, llmService, {
-      existingFacts,
-      ontologyRules,
-    });
+    const addedFacts = await activeStrategy.assert(
+      naturalLanguageText,
+      llmService,
+      {
+        existingFacts,
+        ontologyRules,
+      }
+    );
 
     if (!addedFacts || addedFacts.length === 0) {
       // This case should ideally be handled by the strategy's assert method throwing an error
@@ -102,7 +119,8 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
       );
       return {
         success: false,
-        message: 'Could not translate text into valid facts using the current strategy.',
+        message:
+          'Could not translate text into valid facts using the current strategy.',
         error: 'no_facts_extracted_by_strategy',
         strategy: activeStrategy.getName(),
       };
@@ -163,7 +181,11 @@ async function querySessionWithNL(
 
   if (!sessionManager.getSession(sessionId)) {
     logger.warn(`[McrService] Session ${sessionId} not found for query.`);
-    return { success: false, message: 'Session not found.', strategy: activeStrategy.getName() };
+    return {
+      success: false,
+      message: 'Session not found.',
+      strategy: activeStrategy.getName(),
+    };
   }
 
   const debugInfo = { strategy: activeStrategy.getName() };
@@ -184,10 +206,14 @@ async function querySessionWithNL(
     }
 
     // Delegate NL to Prolog query translation to the active strategy
-    const prologQuery = await activeStrategy.query(naturalLanguageQuestion, llmService, {
-      existingFacts,
-      ontologyRules,
-    });
+    const prologQuery = await activeStrategy.query(
+      naturalLanguageQuestion,
+      llmService,
+      {
+        existingFacts,
+        ontologyRules,
+      }
+    );
     logger.debug(
       `[McrService] Strategy "${activeStrategy.getName()}" translated NL question to Prolog query: ${prologQuery}`
     );
@@ -289,29 +315,41 @@ async function querySessionWithNL(
 // own retry mechanism (if any), it would need to be part of the SIRR1Strategy.
 // For now, assertNLToSessionWithSIR is removed as its functionality is covered by the strategy pattern.
 
-
 /**
  * Translates natural language text directly to Prolog facts/rules.
  * @param {string} naturalLanguageText - The natural language text.
  * @param {string} [strategyName] - Optional: specific strategy to use for this translation. Defaults to active strategy.
  * @returns {Promise<{success: boolean, rules?: string[], error?: string, strategy?: string, rawOutput?: string}>}
  */
-async function translateNLToRulesDirect(naturalLanguageText, strategyName = activeStrategyName) {
+async function translateNLToRulesDirect(
+  naturalLanguageText,
+  strategyName = activeStrategyName
+) {
   logger.info(
     `[McrService] Translating NL to Rules (Direct) using strategy "${strategyName}": "${naturalLanguageText}"`
   );
 
   const strategyToUse = strategies[strategyName] || activeStrategy;
   if (!strategyToUse) {
-    logger.error(`[McrService] No valid strategy found for translateNLToRulesDirect (requested: ${strategyName}, active: ${activeStrategyName})`);
-    return { success: false, message: "No valid translation strategy available.", error: "strategy_not_found" };
+    logger.error(
+      `[McrService] No valid strategy found for translateNLToRulesDirect (requested: ${strategyName}, active: ${activeStrategyName})`
+    );
+    return {
+      success: false,
+      message: 'No valid translation strategy available.',
+      error: 'strategy_not_found',
+    };
   }
 
   try {
     // The `assert` method of a strategy is designed to return Prolog facts/rules.
     // We don't have session context here (existingFacts, ontologyRules) for this direct translation.
     // Strategies should be able to handle missing options if they are designed to.
-    const prologRules = await strategyToUse.assert(naturalLanguageText, llmService, {});
+    const prologRules = await strategyToUse.assert(
+      naturalLanguageText,
+      llmService,
+      {}
+    );
 
     if (!prologRules || prologRules.length === 0) {
       logger.warn(
@@ -325,7 +363,11 @@ async function translateNLToRulesDirect(naturalLanguageText, strategyName = acti
       };
     }
 
-    return { success: true, rules: prologRules, strategy: strategyToUse.getName() };
+    return {
+      success: true,
+      rules: prologRules,
+      strategy: strategyToUse.getName(),
+    };
   } catch (error) {
     logger.error(
       `[McrService] Error translating NL to Rules (Direct) using strategy "${strategyToUse.getName()}": ${error.message}`,
@@ -429,36 +471,39 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
     };
   }
 
-  const debugInfo = { naturalLanguageQuestion, strategy: activeStrategy.getName() };
+  const debugInfo = {
+    naturalLanguageQuestion,
+    strategy: activeStrategy.getName(),
+  };
 
   try {
     const existingFacts = sessionManager.getKnowledgeBase(sessionId) || '';
-    let globalOntologyRules = ''; // For the main EXPLAIN_PROLOG_QUERY prompt
+    // let globalOntologyRules = ''; // This variable is unused.
     let contextOntologyRulesForQueryTranslation = ''; // For the strategy.query context
 
     try {
-      const globalOntologies = await ontologyService.listOntologies(true);
+      const globalOntologies = await ontologyService.listOntologies(true); // For NL_TO_QUERY context
       if (globalOntologies && globalOntologies.length > 0) {
-        const rulesText = globalOntologies.map((ont) => ont.rules).join('\n');
-        globalOntologyRules = rulesText;
-        contextOntologyRulesForQueryTranslation = rulesText;
-        logger.debug(
-          `[McrService] Fetched ${globalOntologies.length} global ontologies for explanation context.`
-        );
+        contextOntologyRulesForQueryTranslation = globalOntologies.map((ont) => ont.rules).join('\n');
+        logger.debug(`[McrService] Fetched ${globalOntologies.length} global ontologies for NL_TO_QUERY context in explain.`);
       }
     } catch (ontError) {
-      logger.warn(
-        `[McrService] Error fetching global ontologies for explanation context (session ${sessionId}): ${ontError.message}`
-      );
-      debugInfo.ontologyError = `Failed to load global ontologies: ${ontError.message}`;
-      // Non-fatal, proceed
+      logger.warn(`[McrService] Error fetching global ontologies for NL_TO_QUERY context in explain (session ${sessionId}): ${ontError.message}`);
+      // Record this error if it occurs, as it affects the context provided to the strategy.
+      debugInfo.ontologyError = `Failed to load global ontologies for query translation context: ${ontError.message}`;
     }
 
     // Translate NL question to Prolog query using the active strategy
-    const prologQuery = await activeStrategy.query(naturalLanguageQuestion, llmService, {
+    // The strategy itself might fetch ontologies or accept them as options.
+    // The current activeStrategy.query takes ontologyRules in its options.
+    const prologQuery = await activeStrategy.query(
+      naturalLanguageQuestion,
+      llmService,
+      {
         existingFacts, // Provide existing facts as context to the strategy
         ontologyRules: contextOntologyRulesForQueryTranslation, // Provide ontology rules as context
-    });
+      }
+    );
     logger.debug(
       `[McrService] Strategy "${activeStrategy.getName()}" translated NL to Prolog query for explanation: ${prologQuery}`
     );
@@ -468,14 +513,30 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
 
     // Session facts for the main explanation prompt
     debugInfo.sessionFacts = existingFacts; // Already fetched
-    debugInfo.ontologyRules = globalOntologyRules; // Already fetched
+
+    // Re-fetch global ontologies specifically for the EXPLAIN_PROLOG_QUERY prompt context
+    // This ensures that if the first fetch (for strategy context) failed, we try again here,
+    // and if this one fails, it's specifically logged for this part of the process.
+    let explainPromptOntologyRules = '';
+    try {
+        const ontologiesForExplainPrompt = await ontologyService.listOntologies(true);
+        if (ontologiesForExplainPrompt && ontologiesForExplainPrompt.length > 0) {
+            explainPromptOntologyRules = ontologiesForExplainPrompt.map(ont => ont.rules).join('\n');
+            logger.debug(`[McrService] Fetched ${ontologiesForExplainPrompt.length} global ontologies for EXPLAIN_PROLOG_QUERY prompt.`);
+        }
+    } catch (ontErrorForExplain) {
+        logger.warn(`[McrService] Error fetching global ontologies for EXPLAIN_PROLOG_QUERY prompt context (session ${sessionId}): ${ontErrorForExplain.message}`);
+        debugInfo.ontologyError = `Failed to load global ontologies for explanation: ${ontErrorForExplain.message}`;
+        // Continue, the prompt will just have empty ontologyRules
+    }
+    debugInfo.ontologyRules = explainPromptOntologyRules; // Record what was actually used in the prompt
 
     // Generate explanation using LLM with the EXPLAIN_PROLOG_QUERY prompt
     const explainPromptUser = fillTemplate(prompts.EXPLAIN_PROLOG_QUERY.user, {
       naturalLanguageQuestion,
       prologQuery,
       sessionFacts: existingFacts,
-      ontologyRules: globalOntologyRules,
+      ontologyRules: explainPromptOntologyRules, // Use the specifically fetched rules for this prompt
     });
 
     const explanation = await llmService.generate(
@@ -581,23 +642,23 @@ async function debugFormatPrompt(templateName, inputVariables) {
   }
 
   try {
-    const formattedPrompt = fillTemplate(template.user, inputVariables);
+    const formattedUserPrompt = fillTemplate(template.user, inputVariables); // This line can throw
     return {
       success: true,
       templateName,
       rawTemplate: template,
-      formattedUserPrompt: formattedPrompt,
+      formattedUserPrompt, // Use the value from fillTemplate
       inputVariables,
     };
   } catch (error) {
     logger.error(
       `[McrService] Error formatting prompt ${templateName}: ${error.message}`,
-      { error: error.stack }
+      { error: error.stack } // Log stack for better debugging of fillTemplate errors
     );
     return {
       success: false,
-      message: `Error formatting prompt: ${error.message}`,
-      error: error.message,
+      message: `Error formatting prompt: ${error.message}`, // Pass through the specific error from fillTemplate
+      error: error.message, // Keep the original error message for the 'error' field
     };
   }
 }

@@ -1,4 +1,3 @@
-
 const { getServerStatus, API_BASE_URL } = require('../api'); // Use the new non-exiting getServerStatus
 const { handleCliOutput } = require('../../cliUtils');
 const logger = require('../../logger'); // Use the main logger

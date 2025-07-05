@@ -11,7 +11,7 @@ require('@babel/register')({
 const { Command } = require('commander');
 const { version } = require('./package.json'); // To get version from package.json
 // const ConfigManager = require('./src/config'); // We'll use the new config directly
-const { reconfigureLogger, logger } = require('./src/logger'); // For CLI specific logging if needed
+const { logger } = require('./src/logger'); // For CLI specific logging if needed, reconfigureLogger was unused
 
 // TODO: Potentially initialize config and logger for CLI context if needed
 // Example:

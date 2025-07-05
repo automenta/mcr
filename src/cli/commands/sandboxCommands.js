@@ -1,8 +1,8 @@
-
 const { sandboxLoop } = require('../../sandbox/sandboxLogic');
 // Any sandbox-specific CLI options could be processed here if added in the future.
 
-async function runSandboxAsync(options, commandInstance) {
+async function runSandboxAsync(/* options, commandInstance */) {
+  // options and commandInstance are unused
   // const programOpts = commandInstance.parent.optsWithGlobals(); // For global CLI opts if needed
   console.log('Starting MCR Sandbox Mode...');
   console.log('This mode assumes the MCR server is already running.');

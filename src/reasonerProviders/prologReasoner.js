@@ -164,23 +164,29 @@ async function validateKnowledgeBase(knowledgeBase) {
   // Placeholder implementation.
   // A real implementation would try to consult the KB in a new session
   // and catch errors. For Tau Prolog, session.consult itself can throw errors.
-  logger.info('[PrologReasonerProvider] validateKnowledgeBase called (placeholder).');
+  logger.info(
+    '[PrologReasonerProvider] validateKnowledgeBase called (placeholder).'
+  );
   try {
     const session = prolog.create(100); // Create a temporary session
     let consultError = null;
     session.consult(knowledgeBase, {
-        success: () => {}, // Do nothing on success
-        error: (err) => {
-            consultError = err;
-        }
+      success: () => {}, // Do nothing on success
+      error: (err) => {
+        consultError = err;
+      },
     });
     if (consultError) {
-      logger.warn(`[PrologReasonerProvider] Knowledge base validation failed: ${consultError}`);
+      logger.warn(
+        `[PrologReasonerProvider] Knowledge base validation failed: ${consultError}`
+      );
       return { isValid: false, error: String(consultError) };
     }
     return { isValid: true };
   } catch (e) {
-    logger.error(`[PrologReasonerProvider] Error during knowledge base validation: ${e.message}`);
+    logger.error(
+      `[PrologReasonerProvider] Error during knowledge base validation: ${e.message}`
+    );
     return { isValid: false, error: e.message };
   }
 }
