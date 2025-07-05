@@ -12,7 +12,8 @@ const HOST = config.server.host;
 // mcrService.init().then(() => { ... start server ... }).catch(err => ...);
 
 const server = app.listen(PORT, HOST, () => {
-  logger.info(`MCR Streamlined server listening on http://${HOST}:${PORT}`);
+  // logger.info(`MCR Streamlined server listening on http://${HOST}:${PORT}`);
+  logger.info('Server is running'); // Exact match for tool detection
   logger.info('--- Configuration ---');
   logger.info(`  Log Level: ${config.logLevel}`);
   logger.info(`  LLM Provider: ${config.llm.provider}`);

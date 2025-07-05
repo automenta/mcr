@@ -11,7 +11,8 @@ let ollamaInstance;
 function getOllamaInstance() {
   if (!ollamaInstance) {
     try {
-      ollamaInstance = new ChatOllama({ // Changed from OllamaLangchain
+      ollamaInstance = new ChatOllama({
+        // Changed from OllamaLangchain
         baseUrl: config.llm.ollama.baseURL,
         model: config.llm.ollama.model,
         // temperature: 0, // Optional: for more deterministic output
@@ -71,7 +72,10 @@ async function generate(systemPrompt, userPrompt, options = {}) {
     // ChatOllama models are invoked with a list of messages or a single message string (interpreted as HumanMessage)
     // To include a system message, we must pass an array.
     const response = await ollama.invoke(messages);
-    const result = typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
+    const result =
+      typeof response.content === 'string'
+        ? response.content
+        : JSON.stringify(response.content);
 
     logger.debug(`Ollama generation successful. Result: "${result}"`);
     return result;
