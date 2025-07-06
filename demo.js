@@ -181,10 +181,36 @@ class Example {
   async assertCondition(condition, successMessage, failureMessage) {
     if (condition) {
       this.dLog.success(`Assertion PASSED: ${successMessage}`);
-      this.logger.info(`[${this.getName()}] Assertion PASSED: ${successMessage}`);
+      // this.logger.info(`[${this.getName()}] Assertion PASSED: ${successMessage}`); // Removed for console clarity
     } else {
       this.dLog.error(`Assertion FAILED: ${failureMessage}`);
-      this.logger.error(`[${this.getName()}] Assertion FAILED: ${failureMessage}`);
+      this.logger.error(`[${this.getName()}] Assertion FAILED: ${failureMessage}`); // Keep error in main log
+    }
+  }
+
+  async printKnowledgeBase() {
+    if (!this.sessionId) {
+      this.dLog.warn('No session ID available, cannot print knowledge base.');
+      return;
+    }
+    this.dLog.step('Fetching current knowledge base...');
+    try {
+      const axios = (await import('axios')).default;
+      const response = await axios.get(`${this.apiBaseUrl}/sessions/${this.sessionId}`);
+      const sessionData = response.data;
+      if (sessionData && sessionData.facts) {
+        this.dLog.heading(`Knowledge Base for Session ${this.sessionId}:`);
+        if (sessionData.facts.length > 0) {
+          // Use console.log directly for multiline raw output, dLog might prefix each line.
+          console.log(chalk.magenta(sessionData.facts.join('\n')));
+        } else {
+          this.dLog.info('KB Status', '(empty)');
+        }
+      } else {
+        this.dLog.warn('Could not retrieve facts from session data.');
+      }
+    } catch (error) {
+      this.handleApiError(error, 'Failed to fetch knowledge base for printing');
     }
   }
 }
@@ -342,6 +368,7 @@ async function main() {
         `Critical error in demo "${exampleToRun.getName()}" with ${strategyLabel}: ${error.stack}`
       );
     } finally {
+      await exampleToRun.printKnowledgeBase(); // Call it before cleanup
       await exampleToRun.cleanupSession();
       demoLogger.divider();
       demoLogger.heading(`Demo ${exampleToRun.getName()} (${strategyLabel}) Finished`);

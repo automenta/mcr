@@ -166,32 +166,51 @@ async function runQuery(knowledgeBase, query, limit = 10) {
  *          indicating if the knowledge base is valid.
  */
 async function validateKnowledgeBase(knowledgeBase) {
-  // Placeholder implementation.
-  // A real implementation would try to consult the KB in a new session
-  // and catch errors. For Tau Prolog, session.consult itself can throw errors.
-  logger.info(
-    '[PrologReasonerProvider] validateKnowledgeBase called (placeholder).'
-  );
+  const kbSnippet = knowledgeBase.substring(0, 200) + (knowledgeBase.length > 200 ? '...' : '');
+  logger.info(`[PrologReasonerProvider] Validating knowledge base (approx. ${knowledgeBase.length} chars). Snippet: "${kbSnippet}"`);
+
   try {
-    const session = prolog.create(100); // Create a temporary session
+    const session = prolog.create(100);
     let consultError = null;
-    session.consult(knowledgeBase, {
-      success: () => {}, // Do nothing on success
-      error: (err) => {
-        consultError = err;
-      },
-    });
+
+    // Tau Prolog's consult can be tricky with string inputs for error reporting.
+    // Attempt direct consult and catch synchronous errors.
+    try {
+      session.consult(knowledgeBase);
+    } catch (syncError) {
+      consultError = syncError;
+      logger.debug(`[PrologReasonerProvider] Synchronous error during consult: ${syncError}`);
+    }
+
+    // Additionally, use the callback mechanism if no synchronous error occurred,
+    // as some errors might only be reported asynchronously.
+    if (!consultError) {
+        const consultPromise = new Promise((resolveConsult, rejectConsult) => {
+            session.consult(knowledgeBase, {
+                success: () => {
+                    resolveConsult(null); // No error
+                },
+                error: (err) => {
+                    resolveConsult(err); // Resolve with error to handle it uniformly
+                }
+            });
+        });
+        consultError = await consultPromise;
+        if (consultError) {
+             logger.debug(`[PrologReasonerProvider] Asynchronous error reported via callback during consult: ${consultError}`);
+        }
+    }
+
     if (consultError) {
-      logger.warn(
-        `[PrologReasonerProvider] Knowledge base validation failed: ${consultError}`
-      );
+      logger.warn(`[PrologReasonerProvider] Knowledge base validation FAILED. Error: ${consultError}. Snippet: "${kbSnippet}"`);
       return { isValid: false, error: String(consultError) };
     }
+
+    logger.info(`[PrologReasonerProvider] Knowledge base validation PASSED. Snippet: "${kbSnippet}"`);
     return { isValid: true };
   } catch (e) {
-    logger.error(
-      `[PrologReasonerProvider] Error during knowledge base validation: ${e.message}`
-    );
+    // This catch is for unexpected errors in the validation logic itself
+    logger.error(`[PrologReasonerProvider] Exception during knowledge base validation process. Error: ${e.message}. Snippet: "${kbSnippet}"`);
     return { isValid: false, error: e.message };
   }
 }
