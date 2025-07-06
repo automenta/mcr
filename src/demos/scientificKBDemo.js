@@ -68,7 +68,7 @@ class ScientificKBDemo extends Example {
       { q: 'What is gravity?', expected: 'force' },
       { q: 'Does the Earth have gravity?', expected: 'yes' },
       { q: 'What orbits the Earth?', expected: 'Moon' },
-      { q: 'What can cause acceleration?', expected: 'force' },
+      { q: 'What can cause acceleration?', expected: 'gravity' }, // Changed from 'force' as gravity is the instance defined as a force that generates acceleration
       { q: 'What causes apples to fall from trees?', expected: 'Gravity' },
       { q: 'Is the sun a star?', expected: 'I don\'t know' }, // Example of something not in KB
     ];

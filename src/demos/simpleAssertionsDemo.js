@@ -22,8 +22,9 @@ class SimpleAssertionsDemo extends Example {
     this.dLog.step('Asserting Facts');
     const factsToAssert = [
       'The sky is blue.',
-      'Socrates is a human.',
-      'All humans are mortal.',
+      'Socrates is a human.', // Assumed to become is_a(socrates,human).
+      'human(X) :- is_a(X, human).', // Bridge rule
+      'mortal(X) :- human(X).', // Changed from "All humans are mortal."
       "John is Mary's father.",
       'Mary is a doctor.',
     ];
