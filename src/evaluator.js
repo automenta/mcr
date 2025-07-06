@@ -8,6 +8,9 @@ const logger = require('./logger'); // General logger
 const { demoLogger } = require('./demos/demoUtils'); // For colorful output, similar to demo.js
 const { checkAndStartServer } = require('./cliUtils');
 const config = require('./config');
+// yargs and hideBin will be imported dynamically in main
+const llmServiceModule = require('./llmService'); // For semantic similarity metric generate function
+const { prompts, fillTemplate } = require('./prompts');
 
 // --- Evaluation Case Structure ---
 /**
@@ -54,38 +57,134 @@ const metrics = {
     if (typeof actualAnswer !== 'string' || typeof expectedAnswer !== 'string') return false;
     return actualAnswer.trim() === expectedAnswer.trim();
   },
-  // TODO: Add more sophisticated metrics (e.g., semantic similarity for answers, Prolog structure match)
+
+  /**
+   * Normalizes Prolog code for comparison.
+   * - Removes comments
+   * - Standardizes whitespace around operators and parentheses
+   * - Sorts terms in a conjunction (if top-level and order doesn't strictly matter) - this is complex, start simple.
+   * - Standardizes variable names (e.g., _Var0, _Var1) - this is also complex.
+   * For now, focuses on comment removal and whitespace normalization.
+   * @param {string | string[]} prologCode - Prolog code.
+   * @returns {string | string[]} Normalized Prolog code.
+   */
+  normalizeProlog: (prologCode) => {
+    const normalizeSingle = (code) => {
+      if (typeof code !== 'string') return code;
+      // Remove comments
+      let norm = code.replace(/%.*?\n/g, '\n').replace(/%.*?$/, '');
+      // Standardize whitespace: remove leading/trailing, collapse multiple spaces, space around operators
+      norm = norm.trim().replace(/\s+/g, ' ');
+      norm = norm.replace(/\s*([(),.:-])\s*/g, '$1'); // Space around operators, commas, parentheses
+      norm = norm.replace(/([(),.:-])\s*([(),.:-])/g, '$1$2'); // Remove space between consecutive operators
+      return norm;
+    };
+
+    if (Array.isArray(prologCode)) {
+      return prologCode.map(normalizeSingle);
+    }
+    return normalizeSingle(prologCode);
+  },
+
+  /**
+   * Checks for structural match of Prolog code after normalization.
+   * @param {string | string[]} actualProlog - Generated Prolog.
+   * @param {string | string[]} expectedProlog - Expected Prolog.
+   * @returns {boolean} True if normalized versions match.
+   */
+  prologStructureMatch: (actualProlog, expectedProlog) => {
+    const normActual = metrics.normalizeProlog(actualProlog);
+    const normExpected = metrics.normalizeProlog(expectedProlog);
+    return metrics.exactMatchProlog(normActual, normExpected); // Reuse exactMatch for normalized strings
+  },
+
+  /**
+   * Checks for semantic similarity of natural language answers using an LLM.
+   * @async
+   * @param {string} actualAnswer - Generated NL answer.
+   * @param {string} expectedAnswer - Expected NL answer.
+   * @param {LlmService} llmService - Instance of LlmService.
+   * @param {string} originalQuestion - The original question, for context.
+   * @returns {Promise<boolean>} True if answers are deemed semantically similar by the LLM.
+   */
+  semanticSimilarityAnswer: async (actualAnswer, expectedAnswer, llmGenerateFunc, originalQuestion = '') => {
+    if (typeof actualAnswer !== 'string' || typeof expectedAnswer !== 'string' || typeof llmGenerateFunc !== 'function') {
+      logger.error('semanticSimilarityAnswer called with invalid arguments or missing llmGenerateFunc.');
+      return false;
+    }
+    if (actualAnswer.trim() === expectedAnswer.trim()) return true; // Exact match is semantically similar
+
+    if (!prompts.SEMANTIC_SIMILARITY_CHECK) {
+        logger.error("Semantic similarity check prompt not found!");
+        return false;
+    }
+    const systemPrompt = prompts.SEMANTIC_SIMILARITY_CHECK.system;
+    const userPrompt = fillTemplate(prompts.SEMANTIC_SIMILARITY_CHECK.user, {
+        text1: expectedAnswer,
+        text2: actualAnswer,
+        context: originalQuestion ? `The original question was: "${originalQuestion}"` : "No specific question context provided."
+    });
+
+    try {
+      const response = await llmGenerateFunc(systemPrompt, userPrompt);
+      logger.debug(`Semantic similarity LLM response: ${response}`);
+      // Expecting LLM to output "SIMILAR" or "DIFFERENT" (or parse a JSON if prompt asks for it)
+      // For now, simple string check, case-insensitive.
+      return response.trim().toLowerCase().startsWith('similar');
+    } catch (error) {
+      logger.error(`Error during semantic similarity check: ${error.message}`);
+      return false;
+    }
+  },
 };
 
 class Evaluator {
-  constructor(evaluationCasesPath) {
+  constructor(evaluationCasesPath, selectedStrategies = [], selectedTags = []) {
     this.evaluationCasesPath = evaluationCasesPath;
+    this.selectedStrategies = selectedStrategies;
+    this.selectedTags = selectedTags;
     this.evaluationCases = [];
     this.results = [];
     this.apiBaseUrl = `http://${config.server.host}:${config.server.port}/api/v1`;
-    this.sharedSessionId = null; // For cases that might share a session
+    this.llmGenerate = llmServiceModule.generate; // Store the generate function for metrics
   }
 
   loadEvaluationCases() {
     demoLogger.info('Loading evaluation cases from', this.evaluationCasesPath);
+    let allLoadedCases = [];
     try {
       const caseFiles = fs.readdirSync(this.evaluationCasesPath);
       for (const file of caseFiles) {
         if (file.endsWith('.js') || file.endsWith('.json')) {
           const filePath = path.join(this.evaluationCasesPath, file);
-          const casesFromFile = require(filePath); // require() handles both .js and .json
+          const casesFromFile = require(filePath);
           if (Array.isArray(casesFromFile)) {
-            this.evaluationCases.push(...casesFromFile);
+            allLoadedCases.push(...casesFromFile);
             demoLogger.success(`Loaded ${casesFromFile.length} cases from ${file}`);
           } else {
             demoLogger.warn(`File ${file} does not export an array of cases. Skipping.`);
           }
         }
       }
-      demoLogger.info(`Total evaluation cases loaded: ${this.evaluationCases.length}`);
+      demoLogger.info(`Total evaluation cases loaded before filtering: ${allLoadedCases.length}`);
+
+      // Filter by tags if any are selected
+      if (this.selectedTags.length > 0) {
+        demoLogger.info(`Filtering cases by tags: ${this.selectedTags.join(', ')}`);
+        this.evaluationCases = allLoadedCases.filter(ec =>
+          ec.tags && ec.tags.some(tag => this.selectedTags.includes(tag))
+        );
+        demoLogger.info(`Cases after tag filtering: ${this.evaluationCases.length}`);
+      } else {
+        this.evaluationCases = allLoadedCases;
+      }
+
       if (this.evaluationCases.length === 0) {
-        demoLogger.error('No evaluation cases found. Please create case files in the specified directory.');
-        process.exit(1);
+        const message = this.selectedTags.length > 0 ?
+            'No evaluation cases found matching the selected tags.' :
+            'No evaluation cases found. Please create case files in the specified directory.';
+        demoLogger.error(message);
+        process.exit(1); // Exit if no cases to run, especially after filtering
       }
     } catch (error) {
       demoLogger.error('Failed to load evaluation cases:', error.message);
@@ -129,14 +228,25 @@ class Evaluator {
         return;
     }
 
-    const availableStrategies = strategyManager.getAvailableStrategies();
-    if (!availableStrategies || availableStrategies.length === 0) {
+    let strategiesToRun = strategyManager.getAvailableStrategies();
+    if (!strategiesToRun || strategiesToRun.length === 0) {
         demoLogger.error('No translation strategies found by StrategyManager. Aborting evaluation.');
         return;
     }
-    demoLogger.info('Available strategies for evaluation:', availableStrategies.join(', '));
 
-    for (const strategyName of availableStrategies) {
+    if (this.selectedStrategies.length > 0) {
+        strategiesToRun = strategiesToRun.filter(s => this.selectedStrategies.includes(s));
+        demoLogger.info('Running evaluation for selected strategies:', strategiesToRun.join(', '));
+        if (strategiesToRun.length === 0) {
+            demoLogger.error('None of the selected strategies are available. Aborting evaluation.');
+            return;
+        }
+    } else {
+        demoLogger.info('Available strategies for evaluation (running all):', strategiesToRun.join(', '));
+    }
+
+
+    for (const strategyName of strategiesToRun) {
       const strategyInstance = strategyManager.getStrategy(strategyName);
       if (!strategyInstance) {
         demoLogger.warn(`Could not get instance for strategy ${strategyName}. Skipping.`);
@@ -177,34 +287,49 @@ class Evaluator {
         };
 
         const startTime = Date.now();
-        let caseUsesSpecificSession = !!evalCase.sessionId;
-        let sessionIdForCase = evalCase.sessionId || currentSessionId;
-
+        let sessionIdForThisCase;
 
         try {
-          if (!sessionIdForCase && (evalCase.inputType === 'assert' || evalCase.inputType === 'query')) {
-            // Create a session if one doesn't exist for this strategy block and the case needs it
-            sessionIdForCase = await this.createSession(strategyName);
-            if (!sessionIdForCase) throw new Error('Session creation failed for case.');
-            if (!caseUsesSpecificSession) currentSessionId = sessionIdForCase; // This session is now the default for subsequent cases for this strategy
+          // Session determination logic
+          if (evalCase.sessionId) {
+            // Case specifies a session ID.
+            // This ID is used directly. Evaluator assumes it exists or is managed externally for sequences.
+            // Evaluator will NOT create or delete this session.
+            sessionIdForThisCase = evalCase.sessionId;
+            demoLogger.info(`Using case-specified session ID: ${sessionIdForThisCase}`);
+          } else {
+            // No session ID specified in the case, use or create a strategy-level shared session.
+            if (!currentSessionId) {
+              demoLogger.info(`No current session for strategy ${strategyName}. Creating one.`);
+              currentSessionId = await this.createSession(strategyName + " (strategy-shared)");
+              if (!currentSessionId) {
+                throw new Error(`Failed to create shared session for strategy ${strategyName}.`);
+              }
+              demoLogger.info(`Created strategy-shared session: ${currentSessionId}`);
+            } else {
+              demoLogger.info(`Using existing strategy-shared session: ${currentSessionId}`);
+            }
+            sessionIdForThisCase = currentSessionId;
           }
 
+          if (!sessionIdForThisCase) {
+            // This should ideally not be reached if logic above is correct, but as a safeguard:
+            throw new Error('Session ID for case could not be determined or created.');
+          }
 
           if (evalCase.inputType === 'assert') {
             const axios = (await import('axios')).default;
-            const response = await axios.post(`${this.apiBaseUrl}/sessions/${sessionIdForCase}/assert`, {
+            const response = await axios.post(`${this.apiBaseUrl}/sessions/${sessionIdForThisCase}/assert`, {
               text: evalCase.naturalLanguageInput,
-            }, { timeout: 10000 }); // 10s timeout for assert (nullllm should be fast)
-            // Assuming response.data = { message, addedFacts }
+            }, { timeout: 10000 });
             caseResult.actualProlog = response.data.addedFacts || [];
             demoLogger.logic('Asserted Prolog:', caseResult.actualProlog.join('\n'));
           } else if (evalCase.inputType === 'query') {
             const axios = (await import('axios')).default;
-            const response = await axios.post(`${this.apiBaseUrl}/sessions/${sessionIdForCase}/query`, {
+            const response = await axios.post(`${this.apiBaseUrl}/sessions/${sessionIdForThisCase}/query`, {
               query: evalCase.naturalLanguageInput,
-              options: { debug: true } // Request debug info to get Prolog query
-            }, { timeout: 10000 }); // 10s timeout for query
-            // Assuming response.data = { answer, debugInfo: { prologQuery } }
+              options: { debug: true }
+            }, { timeout: 10000 });
             caseResult.actualAnswer = response.data.answer;
             if (response.data.debugInfo && response.data.debugInfo.prologQuery) {
               caseResult.actualProlog = response.data.debugInfo.prologQuery;
@@ -214,18 +339,30 @@ class Evaluator {
           }
 
           // Calculate metrics
-          (evalCase.metrics || ['exactMatchProlog', 'exactMatchAnswer']).forEach(metricName => {
+          const metricsToRun = evalCase.metrics || ['exactMatchProlog', 'exactMatchAnswer', 'prologStructureMatch', 'semanticSimilarityAnswer'];
+          for (const metricName of metricsToRun) {
             if (metrics[metricName]) {
               let score = false;
-              if (metricName === 'exactMatchProlog' && caseResult.actualProlog !== null) {
-                score = metrics.exactMatchProlog(caseResult.actualProlog, evalCase.expectedProlog);
-              } else if (metricName === 'exactMatchAnswer' && caseResult.actualAnswer !== null && evalCase.expectedAnswer !== undefined) {
-                score = metrics.exactMatchAnswer(caseResult.actualAnswer, evalCase.expectedAnswer);
+              try {
+                if (metricName === 'exactMatchProlog' && caseResult.actualProlog !== null) {
+                  score = metrics.exactMatchProlog(caseResult.actualProlog, evalCase.expectedProlog);
+                } else if (metricName === 'prologStructureMatch' && caseResult.actualProlog !== null) {
+                  score = metrics.prologStructureMatch(caseResult.actualProlog, evalCase.expectedProlog);
+                } else if (metricName === 'exactMatchAnswer' && caseResult.actualAnswer !== null && evalCase.expectedAnswer !== undefined) {
+                  score = metrics.exactMatchAnswer(caseResult.actualAnswer, evalCase.expectedAnswer);
+                } else if (metricName === 'semanticSimilarityAnswer' && caseResult.actualAnswer !== null && evalCase.expectedAnswer !== undefined) {
+                  score = await metrics.semanticSimilarityAnswer(caseResult.actualAnswer, evalCase.expectedAnswer, this.llmGenerate, evalCase.naturalLanguageInput);
+                }
+                caseResult.scores[metricName] = score;
+                demoLogger.info(`Metric ${metricName}: ${score ? chalk.green('PASS') : chalk.red('FAIL')}`);
+              } catch (metricError) {
+                demoLogger.error(`Error calculating metric ${metricName}: ${metricError.message}`);
+                caseResult.scores[metricName] = false; // Mark as fail on error
               }
-              caseResult.scores[metricName] = score;
-              demoLogger.info(`Metric ${metricName}: ${score ? chalk.green('PASS') : chalk.red('FAIL')}`);
+            } else {
+                demoLogger.warn(`Metric ${metricName} is defined in case but not implemented. Skipping.`);
             }
-          });
+          }
 
         } catch (error) {
           caseResult.error = error.message;
@@ -236,14 +373,14 @@ class Evaluator {
         } finally {
           caseResult.durationMs = Date.now() - startTime;
           this.results.push(caseResult);
-          if (caseUsesSpecificSession && sessionIdForCase) { // if the case used its own specified session
-            await this.deleteSession(sessionIdForCase, strategyName + " (case-specific)");
-          }
+          // Removed deletion of case-specific session IDs here.
+          // Lifecycle of sessions named in evalCase.sessionId is considered external or managed by test sequence.
         }
       }
-      // Clean up the strategy-level session if one was created
+      // Clean up the strategy-level (shared) session if one was created and used for this strategy
       if (currentSessionId) {
-        await this.deleteSession(currentSessionId, strategyName);
+        demoLogger.info(`Cleaning up strategy-shared session ${currentSessionId} for strategy ${strategyName}.`);
+        await this.deleteSession(currentSessionId, strategyName + " (strategy-shared)");
         currentSessionId = null;
       }
     }
@@ -313,9 +450,43 @@ class Evaluator {
 
 
 async function main() {
-    const defaultCasesPath = path.join(__dirname, 'evalCases'); // Default path
-    // TODO: Add yargs or similar for command-line args to specify cases path, strategies, etc.
-    const evaluator = new Evaluator(defaultCasesPath);
+    const yargs = (await import('yargs/yargs')).default;
+    const { hideBin } = await import('yargs/helpers');
+
+    const argv = yargs(hideBin(process.argv))
+        .option('casesPath', {
+            alias: 'p',
+            type: 'string',
+            description: 'Path to the directory containing evaluation case files.',
+            default: path.join(__dirname, 'evalCases'),
+        })
+        .option('strategies', {
+            alias: 's',
+            type: 'string',
+            description: 'Comma-separated list of strategies to run (e.g., SIR-R1,Direct-S1). Runs all if not specified.',
+            default: '',
+        })
+        .option('tags', {
+            alias: 't',
+            type: 'string',
+            description: 'Comma-separated list of tags to filter evaluation cases by (e.g., simple,rules,family-ontology).',
+            default: '',
+        })
+        .help()
+        .argv;
+
+    const selectedStrategies = argv.strategies ? argv.strategies.split(',').map(s => s.trim()).filter(s => s) : [];
+    const selectedTags = argv.tags ? argv.tags.split(',').map(t => t.trim()).filter(t => t) : [];
+
+    // Ensure the MCR_LLM_PROVIDER is set for LlmService used in metrics
+    if (!process.env.MCR_LLM_PROVIDER && (selectedStrategies.length === 0 || selectedStrategies.some(s => s.startsWith('SIR')))) { // Default or SIR might use LLM
+        logger.warn("MCR_LLM_PROVIDER environment variable is not set. Semantic similarity metric might fail if it relies on an LLM.");
+        // Potentially set a default if crucial, or ensure LlmService handles it gracefully.
+        // For now, rely on LlmService's default behavior or .env file.
+    }
+
+
+    const evaluator = new Evaluator(argv.casesPath, selectedStrategies, selectedTags);
     await evaluator.run();
 }
 

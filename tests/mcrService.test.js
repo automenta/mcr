@@ -71,8 +71,9 @@ describe('MCR Service (mcrService.js)', () => {
     const nlText = 'The sky is blue.';
     const prologFact = 'is_blue(sky).';
 
-    beforeEach(() => {
+    beforeEach(async () => {
       // Setup default successful mock behaviors
+      await mcrService.setTranslationStrategy('SIR-R1'); // Explicitly set to SIR-R1 for these tests
       sessionManager.getSession.mockReturnValue({ id: sessionId, facts: [] });
       ontologyService.listOntologies.mockResolvedValue([
         { name: 'global', rules: 'universal_rule.' },
@@ -85,10 +86,15 @@ describe('MCR Service (mcrService.js)', () => {
             fact: { predicate: 'is_blue', arguments: ['sky'] },
           });
         }
-        return prologFact; // Fallback for other prompts if not SIR
+        // This fallback might be problematic if other strategies are accidentally invoked.
+        // Consider making mocks more specific or throwing an error for unexpected system prompts.
+        // For now, keeping it to see if explicit strategy setting fixes primary issues.
+        // logger.warn(`[Test Mock] llmService.generate called with unexpected system prompt: ${systemPrompt}`);
+        return `mock_fallback_for_system_prompt: ${systemPrompt}`;
       });
       sessionManager.addFacts.mockReturnValue(true);
       sessionManager.getKnowledgeBase.mockReturnValue('');
+      sessionManager.getLexiconSummary.mockReturnValue('lexicon_entry/1'); // Ensure lexicon summary is available
     });
 
     it('should successfully assert a natural language statement using SIR-R1 strategy', async () => {
@@ -147,8 +153,7 @@ describe('MCR Service (mcrService.js)', () => {
       const result = await mcrService.assertNLToSession(sessionId, nlText);
       expect(result.success).toBe(false);
       expect(result.message).toMatch(/Error during assertion:/i);
-      // SIRR1Strategy specific error for invalid structure
-      expect(result.details).toMatch(/Invalid SIR JSON structure/i);
+      expect(result.details).toMatch(/LLM output did not conform to the expected SIR JSON structure/i);
       expect(result.error).toBe('STRATEGY_ASSERT_FAILED');
       expect(sessionManager.addFacts).not.toHaveBeenCalled();
     });
@@ -346,7 +351,7 @@ describe('MCR Service (mcrService.js)', () => {
             userPrompt.includes(nlQuestion)
           ) {
             // Ensure this mock is specific enough if nlQuestion is key.
-            return Promise.resolve('not_a_valid_query_format'); // Malformed query (missing period for Prolog)
+            return Promise.resolve(''); // Simulate LLM returning empty string, should cause error in strategy
           }
           if (systemPrompt === prompts.LOGIC_TO_NL_ANSWER.system) {
             return Promise.resolve(nlAnswer); // This part is for the successful generation of the NL answer later
@@ -465,8 +470,9 @@ describe('MCR Service (mcrService.js)', () => {
     const nlText = 'All birds can fly.';
     const prologRule = 'can_fly(X) :- bird(X).';
 
-    beforeEach(() => {
-      llmService.generate.mockReset();
+    beforeEach(async () => {
+      await mcrService.setTranslationStrategy('SIR-R1'); // Explicitly set for these tests
+      llmService.generate.mockReset(); // Reset from other describe blocks
       // Default mock for translateNLToRulesDirect: SIR-R1 strategy expects JSON
       llmService.generate.mockImplementation(async (systemPrompt) => {
         if (systemPrompt === prompts.NL_TO_SIR_ASSERT.system) {
@@ -474,12 +480,15 @@ describe('MCR Service (mcrService.js)', () => {
             statementType: 'rule',
             rule: {
               head: { predicate: 'can_fly', arguments: ['X'] },
-              body: [{ type: 'fact', predicate: 'bird', arguments: ['X'] }],
+              body: [{ /*type: 'fact',*/ predicate: 'bird', arguments: ['X'] }], // Removed 'type' as it's not in SIR-R1 schema for body items
             },
           });
         }
-        return prologRule; // Fallback for other prompts
+        // logger.warn(`[Test Mock] llmService.generate (translateNLToRulesDirect) called with unexpected system prompt: ${systemPrompt}`);
+        return `mock_fallback_for_translate_rules_direct: ${systemPrompt}`;
       });
+       // Ensure global ontology mock is set if translateNLToRulesDirect uses it for context
+      ontologyService.getGlobalOntologyRulesAsString.mockResolvedValue('global_ontology_rule_from_mock.');
     });
 
     it('should successfully translate NL to Prolog rules directly using SIR-R1 strategy', async () => {
@@ -503,7 +512,7 @@ describe('MCR Service (mcrService.js)', () => {
       const result = await mcrService.translateNLToRulesDirect(nlText);
       expect(result.success).toBe(false);
       expect(result.message).toMatch(/Error during NL to Rules translation:/i);
-      expect(result.details).toMatch(/Invalid SIR JSON structure/i); // Strategy's specific error
+      expect(result.details).toMatch(/LLM output did not conform to the expected SIR JSON structure/i); // Strategy's specific error
       expect(result.error).toBe('NL_TO_RULES_TRANSLATION_FAILED');
     });
 

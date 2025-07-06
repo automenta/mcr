@@ -318,6 +318,80 @@ A new enhanced demo runner (`demo.js`) is available to showcase various MCR capa
     ```
 3.  The `demo.js` script will automatically discover any `*Demo.js` files in `src/demos/` that export a class extending `Example`. The command-line key for the demo will be derived from its `getName()` method (e.g., "My New Demo" becomes "my-new-demo").
 
+## 📊 Evaluation System (`src/evaluator.js`)
+
+MCR includes a comprehensive evaluation system to test the accuracy and performance of its translation strategies.
+
+**Purpose:**
+The evaluator runs a suite of test cases, each defining a natural language input, the expected Prolog translation, and (for queries) the expected natural language answer. It then compares the MCR's actual output against these expectations using various metrics.
+
+**Running the Evaluator:**
+Execute the script from the project root:
+```bash
+node src/evaluator.js [options]
+```
+
+**Command-Line Options:**
+-   `--casesPath <path>` or `-p <path>`: Specifies the path to the directory containing evaluation case files (e.g., `src/evalCases`). Defaults to `src/evalCases`.
+-   `--strategies <list>` or `-s <list>`: A comma-separated list of strategy names to run (e.g., `SIR-R1,Direct-S1`). If omitted, all available strategies are run.
+-   `--tags <list>` or `-t <list>`: A comma-separated list of tags to filter evaluation cases. Only cases matching at least one specified tag will be run (e.g., `simple,rules,family-ontology`).
+
+**Example:**
+Run only `SIR-R1` strategy on cases tagged `family-ontology`:
+```bash
+node src/evaluator.js -s SIR-R1 -t family-ontology
+```
+
+**Metrics:**
+The evaluator uses several metrics to assess performance, including:
+-   `exactMatchProlog`: Checks for an exact string match of the generated Prolog against the expected Prolog.
+-   `prologStructureMatch`: A more lenient match that normalizes Prolog (e.g., removes comments, standardizes some whitespace) before comparison.
+-   `exactMatchAnswer`: Checks for an exact string match of the generated natural language answer against the expected answer (for queries).
+-   `semanticSimilarityAnswer`: Uses an LLM to compare the semantic meaning of the generated NL answer with the expected answer.
+
+**Output:**
+The evaluator prints a summary of results to the console and saves a detailed `evaluation-report.json` file in the project root.
+
+## 🛠️ Utility Scripts for Development
+
+MCR provides scripts to accelerate development and testing by leveraging LLMs to generate test data and ontologies.
+
+### 1. Generate Evaluation Examples (`scripts/generate_example.js`)
+
+-   **Purpose:** Automatically creates new evaluation cases (`EvaluationCase` objects) for use with `evaluator.js`.
+-   **Command:**
+    ```bash
+    # Using npm script
+    npm run generate-examples -- --domain "<domain_name>" --instructions "<detailed_instructions_for_LLM>" [--provider <llm_provider>] [--model <model_name>]
+
+    # Direct node execution
+    node scripts/generate_example.js --domain "chemistry" --instructions "Generate diverse queries about molecular composition and reactions, including some negations and rule-based assertions."
+    ```
+-   **Arguments:**
+    -   `--domain` (alias `-d`): The subject domain (e.g., "history", "chemistry"). (Required)
+    -   `--instructions` (alias `-i`): Specific instructions for the LLM on what kind of examples to generate. (Required)
+    -   `--provider` (alias `-p`): Optional LLM provider (e.g., `openai`, `gemini`, `ollama`). Defaults to `MCR_LLM_PROVIDER` in `.env` or `ollama`.
+    -   `--model` (alias `-m`): Optional specific model name for the chosen provider.
+-   **Output:** Saves a new JavaScript file (e.g., `chemistryGeneratedEvalCases.js`) containing an array of `EvaluationCase` objects to the `src/evalCases/` directory.
+
+### 2. Generate Ontology (`scripts/generate_ontology.js`)
+
+-   **Purpose:** Automatically generates Prolog facts and rules for a specified domain, creating a new ontology file.
+-   **Command:**
+    ```bash
+    # Using npm script
+    npm run generate-ontology -- --domain "<domain_name>" --instructions "<detailed_instructions_for_LLM>" [--provider <llm_provider>] [--model <model_name>]
+
+    # Direct node execution
+    node scripts/generate_ontology.js --domain "mythology" --instructions "Generate Prolog facts and rules describing Greek gods, their relationships (parent_of, sibling_of, spouse_of), and their domains (e.g., god_of_sea). Include some basic rules for deducing relationships like grandparent_of."
+    ```
+-   **Arguments:**
+    -   `--domain` (alias `-d`): The subject domain for the ontology. (Required)
+    -   `--instructions` (alias `-i`): Specific instructions for the LLM on the content, style, and scope of the ontology. (Required)
+    -   `--provider` (alias `-p`): Optional LLM provider.
+    -   `--model` (alias `-m`): Optional specific model name.
+-   **Output:** Saves a new Prolog file (e.g., `mythologyGeneratedOntology.pl`) to the `ontologies/` directory.
+
 ## 🔌 API Reference
 
 MCR exposes a RESTful API. All requests and responses are JSON.

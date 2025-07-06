@@ -276,7 +276,7 @@ async function querySessionWithNL(
     }
 
     // Delegate NL to Prolog query translation to the active strategy
-    const lexiconSummary = sessionManager.getLexiconSummary(sessionId);
+    const lexiconSummary = await sessionManager.getLexiconSummary(sessionId); // Added await
     const strategyOptions = { existingFacts, ontologyRules, lexiconSummary };
 
     if (config.debugLevel === 'verbose') {
@@ -505,11 +505,15 @@ async function translateNLToRulesDirect(
     // The `assert` method of a strategy is designed to return Prolog facts/rules.
     // We don't have session context here (existingFacts, ontologyRules) for this direct translation.
     // Strategies should be able to handle missing options if they are designed for this use case.
+    const globalOntologyRules = await ontologyService.getGlobalOntologyRulesAsString();
     const prologRules = await strategyToUse.assert(
       naturalLanguageText,
       llmService,
-      // No session-specific lexicon for direct translation, could consider a global lexicon if available
-      { ontologyRules: await ontologyService.getGlobalOntologyRulesAsString() }
+      // No session-specific lexicon for direct translation, provide a default.
+      {
+        ontologyRules: globalOntologyRules,
+        lexiconSummary: 'No lexicon summary available for direct translation.'
+      }
     );
     logger.debug(
       `[McrService] Strategy "${currentStrategyName}".assert() returned (OpID: ${operationId}):`,

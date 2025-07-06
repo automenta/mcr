@@ -1,382 +1,178 @@
 [
   {
-    "caseId": "BE001",
+    "caseId": "sir_detailed_01_complex_composition",
     "strategyName": "Direct-S1",
-    "naturalLanguageInput": "The sky is blue.",
+    "naturalLanguageInput": "System Alpha consists of a main module, two auxiliary units, and a sensor package which itself contains a thermal sensor and a light sensor.",
     "inputType": "assert",
     "expectedProlog": [
-      "is_color(sky, blue)."
+      "is_composed_of(system_alpha, [main_module, auxiliary_unit_1, auxiliary_unit_2, sensor_package]).",
+      "is_composed_of(sensor_package, [thermal_sensor, light_sensor])."
     ],
     "actualProlog": null,
     "actualAnswer": null,
     "scores": {},
-    "error": "API Error: Error during assertion: Placeholder '{{lexiconSummary}}' not found in input variables. (Code: STRATEGY_ASSERT_FAILED)",
-    "durationMs": 51
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 45
   },
   {
-    "caseId": "BE002",
+    "caseId": "sir_detailed_02_conditional_fact_as_rule",
     "strategyName": "Direct-S1",
-    "naturalLanguageInput": "All humans are mortal.",
+    "naturalLanguageInput": "A component is considered critical if its failure leads to system shutdown.",
     "inputType": "assert",
     "expectedProlog": [
-      "mortal(X) :- is_a(X, human)."
+      "is_critical(Component) :- leads_to_system_shutdown(failure_of(Component))."
     ],
     "actualProlog": null,
     "actualAnswer": null,
     "scores": {},
-    "error": "API Error: Error during assertion: Placeholder '{{lexiconSummary}}' not found in input variables. (Code: STRATEGY_ASSERT_FAILED)",
-    "durationMs": 17
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 5
   },
   {
-    "caseId": "BE003",
+    "caseId": "sir_detailed_03_negated_complex_fact",
     "strategyName": "Direct-S1",
-    "naturalLanguageInput": "H2O is composed of Hydrogen and Oxygen.",
+    "naturalLanguageInput": "The primary server does not host the user database nor the logging service.",
     "inputType": "assert",
     "expectedProlog": [
-      "is_composed_of(h2o, [hydrogen, oxygen])."
+      "not(hosts(primary_server, user_database)).",
+      "not(hosts(primary_server, logging_service))."
     ],
     "actualProlog": null,
     "actualAnswer": null,
     "scores": {},
-    "error": "API Error: Error during assertion: Placeholder '{{lexiconSummary}}' not found in input variables. (Code: STRATEGY_ASSERT_FAILED)",
-    "durationMs": 11
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 4
   },
   {
-    "caseId": "BE004",
-    "strategyName": "Direct-S1",
-    "naturalLanguageInput": "Is the sky blue?",
-    "inputType": "query",
-    "expectedProlog": "is_color(sky, blue).",
-    "actualProlog": null,
-    "expectedAnswer": "Yes, the sky is blue.",
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during query: Placeholder '{{lexiconSummary}}' not found in input variables. (Code: STRATEGY_QUERY_FAILED)",
-    "durationMs": 8
-  },
-  {
-    "caseId": "BE005",
-    "strategyName": "Direct-S1",
-    "naturalLanguageInput": "Who is mortal?",
-    "inputType": "query",
-    "expectedProlog": "mortal(X).",
-    "actualProlog": null,
-    "expectedAnswer": "Socrates is mortal.",
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during query: Placeholder '{{lexiconSummary}}' not found in input variables. (Code: STRATEGY_QUERY_FAILED)",
-    "durationMs": 15
-  },
-  {
-    "caseId": "BE006",
-    "strategyName": "Direct-S1",
-    "naturalLanguageInput": "Paris is not the capital of Germany.",
+    "caseId": "sir_detailed_01_complex_composition",
+    "strategyName": "SIR-R1",
+    "naturalLanguageInput": "System Alpha consists of a main module, two auxiliary units, and a sensor package which itself contains a thermal sensor and a light sensor.",
     "inputType": "assert",
     "expectedProlog": [
-      "not(is_capital_of(paris, germany))."
+      "is_composed_of(system_alpha, [main_module, auxiliary_unit_1, auxiliary_unit_2, sensor_package]).",
+      "is_composed_of(sensor_package, [thermal_sensor, light_sensor])."
     ],
     "actualProlog": null,
     "actualAnswer": null,
     "scores": {},
-    "error": "API Error: Error during assertion: Placeholder '{{lexiconSummary}}' not found in input variables. (Code: STRATEGY_ASSERT_FAILED)",
-    "durationMs": 6
-  },
-  {
-    "caseId": "BE007",
-    "strategyName": "Direct-S1",
-    "naturalLanguageInput": "Is Paris the capital of Germany?",
-    "inputType": "query",
-    "expectedProlog": "is_capital_of(paris, germany).",
-    "actualProlog": null,
-    "expectedAnswer": "No, Paris is not the capital of Germany.",
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during query: Placeholder '{{lexiconSummary}}' not found in input variables. (Code: STRATEGY_QUERY_FAILED)",
-    "durationMs": 6
-  },
-  {
-    "caseId": "BE001",
-    "strategyName": "SIR-R1",
-    "naturalLanguageInput": "The sky is blue.",
-    "inputType": "assert",
-    "expectedProlog": [
-      "is_color(sky, blue)."
-    ],
-    "actualProlog": null,
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
-    "durationMs": 29
-  },
-  {
-    "caseId": "BE002",
-    "strategyName": "SIR-R1",
-    "naturalLanguageInput": "All humans are mortal.",
-    "inputType": "assert",
-    "expectedProlog": [
-      "mortal(X) :- is_a(X, human)."
-    ],
-    "actualProlog": null,
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
-    "durationMs": 9
-  },
-  {
-    "caseId": "BE003",
-    "strategyName": "SIR-R1",
-    "naturalLanguageInput": "H2O is composed of Hydrogen and Oxygen.",
-    "inputType": "assert",
-    "expectedProlog": [
-      "is_composed_of(h2o, [hydrogen, oxygen])."
-    ],
-    "actualProlog": null,
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
-    "durationMs": 8
-  },
-  {
-    "caseId": "BE004",
-    "strategyName": "SIR-R1",
-    "naturalLanguageInput": "Is the sky blue?",
-    "inputType": "query",
-    "expectedProlog": "is_color(sky, blue).",
-    "actualProlog": null,
-    "expectedAnswer": "Yes, the sky is blue.",
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
-    "durationMs": 8
-  },
-  {
-    "caseId": "BE005",
-    "strategyName": "SIR-R1",
-    "naturalLanguageInput": "Who is mortal?",
-    "inputType": "query",
-    "expectedProlog": "mortal(X).",
-    "actualProlog": null,
-    "expectedAnswer": "Socrates is mortal.",
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
-    "durationMs": 8
-  },
-  {
-    "caseId": "BE006",
-    "strategyName": "SIR-R1",
-    "naturalLanguageInput": "Paris is not the capital of Germany.",
-    "inputType": "assert",
-    "expectedProlog": [
-      "not(is_capital_of(paris, germany))."
-    ],
-    "actualProlog": null,
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
-    "durationMs": 8
-  },
-  {
-    "caseId": "BE007",
-    "strategyName": "SIR-R1",
-    "naturalLanguageInput": "Is Paris the capital of Germany?",
-    "inputType": "query",
-    "expectedProlog": "is_capital_of(paris, germany).",
-    "actualProlog": null,
-    "expectedAnswer": "No, Paris is not the capital of Germany.",
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
-    "durationMs": 8
-  },
-  {
-    "caseId": "BE001",
-    "strategyName": "SIR-R2-FewShot",
-    "naturalLanguageInput": "The sky is blue.",
-    "inputType": "assert",
-    "expectedProlog": [
-      "is_color(sky, blue)."
-    ],
-    "actualProlog": null,
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
     "durationMs": 10
   },
   {
-    "caseId": "BE002",
+    "caseId": "sir_detailed_02_conditional_fact_as_rule",
+    "strategyName": "SIR-R1",
+    "naturalLanguageInput": "A component is considered critical if its failure leads to system shutdown.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_critical(Component) :- leads_to_system_shutdown(failure_of(Component))."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 4
+  },
+  {
+    "caseId": "sir_detailed_03_negated_complex_fact",
+    "strategyName": "SIR-R1",
+    "naturalLanguageInput": "The primary server does not host the user database nor the logging service.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "not(hosts(primary_server, user_database)).",
+      "not(hosts(primary_server, logging_service))."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 4
+  },
+  {
+    "caseId": "sir_detailed_01_complex_composition",
     "strategyName": "SIR-R2-FewShot",
-    "naturalLanguageInput": "All humans are mortal.",
+    "naturalLanguageInput": "System Alpha consists of a main module, two auxiliary units, and a sensor package which itself contains a thermal sensor and a light sensor.",
     "inputType": "assert",
     "expectedProlog": [
-      "mortal(X) :- is_a(X, human)."
+      "is_composed_of(system_alpha, [main_module, auxiliary_unit_1, auxiliary_unit_2, sensor_package]).",
+      "is_composed_of(sensor_package, [thermal_sensor, light_sensor])."
     ],
     "actualProlog": null,
     "actualAnswer": null,
     "scores": {},
-    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
-    "durationMs": 11
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 6
   },
   {
-    "caseId": "BE003",
+    "caseId": "sir_detailed_02_conditional_fact_as_rule",
     "strategyName": "SIR-R2-FewShot",
-    "naturalLanguageInput": "H2O is composed of Hydrogen and Oxygen.",
+    "naturalLanguageInput": "A component is considered critical if its failure leads to system shutdown.",
     "inputType": "assert",
     "expectedProlog": [
-      "is_composed_of(h2o, [hydrogen, oxygen])."
+      "is_critical(Component) :- leads_to_system_shutdown(failure_of(Component))."
     ],
     "actualProlog": null,
     "actualAnswer": null,
     "scores": {},
-    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
-    "durationMs": 7
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 3
   },
   {
-    "caseId": "BE004",
+    "caseId": "sir_detailed_03_negated_complex_fact",
     "strategyName": "SIR-R2-FewShot",
-    "naturalLanguageInput": "Is the sky blue?",
-    "inputType": "query",
-    "expectedProlog": "is_color(sky, blue).",
-    "actualProlog": null,
-    "expectedAnswer": "Yes, the sky is blue.",
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
-    "durationMs": 8
-  },
-  {
-    "caseId": "BE005",
-    "strategyName": "SIR-R2-FewShot",
-    "naturalLanguageInput": "Who is mortal?",
-    "inputType": "query",
-    "expectedProlog": "mortal(X).",
-    "actualProlog": null,
-    "expectedAnswer": "Socrates is mortal.",
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
-    "durationMs": 7
-  },
-  {
-    "caseId": "BE006",
-    "strategyName": "SIR-R2-FewShot",
-    "naturalLanguageInput": "Paris is not the capital of Germany.",
+    "naturalLanguageInput": "The primary server does not host the user database nor the logging service.",
     "inputType": "assert",
     "expectedProlog": [
-      "not(is_capital_of(paris, germany))."
+      "not(hosts(primary_server, user_database)).",
+      "not(hosts(primary_server, logging_service))."
     ],
     "actualProlog": null,
     "actualAnswer": null,
     "scores": {},
-    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
-    "durationMs": 7
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 5
   },
   {
-    "caseId": "BE007",
-    "strategyName": "SIR-R2-FewShot",
-    "naturalLanguageInput": "Is Paris the capital of Germany?",
-    "inputType": "query",
-    "expectedProlog": "is_capital_of(paris, germany).",
-    "actualProlog": null,
-    "expectedAnswer": "No, Paris is not the capital of Germany.",
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
-    "durationMs": 7
-  },
-  {
-    "caseId": "BE001",
+    "caseId": "sir_detailed_01_complex_composition",
     "strategyName": "SIR-R3-DetailedGuidance",
-    "naturalLanguageInput": "The sky is blue.",
+    "naturalLanguageInput": "System Alpha consists of a main module, two auxiliary units, and a sensor package which itself contains a thermal sensor and a light sensor.",
     "inputType": "assert",
     "expectedProlog": [
-      "is_color(sky, blue)."
+      "is_composed_of(system_alpha, [main_module, auxiliary_unit_1, auxiliary_unit_2, sensor_package]).",
+      "is_composed_of(sensor_package, [thermal_sensor, light_sensor])."
     ],
     "actualProlog": null,
     "actualAnswer": null,
     "scores": {},
-    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
-    "durationMs": 10
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 6
   },
   {
-    "caseId": "BE002",
+    "caseId": "sir_detailed_02_conditional_fact_as_rule",
     "strategyName": "SIR-R3-DetailedGuidance",
-    "naturalLanguageInput": "All humans are mortal.",
+    "naturalLanguageInput": "A component is considered critical if its failure leads to system shutdown.",
     "inputType": "assert",
     "expectedProlog": [
-      "mortal(X) :- is_a(X, human)."
+      "is_critical(Component) :- leads_to_system_shutdown(failure_of(Component))."
     ],
     "actualProlog": null,
     "actualAnswer": null,
     "scores": {},
-    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
-    "durationMs": 7
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 3
   },
   {
-    "caseId": "BE003",
+    "caseId": "sir_detailed_03_negated_complex_fact",
     "strategyName": "SIR-R3-DetailedGuidance",
-    "naturalLanguageInput": "H2O is composed of Hydrogen and Oxygen.",
+    "naturalLanguageInput": "The primary server does not host the user database nor the logging service.",
     "inputType": "assert",
     "expectedProlog": [
-      "is_composed_of(h2o, [hydrogen, oxygen])."
+      "not(hosts(primary_server, user_database)).",
+      "not(hosts(primary_server, logging_service))."
     ],
     "actualProlog": null,
     "actualAnswer": null,
     "scores": {},
-    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
-    "durationMs": 7
-  },
-  {
-    "caseId": "BE004",
-    "strategyName": "SIR-R3-DetailedGuidance",
-    "naturalLanguageInput": "Is the sky blue?",
-    "inputType": "query",
-    "expectedProlog": "is_color(sky, blue).",
-    "actualProlog": null,
-    "expectedAnswer": "Yes, the sky is blue.",
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
-    "durationMs": 8
-  },
-  {
-    "caseId": "BE005",
-    "strategyName": "SIR-R3-DetailedGuidance",
-    "naturalLanguageInput": "Who is mortal?",
-    "inputType": "query",
-    "expectedProlog": "mortal(X).",
-    "actualProlog": null,
-    "expectedAnswer": "Socrates is mortal.",
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
-    "durationMs": 8
-  },
-  {
-    "caseId": "BE006",
-    "strategyName": "SIR-R3-DetailedGuidance",
-    "naturalLanguageInput": "Paris is not the capital of Germany.",
-    "inputType": "assert",
-    "expectedProlog": [
-      "not(is_capital_of(paris, germany))."
-    ],
-    "actualProlog": null,
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
-    "durationMs": 7
-  },
-  {
-    "caseId": "BE007",
-    "strategyName": "SIR-R3-DetailedGuidance",
-    "naturalLanguageInput": "Is Paris the capital of Germany?",
-    "inputType": "query",
-    "expectedProlog": "is_capital_of(paris, germany).",
-    "actualProlog": null,
-    "expectedAnswer": "No, Paris is not the capital of Germany.",
-    "actualAnswer": null,
-    "scores": {},
-    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
-    "durationMs": 7
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 3
   }
 ]
