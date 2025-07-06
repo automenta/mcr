@@ -77,4 +77,76 @@ const baseEvals = [
   // },
 ];
 
-module.exports = baseEvals;
+const fs = require('fs');
+const path = require('path');
+const logger = require('../logger'); // Assuming logger is available
+
+/**
+ * Loads all evaluation cases from .js and .json files in the specified directory.
+ * @param {string} casesDir The directory to load cases from. Defaults to 'src/evalCases'.
+ * @returns {import('../evaluator').EvaluationCase[]} An array of all loaded evaluation cases.
+ */
+/**
+ * Recursively loads all evaluation cases from .js and .json files
+ * within the specified directory and its subdirectories.
+ * @param {string} currentPath The current directory or file path to scan.
+ * @param {string} rootCasesDir The root directory for evaluation cases, used for relative path logging.
+ * @returns {import('../evaluator').EvaluationCase[]} An array of all loaded evaluation cases.
+ */
+function loadCasesRecursively(currentPath, rootCasesDir) {
+    let cases = [];
+    const stats = fs.statSync(currentPath);
+
+    if (stats.isDirectory()) {
+        const files = fs.readdirSync(currentPath);
+        for (const file of files) {
+            cases.push(...loadCasesRecursively(path.join(currentPath, file), rootCasesDir));
+        }
+    } else if (stats.isFile() && (currentPath.endsWith('.js') || currentPath.endsWith('.json'))) {
+        const relativePath = path.relative(rootCasesDir, currentPath);
+        try {
+            // Check if the file is the entry point itself to avoid self-requiring issues if not handled carefully
+            // This specific check might be too broad or unnecessary depending on file structure and how require resolves.
+            // if (path.basename(currentPath) === path.basename(__filename) && path.dirname(currentPath) === __dirname) {
+            //     logger.debug(`[loadCasesRecursively] Skipping self-require: ${currentPath}`);
+            //     return cases; // Skip
+            // }
+
+            const casesFromFile = require(currentPath); // require() caches, which is fine
+            if (Array.isArray(casesFromFile)) {
+                // Add source file info for better traceability if needed later
+                // casesFromFile.forEach(c => c.sourceFile = relativePath);
+                cases.push(...casesFromFile);
+                logger.debug(`[loadCasesRecursively] Loaded ${casesFromFile.length} cases from ${relativePath}`);
+            } else {
+                logger.warn(`[loadCasesRecursively] File ${relativePath} does not export an array. Skipping.`);
+            }
+        } catch (loadErr) {
+            logger.error(`[loadCasesRecursively] Error loading or parsing cases from ${relativePath}: ${loadErr.message}`);
+        }
+    }
+    return cases;
+}
+
+
+/**
+ * Loads all evaluation cases from .js and .json files in the specified directory, including subdirectories.
+ * @param {string} casesRootDir The root directory to load cases from. Defaults to 'src/evalCases' (i.e., path.join(__dirname)).
+ * @returns {import('../evaluator').EvaluationCase[]} An array of all loaded evaluation cases.
+ */
+function loadAllEvalCases(casesRootDir = path.join(__dirname)) {
+    logger.info(`[loadAllEvalCases] Starting recursive load of evaluation cases from root: ${casesRootDir}`);
+    if (!fs.existsSync(casesRootDir) || !fs.statSync(casesRootDir).isDirectory()) {
+        logger.error(`[loadAllEvalCases] Evaluation cases directory not found or not a directory: ${casesRootDir}`);
+        return [];
+    }
+    const allLoadedCases = loadCasesRecursively(casesRootDir, casesRootDir);
+    logger.info(`[loadAllEvalCases] Total evaluation cases loaded recursively from ${casesRootDir}: ${allLoadedCases.length}`);
+    return allLoadedCases;
+}
+
+
+module.exports = {
+    baseEvals, // Export individual set if needed elsewhere
+    loadAllEvalCases // Export the loader function
+};

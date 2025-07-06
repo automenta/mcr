@@ -151,24 +151,20 @@ class Evaluator {
     this.llmGenerate = llmServiceModule.generate; // Store the generate function for metrics
   }
 
+// Use the new recursive loader from baseEvals
+const { loadAllEvalCases } = require('./evalCases/baseEvals');
+
+// ...
+// Inside Evaluator class
   loadEvaluationCases() {
-    demoLogger.info('Loading evaluation cases from', this.evaluationCasesPath);
+    demoLogger.info('Loading evaluation cases recursively from root:', this.evaluationCasesPath);
     let allLoadedCases = [];
     try {
-      const caseFiles = fs.readdirSync(this.evaluationCasesPath);
-      for (const file of caseFiles) {
-        if (file.endsWith('.js') || file.endsWith('.json')) {
-          const filePath = path.join(this.evaluationCasesPath, file);
-          const casesFromFile = require(filePath);
-          if (Array.isArray(casesFromFile)) {
-            allLoadedCases.push(...casesFromFile);
-            demoLogger.success(`Loaded ${casesFromFile.length} cases from ${file}`);
-          } else {
-            demoLogger.warn(`File ${file} does not export an array of cases. Skipping.`);
-          }
-        }
-      }
-      demoLogger.info(`Total evaluation cases loaded before filtering: ${allLoadedCases.length}`);
+      // Use the recursive loader function
+      allLoadedCases = loadAllEvalCases(this.evaluationCasesPath);
+      // The loadAllEvalCases function already logs details, so some demoLogger messages might be redundant
+      // but it's fine to keep for evaluator-specific logging flow.
+      demoLogger.info(`Total evaluation cases loaded (recursively) before filtering: ${allLoadedCases.length}`);
 
       // Filter by tags if any are selected
       if (this.selectedTags.length > 0) {
@@ -183,14 +179,18 @@ class Evaluator {
 
       if (this.evaluationCases.length === 0) {
         const message = this.selectedTags.length > 0 ?
-            'No evaluation cases found matching the selected tags.' :
-            'No evaluation cases found. Please create case files in the specified directory.';
+            'No evaluation cases found matching the selected tags from the provided path.' :
+            'No evaluation cases found. Please ensure case files exist in the specified directory (including subdirectories like \'generated\').';
         demoLogger.error(message);
-        process.exit(1); // Exit if no cases to run, especially after filtering
+        // Consider not exiting process here, but letting the run method handle it or return a status
+        // For now, keeping original behavior of exiting.
+        process.exit(1);
       }
     } catch (error) {
-      demoLogger.error('Failed to load evaluation cases:', error.message);
-      logger.error('Stack trace for case loading failure:', error);
+      // loadAllEvalCases itself logs errors during its process.
+      // This catch block is for any unexpected error from loadAllEvalCases or during filtering.
+      demoLogger.error('Failed to load or process evaluation cases:', error.message);
+      logger.error('Stack trace for case loading/processing failure in Evaluator:', error);
       process.exit(1);
     }
   }
