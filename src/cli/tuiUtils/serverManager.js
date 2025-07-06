@@ -27,66 +27,76 @@ async function startMcrServerAsync(/* _programOpts */) {
   // Path to new cli.js in project root: tuiUtils -> cli -> src -> project_root
   const cliScriptPath = path.resolve(__dirname, '../../../cli.js');
 
+  let serverStdOut = '';
   let serverStdErr = '';
   const serverInstance = spawn('node', [cliScriptPath, 'start-server'], {
     detached: true, // Allows TUI to exit independently of server
-    stdio: ['ignore', 'ignore', 'pipe'], // 'ignore' stdin, stdout; 'pipe' stderr
+    stdio: ['ignore', 'pipe', 'pipe'], // 'ignore' stdin; 'pipe' stdout, stderr
+  });
+
+  serverInstance.stdout.on('data', (data) => {
+    const output = data.toString();
+    serverStdOut += output;
+    logger.debug(`MCR Server (spawned) stdout: ${output.trim()}`);
   });
 
   serverInstance.stderr.on('data', (data) => {
-    serverStdErr += data.toString();
-    // Optionally log stderr in real-time for debugging if needed
-    // logger.debug(`MCR Server (spawned for TUI) stderr: ${data.toString().trim()}`);
+    const output = data.toString();
+    serverStdErr += output;
+    logger.error(`MCR Server (spawned) stderr: ${output.trim()}`); // Log stderr more prominently
   });
 
   return new Promise((resolve, reject) => {
     serverInstance.on('error', (err) => {
-      logger.error('Failed to start MCR server process for TUI:', {
+      logger.error('Failed to start MCR server process (on error event):', {
         error: err,
+        stdout: serverStdOut,
         stderr: serverStdErr,
       });
       reject(err);
     });
 
     serverInstance.on('exit', (code, signal) => {
-      // Log only if exit was unexpected (not a clean SIGTERM from server itself)
-      if (code !== 0 && signal !== 'SIGTERM') {
+      if (code !== 0 && signal !== 'SIGTERM') { // Log only if exit was unexpected
         logger.error(
-          `MCR server process (spawned for TUI) exited unexpectedly. Code: ${code}, Signal: ${signal}.`,
-          { stderr: serverStdErr }
+          `MCR server process (spawned) exited unexpectedly. Code: ${code}, Signal: ${signal}.`,
+          { stdout: serverStdOut, stderr: serverStdErr }
         );
-        // Don't reject here as the process might have exited after becoming healthy,
-        // or health check might still be pending. The health check is the decider.
+        // Do not reject here solely based on exit, health check is the primary indicator
+      } else {
+        logger.info(`MCR server process (spawned) exited. Code: ${code}, Signal: ${signal}.`);
       }
     });
 
-    // serverInstance.unref(); // This allows the parent (TUI) to exit without waiting for the child (server)
+    // serverInstance.unref(); // Let's keep this commented to see if it affects behavior
 
-    const healthCheckUrl = `http://${config.server.host}:${config.server.port}/`; // Root endpoint for status
+    const healthCheckUrl = `http://${config.server.host}:${config.server.port}/`;
+    logger.debug(`[serverManager] Health check URL for spawned server: ${healthCheckUrl}`);
 
-    // Increased retries and delay for server to start
-    isServerAliveAsync(healthCheckUrl, 15, 700)
+    // Reduced retries for faster feedback during debugging
+    isServerAliveAsync(healthCheckUrl, 5, 500)
       .then((alive) => {
         if (alive) {
           logger.info(
-            `MCR server (spawned for TUI) is alive at ${healthCheckUrl}.`
+            `[serverManager] MCR server (spawned) is alive at ${healthCheckUrl}.`
           );
-          resolve(serverInstance); // Resolve with the server process instance
+          resolve(serverInstance);
         } else {
           logger.error(
-            'MCR server (spawned for TUI) failed to start or become healthy.',
-            { stderr: serverStdErr }
+            '[serverManager] MCR server (spawned) failed to start or become healthy after health checks.',
+            { stdout: serverStdOut, stderr: serverStdErr }
           );
           reject(
             new Error(
-              'Server failed to start or become healthy. Check server logs.'
+              'Server failed to start or become healthy. Check server logs (stdout/stderr captured).'
             )
           );
         }
       })
-      .catch((err) => {
-        logger.error('Error during server health check for TUI:', {
+      .catch((err) => { // This catch is for isServerAliveAsync errors
+        logger.error('Error during server health check:', {
           error: err,
+          stdout: serverStdOut,
           stderr: serverStdErr,
         });
         reject(err);

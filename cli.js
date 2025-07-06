@@ -39,6 +39,7 @@ const registerPromptCommands = require('./src/cli/commands/promptCommands');
 const registerChatCommand = require('./src/cli/commands/chatCommand');
 const registerDemoCommand = require('./src/cli/commands/demoCommands');
 const registerSandboxCommand = require('./src/cli/commands/sandboxCommands');
+const registerStrategyCommands = require('./src/cli/commands/strategyCommands'); // New
 // ... etc.
 
 registerSessionCommands(program);
@@ -47,6 +48,7 @@ registerTranslationCommands(program);
 registerQueryCommands(program);
 registerStatusCommand(program);
 registerPromptCommands(program);
+registerStrategyCommands(program); // New
 registerChatCommand(program);
 registerDemoCommand(program);
 registerSandboxCommand(program);

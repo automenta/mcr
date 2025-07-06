@@ -1,0 +1,382 @@
+[
+  {
+    "caseId": "BE001",
+    "strategyName": "Direct-S1",
+    "naturalLanguageInput": "The sky is blue.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_color(sky, blue)."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Placeholder '{{lexiconSummary}}' not found in input variables. (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 51
+  },
+  {
+    "caseId": "BE002",
+    "strategyName": "Direct-S1",
+    "naturalLanguageInput": "All humans are mortal.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "mortal(X) :- is_a(X, human)."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Placeholder '{{lexiconSummary}}' not found in input variables. (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 17
+  },
+  {
+    "caseId": "BE003",
+    "strategyName": "Direct-S1",
+    "naturalLanguageInput": "H2O is composed of Hydrogen and Oxygen.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_composed_of(h2o, [hydrogen, oxygen])."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Placeholder '{{lexiconSummary}}' not found in input variables. (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 11
+  },
+  {
+    "caseId": "BE004",
+    "strategyName": "Direct-S1",
+    "naturalLanguageInput": "Is the sky blue?",
+    "inputType": "query",
+    "expectedProlog": "is_color(sky, blue).",
+    "actualProlog": null,
+    "expectedAnswer": "Yes, the sky is blue.",
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during query: Placeholder '{{lexiconSummary}}' not found in input variables. (Code: STRATEGY_QUERY_FAILED)",
+    "durationMs": 8
+  },
+  {
+    "caseId": "BE005",
+    "strategyName": "Direct-S1",
+    "naturalLanguageInput": "Who is mortal?",
+    "inputType": "query",
+    "expectedProlog": "mortal(X).",
+    "actualProlog": null,
+    "expectedAnswer": "Socrates is mortal.",
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during query: Placeholder '{{lexiconSummary}}' not found in input variables. (Code: STRATEGY_QUERY_FAILED)",
+    "durationMs": 15
+  },
+  {
+    "caseId": "BE006",
+    "strategyName": "Direct-S1",
+    "naturalLanguageInput": "Paris is not the capital of Germany.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "not(is_capital_of(paris, germany))."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Placeholder '{{lexiconSummary}}' not found in input variables. (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 6
+  },
+  {
+    "caseId": "BE007",
+    "strategyName": "Direct-S1",
+    "naturalLanguageInput": "Is Paris the capital of Germany?",
+    "inputType": "query",
+    "expectedProlog": "is_capital_of(paris, germany).",
+    "actualProlog": null,
+    "expectedAnswer": "No, Paris is not the capital of Germany.",
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during query: Placeholder '{{lexiconSummary}}' not found in input variables. (Code: STRATEGY_QUERY_FAILED)",
+    "durationMs": 6
+  },
+  {
+    "caseId": "BE001",
+    "strategyName": "SIR-R1",
+    "naturalLanguageInput": "The sky is blue.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_color(sky, blue)."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 29
+  },
+  {
+    "caseId": "BE002",
+    "strategyName": "SIR-R1",
+    "naturalLanguageInput": "All humans are mortal.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "mortal(X) :- is_a(X, human)."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 9
+  },
+  {
+    "caseId": "BE003",
+    "strategyName": "SIR-R1",
+    "naturalLanguageInput": "H2O is composed of Hydrogen and Oxygen.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_composed_of(h2o, [hydrogen, oxygen])."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 8
+  },
+  {
+    "caseId": "BE004",
+    "strategyName": "SIR-R1",
+    "naturalLanguageInput": "Is the sky blue?",
+    "inputType": "query",
+    "expectedProlog": "is_color(sky, blue).",
+    "actualProlog": null,
+    "expectedAnswer": "Yes, the sky is blue.",
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
+    "durationMs": 8
+  },
+  {
+    "caseId": "BE005",
+    "strategyName": "SIR-R1",
+    "naturalLanguageInput": "Who is mortal?",
+    "inputType": "query",
+    "expectedProlog": "mortal(X).",
+    "actualProlog": null,
+    "expectedAnswer": "Socrates is mortal.",
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
+    "durationMs": 8
+  },
+  {
+    "caseId": "BE006",
+    "strategyName": "SIR-R1",
+    "naturalLanguageInput": "Paris is not the capital of Germany.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "not(is_capital_of(paris, germany))."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 8
+  },
+  {
+    "caseId": "BE007",
+    "strategyName": "SIR-R1",
+    "naturalLanguageInput": "Is Paris the capital of Germany?",
+    "inputType": "query",
+    "expectedProlog": "is_capital_of(paris, germany).",
+    "actualProlog": null,
+    "expectedAnswer": "No, Paris is not the capital of Germany.",
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
+    "durationMs": 8
+  },
+  {
+    "caseId": "BE001",
+    "strategyName": "SIR-R2-FewShot",
+    "naturalLanguageInput": "The sky is blue.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_color(sky, blue)."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 10
+  },
+  {
+    "caseId": "BE002",
+    "strategyName": "SIR-R2-FewShot",
+    "naturalLanguageInput": "All humans are mortal.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "mortal(X) :- is_a(X, human)."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 11
+  },
+  {
+    "caseId": "BE003",
+    "strategyName": "SIR-R2-FewShot",
+    "naturalLanguageInput": "H2O is composed of Hydrogen and Oxygen.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_composed_of(h2o, [hydrogen, oxygen])."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 7
+  },
+  {
+    "caseId": "BE004",
+    "strategyName": "SIR-R2-FewShot",
+    "naturalLanguageInput": "Is the sky blue?",
+    "inputType": "query",
+    "expectedProlog": "is_color(sky, blue).",
+    "actualProlog": null,
+    "expectedAnswer": "Yes, the sky is blue.",
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
+    "durationMs": 8
+  },
+  {
+    "caseId": "BE005",
+    "strategyName": "SIR-R2-FewShot",
+    "naturalLanguageInput": "Who is mortal?",
+    "inputType": "query",
+    "expectedProlog": "mortal(X).",
+    "actualProlog": null,
+    "expectedAnswer": "Socrates is mortal.",
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
+    "durationMs": 7
+  },
+  {
+    "caseId": "BE006",
+    "strategyName": "SIR-R2-FewShot",
+    "naturalLanguageInput": "Paris is not the capital of Germany.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "not(is_capital_of(paris, germany))."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 7
+  },
+  {
+    "caseId": "BE007",
+    "strategyName": "SIR-R2-FewShot",
+    "naturalLanguageInput": "Is Paris the capital of Germany?",
+    "inputType": "query",
+    "expectedProlog": "is_capital_of(paris, germany).",
+    "actualProlog": null,
+    "expectedAnswer": "No, Paris is not the capital of Germany.",
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
+    "durationMs": 7
+  },
+  {
+    "caseId": "BE001",
+    "strategyName": "SIR-R3-DetailedGuidance",
+    "naturalLanguageInput": "The sky is blue.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_color(sky, blue)."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 10
+  },
+  {
+    "caseId": "BE002",
+    "strategyName": "SIR-R3-DetailedGuidance",
+    "naturalLanguageInput": "All humans are mortal.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "mortal(X) :- is_a(X, human)."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 7
+  },
+  {
+    "caseId": "BE003",
+    "strategyName": "SIR-R3-DetailedGuidance",
+    "naturalLanguageInput": "H2O is composed of Hydrogen and Oxygen.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_composed_of(h2o, [hydrogen, oxygen])."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 7
+  },
+  {
+    "caseId": "BE004",
+    "strategyName": "SIR-R3-DetailedGuidance",
+    "naturalLanguageInput": "Is the sky blue?",
+    "inputType": "query",
+    "expectedProlog": "is_color(sky, blue).",
+    "actualProlog": null,
+    "expectedAnswer": "Yes, the sky is blue.",
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
+    "durationMs": 8
+  },
+  {
+    "caseId": "BE005",
+    "strategyName": "SIR-R3-DetailedGuidance",
+    "naturalLanguageInput": "Who is mortal?",
+    "inputType": "query",
+    "expectedProlog": "mortal(X).",
+    "actualProlog": null,
+    "expectedAnswer": "Socrates is mortal.",
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
+    "durationMs": 8
+  },
+  {
+    "caseId": "BE006",
+    "strategyName": "SIR-R3-DetailedGuidance",
+    "naturalLanguageInput": "Paris is not the capital of Germany.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "not(is_capital_of(paris, germany))."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Ollama generation failed: fetch failed (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 7
+  },
+  {
+    "caseId": "BE007",
+    "strategyName": "SIR-R3-DetailedGuidance",
+    "naturalLanguageInput": "Is Paris the capital of Germany?",
+    "inputType": "query",
+    "expectedProlog": "is_capital_of(paris, germany).",
+    "actualProlog": null,
+    "expectedAnswer": "No, Paris is not the capital of Germany.",
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during query: Ollama generation failed: fetch failed (Code: STRATEGY_QUERY_FAILED)",
+    "durationMs": 7
+  }
+]

@@ -369,6 +369,112 @@ Question: "{{naturalLanguageQuestion}}"
 
 Prolog Query:`;
 
+
+// --- Prompts for SIRR2FewShotStrategy ---
+prompts.NL_TO_SIR_ASSERT_FEWSHOT = {
+  system: `You are an expert AI assistant that translates natural language statements into a structured JSON representation (SIR) for later conversion to Prolog.
+Your output MUST be a single, complete JSON object that strictly adheres to the schema provided previously (fact/rule, predicate, arguments, isNegative, head/body).
+Focus on the provided FEW-SHOT EXAMPLES to understand the desired SIR structure.
+**Key Principles for Translation (reiteration):**
+1.  **Fact vs. Rule:** Specific statements are FACTS. General statements are RULES.
+2.  **Predicate Consistency & Casing:**
+    *   Class Membership: "Socrates is a human." -> \`{"statementType": "fact", "fact": {"predicate": "is_a", "arguments": ["socrates", "human"]}}\`
+    *   Definitions: "Water is H2O." -> \`{"statementType": "fact", "fact": {"predicate": "defines", "arguments": ["water", "h2o"]}}\`
+    *   Relations: "John is Mary's father." -> \`{"statementType": "fact", "fact": {"predicate": "father_of", "arguments": ["john", "mary"]}}\`
+    *   Composition: "H2O is composed of Hydrogen and Oxygen." -> \`{"statementType": "fact", "fact": {"predicate": "is_composed_of", "arguments": ["h2o", ["hydrogen", "oxygen"]]}}\`
+    *   Attributes: "The sky is blue." -> \`{"statementType": "fact", "fact": {"predicate": "is_color", "arguments": ["sky", "blue"]}}\`
+    *   Constants (e.g., 'socrates') MUST be lowercase_snake_case. Variables (e.g., 'X') MUST be ALL CAPS.
+3.  **Rule Structure:**
+    *   "All humans are mortal." -> \`{"statementType": "rule", "rule": {"head": {"predicate": "mortal", "arguments": ["X"]}, "body": [{"predicate": "is_a", "arguments": ["X", "human"]}]}}\`
+4.  **Negation:** "Paris is not in Germany." -> \`{"statementType": "fact", "fact": {"predicate": "is_in", "arguments": ["paris", "germany"], "isNegative": true}}\`
+- Use LEXICON SUMMARY for predicate names/arities.
+- If input is a question: \`{"error": "Input is a question, not an assertable statement."}\`
+- If too complex/vague: \`{"error": "Input is too complex or vague for SIR conversion."}\`
+
+**FEW-SHOT EXAMPLES:**
+1. Input: "Fido is a dog."
+   Output: \`{"statementType": "fact", "fact": {"predicate": "is_a", "arguments": ["fido", "dog"]}}\`
+2. Input: "All dogs bark."
+   Output: \`{"statementType": "rule", "rule": {"head": {"predicate": "barks", "arguments": ["X"]}, "body": [{"predicate": "is_a", "arguments": ["X", "dog"]}]}}\`
+3. Input: "The ball is red."
+   Output: \`{"statementType": "fact", "fact": {"predicate": "is_color", "arguments": ["ball", "red"]}}\`
+4. Input: "The ball is not blue."
+   Output: \`{"statementType": "fact", "fact": {"predicate": "is_color", "arguments": ["ball", "blue"], "isNegative": true}}\`
+5. Input: "What is a dog?"
+   Output: \`{"error": "Input is a question, not an assertable statement."}\`
+6. Input: "A car has wheels and an engine." (Interpreted as a general property, not specific composition)
+   Output: \`{"statementType": "rule", "rule": {"head": {"predicate": "has_parts", "arguments": ["X", ["wheels", "engine"]]}, "body": [{"predicate": "is_a", "arguments": ["X", "car"]}]}}\`
+   (Note: for specific composition like "H2O is composed of...", use 'is_composed_of' as per principles)
+`,
+  user: `EXISTING FACTS (for context):
+\`\`\`prolog
+{{existingFacts}}
+\`\`\`
+ONTOLOGY RULES (for context):
+\`\`\`prolog
+{{ontologyRules}}
+\`\`\`
+LEXICON SUMMARY:
+\`\`\`
+{{lexiconSummary}}
+\`\`\`
+Translate ONLY the following NEW natural language text into the SIR JSON format, focusing on the provided FEW-SHOT EXAMPLES and principles:
+
+New Text: "{{naturalLanguageText}}"
+
+SIR JSON Output:`
+};
+
+// --- Prompts for SIRR3DetailedGuidanceStrategy ---
+prompts.NL_TO_SIR_ASSERT_GUIDED = {
+  system: `You are an expert AI assistant that translates natural language statements into a structured JSON representation (SIR) for later conversion to Prolog.
+Your output MUST be a single, complete JSON object.
+**Follow this DETAILED GUIDANCE for structuring the SIR JSON:**
+1.  **Root Object:** The root JSON object must have a \`statementType\` field, which can be either "fact" or "rule".
+2.  **If "fact"**:
+    *   Include a \`fact\` object.
+    *   The \`fact\` object must have:
+        *   \`predicate\`: string (e.g., "is_a", "father_of", "is_color"). Use lowercase_snake_case. Consult LEXICON SUMMARY.
+        *   \`arguments\`: array of strings. Constants (e.g., "socrates") are lowercase_snake_case. Variables (e.g., "X") are ALL_CAPS. For list arguments (e.g. components in a composition), use a JSON array of strings: \`["h2o", ["hydrogen", "oxygen"]]\`.
+        *   \`isNegative\` (optional): boolean, defaults to false. Set to true for negated facts (e.g., "Paris is NOT in Germany.").
+    *   **Predicate Selection Guide for Facts:**
+        *   For class membership (e.g., 'Socrates is a human'): \`"predicate": "is_a", "arguments": ["socrates", "human"]\`
+        *   For definitions/identities (e.g., 'Water is H2O'): \`"predicate": "defines", "arguments": ["water", "h2o"]\`
+        *   For relational phrases (e.g., 'John is Mary's father'): \`"predicate": "father_of", "arguments": ["john", "mary"]\`
+        *   For specific compositions (e.g. 'H2O is composed of Hydrogen and Oxygen'): \`"predicate": "is_composed_of", "arguments": ["h2o", ["hydrogen", "oxygen"]]\`
+        *   For simple attributes (e.g., 'The sky is blue'): \`"predicate": "is_color", "arguments": ["sky", "blue"]\`
+3.  **If "rule"**:
+    *   Include a \`rule\` object.
+    *   The \`rule\` object must have:
+        *   \`head\`: an object structured like a "fact" (see above), representing the rule's conclusion.
+        *   \`body\`: an array of objects, each structured like a "fact", representing the rule's conditions.
+    *   **Rule Example:** "All humans are mortal." (Given facts use \`is_a(Instance, human)\`)
+        \`"rule": {"head": {"predicate": "mortal", "arguments": ["X"]}, "body": [{"predicate": "is_a", "arguments": ["X", "human"]}]}\`
+4.  **Error Handling:**
+    *   If input is a question: \`{"error": "Input is a question, not an assertable statement."}\`
+    *   If too complex/vague: \`{"error": "Input is too complex or vague for SIR conversion."}\`
+- Adhere to the LEXICON SUMMARY for predicate naming and arity.
+`,
+  user: `EXISTING FACTS (for context):
+\`\`\`prolog
+{{existingFacts}}
+\`\`\`
+ONTOLOGY RULES (for context):
+\`\`\`prolog
+{{ontologyRules}}
+\`\`\`
+LEXICON SUMMARY:
+\`\`\`
+{{lexiconSummary}}
+\`\`\`
+Translate ONLY the following NEW natural language text into the SIR JSON format, strictly following the DETAILED GUIDANCE:
+
+New Text: "{{naturalLanguageText}}"
+
+SIR JSON Output:`
+};
+
+
 module.exports = {
   prompts,
   fillTemplate,

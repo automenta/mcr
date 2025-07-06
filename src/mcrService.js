@@ -6,59 +6,43 @@ const ontologyService = require('./ontologyService');
 const { prompts, fillTemplate } = require('./prompts');
 const logger = require('./logger');
 const config = require('./config');
+const strategyManager = require('./strategyManager'); // Import StrategyManager
 
-// Import Strategies
-const DirectS1Strategy = require('./strategies/DirectS1Strategy');
-const SIRR1Strategy = require('./strategies/SIRR1Strategy');
+// Get the initial active strategy from the manager
+let activeStrategy = strategyManager.getDefaultStrategy();
+let activeStrategyName = activeStrategy.getName();
 
-// Instantiate strategies
-const strategies = {
-  'Direct-S1': new DirectS1Strategy(),
-  'SIR-R1': new SIRR1Strategy(), // Default retry count for SIRR1Strategy is 1
-  // Add other strategies here as they are developed
-};
-
-let activeStrategyName = config.translationStrategy;
-let activeStrategy = strategies[activeStrategyName];
-
-if (!activeStrategy) {
-  logger.warn(
-    `[McrService] Configured strategy "${activeStrategyName}" not found. Defaulting to "SIR-R1".`
-  );
-  activeStrategyName = 'SIR-R1'; // Fallback to a default
-  activeStrategy = strategies[activeStrategyName];
-  if (!activeStrategy) {
-    // Should not happen if SIR-R1 is in strategies
-    logger.error(
-      "[McrService] Fallback strategy 'SIR-R1' also not found. MCR Service may not function correctly."
-    );
-    // Or throw an error: throw new Error("Default strategy 'SIR-R1' not found.");
-  }
-}
 logger.info(
-  `[McrService] Initialized with active translation strategy: ${activeStrategy.getName()}`
+  `[McrService] Initialized with active translation strategy: ${activeStrategyName}`
 );
 
 /**
  * Sets the active translation strategy for the MCR service.
- * @param {string} strategyName - The name of the strategy to activate (e.g., "Direct-S1", "SIR-R1").
+ * @param {string} strategyName - The name of the strategy to activate.
  * @returns {boolean} True if the strategy was successfully set, false otherwise.
  */
 function setTranslationStrategy(strategyName) {
   logger.debug(
     `[McrService] Attempting to set translation strategy to: ${strategyName}`
   );
-  if (strategies[strategyName]) {
+  const newStrategy = strategyManager.getStrategy(strategyName);
+  if (newStrategy && newStrategy.getName() !== activeStrategyName) { // Check if it's a different, valid strategy
     const oldStrategyName = activeStrategyName;
-    activeStrategy = strategies[strategyName];
-    activeStrategyName = strategyName;
+    activeStrategy = newStrategy;
+    activeStrategyName = newStrategy.getName();
+    // Update config if we want this to be persistent for the session/server lifetime,
+    // or if config is dynamically re-read. For now, this change is in-memory.
+    // config.translationStrategy = activeStrategyName; // Potentially update runtime config if needed
     logger.info(
-      `[McrService] Translation strategy changed from "${oldStrategyName}" to "${activeStrategy.getName()}"`
+      `[McrService] Translation strategy changed from "${oldStrategyName}" to "${activeStrategyName}"`
     );
     return true;
+  } else if (newStrategy && newStrategy.getName() === activeStrategyName) {
+    logger.info(`[McrService] Translation strategy "${strategyName}" is already active.`);
+    return true; // Still successful, as the intended strategy is active
   }
   logger.warn(
-    `[McrService] Attempted to set unknown translation strategy: ${strategyName}. Available strategies: ${Object.keys(strategies).join(', ')}`
+    `[McrService] Attempted to set unknown or invalid translation strategy: ${strategyName}. Available strategies: ${strategyManager.getAvailableStrategies().join(', ')}`
   );
   return false;
 }
@@ -68,7 +52,7 @@ function setTranslationStrategy(strategyName) {
  * @returns {string} The name of the active strategy.
  */
 function getActiveStrategyName() {
-  return activeStrategyName;
+  return activeStrategyName; // This is now managed and reflects the strategy from strategyManager
 }
 
 /**
@@ -79,7 +63,7 @@ function getActiveStrategyName() {
  */
 async function assertNLToSession(sessionId, naturalLanguageText) {
   logger.info(
-    `[McrService] Enter assertNLToSession for session ${sessionId} using strategy "${activeStrategy.getName()}". NL Text: "${naturalLanguageText}"`
+    `[McrService] Enter assertNLToSession for session ${sessionId} using strategy "${activeStrategyName}". NL Text: "${naturalLanguageText}"`
   );
   const operationId = `assert-${Date.now()}`; // Unique ID for this operation for tracing
 
@@ -91,7 +75,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
       success: false,
       message: 'Session not found.',
       error: 'SESSION_NOT_FOUND', // Standardized error code
-      strategy: activeStrategy.getName(),
+      strategy: activeStrategyName,
     };
   }
 
@@ -122,7 +106,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
     const lexiconSummary = await sessionManager.getLexiconSummary(sessionId); // Await async call
     const strategyOptions = { existingFacts, ontologyRules, lexiconSummary };
     logger.info(
-      `[McrService] Calling strategy "${activeStrategy.getName()}".assert(). OpID: ${operationId}. Lexicon summary length: ${lexiconSummary?.length}`
+      `[McrService] Calling strategy "${activeStrategyName}".assert(). OpID: ${operationId}. Lexicon summary length: ${lexiconSummary?.length}`
     );
     const addedFacts = await activeStrategy.assert(
       naturalLanguageText,
@@ -130,21 +114,21 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
       strategyOptions
     );
     logger.debug(
-      `[McrService] Strategy "${activeStrategy.getName()}".assert() returned (OpID: ${operationId}):`,
+      `[McrService] Strategy "${activeStrategyName}".assert() returned (OpID: ${operationId}):`,
       { addedFacts }
     );
 
     if (!addedFacts || addedFacts.length === 0) {
       // This case should ideally be handled by the strategy's assert method throwing an error
       logger.warn(
-        `[McrService] Strategy "${activeStrategy.getName()}" returned no facts for text: "${naturalLanguageText}". OpID: ${operationId}`
+        `[McrService] Strategy "${activeStrategyName}" returned no facts for text: "${naturalLanguageText}". OpID: ${operationId}`
       );
       return {
         success: false,
         message:
           'Could not translate text into valid facts using the current strategy.',
         error: 'NO_FACTS_EXTRACTED_BY_STRATEGY', // Standardized error code
-        strategy: activeStrategy.getName(),
+        strategy: activeStrategyName,
       };
     }
 
@@ -168,7 +152,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
           message: 'Failed to assert facts: Generated Prolog is invalid.',
           error: 'INVALID_GENERATED_PROLOG', // Standardized error code
           details: validationErrorMsg, // Keep detailed message in details
-          strategy: activeStrategy.getName(),
+          strategy: activeStrategyName,
         };
       }
     }
@@ -183,14 +167,14 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
     const addSuccess = sessionManager.addFacts(sessionId, addedFacts);
     if (addSuccess) {
       logger.info(
-        `[McrService] Facts successfully added to session ${sessionId} using strategy "${activeStrategy.getName()}". OpID: ${operationId}. Facts:`,
+        `[McrService] Facts successfully added to session ${sessionId} using strategy "${activeStrategyName}". OpID: ${operationId}. Facts:`,
         { addedFacts }
       );
       return {
         success: true,
         message: 'Facts asserted successfully.',
         addedFacts,
-        strategy: activeStrategy.getName(),
+        strategy: activeStrategyName,
       };
     } else {
       // This case should be less likely if sessionManager.addFacts is robust,
@@ -202,13 +186,13 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
         success: false,
         message: 'Failed to add facts to session manager after validation.',
         error: 'SESSION_ADD_FACTS_FAILED', // Standardized error code
-        strategy: activeStrategy.getName(),
+        strategy: activeStrategyName,
       };
     }
   } catch (error) {
     // Errors from strategy.assert() or llmService.generate()
     logger.error(
-      `[McrService] Strategy/LLM Error asserting NL to session ${sessionId} using strategy "${activeStrategy.getName()}": ${error.message}`,
+      `[McrService] Strategy/LLM Error asserting NL to session ${sessionId} using strategy "${activeStrategyName}": ${error.message}`,
       { error: error.stack, errorCode: error.code } // Log stack for better debugging
     );
     return {
@@ -216,7 +200,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
       message: `Error during assertion: ${error.message}`, // User-friendly message
       error: error.code || 'STRATEGY_ASSERT_FAILED', // Specific error code from strategy/LLM if available, else generic
       details: error.message, // Full error message in details
-      strategy: activeStrategy.getName(),
+      strategy: activeStrategyName,
     };
   }
 }
@@ -235,7 +219,7 @@ async function querySessionWithNL(
 ) {
   const { dynamicOntology, style = 'conversational' } = queryOptions; // Extract style for LOGIC_TO_NL_ANSWER
   logger.info(
-    `[McrService] Enter querySessionWithNL for session ${sessionId} using strategy "${activeStrategy.getName()}". NL Question: "${naturalLanguageQuestion}"`,
+    `[McrService] Enter querySessionWithNL for session ${sessionId} using strategy "${activeStrategyName}". NL Question: "${naturalLanguageQuestion}"`,
     { queryOptions }
   );
   const operationId = `query-${Date.now()}`; // Unique ID for this operation
@@ -248,12 +232,12 @@ async function querySessionWithNL(
       success: false,
       message: 'Session not found.',
       error: 'SESSION_NOT_FOUND', // Standardized error code
-      strategy: activeStrategy.getName(),
+      strategy: activeStrategyName,
     };
   }
 
   const debugInfo = {
-    strategy: activeStrategy.getName(),
+    strategy: activeStrategyName,
     operationId,
     level: config.debugLevel, // Include current debug level being applied
   };
@@ -297,7 +281,7 @@ async function querySessionWithNL(
 
     if (config.debugLevel === 'verbose') {
       logger.info(
-        `[McrService] Calling strategy "${activeStrategy.getName()}".query(). OpID: ${operationId}. Lexicon summary length: ${lexiconSummary?.length}`
+        `[McrService] Calling strategy "${activeStrategyName}".query(). OpID: ${operationId}. Lexicon summary length: ${lexiconSummary?.length}`
       );
     }
     const prologQuery = await activeStrategy.query(
@@ -307,7 +291,7 @@ async function querySessionWithNL(
     );
     logger.info(
       // Always log the generated prolog query at info level for traceability
-      `[McrService] Strategy "${activeStrategy.getName()}" translated NL question to Prolog query (OpID: ${operationId}): ${prologQuery}`
+      `[McrService] Strategy "${activeStrategyName}" translated NL question to Prolog query (OpID: ${operationId}): ${prologQuery}`
     );
 
     if (config.debugLevel !== 'none') {
@@ -468,7 +452,7 @@ async function querySessionWithNL(
     }
 
     logger.info(
-      `[McrService] Exit querySessionWithNL for session ${sessionId} successfully. OpID: ${operationId}. Strategy: ${activeStrategy.getName()}`
+      `[McrService] Exit querySessionWithNL for session ${sessionId} successfully. OpID: ${operationId}. Strategy: ${activeStrategyName}`
     );
     return { success: true, answer: naturalLanguageAnswer, debugInfo };
   } catch (error) {
@@ -483,7 +467,7 @@ async function querySessionWithNL(
       debugInfo, // Contains detailed error from the catch block if any
       error: error.code || 'STRATEGY_QUERY_FAILED', // Specific error code from strategy/LLM if available, else generic
       details: error.message, // Full error message in details
-      strategy: activeStrategy.getName(),
+      strategy: activeStrategyName,
     };
   }
 }
@@ -508,25 +492,19 @@ async function translateNLToRulesDirect(
     `[McrService] Enter translateNLToRulesDirect (OpID: ${operationId}). Strategy: "${strategyName}". NL Text: "${naturalLanguageText}"`
   );
 
-  const strategyToUse = strategies[strategyName] || activeStrategy;
-  if (!strategyToUse) {
-    logger.error(
-      `[McrService] No valid strategy found for translateNLToRulesDirect (OpID: ${operationId}). Requested: ${strategyName}, Active: ${activeStrategyName}. Available: ${Object.keys(strategies).join(', ')}`
-    );
-    return {
-      success: false,
-      message: 'No valid translation strategy available.',
-      error: 'STRATEGY_NOT_FOUND', // Standardized error code
-    };
-  }
+  const strategyToUse = strategyManager.getStrategy(strategyName); // Use manager
+  // getStrategy returns default if named one not found, or throws if no strategies exist.
+  // So, strategyToUse should always be a valid strategy object if any are loaded.
 
   try {
+    const currentStrategyName = strategyToUse.getName();
+    logger.info(
+      `[McrService] Using strategy "${currentStrategyName}" for direct NL to Rules. OpID: ${operationId}`
+    );
+
     // The `assert` method of a strategy is designed to return Prolog facts/rules.
     // We don't have session context here (existingFacts, ontologyRules) for this direct translation.
     // Strategies should be able to handle missing options if they are designed for this use case.
-    logger.info(
-      `[McrService] Calling strategy "${strategyToUse.getName()}".assert() for direct NL to Rules. OpID: ${operationId}`
-    );
     const prologRules = await strategyToUse.assert(
       naturalLanguageText,
       llmService,
@@ -534,32 +512,33 @@ async function translateNLToRulesDirect(
       { ontologyRules: await ontologyService.getGlobalOntologyRulesAsString() }
     );
     logger.debug(
-      `[McrService] Strategy "${strategyToUse.getName()}".assert() returned (OpID: ${operationId}):`,
+      `[McrService] Strategy "${currentStrategyName}".assert() returned (OpID: ${operationId}):`,
       { prologRules }
     );
 
     if (!prologRules || prologRules.length === 0) {
       logger.warn(
-        `[McrService] Strategy "${strategyToUse.getName()}" extracted no rules from text (OpID: ${operationId}): "${naturalLanguageText}"`
+        `[McrService] Strategy "${currentStrategyName}" extracted no rules from text (OpID: ${operationId}): "${naturalLanguageText}"`
       );
       return {
         success: false,
         message: 'Could not translate text into valid rules.',
         error: 'NO_RULES_EXTRACTED_BY_STRATEGY', // Standardized error code
-        strategy: strategyToUse.getName(),
+        strategy: currentStrategyName,
       };
     }
     logger.info(
-      `[McrService] Successfully translated NL to Rules (Direct). OpID: ${operationId}. Rules count: ${prologRules.length}. Strategy: ${strategyToUse.getName()}`
+      `[McrService] Successfully translated NL to Rules (Direct). OpID: ${operationId}. Rules count: ${prologRules.length}. Strategy: ${currentStrategyName}`
     );
     return {
       success: true,
       rules: prologRules,
-      strategy: strategyToUse.getName(),
+      strategy: currentStrategyName,
     };
   } catch (error) {
+    const strategyNameToLog = strategyToUse ? strategyToUse.getName() : 'unknown';
     logger.error(
-      `[McrService] Error translating NL to Rules (Direct) using strategy "${strategyToUse.getName()}" (OpID: ${operationId}): ${error.message}`,
+      `[McrService] Error translating NL to Rules (Direct) using strategy "${strategyNameToLog}" (OpID: ${operationId}): ${error.message}`,
       { error: error.stack }
     );
     return {
@@ -567,7 +546,7 @@ async function translateNLToRulesDirect(
       message: `Error during NL to Rules translation: ${error.message}`, // User-friendly message
       error: error.code || 'NL_TO_RULES_TRANSLATION_FAILED', // Specific error code if available
       details: error.message, // Full error message in details
-      strategy: strategyToUse.getName(),
+      strategy: strategyNameToLog,
     };
   }
 }
@@ -664,7 +643,7 @@ async function translateRulesToNLDirect(prologRules, style = 'conversational') {
 async function explainQuery(sessionId, naturalLanguageQuestion) {
   const operationId = `explain-${Date.now()}`;
   logger.info(
-    `[McrService] Enter explainQuery for session ${sessionId} (OpID: ${operationId}). Strategy: "${activeStrategy.getName()}". NL Question: "${naturalLanguageQuestion}"`
+    `[McrService] Enter explainQuery for session ${sessionId} (OpID: ${operationId}). Strategy: "${activeStrategyName}". NL Question: "${naturalLanguageQuestion}"`
   );
 
   const sessionExists = await sessionManager.getSession(sessionId); // Await async call
@@ -676,13 +655,13 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
       success: false,
       message: 'Session not found.',
       error: 'SESSION_NOT_FOUND', // Standardized error code
-      strategy: activeStrategy.getName(),
+      strategy: activeStrategyName,
     };
   }
 
   const debugInfo = {
     naturalLanguageQuestion, // Always include original question
-    strategy: activeStrategy.getName(),
+    strategy: activeStrategyName,
     operationId,
     level: config.debugLevel,
   };
@@ -726,7 +705,7 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
     const lexiconSummary = sessionManager.getLexiconSummary(sessionId);
     if (config.debugLevel === 'verbose') {
       logger.info(
-        `[McrService] Calling strategy "${activeStrategy.getName()}".query() for explanation. OpID: ${operationId}. Lexicon length: ${lexiconSummary?.length}`
+        `[McrService] Calling strategy "${activeStrategyName}".query() for explanation. OpID: ${operationId}. Lexicon length: ${lexiconSummary?.length}`
       );
     }
     const strategyOptions = {
@@ -741,7 +720,7 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
     );
     logger.info(
       // Always log translated query
-      `[McrService] Strategy "${activeStrategy.getName()}" translated NL to Prolog query for explanation (OpID: ${operationId}): ${prologQuery}`
+      `[McrService] Strategy "${activeStrategyName}" translated NL to Prolog query for explanation (OpID: ${operationId}): ${prologQuery}`
     );
     if (config.debugLevel !== 'none') {
       debugInfo.prologQuery = prologQuery;
@@ -813,7 +792,7 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
 
     if (!explanation || explanation.trim() === '') {
       logger.warn(
-        `[McrService] Empty explanation generated for query. OpID: ${operationId}. Strategy: ${activeStrategy.getName()}`
+        `[McrService] Empty explanation generated for query. OpID: ${operationId}. Strategy: ${activeStrategyName}`
       );
       return {
         success: false,
@@ -823,7 +802,7 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
       };
     }
     logger.info(
-      `[McrService] Exit explainQuery successfully for session ${sessionId}. OpID: ${operationId}. Strategy: ${activeStrategy.getName()}`
+      `[McrService] Exit explainQuery successfully for session ${sessionId}. OpID: ${operationId}. Strategy: ${activeStrategyName}`
     );
     return { success: true, explanation, debugInfo };
   } catch (error) {
@@ -838,7 +817,7 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
       debugInfo, // Contains detailed error from the catch block if any
       error: error.code || 'EXPLAIN_QUERY_FAILED', // Specific error code if available
       details: error.message, // Full error message in details
-      strategy: activeStrategy.getName(),
+      strategy: activeStrategyName,
     };
   }
 }
@@ -979,5 +958,6 @@ module.exports = {
   explainQuery,
   getPrompts,
   debugFormatPrompt,
+  getAvailableStrategies: strategyManager.getAvailableStrategies, // Expose from strategyManager
   // assertNLToSessionWithSIR is removed, its functionality is via assertNLToSession with SIR-R1 strategy
 };

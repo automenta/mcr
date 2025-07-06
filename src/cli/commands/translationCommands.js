@@ -45,6 +45,10 @@ async function nlToRulesAsync(text, options, commandInstance) {
   if (ontologyContent) {
     requestBody.ontology_context = ontologyContent;
   }
+  // Add strategy if specified
+  if (options.strategy) {
+    requestBody.strategy = options.strategy;
+  }
 
   const responseData = await apiClient.post(
     '/translate/nl-to-rules',
@@ -52,7 +56,9 @@ async function nlToRulesAsync(text, options, commandInstance) {
     programOpts
   );
   // Old README for POST /translate/nl-to-rules response: { "rules": ["...", "..."] }
-  handleCliOutput(responseData, programOpts, null, 'Translated Rules:\n');
+  // New mcrService.translateNLToRulesDirect response: {success, rules?, error?, strategy?}
+  // We need to handle the 'rules' field for non-JSON output.
+  handleCliOutput(responseData, programOpts, 'rules', 'Translated Rules:\n');
 }
 
 async function rulesToNlAsync(rulesFile, options, commandInstance) {
@@ -103,6 +109,10 @@ module.exports = (program) => {
     .option(
       '-o, --ontology <file>',
       'Path to an ontology file for context (Prolog rules)'
+    )
+    .option(
+      '--strategy <name>',
+      'Specify the translation strategy to use for this operation'
     )
     .action(nlToRulesAsync);
 

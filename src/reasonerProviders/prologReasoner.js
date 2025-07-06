@@ -1,4 +1,4 @@
-// new/src/reasonerProviders/prologReasoner.js
+// src/reasonerProviders/prologReasoner.js
 const prolog = require('tau-prolog');
 const logger = require('../logger');
 
@@ -58,51 +58,55 @@ async function runQuery(knowledgeBase, query, limit = 10) {
   const session = prolog.create(1000); // Limit for operations, not results
   const results = [];
 
+  logger.debug(`[PrologReasoner] Attempting to run query. Query: "${query}"`);
+  logger.debug(`[PrologReasoner] Knowledge Base (first 500 chars):\n${knowledgeBase.substring(0, 500)}`);
+  if (knowledgeBase.length > 500) {
+    logger.debug('[PrologReasoner] Knowledge Base is longer than 500 characters and has been truncated in this log entry.');
+  }
+
+
   return new Promise((resolve, reject) => {
     try {
       // Consult the knowledge base
+      logger.debug('[PrologReasoner] Consulting knowledge base...');
       session.consult(knowledgeBase, {
         success: () => {
-          logger.debug('Prolog knowledge base consulted successfully.');
+          logger.info('[PrologReasoner] Knowledge base consulted successfully.');
           // Query
+          logger.debug(`[PrologReasoner] Executing Prolog query: "${query}"`);
           session.query(query, {
             success: () => {
-              logger.debug(`Prolog query "${query}" successful.`);
+              logger.info(`[PrologReasoner] Prolog query "${query}" execution initiated successfully.`);
               function processNextAnswer() {
                 session.answer({
                   success: (answer) => {
                     if (answer === false) {
-                      logger.debug(
-                        'Prolog query: Received answer === false. This typically means the query (or this branch of it) failed. Resolving with accumulated results.'
+                      logger.info(
+                        `[PrologReasoner] Query "${query}" branch failed (answer === false). No more solutions in this path.`
                       );
-                      resolve(results); // If results is empty, this correctly returns [] for a failed query.
+                      resolve(results);
                       return;
                     }
-                    // Check if the answer is the special "theta_nil" object which indicates no more solutions.
-                    // This is Tau Prolog's specific way of signaling end of results in some contexts,
-                    // though the 'fail' callback is usually the primary indicator.
-                    // It's pl.type.is_theta_nil(answer).
                     if (
                       prolog.type &&
                       typeof prolog.type.is_theta_nil === 'function' &&
                       prolog.type.is_theta_nil(answer)
                     ) {
-                      logger.debug(
-                        'Prolog query: No more answers (is_theta_nil).'
+                      logger.info(
+                        `[PrologReasoner] Query "${query}": No more solutions (is_theta_nil).`
                       );
                       resolve(results);
                       return;
                     }
 
                     const formatted = formatAnswer(answer);
-                    logger.debug('Prolog answer received:', {
-                      raw: answer.toString(),
-                      formatted,
-                    });
+                    logger.debug(`[PrologReasoner] Raw answer for "${query}": ${answer.toString()}`);
+                    logger.info(`[PrologReasoner] Formatted answer for "${query}": ${JSON.stringify(formatted)}`);
                     results.push(formatted);
+
                     if (results.length >= limit) {
-                      logger.debug(
-                        `Prolog query: Reached result limit of ${limit}.`
+                      logger.info(
+                        `[PrologReasoner] Query "${query}": Reached result limit of ${limit}.`
                       );
                       resolve(results);
                       return;
@@ -111,19 +115,19 @@ async function runQuery(knowledgeBase, query, limit = 10) {
                   },
                   error: (err) => {
                     logger.error(
-                      `Prolog error processing answer for query "${query}": ${err}`
+                      `[PrologReasoner] Error processing answer for query "${query}": ${err}`
                     );
                     reject(new Error(`Prolog error processing answer: ${err}`));
                   },
                   fail: () => {
-                    logger.debug(
-                      `Prolog query "${query}" failed to find a solution (or more solutions).`
+                    logger.info(
+                      `[PrologReasoner] Query "${query}" failed to find a solution (or no more solutions). Final results: ${JSON.stringify(results)}`
                     );
                     resolve(results); // Query failed, no (more) solutions
                   },
                   limit: () => {
                     logger.warn(
-                      `Prolog query "${query}" exceeded execution limit.`
+                      `[PrologReasoner] Query "${query}" exceeded execution limit.`
                     );
                     resolve(results); // Query exceeded execution limits
                   },
@@ -133,20 +137,21 @@ async function runQuery(knowledgeBase, query, limit = 10) {
             },
             error: (err) => {
               logger.error(
-                `Prolog syntax error or issue in query "${query}": ${err}`
+                `[PrologReasoner] Prolog syntax error or issue in query "${query}": ${err}`
               );
               reject(new Error(`Prolog query error: ${err}`));
             },
           });
         },
         error: (err) => {
-          logger.error(`Prolog syntax error or issue in knowledgeBase: ${err}`);
+          logger.error(`[PrologReasoner] Syntax error or issue consulting knowledgeBase: ${err}`);
+          logger.debug(`[PrologReasoner] Failing Knowledge Base (first 500 chars for context):\n${knowledgeBase.substring(0, 500)}`);
           reject(new Error(`Prolog knowledge base error: ${err}`));
         },
       });
     } catch (error) {
       logger.error(
-        `Unexpected error during Prolog operation: ${error.message}`,
+        `[PrologReasoner] Unexpected error during Prolog operation: ${error.message}`,
         { error }
       );
       reject(new Error(`Unexpected Prolog error: ${error.message}`));
