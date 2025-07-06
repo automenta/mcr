@@ -117,15 +117,16 @@ Prolog Query:`,
 - Be direct.
 - Adhere to the requested output STYLE.
 - If the result is \`true\`, it means the query was affirmed.
-- If the result is an empty array or \`false\`, it means no information was found or the query was negated.
+- If the result is an empty array or \`false\`, it means no information was found or the query was negated. **In this case, ALWAYS respond with "I don't know." or "I do not have information about that." Do NOT speculate or provide additional phrasing.**
 - If the result contains variable bindings, use them to answer the question.
 - Do not mention "Prolog" or "logical variables" in your answer.
 - Examples:
   - Question: "Is the sky blue?", Result: \`true\` -> Answer: "Yes, the sky is blue."
-  - Question: "Is the grass orange?", Result: \`[]\` (empty array) -> Answer: "I couldn't find information suggesting the grass is orange." or "No, the grass is not orange based on current information."
+  - Question: "Is the grass orange?", Result: \`[]\` (empty array) -> Answer: "I don't know." (Or: "I do not have information about that.")
   - Question: "Who is mortal?", Result: \`[{"X": "socrates"}, {"X": "plato"}]\` -> Answer: "Socrates and Plato are mortal."
   - Question: "Who is Mary's father?", Result: \`[{"X": "john"}]\` -> Answer: "Mary's father is John."
-  - Question: "What color is the sky?", Result: \`[{"Color": "blue"}]\` -> Answer: "The sky is blue."`,
+  - Question: "What color is the sky?", Result: \`[{"Color": "blue"}]\` -> Answer: "The sky is blue."
+  - Question: "What is H2O?", Result: \`[{"CommonName":"water"},{"CommonName":"oxygen"}]\` (if 'oxygen' was an erroneous binding) -> Answer: "H2O is defined as water. The term 'oxygen' was also associated with this query in the knowledge base." (Be factual about multiple results, clearly distinguishing the primary definition if possible, or listing findings if ambiguous).`,
     user: `Original Question: "{{naturalLanguageQuestion}}"\nProlog Query Results: {{prologResultsJSON}}\nRequested Output STYLE: {{style}}\n\nNatural Language Answer:`,
   },
   // For translating natural language text directly to Prolog facts/rules (standalone)
@@ -191,66 +192,60 @@ Based on all the above, provide a detailed explanation of how the Prolog query w
 
   NL_TO_SIR_ASSERT: {
     system: `You are an expert AI assistant that translates natural language statements into a structured JSON representation (SIR) for later conversion to Prolog.
-Your output MUST be a single, complete JSON object that strictly adheres to the following schema:
-\`\`\`json
+Your output MUST be a single, complete JSON object.
+
+**REFERENCE JSON SCHEMA:**
+The JSON object you generate must conform to this structure:
 {
-  "type": "object",
-  "properties": {
-    "statementType": {
-      "type": "string",
-      "enum": ["fact", "rule"]
-    },
-    "fact": {
-      "type": "object",
-      "properties": {
-        "predicate": {"type": "string", "description": "Name of the predicate (e.g., likes, father_of, is_color). Use lowercase snake_case. Infer predicate names from natural language; prefer existing predicate names if suitable ones are found in the provided context (EXISTING FACTS, ONTOLOGY RULES, LEXICON SUMMARY). Adhere to the following conventions: For class membership (e.g., 'Socrates is a human'), use 'is_a(Instance, Class)'. For definitions or identities (e.g., 'Water is H2O'), use 'defines(CommonName, SymbolOrFormula)'. For relational phrases (e.g., 'John is Mary's father'), use 'relation_predicate(Subject, Object)' like 'father_of(john, mary)'. For compositions (e.g. 'H2O is composed of Hydrogen and Oxygen'), use 'is_composed_of(Entity, [Component1, Component2,...])'."},
-        "arguments": {"type": "array", "items": {"type": "string" /* Or array for lists */}, "description": "List of arguments. Constants (e.g., 'socrates', 'water', 'h2o', 'hydrogen') MUST be lowercase snake_case. Variables (e.g., 'X', 'AnyPerson') MUST be ALL CAPS or start with an underscore. If an argument is a list of items (e.g., components in a composition), use a JSON list of strings: ['h2o', ['hydrogen', 'oxygen']]."},
-        "isNegative": {"type": "boolean", "default": false, "description": "Set to true if the fact is negated (e.g., 'John does NOT like apples')."}
-      },
-      "required": ["predicate", "arguments"]
-    },
-    "rule": {
-      "type": "object",
-      "properties": {
-        "head": { "$ref": "#/properties/fact", "description": "The conclusion of the rule, structured as a fact." },
-        "body": {
-          "type": "array",
-          "items": { "$ref": "#/properties/fact" },
-          "description": "A list of conditions (literals) for the rule, each structured as a fact. Ensure predicates in the rule body match how corresponding facts are structured (e.g., if facts use 'is_a(X, human)', a rule about humans should use 'is_a(X, human)' in its body)."
-        }
-      },
-      "required": ["head", "body"]
-    }
+  "statementType": "'fact' or 'rule'",
+  "fact": { // (Present if statementType is 'fact')
+    "predicate": "string (lowercase_snake_case, e.g., 'is_a', 'father_of')",
+    "arguments": ["string" / ["list_of_strings"]], // Constants: lowercase_snake_case. Variables: ALL_CAPS.
+    "isNegative": "boolean (optional, default: false)"
   },
-  "required": ["statementType"],
-  "oneOf": [
-    { "description": "If statementType is 'fact', this object must be present.", "required": ["fact"] },
-    { "description": "If statementType is 'rule', this object must be present.", "required": ["rule"] }
-  ]
+  "rule": { // (Present if statementType is 'rule')
+    "head": { /* structure of a 'fact' (predicate, arguments) */ },
+    "body": [ /* array of 'fact' structures */ ]
+  },
+  "error": "string (optional, if input cannot be translated)"
+  "translationNotes": "string (optional, if assumptions were made)"
 }
-\`\`\`
-**Key Principles for Translation:**
-1.  **Fact vs. Rule:** Classify input as a single 'fact' or a single 'rule'.
-    *   Specific statements about entities (e.g., "The Moon orbits the Earth") are FACTS.
-    *   General statements about categories (e.g., "Birds fly") are RULES.
-2.  **Predicate Consistency:**
-    *   **Class Membership:** "Socrates is a human." -> \`{"statementType": "fact", "fact": {"predicate": "is_a", "arguments": ["socrates", "human"]}}\`
-    *   **Definitions/Identities:** "Water is H2O." -> \`{"statementType": "fact", "fact": {"predicate": "defines", "arguments": ["water", "h2o"]}}\` (CommonName, SymbolOrFormula)
-    *   **Relational Phrases:** "John is Mary's father." -> \`{"statementType": "fact", "fact": {"predicate": "father_of", "arguments": ["john", "mary"]}}\`
-    *   **Composition:** "H2O is composed of Hydrogen and Oxygen." -> \`{"statementType": "fact", "fact": {"predicate": "is_composed_of", "arguments": ["h2o", ["hydrogen", "oxygen"]]}}\`
-    *   **Simple Attributes:** "The sky is blue." -> \`{"statementType": "fact", "fact": {"predicate": "is_color", "arguments": ["sky", "blue"]}}\`
-3.  **Rule Structure:**
-    *   "All humans are mortal." (Given facts use \`is_a(Instance, human)\`) -> \`{"statementType": "rule", "rule": {"head": {"predicate": "mortal", "arguments": ["X"]}, "body": [{"predicate": "is_a", "arguments": ["X", "human"]}]}}\`
-    *   "A molecule is composed of atoms." (Rule for query, not for specific molecule composition) -> \`{"statementType": "rule", "rule": {"head": {"predicate": "generally_composed_of", "arguments": ["X", ["atom"]]}, "body": [{"predicate": "is_a", "arguments": ["X", "molecule"]}]}}\` (Using 'generally_composed_of' to distinguish from specific facts like 'is_composed_of(h2o, [hydrogen, oxygen])' to aid query distinction later).
-4.  **Specific Instances vs. General Rules:**
-    *   "The Moon orbits the Earth." (Specific fact) -> \`{"statementType": "fact", "fact": {"predicate": "orbits", "arguments": ["moon", "earth"]}}\`
-    *   "Birds fly." (General rule) -> \`{"statementType": "rule", "rule": {"head": {"predicate": "flies", "arguments": ["X"]}, "body": [{"predicate": "is_a", "arguments": ["X", "bird"]}]}}\` (Assuming 'is_a' for bird type)
-- Ensure JSON output is valid and strictly follows the schema. Only output the JSON object.
-- If input is a question, output: \`{"error": "Input is a question, not an assertable statement."}\`
-- If input is too complex/vague for a single SIR fact/rule, output: \`{"error": "Input is too complex or vague for SIR conversion."}\`
-- Pay close attention to LEXICON SUMMARY for preferred predicate names and arities.
-- For negations (e.g., "Paris is not in Germany."), use \`"isNegative": true\` on the fact: \`{"statementType": "fact", "fact": {"predicate": "is_in", "arguments": ["paris", "germany"], "isNegative": true}}\`.
-- If significant assumptions are made, add a "translationNotes" field to the main JSON object.`,
+
+**Key Principles and Output Structure Examples:**
+1.  **Fact vs. Rule:**
+    *   Specific statements (e.g., "The Moon orbits the Earth") are FACTS.
+        Example Output: \`{"statementType": "fact", "fact": {"predicate": "orbits", "arguments": ["moon", "earth"]}}\`
+    *   General statements (e.g., "Birds fly") are RULES.
+        Example Output: \`{"statementType": "rule", "rule": {"head": {"predicate": "flies", "arguments": ["X"]}, "body": [{"predicate": "is_a", "arguments": ["X", "bird"]}]}}\`
+2.  **Predicate Conventions (Consult LEXICON SUMMARY for existing predicates):**
+    *   **Class Membership:** "Socrates is a human."
+        Output: \`{"statementType": "fact", "fact": {"predicate": "is_a", "arguments": ["socrates", "human"]}}\`
+    *   **Definitions/Identities:** "Water is H2O."
+        Output: \`{"statementType": "fact", "fact": {"predicate": "defines", "arguments": ["water", "h2o"]}}\`
+    *   **Relational Phrases:** "John is Mary's father."
+        Output: \`{"statementType": "fact", "fact": {"predicate": "father_of", "arguments": ["john", "mary"]}}\`
+    *   **General Properties/ Besitzverhältnisse:** "The Earth has gravity."
+        Output: \`{"statementType": "fact", "fact": {"predicate": "has_property", "arguments": ["earth", "gravity"]}}\`
+    *   **Specific Composition:** "H2O is composed of Hydrogen and Oxygen."
+        Output: \`{"statementType": "fact", "fact": {"predicate": "is_composed_of", "arguments": ["h2o", ["hydrogen", "oxygen"]]}}\`
+    *   **General Composition (Rule):** "A molecule is composed of atoms."
+        Output: \`{"statementType": "rule", "rule": {"head": {"predicate": "generally_composed_of", "arguments": ["X", ["atom"]]}, "body": [{"predicate": "is_a", "arguments": ["X", "molecule"]}]}}\`
+    *   **Simple Attributes:** "The sky is blue."
+        Output: \`{"statementType": "fact", "fact": {"predicate": "is_color", "arguments": ["sky", "blue"]}}\`
+3.  **Rule Structure Detail:**
+    *   For "All humans are mortal." (given facts use \`is_a(Instance, human)\`):
+        Output: \`{"statementType": "rule", "rule": {"head": {"predicate": "mortal", "arguments": ["X"]}, "body": [{"predicate": "is_a", "arguments": ["X", "human"]}]}}\`
+        Ensure predicates in the rule \`body\` match how corresponding facts are structured.
+4.  **Negation:**
+    *   For "Paris is not in Germany.":
+        Output: \`{"statementType": "fact", "fact": {"predicate": "is_in", "arguments": ["paris", "germany"], "isNegative": true}}\`
+5.  **Error Handling:**
+    *   If input is a question: Output \`{"error": "Input is a question, not an assertable statement."}\`
+    *   If input is too complex/vague: Output \`{"error": "Input is too complex or vague for SIR conversion."}\`
+
+- Ensure your JSON output is valid and strictly follows the structure described. Only output the JSON object.
+- Pay close attention to LEXICON SUMMARY for preferred predicate names, arities, and argument casing (constants: lowercase_snake_case, variables: ALL_CAPS).
+- If significant assumptions are made, add a "translationNotes" field to the root of the JSON object.`,
     user: `EXISTING FACTS (for context, do not translate these):
 \`\`\`prolog
 {{existingFacts}}
