@@ -44,6 +44,11 @@ function setupRoutes(app) {
   router.post('/translate/nl-to-rules', apiHandlers.nlToRulesDirectHandler);
   router.post('/translate/rules-to-nl', apiHandlers.rulesToNlDirectHandler);
 
+  // Strategy Management Endpoints
+  router.get('/strategies', apiHandlers.listStrategiesHandler); // New
+  router.put('/strategies/active', apiHandlers.setStrategyHandler); // New (or POST /strategies/active)
+  router.get('/strategies/active', apiHandlers.getActiveStrategyHandler); // New
+
   // Utility & Debugging
   router.get('/prompts', apiHandlers.getPromptsHandler);
   router.post('/debug/format-prompt', apiHandlers.debugFormatPromptHandler);

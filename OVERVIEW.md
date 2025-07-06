@@ -109,7 +109,11 @@ Ready to explore the power of MCR?
     - Dive into the MCR codebase to understand its architecture and capabilities.
     - Contributions and feedback are welcome!
 
-**Check out our `README.md` for detailed setup, installation, and API documentation!**
+4.  **Development & Testing Support:**
+    - MCR includes an advanced evaluation system (`evaluator.js`) for rigorously testing translation accuracy and performance with various metrics.
+    - Utility scripts (`generate_example.js`, `generate_ontology.js`) are provided to leverage LLMs for rapidly creating new test cases and domain ontologies, speeding up development cycles.
+
+**Check out our `README.md` for detailed setup, installation, API documentation, and information on development tools!**
 
 ---
 

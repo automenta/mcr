@@ -1,0 +1,178 @@
+[
+  {
+    "caseId": "sir_detailed_01_complex_composition",
+    "strategyName": "Direct-S1",
+    "naturalLanguageInput": "System Alpha consists of a main module, two auxiliary units, and a sensor package which itself contains a thermal sensor and a light sensor.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_composed_of(system_alpha, [main_module, auxiliary_unit_1, auxiliary_unit_2, sensor_package]).",
+      "is_composed_of(sensor_package, [thermal_sensor, light_sensor])."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 45
+  },
+  {
+    "caseId": "sir_detailed_02_conditional_fact_as_rule",
+    "strategyName": "Direct-S1",
+    "naturalLanguageInput": "A component is considered critical if its failure leads to system shutdown.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_critical(Component) :- leads_to_system_shutdown(failure_of(Component))."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 5
+  },
+  {
+    "caseId": "sir_detailed_03_negated_complex_fact",
+    "strategyName": "Direct-S1",
+    "naturalLanguageInput": "The primary server does not host the user database nor the logging service.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "not(hosts(primary_server, user_database)).",
+      "not(hosts(primary_server, logging_service))."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 4
+  },
+  {
+    "caseId": "sir_detailed_01_complex_composition",
+    "strategyName": "SIR-R1",
+    "naturalLanguageInput": "System Alpha consists of a main module, two auxiliary units, and a sensor package which itself contains a thermal sensor and a light sensor.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_composed_of(system_alpha, [main_module, auxiliary_unit_1, auxiliary_unit_2, sensor_package]).",
+      "is_composed_of(sensor_package, [thermal_sensor, light_sensor])."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 10
+  },
+  {
+    "caseId": "sir_detailed_02_conditional_fact_as_rule",
+    "strategyName": "SIR-R1",
+    "naturalLanguageInput": "A component is considered critical if its failure leads to system shutdown.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_critical(Component) :- leads_to_system_shutdown(failure_of(Component))."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 4
+  },
+  {
+    "caseId": "sir_detailed_03_negated_complex_fact",
+    "strategyName": "SIR-R1",
+    "naturalLanguageInput": "The primary server does not host the user database nor the logging service.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "not(hosts(primary_server, user_database)).",
+      "not(hosts(primary_server, logging_service))."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 4
+  },
+  {
+    "caseId": "sir_detailed_01_complex_composition",
+    "strategyName": "SIR-R2-FewShot",
+    "naturalLanguageInput": "System Alpha consists of a main module, two auxiliary units, and a sensor package which itself contains a thermal sensor and a light sensor.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_composed_of(system_alpha, [main_module, auxiliary_unit_1, auxiliary_unit_2, sensor_package]).",
+      "is_composed_of(sensor_package, [thermal_sensor, light_sensor])."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 6
+  },
+  {
+    "caseId": "sir_detailed_02_conditional_fact_as_rule",
+    "strategyName": "SIR-R2-FewShot",
+    "naturalLanguageInput": "A component is considered critical if its failure leads to system shutdown.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_critical(Component) :- leads_to_system_shutdown(failure_of(Component))."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 3
+  },
+  {
+    "caseId": "sir_detailed_03_negated_complex_fact",
+    "strategyName": "SIR-R2-FewShot",
+    "naturalLanguageInput": "The primary server does not host the user database nor the logging service.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "not(hosts(primary_server, user_database)).",
+      "not(hosts(primary_server, logging_service))."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 5
+  },
+  {
+    "caseId": "sir_detailed_01_complex_composition",
+    "strategyName": "SIR-R3-DetailedGuidance",
+    "naturalLanguageInput": "System Alpha consists of a main module, two auxiliary units, and a sensor package which itself contains a thermal sensor and a light sensor.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_composed_of(system_alpha, [main_module, auxiliary_unit_1, auxiliary_unit_2, sensor_package]).",
+      "is_composed_of(sensor_package, [thermal_sensor, light_sensor])."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 6
+  },
+  {
+    "caseId": "sir_detailed_02_conditional_fact_as_rule",
+    "strategyName": "SIR-R3-DetailedGuidance",
+    "naturalLanguageInput": "A component is considered critical if its failure leads to system shutdown.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "is_critical(Component) :- leads_to_system_shutdown(failure_of(Component))."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 3
+  },
+  {
+    "caseId": "sir_detailed_03_negated_complex_fact",
+    "strategyName": "SIR-R3-DetailedGuidance",
+    "naturalLanguageInput": "The primary server does not host the user database nor the logging service.",
+    "inputType": "assert",
+    "expectedProlog": [
+      "not(hosts(primary_server, user_database)).",
+      "not(hosts(primary_server, logging_service))."
+    ],
+    "actualProlog": null,
+    "actualAnswer": null,
+    "scores": {},
+    "error": "API Error: Error during assertion: Configuration Error: Unsupported LLM provider configured: \"null\". Supported providers are \"ollama\", \"gemini\". (Code: STRATEGY_ASSERT_FAILED)",
+    "durationMs": 3
+  }
+]

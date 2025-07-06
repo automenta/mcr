@@ -311,4 +311,9 @@ module.exports = {
   rulesToNlTui,
   listPromptsTui,
   debugFormatPromptTui,
+
+  // Strategy TUI functions
+  listStrategiesTui: () => tuiApiClientInstance.get('/strategies').then(res => res.data),
+  getActiveStrategyTui: () => tuiApiClientInstance.get('/strategies/active').then(res => res.data),
+  setStrategyTui: (strategyName) => tuiApiClientInstance.put('/strategies/active', { strategyName }).then(res => res.data),
 };

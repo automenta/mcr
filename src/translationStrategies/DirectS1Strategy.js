@@ -31,7 +31,7 @@ class DirectS1Strategy {
    * @throws {Error} If translation fails, LLM indicates it's a query, or no valid facts are extracted.
    */
   async assert(naturalLanguageText, llmProvider, options = {}) {
-    const { existingFacts = '', ontologyRules = '' } = options;
+    const { existingFacts = '', ontologyRules = '', lexiconSummary = 'No lexicon summary available.' } = options;
     logger.debug(
       `[DirectS1Strategy] Asserting NL: "${naturalLanguageText}" with context.`
     );
@@ -40,6 +40,7 @@ class DirectS1Strategy {
       naturalLanguageText,
       existingFacts,
       ontologyRules,
+      lexiconSummary,
     });
 
     const prologFactsString = await llmProvider.generate(
@@ -102,7 +103,7 @@ class DirectS1Strategy {
    * @throws {Error} If translation fails or the generated query is invalid.
    */
   async query(naturalLanguageQuestion, llmProvider, options = {}) {
-    const { existingFacts = '', ontologyRules = '' } = options;
+    const { existingFacts = '', ontologyRules = '', lexiconSummary = 'No lexicon summary available.' } = options;
     logger.debug(
       `[DirectS1Strategy] Translating NL query: "${naturalLanguageQuestion}" with context.`
     );
@@ -111,6 +112,7 @@ class DirectS1Strategy {
       naturalLanguageQuestion,
       existingFacts,
       ontologyRules,
+      lexiconSummary,
     });
 
     const prologQuery = await llmProvider.generate(

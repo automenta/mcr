@@ -14,7 +14,9 @@
     "test": "jest",
     "test:coverage": "jest --coverage",
     "format": "prettier --write .",
-    "lint": "eslint . --fix"
+    "lint": "eslint . --fix",
+    "generate-examples": "node ./scripts/generate_example.js",
+    "generate-ontology": "node ./scripts/generate_ontology.js"
   },
   "keywords": [
     "llm",
@@ -91,6 +93,9 @@
     ],
     "modulePathIgnorePatterns": [
       "<rootDir>/old/"
+    ],
+    "transformIgnorePatterns": [
+      "/node_modules/(?!yargs|uuid|chalk)/"
     ]
   },
   "engines": {

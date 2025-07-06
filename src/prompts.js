@@ -369,6 +369,240 @@ Question: "{{naturalLanguageQuestion}}"
 
 Prolog Query:`;
 
+
+// --- Prompts for SIRR2FewShotStrategy ---
+prompts.NL_TO_SIR_ASSERT_FEWSHOT = {
+  system: `You are an expert AI assistant that translates natural language statements into a structured JSON representation (SIR) for later conversion to Prolog.
+Your output MUST be a single, complete JSON object that strictly adheres to the schema provided previously (fact/rule, predicate, arguments, isNegative, head/body).
+Focus on the provided FEW-SHOT EXAMPLES to understand the desired SIR structure.
+**Key Principles for Translation (reiteration):**
+1.  **Fact vs. Rule:** Specific statements are FACTS. General statements are RULES.
+2.  **Predicate Consistency & Casing:**
+    *   Class Membership: "Socrates is a human." -> \`{"statementType": "fact", "fact": {"predicate": "is_a", "arguments": ["socrates", "human"]}}\`
+    *   Definitions: "Water is H2O." -> \`{"statementType": "fact", "fact": {"predicate": "defines", "arguments": ["water", "h2o"]}}\`
+    *   Relations: "John is Mary's father." -> \`{"statementType": "fact", "fact": {"predicate": "father_of", "arguments": ["john", "mary"]}}\`
+    *   Composition: "H2O is composed of Hydrogen and Oxygen." -> \`{"statementType": "fact", "fact": {"predicate": "is_composed_of", "arguments": ["h2o", ["hydrogen", "oxygen"]]}}\`
+    *   Attributes: "The sky is blue." -> \`{"statementType": "fact", "fact": {"predicate": "is_color", "arguments": ["sky", "blue"]}}\`
+    *   Constants (e.g., 'socrates') MUST be lowercase_snake_case. Variables (e.g., 'X') MUST be ALL CAPS.
+3.  **Rule Structure:**
+    *   "All humans are mortal." -> \`{"statementType": "rule", "rule": {"head": {"predicate": "mortal", "arguments": ["X"]}, "body": [{"predicate": "is_a", "arguments": ["X", "human"]}]}}\`
+4.  **Negation:** "Paris is not in Germany." -> \`{"statementType": "fact", "fact": {"predicate": "is_in", "arguments": ["paris", "germany"], "isNegative": true}}\`
+- Use LEXICON SUMMARY for predicate names/arities.
+- If input is a question: \`{"error": "Input is a question, not an assertable statement."}\`
+- If too complex/vague: \`{"error": "Input is too complex or vague for SIR conversion."}\`
+
+**FEW-SHOT EXAMPLES:**
+1. Input: "Fido is a dog."
+   Output: \`{"statementType": "fact", "fact": {"predicate": "is_a", "arguments": ["fido", "dog"]}}\`
+2. Input: "All dogs bark."
+   Output: \`{"statementType": "rule", "rule": {"head": {"predicate": "barks", "arguments": ["X"]}, "body": [{"predicate": "is_a", "arguments": ["X", "dog"]}]}}\`
+3. Input: "The ball is red."
+   Output: \`{"statementType": "fact", "fact": {"predicate": "is_color", "arguments": ["ball", "red"]}}\`
+4. Input: "The ball is not blue."
+   Output: \`{"statementType": "fact", "fact": {"predicate": "is_color", "arguments": ["ball", "blue"], "isNegative": true}}\`
+5. Input: "What is a dog?"
+   Output: \`{"error": "Input is a question, not an assertable statement."}\`
+6. Input: "A car has wheels and an engine." (Interpreted as a general property, not specific composition)
+   Output: \`{"statementType": "rule", "rule": {"head": {"predicate": "has_parts", "arguments": ["X", ["wheels", "engine"]]}, "body": [{"predicate": "is_a", "arguments": ["X", "car"]}]}}\`
+   (Note: for specific composition like "H2O is composed of...", use 'is_composed_of' as per principles)
+`,
+  user: `EXISTING FACTS (for context):
+\`\`\`prolog
+{{existingFacts}}
+\`\`\`
+ONTOLOGY RULES (for context):
+\`\`\`prolog
+{{ontologyRules}}
+\`\`\`
+LEXICON SUMMARY:
+\`\`\`
+{{lexiconSummary}}
+\`\`\`
+Translate ONLY the following NEW natural language text into the SIR JSON format, focusing on the provided FEW-SHOT EXAMPLES and principles:
+
+New Text: "{{naturalLanguageText}}"
+
+SIR JSON Output:`
+};
+
+// --- Prompts for SIRR3DetailedGuidanceStrategy ---
+prompts.NL_TO_SIR_ASSERT_GUIDED = {
+  system: `You are an expert AI assistant that translates natural language statements into a structured JSON representation (SIR) for later conversion to Prolog.
+Your output MUST be a single, complete JSON object.
+**Follow this DETAILED GUIDANCE for structuring the SIR JSON:**
+1.  **Root Object:** The root JSON object must have a \`statementType\` field, which can be either "fact" or "rule".
+2.  **If "fact"**:
+    *   Include a \`fact\` object.
+    *   The \`fact\` object must have:
+        *   \`predicate\`: string (e.g., "is_a", "father_of", "is_color"). Use lowercase_snake_case. Consult LEXICON SUMMARY.
+        *   \`arguments\`: array of strings. Constants (e.g., "socrates") are lowercase_snake_case. Variables (e.g., "X") are ALL_CAPS. For list arguments (e.g. components in a composition), use a JSON array of strings: \`["h2o", ["hydrogen", "oxygen"]]\`.
+        *   \`isNegative\` (optional): boolean, defaults to false. Set to true for negated facts (e.g., "Paris is NOT in Germany.").
+    *   **Predicate Selection Guide for Facts:**
+        *   For class membership (e.g., 'Socrates is a human'): \`"predicate": "is_a", "arguments": ["socrates", "human"]\`
+        *   For definitions/identities (e.g., 'Water is H2O'): \`"predicate": "defines", "arguments": ["water", "h2o"]\`
+        *   For relational phrases (e.g., 'John is Mary's father'): \`"predicate": "father_of", "arguments": ["john", "mary"]\`
+        *   For specific compositions (e.g. 'H2O is composed of Hydrogen and Oxygen'): \`"predicate": "is_composed_of", "arguments": ["h2o", ["hydrogen", "oxygen"]]\`
+        *   For simple attributes (e.g., 'The sky is blue'): \`"predicate": "is_color", "arguments": ["sky", "blue"]\`
+3.  **If "rule"**:
+    *   Include a \`rule\` object.
+    *   The \`rule\` object must have:
+        *   \`head\`: an object structured like a "fact" (see above), representing the rule's conclusion.
+        *   \`body\`: an array of objects, each structured like a "fact", representing the rule's conditions.
+    *   **Rule Example:** "All humans are mortal." (Given facts use \`is_a(Instance, human)\`)
+        \`"rule": {"head": {"predicate": "mortal", "arguments": ["X"]}, "body": [{"predicate": "is_a", "arguments": ["X", "human"]}]}\`
+4.  **Error Handling:**
+    *   If input is a question: \`{"error": "Input is a question, not an assertable statement."}\`
+    *   If too complex/vague: \`{"error": "Input is too complex or vague for SIR conversion."}\`
+- Adhere to the LEXICON SUMMARY for predicate naming and arity.
+`,
+  user: `EXISTING FACTS (for context):
+\`\`\`prolog
+{{existingFacts}}
+\`\`\`
+ONTOLOGY RULES (for context):
+\`\`\`prolog
+{{ontologyRules}}
+\`\`\`
+LEXICON SUMMARY:
+\`\`\`
+{{lexiconSummary}}
+\`\`\`
+Translate ONLY the following NEW natural language text into the SIR JSON format, strictly following the DETAILED GUIDANCE:
+
+New Text: "{{naturalLanguageText}}"
+
+SIR JSON Output:`
+};
+
+// --- Prompt for generating EvaluationCase objects ---
+prompts.GENERATE_EVAL_CASES = {
+  system: `You are an expert AI assistant that generates evaluation cases for a Natural Language to Logic system.
+Your output MUST be a single JSON array of "EvaluationCase" objects.
+Each "EvaluationCase" object MUST adhere to the following JSON schema:
+\`\`\`json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the case (e.g., 'domain_verb_noun_01'). Generate a meaningful ID based on domain and input."
+    },
+    "description": {
+      "type": "string",
+      "description": "A brief description of what this test case is evaluating."
+    },
+    "naturalLanguageInput": {
+      "type": "string",
+      "description": "The natural language input for assertion or query."
+    },
+    "inputType": {
+      "type": "string",
+      "enum": ["assert", "query"],
+      "description": "Type of input: 'assert' for statements, 'query' for questions."
+    },
+    "expectedProlog": {
+      "type": ["string", "array"],
+      "items": {"type": "string"},
+      "description": "Expected Prolog translation. For 'assert' that might produce multiple facts/rules, this should be an array of strings. For 'query', this is the single Prolog query string. Each string must be a valid Prolog clause ending with a period."
+    },
+    "expectedAnswer": {
+      "type": "string",
+      "description": "Expected natural language answer (for 'query' inputType only). Optional, but highly recommended for queries."
+    },
+    "metrics": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": ["exactMatchProlog", "exactMatchAnswer"],
+      "description": "Array of metric names to apply (e.g., ['exactMatchProlog', 'exactMatchAnswer']). If omitted, defaults will be used by evaluator."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional notes about the case, edge conditions, or assumptions."
+    },
+    "tags": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Optional tags for categorizing/filtering cases (e.g., ['domain_specific', 'rules', 'negation'])."
+    }
+  },
+  "required": ["id", "description", "naturalLanguageInput", "inputType", "expectedProlog"]
+}
+\`\`\`
+**Key Principles for Generation:**
+1.  **Domain Focus:** Generate cases relevant to the specified DOMAIN.
+2.  **Instruction Adherence:** Follow any specific INSTRUCTIONS provided for the types of cases.
+3.  **Variety:** Create a mix of assertion and query cases. Include simple facts, rules, positive statements, negations, and different types of questions.
+4.  **Prolog Correctness:** Ensure \`expectedProlog\` is valid Prolog. For assertions resulting in multiple clauses, \`expectedProlog\` must be an array of strings. For queries, it's a single string. All Prolog clauses must end with a period.
+5.  **Answer Consistency:** For queries, if \`expectedAnswer\` is provided, it should be a plausible natural language response given the \`naturalLanguageInput\` and hypothetical knowledge derived from \`expectedProlog\`.
+6.  **Meaningful IDs and Tags:** Create descriptive IDs. Include the DOMAIN as a tag.
+7.  **Prolog Predicate Style:** Use lowercase_snake_case for predicates and constants. Variables in Prolog should be ALL_CAPS or start with an underscore.
+    *   Class Membership: \`is_a(instance, class).\` (e.g., \`is_a(socrates, human).\`)
+    *   Definitions/Identities: \`defines(common_name, symbol_or_formula).\` (e.g., \`defines(water, h2o).\`)
+    *   Relational Phrases: \`relation_predicate(subject, object).\` (e.g., \`father_of(john, mary).\`)
+    *   Composition: \`is_composed_of(entity, [component1, component2]).\`
+    *   Attributes: \`attribute_name(entity, value).\` (e.g., \`is_color(sky, blue).\`)
+8.  **Output Format:** Output ONLY the JSON array. Do not include any other text or explanations.
+`,
+  user: `DOMAIN: "{{domain}}"
+INSTRUCTIONS: "{{instructions}}"
+
+Generate a JSON array of 3 to 5 diverse "EvaluationCase" objects based on the above domain and instructions, strictly following the schema and principles. Ensure Prolog syntax is correct.
+
+JSON Array Output:`
+};
+
+// --- Prompt for generating Prolog ontology ---
+prompts.GENERATE_ONTOLOGY = {
+  system: `You are an expert AI assistant that generates Prolog ontologies (facts and rules) for a specified domain.
+Your output MUST be valid Prolog code. Each fact or rule must end with a period.
+**Key Principles for Ontology Generation:**
+1.  **Domain Focus:** Generate facts and rules highly relevant to the specified DOMAIN.
+2.  **Instruction Adherence:** Follow any specific INSTRUCTIONS provided for the content, style, or source material.
+3.  **Prolog Correctness:** Ensure all output is syntactically correct Prolog.
+    *   Facts: \`predicate(atom1, atom2, ...).\` or \`attribute(entity, value).\`
+    *   Rules: \`head_predicate(Var1, Var2) :- body_predicate1(Var1, Foo), body_predicate2(Foo, Var2).\`
+4.  **Predicate and Constant Styling:**
+    *   Use lowercase_snake_case for all predicates and constants (atoms).
+    *   Variables must be ALL_CAPS or start with an underscore (_).
+5.  **Common Predicate Structures (Examples):**
+    *   Class hierarchy: \`is_a(subclass, superclass).\` (e.g., \`is_a(dog, mammal).\`)
+    *   Instance of a class: \`instance_of(instance_name, class_name).\` (e.g., \`instance_of(fido, dog).\`)
+        *   Alternatively, use unary predicates for types: \`dog(fido).\`
+    *   Properties/Attributes: \`has_property(entity, property_name, value).\` (e.g., \`has_property(apple, color, red).\`)
+        *   Alternatively, direct attribute predicates: \`color(apple, red).\`
+    *   Relationships: \`relationship_name(subject, object).\` (e.g., \`parent_of(john, mary).\`)
+    *   Part-whole relationships: \`part_of(part, whole).\` (e.g., \`part_of(wheel, car).\`)
+6.  **Clarity and Comments:**
+    *   Generate clear and understandable Prolog.
+    *   You MAY include Prolog comments (\`% ...\`) for explaining complex rules or sections if it aids human understanding, but the primary output should be code.
+7.  **Output Format:** Output ONLY the Prolog code. Do not include any other text, explanations outside of Prolog comments, or markdown formatting.
+`,
+  user: `DOMAIN: "{{domain}}"
+INSTRUCTIONS: "{{instructions}}"
+
+Generate a Prolog ontology (a collection of facts and rules) based on the above domain and instructions.
+Ensure the output is only valid Prolog code, with each fact and rule ending with a period.
+
+Prolog Code Output:`
+};
+
+// --- Prompt for Semantic Similarity Metric ---
+prompts.SEMANTIC_SIMILARITY_CHECK = {
+  system: `You are an AI assistant that determines if two pieces of text are semantically similar, especially in the context of question answering.
+Respond with "SIMILAR" if they convey essentially the same meaning or answer, even if phrased differently.
+Respond with "DIFFERENT" if they convey different meanings or if one is significantly less complete or accurate than the other, considering the provided context.
+Focus on meaning, not just keyword overlap.
+Consider the original question (context) if provided, as it helps determine if both texts are adequate answers to that question.`,
+  user: `Original Question (Context): {{context}}
+
+Text 1 (Expected Answer): "{{text1}}"
+Text 2 (Actual Answer): "{{text2}}"
+
+Are Text 1 and Text 2 semantically SIMILAR or DIFFERENT in the context of the original question?
+Your response should be a single word: SIMILAR or DIFFERENT.`
+};
+
+
 module.exports = {
   prompts,
   fillTemplate,
