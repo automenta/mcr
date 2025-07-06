@@ -203,8 +203,8 @@ Your output MUST be a single, complete JSON object that strictly adheres to the 
     "fact": {
       "type": "object",
       "properties": {
-        "predicate": {"type": "string", "description": "Name of the predicate (e.g., likes, father_of, is_color). Use lowercase snake_case. Infer predicate names from natural language; prefer existing predicate names if suitable ones are found in the provided context (EXISTING FACTS, ONTOLOGY RULES)."},
-        "arguments": {"type": "array", "items": {"type": "string"}, "description": "List of arguments. Constants (e.g., 'john', 'book') should be lowercase. Variables (e.g., 'X', 'Person') should be ALL CAPS."},
+        "predicate": {"type": "string", "description": "Name of the predicate (e.g., likes, father_of, is_color). Use lowercase snake_case. Infer predicate names from natural language; prefer existing predicate names if suitable ones are found in the provided context (EXISTING FACTS, ONTOLOGY RULES, LEXICON SUMMARY). Use general predicates like 'is_a(instance, class)' for class membership, or 'has_property(entity, property_name, value)' for attributes, where appropriate."},
+        "arguments": {"type": "array", "items": {"type": "string" /* Or array for lists */}, "description": "List of arguments. Arguments that are constants (e.g., physical objects like 'book', abstract concepts like 'color', specific entities like 'socrates', 'hydrogen', or 'sodium_chloride') MUST be represented in lowercase snake_case (e.g., 'book', 'color', 'socrates', 'h', 'nacl', 'sodium_chloride') in the arguments list. Arguments that are variables (e.g., 'X', 'AnyPerson', 'SelectedItem') MUST be ALL CAPS or start with an underscore and consist of alphanumeric characters. The system will strictly interpret casing to differentiate variables from constants based on this rule. If an intended constant is provided in uppercase, it will be treated as a variable. If an argument itself represents a collection or list of items (e.g., 'X is composed of A, B, and C', 'Y has features F1, F2'), the components should be provided as a JSON list of strings within the SIR arguments list (e.g., for 'H2O is composed of Hydrogen and Oxygen', the arguments for 'is_composed_of' could be ['h2o', ['hydrogen', 'oxygen']])."},
         "isNegative": {"type": "boolean", "default": false, "description": "Set to true if the fact is negated (e.g., 'John does NOT like apples')."}
       },
       "required": ["predicate", "arguments"]
@@ -235,12 +235,13 @@ Your output MUST be a single, complete JSON object that strictly adheres to the 
   - "John likes Mary." -> \`{"statementType": "fact", "fact": {"predicate": "likes", "arguments": ["john", "mary"]}}\`
   - "Fido is a dog." -> \`{"statementType": "fact", "fact": {"predicate": "is_a", "arguments": ["fido", "dog"]}}\`
   - "Paris is not in Germany." -> \`{"statementType": "fact", "fact": {"predicate": "is_in", "arguments": ["paris", "germany"], "isNegative": true}}\`
+  - "Water is composed of hydrogen and oxygen." -> \`{"statementType": "fact", "fact": {"predicate": "is_composed_of", "arguments": ["water", ["hydrogen", "oxygen"]]}}\`
 - For rules:
   - "All humans are mortal." -> \`{"statementType": "rule", "rule": {"head": {"predicate": "mortal", "arguments": ["X"]}, "body": [{"predicate": "human", "arguments": ["X"]}]}}\`
-  - "If X is a parent of Y and Y is a parent of Z, then X is a grandparent of Z." ->
+  - "If X is a parent of Y and Y is a parent of Z, then X is a grandparent of Z." (Good rule) ->
     \`{"statementType": "rule", "rule": {"head": {"predicate": "grandparent_of", "arguments": ["X", "Z"]}, "body": [{"predicate": "parent_of", "arguments": ["X", "Y"]}, {"predicate": "parent_of", "arguments": ["Y", "Z"]}]}}\`
+  - "A molecule is made of atoms if anything is an atom." (Bad rule example to avoid) -> Output: \`{"error": "Rule structure seems logically flawed or too general based on input."}\` or attempt a better interpretation if possible.
   - "Birds fly." (interpreted as a general rule) -> \`{"statementType": "rule", "rule": {"head": {"predicate": "flies", "arguments": ["X"]}, "body": [{"predicate": "bird", "arguments": ["X"]}]}}\`
-- Pay close attention to variable names (ALL CAPS) vs. constants (lowercase).
 - Ensure the JSON output is syntactically correct and validates against the schema.
 - Do NOT add any text before or after the JSON object. Output only the JSON.
 - If the input text contains multiple distinct statements, focus on translating only the most prominent one or the first one if prominence is unclear. This tool is designed for single assertions.
@@ -248,7 +249,6 @@ Your output MUST be a single, complete JSON object that strictly adheres to the 
 - If the input is too long, vague, or complex to be reliably converted into a single SIR fact or rule, output: \`{"error": "Input is too complex or vague for SIR conversion."}\`
 - Pay close attention to the provided LEXICON SUMMARY for preferred predicate names and their arities. Use these where possible.
 - For negations like "X is not Y" or "X without Y", prefer predicates like \`has_attribute(X, Y, false)\` or \`property_status(X, property, absent)\` or similar, rather than wrapping a positive assertion in \`not(...)\` in Prolog, unless the lexicon strongly suggests a negated form. For example, "software is provided without warranty" could become \`{"statementType": "fact", "fact": {"predicate": "has_warranty", "arguments": ["software", "false"]}}\` or \`{"statementType": "fact", "fact": {"predicate": "warranty_status", "arguments": ["software", "none"]}}\`.
-- Ensure 'arguments' within 'fact' or 'rule.head'/'rule.body' are always an array of strings. Variables are ALL CAPS, constants lowercase. Example of a valid complex structure: \`{"predicate": "perform_action", "arguments": ["robot1", "grasp", "objectA"]}\`.
 - If you have to significantly simplify or make strong assumptions to fit the SIR structure, you can add a "translationNotes" field to the main JSON object with a brief explanation, e.g., \`"translationNotes": "Simplified complex sentence to focus on primary action."\`.`,
     user: `EXISTING FACTS (for context, do not translate these):
 \`\`\`prolog
@@ -260,12 +260,12 @@ ONTOLOGY RULES (for context, do not translate these):
 {{ontologyRules}}
 \`\`\`
 
-LEXICON SUMMARY (preferred predicates and arities, use these if applicable):
+LEXICON SUMMARY (preferred predicates and arities, use these if applicable, especially for predicate names and argument casing):
 \`\`\`
 {{lexiconSummary}}
 \`\`\`
 
-Based on all the context above, translate ONLY the following NEW natural language text into the SIR JSON format:
+Based on all the context above, translate ONLY the following NEW natural language text into the SIR JSON format, strictly following the schema and casing rules for constants (lowercase) and variables (ALL CAPS) in arguments:
 
 New Text: "{{naturalLanguageText}}"
 

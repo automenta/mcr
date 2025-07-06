@@ -75,43 +75,71 @@ class ScientificKBDemo extends Example {
 
     for (const item of queries) {
       const result = await this.query(item.q);
-      if (result && typeof result.answer === 'string') {
-        let conditionMet = false;
-        const answerLower = result.answer.toLowerCase();
-        if (Array.isArray(item.expected)) {
-          conditionMet = item.expected.every(exp => answerLower.includes(exp.toLowerCase()));
+
+      if (!result || typeof result.answer !== 'string') {
+        this.dLog.error(
+          `Query "${item.q}" failed or returned unexpected result structure.`
+        );
+        if (result) {
+          this.dLog.info('Unexpected result structure:', {
+            query: item.q,
+            result,
+          });
+        }
+        // Check if "I don't know" was expected for this failed query
+        if (
+          typeof item.expected === 'string' &&
+          item.expected.toLowerCase().includes("don't know")
+        ) {
           await this.assertCondition(
-            conditionMet,
-            `Query "${item.q}" -> Answer: "${result.answer}" (Expected to include all: [${item.expected.join(', ')}])`,
-            `Query "${item.q}" -> Answer: "${result.answer}" (Expected to include all: [${item.expected.join(', ')}], but did not)`
+            true,
+            `Query "${item.q}" correctly returned no specific answer, as expected ("${item.expected}").`,
+            '' // Should not happen
           );
         } else {
-          conditionMet = answerLower.includes(item.expected.toLowerCase());
-          // Special handling for "I don't know" or similar negative answers
-          if (item.expected.toLowerCase().includes("don't know") && !conditionMet) {
-             // If we expect "I don't know" and get something else, it's a fail *unless* the system is smarter
-             // For this demo, we'll assume "I don't know" means it wasn't found.
-             // A more sophisticated check might be needed if the LLM can infer "I don't know" in different ways.
-          }
           await this.assertCondition(
-            conditionMet,
-            `Query "${item.q}" -> Answer: "${result.answer}" (Expected: "${item.expected}")`,
-            `Query "${item.q}" -> Answer: "${result.answer}" (Expected: "${item.expected}", but was different)`
+            false,
+            '',
+            `Query "${item.q}" failed or returned no string answer.`
           );
+        }
+        continue; // Move to the next query
+      }
+
+      // At this point, result and result.answer are valid
+      const answerLower = result.answer.toLowerCase();
+      let conditionMet = false;
+      let successMessage = '';
+      let failureMessage = '';
+
+      if (Array.isArray(item.expected)) {
+        conditionMet = item.expected.every((exp) =>
+          answerLower.includes(exp.toLowerCase())
+        );
+        const expectedStr = `[${item.expected.join(', ')}]`;
+        successMessage = `Query "${item.q}" -> Answer: "${result.answer}" (Correctly included all: ${expectedStr})`;
+        failureMessage = `Query "${item.q}" -> Answer: "${result.answer}" (Expected to include all: ${expectedStr}, but did not)`;
+      } else if (typeof item.expected === 'string') {
+        conditionMet = answerLower.includes(item.expected.toLowerCase());
+        successMessage = `Query "${item.q}" -> Answer: "${result.answer}" (Matches expected: "${item.expected}")`;
+        failureMessage = `Query "${item.q}" -> Answer: "${result.answer}" (Expected: "${item.expected}", but was different or not found)`;
+
+        // Special handling for "I don't know" if it was expected and met
+        if (
+          item.expected.toLowerCase().includes("don't know") &&
+          conditionMet
+        ) {
+          successMessage = `Query "${item.q}" correctly answered with a variation of "I don't know": "${result.answer}"`;
         }
       } else {
-        // If query is expected to fail (e.g., "I don't know") and it does fail (no answer or specific message)
-        if (item.expected && item.expected.toLowerCase().includes("don't know") && (!result || !result.answer)) {
-             await this.assertCondition(
-                true,
-                `Query "${item.q}" correctly returned no specific answer, as expected.`,
-                "" // Should not happen if logic is correct
-             );
-        } else {
-            await this.assertCondition(false, "", `Query "${item.q}" failed, returned no result, or result.answer was not a string.`);
-            if(result) this.dLog.info('Unexpected result structure for query', {query: item.q, result});
-        }
+        this.dLog.error(
+          `Invalid 'item.expected' type for query: ${item.q}. Expected string or array.`
+        );
+        conditionMet = false; // Mark as failed if expected type is wrong
+        failureMessage = `Query "${item.q}" -> Invalid test configuration: 'item.expected' has unexpected type.`;
       }
+
+      await this.assertCondition(conditionMet, successMessage, failureMessage);
     }
     this.dLog.success('Scientific KB queries completed.');
     this.dLog.divider();

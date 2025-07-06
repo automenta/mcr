@@ -37,7 +37,11 @@ class Example {
     try {
       // Dynamically import axios only when needed
       const axios = (await import('axios')).default;
-      const createResponse = await axios.post(`${this.apiBaseUrl}/sessions`);
+      const createResponse = await axios.post(
+        `${this.apiBaseUrl}/sessions`,
+        {}, // Empty body for POST if not sending data
+        { timeout: 30000 } // 30 second timeout
+      );
       this.sessionId = createResponse.data.id;
       this.dLog.success(`Session created successfully. ID: ${this.sessionId}`);
       this.logger.info(
@@ -56,7 +60,8 @@ class Example {
       const axios = (await import('axios')).default;
       const assertResponse = await axios.post(
         `${this.apiBaseUrl}/sessions/${this.sessionId}/assert`,
-        { text: fact }
+        { text: fact },
+        { timeout: 30000 } // 30 second timeout
       );
       this.dLog.mcrResponse(`Server`, assertResponse.data.message);
       if (
@@ -83,7 +88,8 @@ class Example {
       const axios = (await import('axios')).default;
       const queryResponse = await axios.post(
         `${this.apiBaseUrl}/sessions/${this.sessionId}/query`,
-        { query: question }
+        { query: question },
+        { timeout: 30000 } // 30 second timeout
       );
       this.dLog.mcrResponse(`MCR Answer`, queryResponse.data.answer);
       this.logger.info(
@@ -107,7 +113,9 @@ class Example {
       this.dLog.cleanup(`Deleting session ${this.sessionId}...`);
       try {
         const axios = (await import('axios')).default;
-        await axios.delete(`${this.apiBaseUrl}/sessions/${this.sessionId}`);
+        await axios.delete(`${this.apiBaseUrl}/sessions/${this.sessionId}`, {
+          timeout: 30000, // 30 second timeout
+        });
         this.dLog.success(`Session ${this.sessionId} deleted successfully.`);
         this.logger.info(
           `[${this.getName()}] Session deleted: ${this.sessionId}`
