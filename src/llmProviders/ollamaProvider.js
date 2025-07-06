@@ -11,12 +11,18 @@ let ollamaInstance;
 function getOllamaInstance() {
   if (!ollamaInstance) {
     try {
+      logger.debug(
+        '[OllamaProvider] Attempting to instantiate ChatOllama...'
+      );
       ollamaInstance = new ChatOllama({
         // Changed from OllamaLangchain
         baseUrl: config.llm.ollama.baseURL,
         model: config.llm.ollama.model,
         // temperature: 0, // Optional: for more deterministic output
       });
+      logger.debug(
+        '[OllamaProvider] ChatOllama instantiated successfully.'
+      );
       logger.info(
         `Ollama provider initialized with model ${config.llm.ollama.model} at ${config.llm.ollama.baseURL}`
       );
@@ -69,9 +75,17 @@ async function generate(systemPrompt, userPrompt, options = {}) {
   try {
     logger.debug(`Ollama generating with messages:`, { messages, options });
 
-    // ChatOllama models are invoked with a list of messages or a single message string (interpreted as HumanMessage)
-    // To include a system message, we must pass an array.
-    const response = await ollama.invoke(messages);
+    const invokePromise = ollama.invoke(messages);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(
+        () => reject(new Error('Ollama request timed out after 20 seconds')),
+        20000
+      ) // 20s timeout
+    );
+
+    // Race the invoke promise against the timeout
+    const response = await Promise.race([invokePromise, timeoutPromise]);
+
     const result =
       typeof response.content === 'string'
         ? response.content
@@ -82,8 +96,9 @@ async function generate(systemPrompt, userPrompt, options = {}) {
   } catch (error) {
     logger.error(`Ollama generation failed: ${error.message}`, {
       error,
-      fullPromptContent,
+      messages, // Log messages instead of fullPromptContent which is not in this scope
     });
+    // Ensure the error message clearly indicates a timeout if that was the cause
     throw new Error(`Ollama generation failed: ${error.message}`);
   }
 }

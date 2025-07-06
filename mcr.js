@@ -1,6 +1,9 @@
 // new/mcr.js - Main server entry point
+console.log('[MCR Pre-Init] Starting mcr.js...'); // Very early log
 const app = require('./src/app');
+console.log('[MCR Pre-Init] app required.');
 const config = require('./src/config');
+console.log('[MCR Pre-Init] config required.');
 const logger = require('./src/logger');
 
 const PORT = config.server.port;

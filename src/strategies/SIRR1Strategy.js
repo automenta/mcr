@@ -48,21 +48,23 @@ class SIRR1Strategy {
       // Rule 1: If predicate contains characters other than letters, numbers, or underscore,
       // or if it starts with an uppercase letter or a digit, it MUST be quoted.
       // An unquoted atom must start with a lowercase letter.
-      // (Note: Prolog also allows operators as predicates, but SIR spec implies standard predicate names)
       if (!/^[a-z_][a-zA-Z0-9_]*$/.test(predicateToFormat)) {
-        // Not a simple, unquoted atom. Needs quoting.
-        // Escape single quotes within the predicate name itself.
         predicateToFormat = `'${predicateToFormat.replace(/'/g, "''")}'`;
       }
-      // No specific toLowerCase() here, assume LLM provides correct casing or quoting for predicates.
-      // If a predicate like 'Predicate' is intended, LLM should provide it as "'Predicate'".
-      // If the SIR has `term.predicate = "Predicate"`, it will become `'Predicate'`.
-      // If `term.predicate = "predicate_name"`, it remains `predicate_name`.
-      // If `term.predicate = "name with space"`, it becomes `'name with space'`.
 
-      const formattedArgs = term.arguments.map((arg) => {
+      // Recursive function to format individual arguments, including lists
+      const formatArgument = (arg) => {
+        if (Array.isArray(arg)) {
+          // Handle list arguments
+          const formattedListArgs = arg.map(formatArgument).join(',');
+          return `[${formattedListArgs}]`;
+        }
         if (typeof arg !== 'string') {
-          throw new Error(`Argument is not a string: ${JSON.stringify(arg)}`);
+          // This check might now be too restrictive if we allow numbers directly in SIR for arg in the future
+          // For now, sticking to string arguments from SIR as per original design, lists are the new structure.
+          throw new Error(
+            `Argument is not a string or array: ${JSON.stringify(arg)}`
+          );
         }
 
         // Rule 2: Variables (start with Uppercase or _) are not quoted.
@@ -86,7 +88,9 @@ class SIRR1Strategy {
         // Escape single quotes within the atom name by doubling them.
         const escapedArg = arg.replace(/'/g, "''");
         return `'${escapedArg}'`;
-      });
+      };
+
+      const formattedArgs = term.arguments.map(formatArgument);
 
       return `${predicateToFormat}(${formattedArgs.join(',')})`;
     };
@@ -291,37 +295,57 @@ class SIRR1Strategy {
     if (cleanedQuery.startsWith('?-')) {
       cleanedQuery = cleanedQuery.substring(2).trim();
     }
-    if (!cleanedQuery.endsWith('.')) {
-      if (cleanedQuery.length > 1 && cleanedQuery.includes('(')) {
+
+    // Robustly remove all trailing periods, then add one if appropriate.
+    cleanedQuery = cleanedQuery.replace(/\.+$/, '').trim();
+
+    if (cleanedQuery) {
+      // Add a period if it's a standard query, or if it's 'true' or 'fail' (becoming 'true.' or 'fail.')
+      // Avoid adding a period if the query is empty after trimming.
+      if (
+        cleanedQuery.includes('(') || // Heuristic for complex terms
+        !['true', 'fail'].includes(cleanedQuery) || // Not 'true' or 'fail'
+        ['true', 'fail'].includes(cleanedQuery) // Is 'true' or 'fail', ensure it gets a period
+      ) {
+        // This condition simplifies: if cleanedQuery is not empty, it needs a period.
         cleanedQuery += '.';
-      } else {
-        logger.error(
-          `[SIRR1Strategy] LLM generated invalid or empty Prolog query: "${prologQuery}"`
-        );
-        throw new Error(
-          'Failed to translate question to a valid Prolog query (empty or malformed).'
-        );
       }
+    } else {
+      // Query became empty after trimming and period removal
+      logger.error(
+        `[SIRR1Strategy] LLM generated empty Prolog query after cleaning: "${prologQuery}"`
+      );
+      throw new Error(
+        'Failed to translate question to a valid Prolog query (empty after cleaning).'
+      );
     }
 
     // Basic validation - a more robust Prolog parser/validator would be better
-    if (
-      !cleanedQuery.match(/^[a-z_][a-zA-Z0-9_]*\(.*\)\.$/) &&
-      !cleanedQuery.match(/^[a-z_][a-zA-Z0-9_]*\.$/)
-    ) {
-      if (!cleanedQuery.includes('true.') && !cleanedQuery.includes('fail.')) {
+    // This check might need adjustment if queries can be simple atoms like 'fact.'
+    // For now, expecting common query forms or true./fail.
+    const isSimpleAtomQuery = /^[a-z_][a-zA-Z0-9_]*\.$/.test(cleanedQuery);
+    const isComplexQuery = /^[a-z_'][a-zA-Z0-9_,'()]*\(.*\)\.$/.test(
+      cleanedQuery
+    ); // Slightly more permissive for quoted predicates
+
+    if (!isSimpleAtomQuery && !isComplexQuery) {
+      if (cleanedQuery !== 'true.' && cleanedQuery !== 'fail.') {
         logger.warn(
           `[SIRR1Strategy] Generated query "${cleanedQuery}" might be malformed (heuristic check).`
         );
       }
     }
 
+    // Final check for validity, especially ensuring it ends with a period if not empty.
     if (!cleanedQuery || !cleanedQuery.endsWith('.')) {
       logger.error(
-        `[SIRR1Strategy] LLM generated invalid Prolog query after cleaning: "${cleanedQuery}" (Original: "${prologQuery}")`
+        `[SIRR1Strategy] LLM generated invalid Prolog query after final processing: "${cleanedQuery}" (Original: "${prologQuery}")`
       );
-      throw new Error('Failed to translate question to a valid query.');
+      throw new Error(
+        'Failed to translate question to a valid query (malformed or missing period).'
+      );
     }
+
     logger.info(`[SIRR1Strategy] Translated to Prolog query: ${cleanedQuery}`);
     return cleanedQuery;
   }

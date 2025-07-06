@@ -42,7 +42,7 @@ const config = {
       require('path').resolve(__dirname, '../../ontologies'),
   },
   // Add other configurations as needed, e.g., logging level
-  logLevel: process.env.LOG_LEVEL || 'info',
+  logLevel: process.env.LOG_LEVEL || 'info', // Ensure this is info
   // Default translation strategy
   translationStrategy: process.env.MCR_TRANSLATION_STRATEGY || 'SIR-R1', // Default to SIR-R1
   // Debug level for API responses and potentially logs
