@@ -38,8 +38,8 @@ class FamilyOntologyDemo extends Example {
     this.dLog.info('Ontology content snippet (first 200 chars)', ontologyContent.substring(0, 200) + '...');
 
     try {
-      // Use the standard /assert endpoint. The backend should detect it's Prolog.
-      const assertResponse = await this.assertFact(ontologyContent);
+      // Use the standard /assert endpoint, but specify type as 'prolog'
+      const assertResponse = await this.assertFact(ontologyContent, 'prolog');
 
       if (assertResponse && assertResponse.addedFacts && assertResponse.addedFacts.length > 0) {
         this.dLog.success(
