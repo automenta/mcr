@@ -1,0 +1,27 @@
+{
+  "id": "Direct-S1-Query",
+  "name": "Direct-S1 Query Translation Strategy",
+  "description": "A direct translation strategy that uses an LLM call with the NL_TO_QUERY_DIRECT prompt to translate a natural language question to a Prolog query.",
+  "result_variable": "prolog_query",
+  "nodes": [
+    {
+      "id": "step1_nl_to_query_llm",
+      "type": "LLM_Call",
+      "prompt_template_name": "NL_TO_QUERY_DIRECT",
+      "model": "{{llm_model_id}}",
+      "output_variable": "raw_llm_query_output"
+    },
+    {
+      "id": "step2_extract_prolog_query",
+      "type": "Extract_Prolog_Query",
+      "input_variable": "raw_llm_query_output",
+      "output_variable": "prolog_query"
+    }
+  ],
+  "edges": [
+    {
+      "from": "step1_nl_to_query_llm",
+      "to": "step2_extract_prolog_query"
+    }
+  ]
+}

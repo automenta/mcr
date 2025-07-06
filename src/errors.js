@@ -53,7 +53,65 @@ function errorHandlerMiddleware(err, req, res, next) {
   }
 }
 
+const ErrorCodes = {
+  // General Errors
+  UNKNOWN_ERROR: 'UNKNOWN_ERROR',
+  INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR',
+  INVALID_INPUT: 'INVALID_INPUT',
+  EMPTY_INPUT: 'EMPTY_INPUT',
+
+  // LLM Errors
+  LLM_REQUEST_FAILED: 'LLM_REQUEST_FAILED',
+  LLM_EMPTY_RESPONSE: 'LLM_EMPTY_RESPONSE',
+  PROMPT_TEMPLATE_NOT_FOUND: 'PROMPT_TEMPLATE_NOT_FOUND',
+  PROMPT_TEMPLATE_INVALID: 'PROMPT_TEMPLATE_INVALID',
+  PROMPT_FORMATTING_FAILED: 'PROMPT_FORMATTING_FAILED',
+
+  // Strategy Errors
+  STRATEGY_NOT_FOUND: 'STRATEGY_NOT_FOUND',
+  INVALID_STRATEGY_DEFINITION: 'INVALID_STRATEGY_DEFINITION',
+  INVALID_STRATEGY_NODE: 'INVALID_STRATEGY_NODE',
+  UNKNOWN_NODE_TYPE: 'UNKNOWN_NODE_TYPE',
+  INVALID_NODE_INPUT: 'INVALID_NODE_INPUT',
+  STRATEGY_EXECUTION_ERROR: 'STRATEGY_EXECUTION_ERROR',
+  STRATEGY_INVALID_OUTPUT: 'STRATEGY_INVALID_OUTPUT',
+
+
+  // SIR Specific Errors
+  INVALID_SIR_STRUCTURE: 'INVALID_SIR_STRUCTURE',
+  INVALID_SIR_ARGUMENT: 'INVALID_SIR_ARGUMENT',
+  JSON_PARSING_FAILED: 'JSON_PARSING_FAILED',
+
+
+  // MCR/Session Errors
+  SESSION_NOT_FOUND: 'SESSION_NOT_FOUND',
+  SESSION_ADD_FACTS_FAILED: 'SESSION_ADD_FACTS_FAILED',
+  NO_FACTS_EXTRACTED: 'NO_FACTS_EXTRACTED',
+  NO_RULES_EXTRACTED: 'NO_RULES_EXTRACTED',
+  INVALID_GENERATED_PROLOG: 'INVALID_GENERATED_PROLOG',
+  REASONER_ERROR: 'REASONER_ERROR',
+  INTERNAL_KB_NOT_FOUND: 'INTERNAL_KB_NOT_FOUND', // For mcrService internal logic
+  NO_STRATEGY_AVAILABLE: 'NO_STRATEGY_AVAILABLE', // When strategy manager has no strategies
+
+  // Config Errors
+  CONFIG_VALIDATION_ERROR: 'CONFIG_VALIDATION_ERROR',
+};
+
+class MCRError extends Error {
+  constructor(code, message, details = null) {
+    super(message);
+    this.code = code || ErrorCodes.UNKNOWN_ERROR;
+    this.details = details;
+    // Ensuring the name property is set correctly for instances of MCRError
+    this.name = this.constructor.name;
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+
+
 module.exports = {
   ApiError,
   errorHandlerMiddleware,
+  MCRError,
+  ErrorCodes,
 };
