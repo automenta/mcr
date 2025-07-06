@@ -8,9 +8,11 @@ const logger = require('./logger'); // General logger
 const { demoLogger } = require('./demos/demoUtils'); // For colorful output, similar to demo.js
 const { checkAndStartServer } = require('./cliUtils');
 const config = require('./config');
+const crypto = require('crypto'); // For SHA-256 hashing
 // yargs and hideBin will be imported dynamically in main
 const llmServiceModule = require('./llmService'); // For semantic similarity metric generate function
 const { prompts, fillTemplate } = require('./prompts');
+const { initDb, insertPerformanceResult, closeDb } = require('./database'); // Import database functions
 
 // --- Evaluation Case Structure ---
 /**
@@ -222,59 +224,86 @@ class Evaluator {
     demoLogger.heading('MCR Evaluation System');
     this.loadEvaluationCases();
 
+    try {
+      await initDb(); // Initialize database connection
+    } catch (dbError) {
+      demoLogger.error(`Failed to initialize database: ${dbError.message}. Evaluation aborted.`);
+      logger.error('Stack trace for DB initialization failure:', dbError);
+      return; // Stop if DB can't be initialized
+    }
+
     const serverReady = await checkAndStartServer();
     if (!serverReady) {
         demoLogger.error('Evaluation aborted: MCR server is not running or could not be started.');
+        await this.cleanupDb(); // Close DB connection if server fails
         return;
     }
 
-    let strategiesToRun = strategyManager.getAvailableStrategies();
-    if (!strategiesToRun || strategiesToRun.length === 0) {
+    let availableStrategyInfo = strategyManager.getAvailableStrategies(); // Returns [{id: '...', name: '...'}]
+    if (!availableStrategyInfo || availableStrategyInfo.length === 0) {
         demoLogger.error('No translation strategies found by StrategyManager. Aborting evaluation.');
+        await this.cleanupDb();
         return;
     }
+
+    let strategiesToRunDetails = availableStrategyInfo;
 
     if (this.selectedStrategies.length > 0) {
-        strategiesToRun = strategiesToRun.filter(s => this.selectedStrategies.includes(s));
-        demoLogger.info('Running evaluation for selected strategies:', strategiesToRun.join(', '));
-        if (strategiesToRun.length === 0) {
+        strategiesToRunDetails = availableStrategyInfo.filter(s => this.selectedStrategies.includes(s.id));
+        demoLogger.info('Running evaluation for selected strategies:', strategiesToRunDetails.map(s => s.id).join(', '));
+        if (strategiesToRunDetails.length === 0) {
             demoLogger.error('None of the selected strategies are available. Aborting evaluation.');
+            await this.cleanupDb();
             return;
         }
     } else {
-        demoLogger.info('Available strategies for evaluation (running all):', strategiesToRun.join(', '));
+        demoLogger.info('Available strategies for evaluation (running all):', strategiesToRunDetails.map(s => s.id).join(', '));
     }
 
 
-    for (const strategyName of strategiesToRun) {
-      const strategyInstance = strategyManager.getStrategy(strategyName);
+    for (const strategyInfo of strategiesToRunDetails) {
+      const strategyName = strategyInfo.id; // Use ID for consistency
+      const strategyInstance = strategyManager.getStrategy(strategyName); // This gets the JSON object
+
       if (!strategyInstance) {
         demoLogger.warn(`Could not get instance for strategy ${strategyName}. Skipping.`);
         continue;
       }
-      demoLogger.heading(`Evaluating Strategy: ${strategyName}`);
+      demoLogger.heading(`Evaluating Strategy: ${strategyName} (${strategyInstance.name})`);
+
+      // Generate strategy hash
+      let strategyHash = 'unknown_hash';
+      try {
+        const strategyJsonString = JSON.stringify(strategyInstance);
+        strategyHash = crypto.createHash('sha256').update(strategyJsonString).digest('hex');
+        demoLogger.info(`Strategy SHA256 Hash: ${strategyHash}`);
+      } catch (hashError) {
+        demoLogger.error(`Error generating SHA256 hash for strategy ${strategyName}: ${hashError.message}`);
+        // Continue with a placeholder hash, or skip? For now, continue.
+      }
 
       // Set this strategy as active on the server for this batch of tests
       try {
         demoLogger.info(`Setting active strategy on server to: ${strategyName}`);
         const axios = (await import('axios')).default;
-        await axios.put(`${this.apiBaseUrl}/strategies/active`, { strategyName }, { timeout: 5000 }); // 5s timeout
+        // The API expects the strategy ID (which is strategyName here)
+        await axios.put(`${this.apiBaseUrl}/strategies/active`, { strategyName: strategyName }, { timeout: 5000 });
         demoLogger.success(`Server strategy set to ${strategyName}`);
       } catch (error) {
         demoLogger.error(`Failed to set active strategy ${strategyName} on server: ${error.message}. Skipping strategy.`);
         continue;
       }
 
-      let currentSessionId = null; // Will be created if a case needs it and doesn't specify one
+      let currentSessionId = null;
 
       for (const evalCase of this.evaluationCases) {
-        demoLogger.divider(); // Corrected: was dividerLight()
+        demoLogger.divider();
         demoLogger.info(`Running Case: ${chalk.cyan(evalCase.id)} - ${evalCase.description}`);
         demoLogger.info(`Input Type: ${evalCase.inputType}, NL: "${evalCase.naturalLanguageInput}"`);
 
         const caseResult = {
           caseId: evalCase.id,
-          strategyName,
+          strategyName, // This is the strategy ID
           naturalLanguageInput: evalCase.naturalLanguageInput,
           inputType: evalCase.inputType,
           expectedProlog: evalCase.expectedProlog,
@@ -290,15 +319,10 @@ class Evaluator {
         let sessionIdForThisCase;
 
         try {
-          // Session determination logic
           if (evalCase.sessionId) {
-            // Case specifies a session ID.
-            // This ID is used directly. Evaluator assumes it exists or is managed externally for sequences.
-            // Evaluator will NOT create or delete this session.
             sessionIdForThisCase = evalCase.sessionId;
             demoLogger.info(`Using case-specified session ID: ${sessionIdForThisCase}`);
           } else {
-            // No session ID specified in the case, use or create a strategy-level shared session.
             if (!currentSessionId) {
               demoLogger.info(`No current session for strategy ${strategyName}. Creating one.`);
               currentSessionId = await this.createSession(strategyName + " (strategy-shared)");
@@ -313,26 +337,28 @@ class Evaluator {
           }
 
           if (!sessionIdForThisCase) {
-            // This should ideally not be reached if logic above is correct, but as a safeguard:
             throw new Error('Session ID for case could not be determined or created.');
           }
 
+          let apiResponseData = {}; // To store response data that might contain cost/token info
           if (evalCase.inputType === 'assert') {
             const axios = (await import('axios')).default;
             const response = await axios.post(`${this.apiBaseUrl}/sessions/${sessionIdForThisCase}/assert`, {
               text: evalCase.naturalLanguageInput,
             }, { timeout: 10000 });
-            caseResult.actualProlog = response.data.addedFacts || [];
+            apiResponseData = response.data;
+            caseResult.actualProlog = apiResponseData.addedFacts || [];
             demoLogger.logic('Asserted Prolog:', caseResult.actualProlog.join('\n'));
           } else if (evalCase.inputType === 'query') {
             const axios = (await import('axios')).default;
             const response = await axios.post(`${this.apiBaseUrl}/sessions/${sessionIdForThisCase}/query`, {
               query: evalCase.naturalLanguageInput,
-              options: { debug: true }
+              options: { debug: true } // Assuming debug might include prolog
             }, { timeout: 10000 });
-            caseResult.actualAnswer = response.data.answer;
-            if (response.data.debugInfo && response.data.debugInfo.prologQuery) {
-              caseResult.actualProlog = response.data.debugInfo.prologQuery;
+            apiResponseData = response.data;
+            caseResult.actualAnswer = apiResponseData.answer;
+            if (apiResponseData.debugInfo && apiResponseData.debugInfo.prologQuery) {
+              caseResult.actualProlog = apiResponseData.debugInfo.prologQuery;
             }
             demoLogger.logic('Generated Prolog Query:', caseResult.actualProlog || 'N/A');
             demoLogger.mcrResponse('NL Answer:', caseResult.actualAnswer);
@@ -357,12 +383,41 @@ class Evaluator {
                 demoLogger.info(`Metric ${metricName}: ${score ? chalk.green('PASS') : chalk.red('FAIL')}`);
               } catch (metricError) {
                 demoLogger.error(`Error calculating metric ${metricName}: ${metricError.message}`);
-                caseResult.scores[metricName] = false; // Mark as fail on error
+                caseResult.scores[metricName] = false;
               }
             } else {
                 demoLogger.warn(`Metric ${metricName} is defined in case but not implemented. Skipping.`);
             }
           }
+
+          // Placeholder for LLM Model ID and Cost
+          // TODO: These need to be properly sourced from strategy execution or LLM service responses
+          const llmModelId = strategyInstance.nodes?.find(n => n.type === "LLM_Call")?.model || "default_llm_model";
+          const costMetrics = apiResponseData.cost || { placeholder_cost: 0 }; // Look for cost in API response, else placeholder
+
+          // Determine raw_output
+          let rawOutputForDb = null;
+          if (evalCase.inputType === 'assert' && caseResult.actualProlog) {
+            rawOutputForDb = Array.isArray(caseResult.actualProlog) ? caseResult.actualProlog.join('\n') : caseResult.actualProlog;
+          } else if (evalCase.inputType === 'query' && caseResult.actualAnswer) {
+            rawOutputForDb = caseResult.actualAnswer;
+          } else if (caseResult.actualProlog) { // Fallback for queries if answer is missing but prolog exists
+             rawOutputForDb = Array.isArray(caseResult.actualProlog) ? caseResult.actualProlog.join('\n') : caseResult.actualProlog;
+          }
+
+
+          const dbRecord = {
+            strategy_hash: strategyHash,
+            llm_model_id: llmModelId, // Placeholder
+            example_id: evalCase.id,
+            metrics: caseResult.scores,
+            cost: costMetrics, // Placeholder
+            latency_ms: caseResult.durationMs, // This will be updated in finally
+            raw_output: rawOutputForDb,
+          };
+
+          // Insert into database (latency_ms will be updated in finally block before this)
+          // We'll actually call insertPerformanceResult in the finally block
 
         } catch (error) {
           caseResult.error = error.message;
@@ -371,13 +426,45 @@ class Evaluator {
           }
           demoLogger.error('Case execution error:', caseResult.error);
         } finally {
-          caseResult.durationMs = Date.now() - startTime;
+          caseResult.durationMs = Date.now() - startTime; // Final duration
           this.results.push(caseResult);
-          // Removed deletion of case-specific session IDs here.
-          // Lifecycle of sessions named in evalCase.sessionId is considered external or managed by test sequence.
+
+          // Prepare and insert DB record here, after durationMs is finalized
+          const llmModelId = strategyInstance.nodes?.find(n => n.type === "LLM_Call")?.model?.replace("{{llm_model_id}}", config.llm.defaultModelId || "unknown") || config.llm.defaultModelId || "unknown_model";
+          const costMetrics = { note: "Cost metrics not yet implemented" }; // Placeholder
+
+          let rawOutputForDb = null;
+          if (evalCase.inputType === 'assert' && caseResult.actualProlog) {
+            rawOutputForDb = Array.isArray(caseResult.actualProlog) ? JSON.stringify(caseResult.actualProlog) : caseResult.actualProlog;
+          } else if (evalCase.inputType === 'query' && caseResult.actualAnswer) {
+            rawOutputForDb = typeof caseResult.actualAnswer === 'object' ? JSON.stringify(caseResult.actualAnswer) : String(caseResult.actualAnswer);
+          } else if (caseResult.actualProlog) {
+             rawOutputForDb = Array.isArray(caseResult.actualProlog) ? JSON.stringify(caseResult.actualProlog) : caseResult.actualProlog;
+          }
+           if (caseResult.error) { // If there was an error, store it in raw_output
+                rawOutputForDb = JSON.stringify({ error: caseResult.error, output: rawOutputForDb });
+           }
+
+
+          const dbRecord = {
+            strategy_hash: strategyHash,
+            llm_model_id: llmModelId,
+            example_id: evalCase.id,
+            metrics: caseResult.scores,
+            cost: costMetrics,
+            latency_ms: caseResult.durationMs,
+            raw_output: rawOutputForDb,
+          };
+
+          try {
+            await insertPerformanceResult(dbRecord);
+            demoLogger.success(`Performance result for case ${evalCase.id} (strategy ${strategyName}) saved to DB.`);
+          } catch (dbInsertError) {
+            demoLogger.error(`Failed to save performance result for case ${evalCase.id} to DB: ${dbInsertError.message}`);
+            logger.error('Stack trace for DB insert failure:', dbInsertError);
+          }
         }
       }
-      // Clean up the strategy-level (shared) session if one was created and used for this strategy
       if (currentSessionId) {
         demoLogger.info(`Cleaning up strategy-shared session ${currentSessionId} for strategy ${strategyName}.`);
         await this.deleteSession(currentSessionId, strategyName + " (strategy-shared)");
@@ -385,6 +472,16 @@ class Evaluator {
       }
     }
     this.displaySummary();
+    await this.cleanupDb(); // Close DB connection after all operations
+  }
+
+  async cleanupDb() {
+    try {
+      await closeDb();
+    } catch (dbCloseError) {
+      demoLogger.error(`Error closing database: ${dbCloseError.message}`);
+      logger.error('Stack trace for DB close failure:', dbCloseError);
+    }
   }
 
   displaySummary() {

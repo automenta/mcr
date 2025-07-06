@@ -68,7 +68,8 @@
     "tau-prolog": "^0.3.4",
     "uuid": "^11.1.0",
     "winston": "^3.0.0",
-    "yargs": "^18.0.0"
+    "yargs": "^18.0.0",
+    "sqlite3": "^5.1.7"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
