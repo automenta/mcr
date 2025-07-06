@@ -73,7 +73,9 @@ class Example {
 
     try {
       const axios = (await import('axios')).default;
-      const payload = isProlog ? { prolog: fact } : { text: fact };
+      // Always use the 'text' property for the fact, regardless of type.
+      // The 'type' or 'isProlog' can be used for logging or other client-side logic if needed.
+      const payload = { text: fact };
       const assertResponse = await axios.post(
         `${this.apiBaseUrl}/sessions/${this.sessionId}/assert`,
         payload,
