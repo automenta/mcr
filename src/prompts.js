@@ -200,7 +200,7 @@ The JSON object you generate must conform to this structure:
   "statementType": "'fact' or 'rule'",
   "fact": { // (Present if statementType is 'fact')
     "predicate": "string (lowercase_snake_case, e.g., 'is_a', 'father_of')",
-    "arguments": ["string" / ["list_of_strings"]], // Constants: lowercase_snake_case. Variables: ALL_CAPS.
+    "arguments": ["string" / ["list_of_strings"]], // Constants: lowercase_snake_case. Variables: ALL_CAPS. See detailed casing rules below.
     "isNegative": "boolean (optional, default: false)"
   },
   "rule": { // (Present if statementType is 'rule')
@@ -242,9 +242,16 @@ The JSON object you generate must conform to this structure:
 5.  **Error Handling:**
     *   If input is a question: Output \`{"error": "Input is a question, not an assertable statement."}\`
     *   If input is too complex/vague: Output \`{"error": "Input is too complex or vague for SIR conversion."}\`
+6.  **Argument Casing:** CRITICAL: All constant values in the \`arguments\` array of the SIR JSON (strings that are not variables) MUST be lowercase_snake_case (e.g., "earth", "gravity", "human", "force", "atom"). Variables MUST be ALL_CAPS (e.g., "X", "OBJECT"). If a natural language term like "FORCE" or "ATOM" refers to a type or category, it must be output as "force" or "atom" respectively when it's a constant argument. Do not use uppercase for constants unless they are proper Prolog variables.
+7.  **Specific Event Causality:** "Gravity makes apples fall."
+    Output: \`{"statementType": "fact", "fact": {"predicate": "causes_event", "arguments": ["gravity", "apples_fall"]}}\`
+8.  **Capability / General Rules based on Type:** "A force can cause acceleration."
+    Output: \`{"statementType": "rule", "rule": {"head": {"predicate": "can_cause_acceleration", "arguments": ["Thing"]}, "body": [{"predicate": "is_a", "arguments": ["Thing", "force"]}]}}\`
+9.  **General Composition/Definition of a Class:** "A molecule is composed of atoms."
+    Output: \`{"statementType": "fact", "fact": {"predicate": "general_composition_is", "arguments": ["molecule", "atoms"]}}\`
 
 - Ensure your JSON output is valid and strictly follows the structure described. Only output the JSON object.
-- Pay close attention to LEXICON SUMMARY for preferred predicate names, arities, and argument casing (constants: lowercase_snake_case, variables: ALL_CAPS).
+- Pay close attention to LEXICON SUMMARY for preferred predicate names and arities.
 - If significant assumptions are made, add a "translationNotes" field to the root of the JSON object.`,
     user: `EXISTING FACTS (for context, do not translate these):
 \`\`\`prolog
@@ -335,10 +342,16 @@ prompts.NL_TO_QUERY.system = `You are an expert AI assistant that translates nat
   - Facts: \`defines(water, h2o).\`
     - Question: "What is H2O?" (i.e., what common name does 'h2o' represent) -> \`defines(CommonName, h2o).\`
     - Question: "What is the formula for water?" -> \`defines(water, Formula).\`
+  - Facts: \`defines(table_salt, nacl).\`
+    - Question: "What is table salt?" (i.e., what is the chemical formula for table_salt) -> \`defines(table_salt, ChemicalFormula).\`
+    - Question: "What is NaCl?" (i.e., what is the common name for NaCl) -> \`defines(CommonName, nacl).\`
+  - Facts: \`defines(oxygen, o).\`
+    - Question: "What is O?" (i.e., what is the common name for the symbol 'o') -> \`defines(CommonName, o).\`
+    - Question: "What is the symbol for oxygen?" -> \`defines(oxygen, Symbol).\`
   - Facts: \`is_composed_of(h2o, [hydrogen, oxygen]).\`
     - Question: "What is H2O composed of?" -> \`is_composed_of(h2o, Components).\`
-  - Facts: \`generally_composed_of(X, [atom]) :- is_a(X, molecule).\`, \`is_a(h2o, molecule).\`
-    - Question: "What are molecules generally composed of?" -> \`is_a(M, molecule), generally_composed_of(M, Components).\`
+  - Facts: \`general_composition_is(molecule, atoms).\`
+    - Question: "What are molecules composed of?" -> \`general_composition_is(molecule, ComponentType).\`
   - Facts: \`orbits(moon, earth).\`
     - Question: "What orbits the Earth?" -> \`orbits(X, earth).\``;
 
@@ -378,7 +391,7 @@ Focus on the provided FEW-SHOT EXAMPLES to understand the desired SIR structure.
     *   Relations: "John is Mary's father." -> \`{"statementType": "fact", "fact": {"predicate": "father_of", "arguments": ["john", "mary"]}}\`
     *   Composition: "H2O is composed of Hydrogen and Oxygen." -> \`{"statementType": "fact", "fact": {"predicate": "is_composed_of", "arguments": ["h2o", ["hydrogen", "oxygen"]]}}\`
     *   Attributes: "The sky is blue." -> \`{"statementType": "fact", "fact": {"predicate": "is_color", "arguments": ["sky", "blue"]}}\`
-    *   Constants (e.g., 'socrates') MUST be lowercase_snake_case. Variables (e.g., 'X') MUST be ALL CAPS.
+    *   Constants (e.g., 'socrates', 'human', 'force') MUST be lowercase_snake_case. Variables (e.g., 'X') MUST be ALL CAPS. If 'FORCE' or 'ATOM' appears in input text as a concept, it becomes 'force' or 'atom' respectively as a constant argument.
 3.  **Rule Structure:**
     *   "All humans are mortal." -> \`{"statementType": "rule", "rule": {"head": {"predicate": "mortal", "arguments": ["X"]}, "body": [{"predicate": "is_a", "arguments": ["X", "human"]}]}}\`
 4.  **Negation:** "Paris is not in Germany." -> \`{"statementType": "fact", "fact": {"predicate": "is_in", "arguments": ["paris", "germany"], "isNegative": true}}\`
@@ -400,6 +413,12 @@ Focus on the provided FEW-SHOT EXAMPLES to understand the desired SIR structure.
 6. Input: "A car has wheels and an engine." (Interpreted as a general property, not specific composition)
    Output: \`{"statementType": "rule", "rule": {"head": {"predicate": "has_parts", "arguments": ["X", ["wheels", "engine"]]}, "body": [{"predicate": "is_a", "arguments": ["X", "car"]}]}}\`
    (Note: for specific composition like "H2O is composed of...", use 'is_composed_of' as per principles)
+7. Input: "Gravity makes apples fall."
+   Output: \`{"statementType": "fact", "fact": {"predicate": "causes_event", "arguments": ["gravity", "apples_fall"]}}\`
+8. Input: "A force can cause acceleration."
+   Output: \`{"statementType": "rule", "rule": {"head": {"predicate": "can_cause_acceleration", "arguments": ["SomeForce"]}, "body": [{"predicate": "is_a", "arguments": ["SomeForce", "force"]}]}}\`
+9. Input: "A molecule is composed of atoms."
+   Output: \`{"statementType": "fact", "fact": {"predicate": "general_composition_is", "arguments": ["molecule", "atoms"]}}\`
 `,
   user: `EXISTING FACTS (for context):
 \`\`\`prolog
@@ -430,14 +449,16 @@ Your output MUST be a single, complete JSON object.
     *   Include a \`fact\` object.
     *   The \`fact\` object must have:
         *   \`predicate\`: string (e.g., "is_a", "father_of", "is_color"). Use lowercase_snake_case. Consult LEXICON SUMMARY.
-        *   \`arguments\`: array of strings. Constants (e.g., "socrates") are lowercase_snake_case. Variables (e.g., "X") are ALL_CAPS. For list arguments (e.g. components in a composition), use a JSON array of strings: \`["h2o", ["hydrogen", "oxygen"]]\`.
+        *   \`arguments\`: array of strings. CRITICAL: Constants (e.g., "socrates", "earth", "gravity", "human", "force", "atom") MUST be lowercase_snake_case. Variables (e.g., "X", "ANY_VARIABLE") MUST be ALL_CAPS. If a natural language term like "FORCE" or "ATOM" refers to a type or category, it should be output as "force" or "atom" respectively when it's a constant argument. For list arguments (e.g. components in a composition), use a JSON array of strings: \`["h2o", ["hydrogen", "oxygen"]]\`.
         *   \`isNegative\` (optional): boolean, defaults to false. Set to true for negated facts (e.g., "Paris is NOT in Germany.").
-    *   **Predicate Selection Guide for Facts:**
+    *   **Predicate Selection Guide for Facts (ensure argument casing rules are followed):**
         *   For class membership (e.g., 'Socrates is a human'): \`"predicate": "is_a", "arguments": ["socrates", "human"]\`
         *   For definitions/identities (e.g., 'Water is H2O'): \`"predicate": "defines", "arguments": ["water", "h2o"]\`
         *   For relational phrases (e.g., 'John is Mary's father'): \`"predicate": "father_of", "arguments": ["john", "mary"]\`
         *   For specific compositions (e.g. 'H2O is composed of Hydrogen and Oxygen'): \`"predicate": "is_composed_of", "arguments": ["h2o", ["hydrogen", "oxygen"]]\`
         *   For simple attributes (e.g., 'The sky is blue'): \`"predicate": "is_color", "arguments": ["sky", "blue"]\`
+        *   For specific event causality (e.g., 'Gravity makes apples fall'): \`"predicate": "causes_event", "arguments": ["gravity", "apples_fall"]\`
+        *   For general composition/definition of a class (e.g., 'A molecule is composed of atoms'): \`"predicate": "general_composition_is", "arguments": ["molecule", "atoms"]\`
 3.  **If "rule"**:
     *   Include a \`rule\` object.
     *   The \`rule\` object must have:
@@ -445,6 +466,8 @@ Your output MUST be a single, complete JSON object.
         *   \`body\`: an array of objects, each structured like a "fact", representing the rule's conditions.
     *   **Rule Example:** "All humans are mortal." (Given facts use \`is_a(Instance, human)\`)
         \`"rule": {"head": {"predicate": "mortal", "arguments": ["X"]}, "body": [{"predicate": "is_a", "arguments": ["X", "human"]}]}\`
+    *   **Rule Example (Capability based on Type):** "A force can cause acceleration."
+        \`"rule": {"head": {"predicate": "can_cause_acceleration", "arguments": ["SomeForce"]}, "body": [{"predicate": "is_a", "arguments": ["SomeForce", "force"]}]}\`
 4.  **Error Handling:**
     *   If input is a question: \`{"error": "Input is a question, not an assertable statement."}\`
     *   If too complex/vague: \`{"error": "Input is too complex or vague for SIR conversion."}\`
