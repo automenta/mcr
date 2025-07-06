@@ -136,6 +136,27 @@ module.exports = {
   initDb,
   insertPerformanceResult,
   closeDb,
+  queryPerformanceResults, // Added new function
   // Expose DB_PATH for testing or other modules if needed
   DB_PATH
 };
+
+/**
+ * Executes a SELECT query against the database and returns all rows.
+ * @param {string} sqlQuery - The SELECT SQL query string.
+ * @param {Array} [params=[]] - An array of parameters to bind to the query.
+ * @returns {Promise<Array<Object>>} A promise that resolves with an array of row objects.
+ */
+async function queryPerformanceResults(sqlQuery, params = []) {
+  const currentDb = await initDb(); // Ensure DB is initialized
+  return new Promise((resolve, reject) => {
+    currentDb.all(sqlQuery, params, (err, rows) => {
+      if (err) {
+        logger.error(`Error executing query: ${sqlQuery}`, { error: err.message, params });
+        return reject(err);
+      }
+      logger.debug(`Query executed successfully: ${sqlQuery}`, { params, rowCount: rows ? rows.length : 0 });
+      resolve(rows);
+    });
+  });
+}

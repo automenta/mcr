@@ -9,6 +9,18 @@ const config = require('./config');
 const strategyManager = require('./strategyManager');
 const StrategyExecutor = require('./strategyExecutor'); // Import StrategyExecutor
 const { MCRError, ErrorCodes } = require('./errors');
+const InputRouter = require('./evolution/inputRouter'); // Added
+const db = require('./database'); // Added
+
+// Initialize InputRouter
+let inputRouterInstance;
+try {
+  inputRouterInstance = new InputRouter(db); // db module itself is passed
+  logger.info('[McrService] InputRouter initialized.');
+} catch (error) {
+  logger.error('[McrService] Failed to initialize InputRouter. Routing will be disabled.', error);
+  inputRouterInstance = null; // Fallback: router is disabled
+}
 
 
 // Get the initial active strategy JSON from the manager
@@ -17,57 +29,88 @@ let baseStrategyId = config.translationStrategy;
 
 /**
  * Retrieves the appropriate operational strategy JSON (e.g., "STRATEGY_ID-Assert" or "STRATEGY_ID-Query")
- * based on the base strategy ID and the type of operation.
- * Falls back to the base strategy ID if the specific operational variant is not found,
- * and then to the system's default strategy if neither is found.
+ * based on the base strategy ID, operation type, and potentially a recommendation from the InputRouter.
  * @param {'Assert' | 'Query'} operationType - The type of MCR operation.
- * @returns {object} The strategy JSON object for the operation.
+ * @param {string} [naturalLanguageText] - Optional NL text to help InputRouter select a strategy.
+ * @returns {Promise<object>} The strategy JSON object for the operation.
  * @throws {MCRError} If no suitable strategy can be found.
  */
-function getOperationalStrategyJson(operationType) {
-  const operationalStrategyId = `${baseStrategyId}-${operationType}`;
-  let strategyJson = strategyManager.getStrategy(operationalStrategyId);
+async function getOperationalStrategyJson(operationType, naturalLanguageText) {
+  let strategyIdToUse = null; // To log which ID was finally chosen
+  let strategyJson = null;
 
-  if (!strategyJson) {
-    logger.warn(`[McrService] Operational strategy "${operationalStrategyId}" not found. Trying base ID "${baseStrategyId}".`);
-    strategyJson = strategyManager.getStrategy(baseStrategyId);
-    if (!strategyJson) {
-      logger.warn(`[McrService] Base strategy "${baseStrategyId}" also not found for ${operationType}. Falling back to StrategyManager's default.`);
-      // getDefaultStrategy will throw if nothing is available, which is desired.
-      strategyJson = strategyManager.getDefaultStrategy();
-      logger.warn(`[McrService] Using system default strategy "${strategyJson.id}" for ${operationType} due to missing specific or base strategy.`);
-    } else {
-      logger.info(`[McrService] Using base strategy "${strategyJson.id}" for ${operationType} as operational variant "${operationalStrategyId}" was not found.`);
+  if (inputRouterInstance && naturalLanguageText) {
+    try {
+      const recommendedStrategyId = await inputRouterInstance.route(naturalLanguageText, config.llmProvider.model);
+      if (recommendedStrategyId) {
+        strategyJson = strategyManager.getStrategy(recommendedStrategyId);
+        if (strategyJson) {
+          logger.info(`[McrService] InputRouter recommended strategy "${recommendedStrategyId}" (Name: "${strategyJson.name}") for ${operationType} on input: "${naturalLanguageText.substring(0,50)}..."`);
+          strategyIdToUse = recommendedStrategyId;
+        } else {
+          logger.warn(`[McrService] InputRouter recommended strategy ID "${recommendedStrategyId}" but it was not found in StrategyManager. Falling back for input: "${naturalLanguageText.substring(0,50)}..."`);
+        }
+      } else {
+        // This is a common case, e.g. router has no data yet, or text is too generic.
+        logger.debug(`[McrService] InputRouter did not recommend a specific strategy for "${naturalLanguageText.substring(0,50)}...". Falling back to default logic.`);
+      }
+    } catch (routerError) {
+      logger.error(`[McrService] InputRouter failed to recommend a strategy: ${routerError.message}. Falling back.`, routerError);
     }
   }
-  return strategyJson;
+
+  if (!strategyJson) { // If router didn't recommend, or recommended but not found, or router disabled
+    const operationalStrategyId = `${baseStrategyId}-${operationType}`;
+    strategyJson = strategyManager.getStrategy(operationalStrategyId);
+    strategyIdToUse = operationalStrategyId;
+
+    if (!strategyJson) {
+      logger.warn(`[McrService] Configured operational strategy "${operationalStrategyId}" not found. Trying base ID "${baseStrategyId}".`);
+      strategyJson = strategyManager.getStrategy(baseStrategyId);
+      strategyIdToUse = baseStrategyId;
+      if (!strategyJson) {
+        logger.warn(`[McrService] Configured base strategy "${baseStrategyId}" also not found for ${operationType}. Falling back to StrategyManager's default.`);
+        // getDefaultStrategy will throw if nothing is available, which is desired.
+        strategyJson = strategyManager.getDefaultStrategy();
+        strategyIdToUse = strategyJson.id; // ID of the default strategy
+        logger.warn(`[McrService] Using system default strategy "${strategyIdToUse}" (Name: "${strategyJson.name}") for ${operationType}.`);
+      } else {
+        logger.info(`[McrService] Using configured base strategy "${strategyIdToUse}" (Name: "${strategyJson.name}") for ${operationType} as operational variant was not found.`);
+      }
+    } else {
+       logger.info(`[McrService] Using configured operational strategy "${strategyIdToUse}" (Name: "${strategyJson.name}") for ${operationType}.`);
+    }
+  }
+  return strategyJson; // This is the actual strategy JSON object
 }
 
 // Log initial strategy based on a typical operation like 'Assert' for general idea
-try {
-  const initialDisplayStrategy = getOperationalStrategyJson('Assert');
-  logger.info(
-    `[McrService] Initialized with base translation strategy ID: "${baseStrategyId}". Effective assertion strategy: "${initialDisplayStrategy.name}" (ID: ${initialDisplayStrategy.id})`
-  );
-} catch (e) {
-    logger.error(`[McrService] Failed to initialize with a default assertion strategy. Base ID: "${baseStrategyId}". Error: ${e.message}`);
-    // Depending on desired behavior, could re-throw or set a "no-op" strategy if critical.
-    // For now, if getOperationalStrategyJson (via getDefaultStrategy) throws, startup will implicitly fail here.
+// Note: getOperationalStrategyJson is now async
+async function logInitialStrategy() {
+  try {
+    // Provide a generic text for initial logging as actual user input isn't available here.
+    const initialDisplayStrategy = await getOperationalStrategyJson('Assert', 'System startup initial strategy check.');
+    logger.info(
+      `[McrService] Initialized with base translation strategy ID: "${baseStrategyId}". Effective assertion strategy: "${initialDisplayStrategy.name}" (ID: ${initialDisplayStrategy.id})`
+    );
+  } catch (e) {
+      logger.error(`[McrService] Failed to initialize with a default assertion strategy. Base ID: "${baseStrategyId}". Error: ${e.message}`);
+  }
 }
+logInitialStrategy(); // Call the async function
 
 
 /**
  * Sets the active base translation strategy ID for the MCR service.
- * The actual strategy executed for an operation (e.g., assert, query) will be this base ID
- * suffixed with "-Assert" or "-Query" (e.g., "SIR-R1-Assert").
+ * This ID is used as a fallback if the InputRouter doesn't provide a recommendation
+ * or if the recommended strategy is not found.
  * @param {string} strategyId - The base ID of the strategy to activate (e.g., "SIR-R1").
- * @returns {boolean} True if at least one operational variant (e.g., "strategyId-Assert") or the base strategy itself exists, false otherwise.
+ * @returns {Promise<boolean>} True if at least one operational variant (e.g., "strategyId-Assert") or the base strategy itself exists, false otherwise.
  */
-function setTranslationStrategy(strategyId) {
+async function setTranslationStrategy(strategyId) {
   logger.debug(
     `[McrService] Attempting to set base translation strategy ID to: ${strategyId}`
   );
-  // Check if at least one operational variant (e.g., Assert) or the base ID itself exists
   const assertVariantId = `${strategyId}-Assert`;
   const queryVariantId = `${strategyId}-Query`;
 
@@ -78,10 +121,10 @@ function setTranslationStrategy(strategyId) {
   if (assertStrategyExists || queryStrategyExists || baseStrategyItselfExists) {
     const oldBaseStrategyId = baseStrategyId;
     baseStrategyId = strategyId;
-    // config.translationStrategy = baseStrategyId; // Persist if needed
 
     try {
-        const currentAssertStrategy = getOperationalStrategyJson('Assert'); // For logging the new effective strategy
+        // For logging the new effective strategy, provide a generic text
+        const currentAssertStrategy = await getOperationalStrategyJson('Assert', 'Strategy set check.');
         logger.info(
         `[McrService] Base translation strategy ID changed from "${oldBaseStrategyId}" to "${baseStrategyId}". Effective assertion strategy: "${currentAssertStrategy.name}" (ID: ${currentAssertStrategy.id})`
         );
@@ -99,7 +142,7 @@ function setTranslationStrategy(strategyId) {
 
 /**
  * Gets the base ID of the currently active translation strategy (e.g., "SIR-R1").
- * This base ID is used to derive operational strategy IDs like "SIR-R1-Assert".
+ * This base ID is used as a fallback by getOperationalStrategyJson.
  * @returns {string} The base ID of the active strategy.
  */
 function getActiveStrategyId() {
@@ -108,15 +151,15 @@ function getActiveStrategyId() {
 
 /**
  * Asserts natural language text as facts/rules into a session.
- * It uses an operational strategy derived from the active base strategy ID (e.g., "BASE_ID-Assert").
+ * It uses an operational strategy determined by `getOperationalStrategyJson`, potentially via InputRouter.
  * The strategy execution is handled by the `StrategyExecutor`.
  * @param {string} sessionId - The ID of the session.
  * @param {string} naturalLanguageText - The natural language text to assert.
  * @returns {Promise<{success: boolean, message: string, addedFacts?: string[], error?: string, strategyId?: string}>}
  */
 async function assertNLToSession(sessionId, naturalLanguageText) {
-  const activeStrategyJson = getOperationalStrategyJson('Assert');
-  const currentStrategyId = activeStrategyJson.id; // Use the actual ID of the fetched strategy
+  const activeStrategyJson = await getOperationalStrategyJson('Assert', naturalLanguageText);
+  const currentStrategyId = activeStrategyJson.id;
   logger.info(
     `[McrService] Enter assertNLToSession for session ${sessionId} using strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}). NL Text: "${naturalLanguageText}"`
   );
@@ -189,21 +232,21 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
       success: false,
       message: `Error during assertion: ${error.message}`,
       error: error.code || ErrorCodes.STRATEGY_EXECUTION_ERROR,
-      details: error.message, // error.details might contain more structured info from StrategyExecutor
-      strategyId: currentStrategyId, // Ensure this was changed from activeStrategyId
+      details: error.message,
+      strategyId: currentStrategyId,
     };
   }
 }
 
 /**
- * Queries a session using a natural language question and the active translation strategy.
+ * Queries a session using a natural language question and a strategy chosen by `getOperationalStrategyJson`.
  * @param {string} sessionId - The ID of the session.
  * @param {string} naturalLanguageQuestion - The natural language question.
  * @param {object} [queryOptions] - Optional parameters for the query (e.g., style for answer, dynamicOntology).
  * @returns {Promise<{success: boolean, answer?: string, debugInfo?: object, error?: string, strategy?: string}>}
  */
 async function querySessionWithNL(sessionId, naturalLanguageQuestion, queryOptions = {}) {
-  const activeStrategyJson = getOperationalStrategyJson('Query');
+  const activeStrategyJson = await getOperationalStrategyJson('Query', naturalLanguageQuestion);
   const currentStrategyId = activeStrategyJson.id;
   const { dynamicOntology, style = 'conversational' } = queryOptions;
   logger.info(
@@ -313,7 +356,11 @@ async function querySessionWithNL(sessionId, naturalLanguageQuestion, queryOptio
 async function translateNLToRulesDirect(naturalLanguageText, strategyIdToUse) {
   // If no specific strategyIdToUse is provided, derive the default "Assert" variant.
   const effectiveBaseId = strategyIdToUse || baseStrategyId;
-  const strategyJsonToUse = strategyManager.getStrategy(`${effectiveBaseId}-Assert`) || strategyManager.getStrategy(effectiveBaseId) || getOperationalStrategyJson('Assert');
+  // If a strategyIdToUse is explicitly passed, we honor that directly without routing.
+  // Otherwise, we use getOperationalStrategyJson which includes routing.
+  const strategyJsonToUse = strategyIdToUse ?
+                              (strategyManager.getStrategy(`${effectiveBaseId}-Assert`) || strategyManager.getStrategy(effectiveBaseId) || await getOperationalStrategyJson('Assert', naturalLanguageText))
+                            : await getOperationalStrategyJson('Assert', naturalLanguageText);
   const currentStrategyId = strategyJsonToUse.id;
 
   const operationId = `transNLToRules-${Date.now()}`;
@@ -452,7 +499,7 @@ async function translateRulesToNLDirect(prologRules, style = 'conversational') {
  * @returns {Promise<{success: boolean, explanation?: string, debugInfo?: object, error?: string, strategyId?: string}>}
  */
 async function explainQuery(sessionId, naturalLanguageQuestion) {
-  const activeStrategyJson = getOperationalStrategyJson('Query'); // Explain likely uses a query strategy
+  const activeStrategyJson = await getOperationalStrategyJson('Query', naturalLanguageQuestion); // Explain uses a query strategy
   const currentStrategyId = activeStrategyJson.id;
   const operationId = `explain-${Date.now()}`;
 

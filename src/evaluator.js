@@ -13,6 +13,7 @@ const crypto = require('crypto'); // For SHA-256 hashing
 const llmServiceModule = require('./llmService'); // For semantic similarity metric generate function
 const { prompts, fillTemplate } = require('./prompts');
 const { initDb, insertPerformanceResult, closeDb } = require('./database'); // Import database functions
+const { loadAllEvalCases } = require('./evalCases/baseEvals'); // MOVED HERE
 
 // --- Evaluation Case Structure ---
 /**
@@ -151,11 +152,7 @@ class Evaluator {
     this.llmGenerate = llmServiceModule.generate; // Store the generate function for metrics
   }
 
-// Use the new recursive loader from baseEvals
-const { loadAllEvalCases } = require('./evalCases/baseEvals');
-
-// ...
-// Inside Evaluator class
+  // loadEvaluationCases is now correctly defined within the class
   loadEvaluationCases() {
     demoLogger.info('Loading evaluation cases recursively from root:', this.evaluationCasesPath);
     let allLoadedCases = [];
