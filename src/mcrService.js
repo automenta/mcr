@@ -174,7 +174,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
 
     logger.info(`[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for assertion. OpID: ${operationId}.`);
     const executor = new StrategyExecutor(activeStrategyJson);
-    const executionResult = await executor.execute(llmService, initialContext);
+    const executionResult = await executor.execute(llmService, reasonerService, initialContext);
 
     const addedFacts = executionResult; // In SIR-R1-Assert, the result of the strategy is directly the array of prolog clauses.
     const costOfExecution = null; // executionResult.totalCost; // TODO: Re-enable cost tracking if strategy executor provides it.
@@ -254,7 +254,7 @@ async function querySessionWithNL(sessionId, naturalLanguageQuestion, queryOptio
 
     logger.info(`[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for query translation. OpID: ${operationId}.`);
     const executor = new StrategyExecutor(activeStrategyJson);
-    const strategyExecutionResult = await executor.execute(llmService, initialContext);
+    const strategyExecutionResult = await executor.execute(llmService, reasonerService, initialContext);
     const prologQuery = strategyExecutionResult; // Corrected: strategyExecutionResult is the prolog query string
     // TODO: Accumulate/return strategyExecutionResult.totalCost; if execute returns an object with cost
 
@@ -335,7 +335,7 @@ async function translateNLToRulesDirect(naturalLanguageText, strategyIdToUse) {
     const initialContext = { naturalLanguageText, ontologyRules: globalOntologyRules, lexiconSummary: 'No lexicon summary available for direct translation.', existingFacts: '', llm_model_id: config.llmProvider.model };
 
     const executor = new StrategyExecutor(strategyJsonToUse);
-    const executionResult = await executor.execute(llmService, initialContext);
+    const executionResult = await executor.execute(llmService, reasonerService, initialContext);
     const prologRules = executionResult;
     // TODO: Handle executionResult.totalCost; if execute returns an object with cost
 
@@ -424,7 +424,7 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
 
     logger.info(`[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for query translation in explain. OpID: ${operationId}.`);
     const executor = new StrategyExecutor(activeStrategyJson);
-    const strategyExecutionResult = await executor.execute(llmService, initialStrategyContext);
+    const strategyExecutionResult = await executor.execute(llmService, reasonerService, initialStrategyContext);
     const prologQuery = strategyExecutionResult; // Corrected: strategyExecutionResult is the prolog query string
     // TODO: Handle strategyExecutionResult.totalCost; if execute returns an object with cost
 

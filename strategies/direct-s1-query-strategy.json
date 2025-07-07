@@ -7,7 +7,7 @@
     {
       "id": "step1_nl_to_query_llm",
       "type": "LLM_Call",
-      "prompt_template_name": "NL_TO_QUERY_DIRECT",
+      "prompt_template_name": "NL_TO_QUERY",
       "model": "{{llm_model_id}}",
       "output_variable": "raw_llm_query_output"
     },

@@ -186,13 +186,14 @@ class StrategyExecutor {
   /**
    * Executes the strategy workflow.
    * @param {ILlmProvider} llmProvider - An instance of an LLM provider.
+   * @param {IReasonProvider} reasonerService - An instance of a reasoner service provider.
    * @param {object} initialContext - The initial context for the execution,
    *                                  e.g., { naturalLanguageText, existingFacts, ontologyRules, lexiconSummary }
    *                                  or { naturalLanguageQuestion, existingFacts, ontologyRules, lexiconSummary }
    * @returns {Promise<any>} The final output of the strategy.
    * @throws {MCRError} If execution fails at any step or the graph is malformed.
    */
-  async execute(llmProvider, initialContext) {
+  async execute(llmProvider, reasonerService, initialContext) {
     logger.info(
       `[StrategyExecutor] Executing strategy "${this.strategy.id}"...`
     );
@@ -417,6 +418,27 @@ class StrategyExecutor {
             output = cleanedQuery;
             logger.debug(
               `[StrategyExecutor] Node ${node.id}: Prolog query extraction completed. Query: "${output}"`
+            );
+            break;
+
+          case 'Reasoner_Call':
+            if (!node.input_variable) {
+              throw new MCRError(ErrorCodes.INVALID_STRATEGY_NODE, `Reasoner_Call node ${node.id} missing 'input_variable'.`);
+            }
+            const queryToRun = executionState[node.input_variable];
+            if (typeof queryToRun !== 'string') {
+              throw new MCRError(ErrorCodes.INVALID_NODE_INPUT, `Input for Reasoner_Call node ${node.id} (variable '${node.input_variable}') is not a string. Found: ${typeof queryToRun}`);
+            }
+            // Use the session's knowledge base from the execution state.
+            // This assumes 'existingFacts' is consistently populated in the initial context.
+            const kbForReasonerCall = executionState.existingFacts || '';
+            // Add ontology rules if they are also in the context
+            const ontologyForReasonerCall = executionState.ontologyRules || '';
+            const fullKbForCall = `${kbForReasonerCall}\n${ontologyForReasonerCall}`;
+
+            output = await reasonerService.executeQuery(fullKbForCall, queryToRun);
+            logger.debug(
+              `[StrategyExecutor] Node ${node.id}: Reasoner_Call completed. Results: ${JSON.stringify(output)}`
             );
             break;
 
