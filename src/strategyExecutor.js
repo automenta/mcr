@@ -274,10 +274,14 @@ class StrategyExecutor {
               promptTemplate.user,
               templateContext
             );
-            output = await llmProvider.generate(
+            const llmResult = await llmProvider.generate(
               promptTemplate.system,
               userPrompt
             );
+            // Output of an LLM_Call node is the 'text' property of the result.
+            // Cost is handled separately.
+            output = llmResult.text;
+            // TODO: Accumulate llmResult.costData into totalCost for the execution
             logger.debug(
               `[StrategyExecutor] Node ${node.id}: LLM call completed. Output length: ${output?.length}`
             );

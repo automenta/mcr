@@ -108,7 +108,7 @@ describe('LlmService', () => {
     const userPrompt = 'User: Hi';
     const result = await llmService.generate(systemPrompt, userPrompt);
 
-    expect(result).toBe('Ollama says hello');
+    expect(result).toEqual({ text: 'Ollama says hello', costData: null });
     expect(mockOllamaGenerate).toHaveBeenCalledTimes(1);
     expect(mockOllamaGenerate).toHaveBeenCalledWith(
       systemPrompt,
@@ -130,7 +130,7 @@ describe('LlmService', () => {
       jsonMode: true,
     });
 
-    expect(result).toBe('Gemini says hi');
+    expect(result).toEqual({ text: 'Gemini says hi', costData: null });
     expect(mockGeminiGenerate).toHaveBeenCalledTimes(1);
     expect(mockGeminiGenerate).toHaveBeenCalledWith(systemPrompt, userPrompt, {
       jsonMode: true,
