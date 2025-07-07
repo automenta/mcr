@@ -6,81 +6,175 @@ const ontologyService = require('./ontologyService');
 const { prompts, fillTemplate } = require('./prompts');
 const logger = require('./logger');
 const config = require('./config');
-const strategyManager = require('./strategyManager'); // Import StrategyManager
+const strategyManager = require('./strategyManager');
+const StrategyExecutor = require('./strategyExecutor'); // Import StrategyExecutor
+const { MCRError, ErrorCodes } = require('./errors');
+const InputRouter = require('./evolution/inputRouter'); // Added
+const db = require('./database'); // Added
 
-// Get the initial active strategy from the manager
-let activeStrategy = strategyManager.getDefaultStrategy();
-let activeStrategyName = activeStrategy.getName();
+// Initialize InputRouter
+let inputRouterInstance;
+try {
+  inputRouterInstance = new InputRouter(db); // db module itself is passed
+  logger.info('[McrService] InputRouter initialized.');
+} catch (error) {
+  logger.error('[McrService] Failed to initialize InputRouter. Routing will be disabled.', error);
+  inputRouterInstance = null; // Fallback: router is disabled
+}
 
-logger.info(
-  `[McrService] Initialized with active translation strategy: ${activeStrategyName}`
-);
+
+// Get the initial active strategy JSON from the manager
+// Store the base ID from config. This will be suffixed with -Assert or -Query for specific operations.
+let baseStrategyId = config.translationStrategy;
 
 /**
- * Sets the active translation strategy for the MCR service.
- * @param {string} strategyName - The name of the strategy to activate.
- * @returns {boolean} True if the strategy was successfully set, false otherwise.
+ * Retrieves the appropriate operational strategy JSON (e.g., "STRATEGY_ID-Assert" or "STRATEGY_ID-Query")
+ * based on the base strategy ID, operation type, and potentially a recommendation from the InputRouter.
+ * @param {'Assert' | 'Query'} operationType - The type of MCR operation.
+ * @param {string} [naturalLanguageText] - Optional NL text to help InputRouter select a strategy.
+ * @returns {Promise<object>} The strategy JSON object for the operation.
+ * @throws {MCRError} If no suitable strategy can be found.
  */
-function setTranslationStrategy(strategyName) {
-  logger.debug(
-    `[McrService] Attempting to set translation strategy to: ${strategyName}`
-  );
-  const newStrategy = strategyManager.getStrategy(strategyName);
-  if (newStrategy && newStrategy.getName() !== activeStrategyName) { // Check if it's a different, valid strategy
-    const oldStrategyName = activeStrategyName;
-    activeStrategy = newStrategy;
-    activeStrategyName = newStrategy.getName();
-    // Update config if we want this to be persistent for the session/server lifetime,
-    // or if config is dynamically re-read. For now, this change is in-memory.
-    // config.translationStrategy = activeStrategyName; // Potentially update runtime config if needed
-    logger.info(
-      `[McrService] Translation strategy changed from "${oldStrategyName}" to "${activeStrategyName}"`
-    );
-    return true;
-  } else if (newStrategy && newStrategy.getName() === activeStrategyName) {
-    logger.info(`[McrService] Translation strategy "${strategyName}" is already active.`);
-    return true; // Still successful, as the intended strategy is active
+async function getOperationalStrategyJson(operationType, naturalLanguageText) {
+  let strategyIdToUse = null; // To log which ID was finally chosen
+  let strategyJson = null;
+
+  if (inputRouterInstance && naturalLanguageText) {
+    try {
+      const recommendedStrategyHash = await inputRouterInstance.route(naturalLanguageText, config.llmProvider.model);
+      if (recommendedStrategyHash) {
+        // InputRouter returns a hash, try to get strategy by hash
+        strategyJson = strategyManager.getStrategyByHash(recommendedStrategyHash);
+        if (strategyJson) {
+          logger.info(`[McrService] InputRouter recommended strategy by HASH "${recommendedStrategyHash}" (ID: "${strategyJson.id}", Name: "${strategyJson.name}") for ${operationType} on input: "${naturalLanguageText.substring(0,50)}..."`);
+          strategyIdToUse = strategyJson.id; // Log the actual ID
+        } else {
+          // This case might occur if an evolved strategy's hash is known to router,
+          // but the strategy definition isn't loaded in strategyManager yet (e.g. optimizer run separately).
+          logger.warn(`[McrService] InputRouter recommended strategy HASH "${recommendedStrategyHash}" but it was not found by StrategyManager. Falling back for input: "${naturalLanguageText.substring(0,50)}..."`);
+        }
+      } else {
+        // This is a common case, e.g. router has no data yet, or text is too generic.
+        logger.debug(`[McrService] InputRouter did not recommend a specific strategy for "${naturalLanguageText.substring(0,50)}...". Falling back to default logic.`);
+      }
+    } catch (routerError) {
+      logger.error(`[McrService] InputRouter failed to recommend a strategy: ${routerError.message}. Falling back.`, routerError);
+    }
   }
+
+  if (!strategyJson) { // If router didn't recommend, or recommended but not found, or router disabled
+    const operationalStrategyId = `${baseStrategyId}-${operationType}`;
+    strategyJson = strategyManager.getStrategy(operationalStrategyId);
+    strategyIdToUse = operationalStrategyId;
+
+    if (!strategyJson) {
+      logger.warn(`[McrService] Configured operational strategy "${operationalStrategyId}" not found. Trying base ID "${baseStrategyId}".`);
+      strategyJson = strategyManager.getStrategy(baseStrategyId);
+      strategyIdToUse = baseStrategyId;
+      if (!strategyJson) {
+        logger.warn(`[McrService] Configured base strategy "${baseStrategyId}" also not found for ${operationType}. Falling back to StrategyManager's default.`);
+        // getDefaultStrategy will throw if nothing is available, which is desired.
+        strategyJson = strategyManager.getDefaultStrategy();
+        strategyIdToUse = strategyJson.id; // ID of the default strategy
+        logger.warn(`[McrService] Using system default strategy "${strategyIdToUse}" (Name: "${strategyJson.name}") for ${operationType}.`);
+      } else {
+        logger.info(`[McrService] Using configured base strategy "${strategyIdToUse}" (Name: "${strategyJson.name}") for ${operationType} as operational variant was not found.`);
+      }
+    } else {
+       logger.info(`[McrService] Using configured operational strategy "${strategyIdToUse}" (Name: "${strategyJson.name}") for ${operationType}.`);
+    }
+  }
+  return strategyJson; // This is the actual strategy JSON object
+}
+
+// Log initial strategy based on a typical operation like 'Assert' for general idea
+// Note: getOperationalStrategyJson is now async
+async function logInitialStrategy() {
+  try {
+    // Provide a generic text for initial logging as actual user input isn't available here.
+    const initialDisplayStrategy = await getOperationalStrategyJson('Assert', 'System startup initial strategy check.');
+    logger.info(
+      `[McrService] Initialized with base translation strategy ID: "${baseStrategyId}". Effective assertion strategy: "${initialDisplayStrategy.name}" (ID: ${initialDisplayStrategy.id})`
+    );
+  } catch (e) {
+      logger.error(`[McrService] Failed to initialize with a default assertion strategy. Base ID: "${baseStrategyId}". Error: ${e.message}`);
+  }
+}
+logInitialStrategy(); // Call the async function
+
+
+/**
+ * Sets the active base translation strategy ID for the MCR service.
+ * This ID is used as a fallback if the InputRouter doesn't provide a recommendation
+ * or if the recommended strategy is not found.
+ * @param {string} strategyId - The base ID of the strategy to activate (e.g., "SIR-R1").
+ * @returns {Promise<boolean>} True if at least one operational variant (e.g., "strategyId-Assert") or the base strategy itself exists, false otherwise.
+ */
+async function setTranslationStrategy(strategyId) {
+  logger.debug(
+    `[McrService] Attempting to set base translation strategy ID to: ${strategyId}`
+  );
+  const assertVariantId = `${strategyId}-Assert`;
+  const queryVariantId = `${strategyId}-Query`;
+
+  const assertStrategyExists = strategyManager.getStrategy(assertVariantId);
+  const queryStrategyExists = strategyManager.getStrategy(queryVariantId);
+  const baseStrategyItselfExists = strategyManager.getStrategy(strategyId);
+
+  if (assertStrategyExists || queryStrategyExists || baseStrategyItselfExists) {
+    const oldBaseStrategyId = baseStrategyId;
+    baseStrategyId = strategyId;
+
+    try {
+        // For logging the new effective strategy, provide a generic text
+        const currentAssertStrategy = await getOperationalStrategyJson('Assert', 'Strategy set check.');
+        logger.info(
+        `[McrService] Base translation strategy ID changed from "${oldBaseStrategyId}" to "${baseStrategyId}". Effective assertion strategy: "${currentAssertStrategy.name}" (ID: ${currentAssertStrategy.id})`
+        );
+    } catch (e) {
+        logger.warn(`[McrService] Base translation strategy ID changed from "${oldBaseStrategyId}" to "${baseStrategyId}", but failed to determine effective assertion strategy for logging: ${e.message}`);
+    }
+    return true;
+  }
+
   logger.warn(
-    `[McrService] Attempted to set unknown or invalid translation strategy: ${strategyName}. Available strategies: ${strategyManager.getAvailableStrategies().join(', ')}`
+    `[McrService] Attempted to set unknown or invalid base strategy ID: ${strategyId}. Neither "${assertVariantId}", "${queryVariantId}" nor the base ID "${strategyId}" itself were found. Available strategies: ${JSON.stringify(strategyManager.getAvailableStrategies())}`
   );
   return false;
 }
 
 /**
- * Gets the name of the currently active translation strategy.
- * @returns {string} The name of the active strategy.
+ * Gets the base ID of the currently active translation strategy (e.g., "SIR-R1").
+ * This base ID is used as a fallback by getOperationalStrategyJson.
+ * @returns {string} The base ID of the active strategy.
  */
-function getActiveStrategyName() {
-  return activeStrategyName; // This is now managed and reflects the strategy from strategyManager
+function getActiveStrategyId() {
+  return baseStrategyId;
 }
 
 /**
- * Asserts natural language text as facts/rules into a session using the active translation strategy.
+ * Asserts natural language text as facts/rules into a session.
+ * It uses an operational strategy determined by `getOperationalStrategyJson`, potentially via InputRouter.
+ * The strategy execution is handled by the `StrategyExecutor`.
  * @param {string} sessionId - The ID of the session.
  * @param {string} naturalLanguageText - The natural language text to assert.
- * @returns {Promise<{success: boolean, message: string, addedFacts?: string[], error?: string, strategy?: string}>}
+ * @returns {Promise<{success: boolean, message: string, addedFacts?: string[], error?: string, strategyId?: string}>}
  */
 async function assertNLToSession(sessionId, naturalLanguageText) {
+  const activeStrategyJson = await getOperationalStrategyJson('Assert', naturalLanguageText);
+  const currentStrategyId = activeStrategyJson.id;
   logger.info(
-    `[McrService] Enter assertNLToSession for session ${sessionId} using strategy "${activeStrategyName}". NL Text: "${naturalLanguageText}"`
+    `[McrService] Enter assertNLToSession for session ${sessionId} using strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}). NL Text: "${naturalLanguageText}"`
   );
-  const operationId = `assert-${Date.now()}`; // Unique ID for this operation for tracing
+  const operationId = `assert-${Date.now()}`;
 
   if (!sessionManager.getSession(sessionId)) {
-    logger.warn(
-      `[McrService] Session ${sessionId} not found for assertion. Operation ID: ${operationId}`
-    );
-    return {
-      success: false,
-      message: 'Session not found.',
-      error: 'SESSION_NOT_FOUND', // Standardized error code
-      strategy: activeStrategyName,
-    };
+    logger.warn(`[McrService] Session ${sessionId} not found for assertion. OpID: ${operationId}`);
+    return { success: false, message: 'Session not found.', error: ErrorCodes.SESSION_NOT_FOUND, strategyId: currentStrategyId };
   }
 
   try {
-    const existingFacts = sessionManager.getKnowledgeBase(sessionId) || '';
+    const existingFacts = await sessionManager.getKnowledgeBase(sessionId) || '';
     let ontologyRules = '';
     try {
       const globalOntologies = await ontologyService.listOntologies(true);
@@ -88,469 +182,234 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
         ontologyRules = globalOntologies.map((ont) => ont.rules).join('\n');
       }
     } catch (ontError) {
-      logger.warn(
-        `[McrService] Error fetching global ontologies for context in session ${sessionId}: ${ontError.message}`
-      );
-      // Non-fatal for translation, proceed without ontology context for the strategy
+      logger.warn(`[McrService] Error fetching global ontologies for context in session ${sessionId}: ${ontError.message}`);
     }
-    logger.debug(
-      `[McrService] Context for strategy assertion (OpID: ${operationId}):`,
-      {
-        sessionId,
-        existingFactsLength: existingFacts.length,
-        ontologyRulesLength: ontologyRules.length,
-      }
-    );
 
-    // Delegate translation to the active strategy
-    const lexiconSummary = await sessionManager.getLexiconSummary(sessionId); // Await async call
-    const strategyOptions = { existingFacts, ontologyRules, lexiconSummary };
-    logger.info(
-      `[McrService] Calling strategy "${activeStrategyName}".assert(). OpID: ${operationId}. Lexicon summary length: ${lexiconSummary?.length}`
-    );
-    const addedFacts = await activeStrategy.assert(
+    const lexiconSummary = await sessionManager.getLexiconSummary(sessionId);
+    const initialContext = {
       naturalLanguageText,
-      llmService,
-      strategyOptions
-    );
-    logger.debug(
-      `[McrService] Strategy "${activeStrategyName}".assert() returned (OpID: ${operationId}):`,
-      { addedFacts }
-    );
+      existingFacts,
+      ontologyRules,
+      lexiconSummary,
+      llm_model_id: config.llmProvider.model, // Provide default model from config
+    };
+
+    logger.info(`[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for assertion. OpID: ${operationId}.`);
+    const executor = new StrategyExecutor(activeStrategyJson);
+    const executionResult = await executor.execute(llmService, initialContext);
+    const addedFacts = executionResult.result;
+    const costOfExecution = executionResult.totalCost;
+
+    // Ensure addedFacts is an array of strings, as expected by downstream logic
+    if (!Array.isArray(addedFacts) || !addedFacts.every(f => typeof f === 'string')) {
+        logger.error(`[McrService] Strategy "${currentStrategyId}" execution for assertion did not return an array of strings. OpID: ${operationId}. Output: ${JSON.stringify(addedFacts)}`, { costOfExecution });
+        throw new MCRError(ErrorCodes.STRATEGY_INVALID_OUTPUT, 'Strategy execution for assertion returned an unexpected output format. Expected array of Prolog strings.');
+    }
+    logger.debug(`[McrService] Strategy "${currentStrategyId}" execution returned (OpID: ${operationId}):`, { addedFacts, costOfExecution });
+
 
     if (!addedFacts || addedFacts.length === 0) {
-      // This case should ideally be handled by the strategy's assert method throwing an error
-      logger.warn(
-        `[McrService] Strategy "${activeStrategyName}" returned no facts for text: "${naturalLanguageText}". OpID: ${operationId}`
-      );
-      return {
-        success: false,
-        message:
-          'Could not translate text into valid facts using the current strategy.',
-        error: 'NO_FACTS_EXTRACTED_BY_STRATEGY', // Standardized error code
-        strategy: activeStrategyName,
-      };
+      logger.warn(`[McrService] Strategy "${currentStrategyId}" returned no facts for text: "${naturalLanguageText}". OpID: ${operationId}`, { costOfExecution });
+      return { success: false, message: 'Could not translate text into valid facts using the current strategy.', error: ErrorCodes.NO_FACTS_EXTRACTED, strategyId: currentStrategyId, cost: costOfExecution };
     }
 
-    // Validate each generated Prolog fact/rule before adding to session
     for (const factString of addedFacts) {
-      // reasonerService.validate is actually validateKnowledgeBase,
-      // so it expects a full KB. We are validating individual facts/rules here.
-      // A more granular validateFact(factString) in reasonerService would be ideal.
-      // For now, we use validateKnowledgeBase by passing the single fact string.
-      // This might not be perfect if a fact is only valid in a larger context,
-      // but it's good for catching syntax errors within the fact itself.
-      const validationResult =
-        await reasonerService.validateKnowledgeBase(factString);
+      const validationResult = await reasonerService.validateKnowledgeBase(factString); // Validates syntax
       if (!validationResult.isValid) {
         const validationErrorMsg = `Generated Prolog is invalid: "${factString}". Error: ${validationResult.error}`;
-        logger.error(
-          `[McrService] Validation failed for generated Prolog. OpID: ${operationId}. Details: ${validationErrorMsg}`
-        );
-        return {
-          success: false,
-          message: 'Failed to assert facts: Generated Prolog is invalid.',
-          error: 'INVALID_GENERATED_PROLOG', // Standardized error code
-          details: validationErrorMsg, // Keep detailed message in details
-          strategy: activeStrategyName,
-        };
+        logger.error(`[McrService] Validation failed for generated Prolog. OpID: ${operationId}. Details: ${validationErrorMsg}`, { costOfExecution });
+        return { success: false, message: 'Failed to assert facts: Generated Prolog is invalid.', error: ErrorCodes.INVALID_GENERATED_PROLOG, details: validationErrorMsg, strategyId: currentStrategyId, cost: costOfExecution };
       }
     }
-    logger.info(
-      `[McrService] All ${addedFacts.length} generated facts validated successfully. OpID: ${operationId}`
-    );
+    logger.info(`[McrService] All ${addedFacts.length} generated facts validated successfully. OpID: ${operationId}`);
 
-    // Add facts to session if all are valid
-    logger.info(
-      `[McrService] Attempting to add ${addedFacts.length} fact(s) to session ${sessionId}. OpID: ${operationId}`
-    );
     const addSuccess = sessionManager.addFacts(sessionId, addedFacts);
     if (addSuccess) {
-      logger.info(
-        `[McrService] Facts successfully added to session ${sessionId} using strategy "${activeStrategyName}". OpID: ${operationId}. Facts:`,
-        { addedFacts }
-      );
-      return {
-        success: true,
-        message: 'Facts asserted successfully.',
-        addedFacts,
-        strategy: activeStrategyName,
-      };
+      logger.info(`[McrService] Facts successfully added to session ${sessionId}. OpID: ${operationId}. Facts:`, { addedFacts, costOfExecution });
+      return { success: true, message: 'Facts asserted successfully.', addedFacts, strategyId: currentStrategyId, cost: costOfExecution };
     } else {
-      // This case should be less likely if sessionManager.addFacts is robust,
-      // but kept for safety.
-      logger.error(
-        `[McrService] Failed to add facts to session ${sessionId} after validation. OpID: ${operationId}`
-      );
-      return {
-        success: false,
-        message: 'Failed to add facts to session manager after validation.',
-        error: 'SESSION_ADD_FACTS_FAILED', // Standardized error code
-        strategy: activeStrategyName,
-      };
+      logger.error(`[McrService] Failed to add facts to session ${sessionId} after validation. OpID: ${operationId}`, { costOfExecution });
+      return { success: false, message: 'Failed to add facts to session manager after validation.', error: ErrorCodes.SESSION_ADD_FACTS_FAILED, strategyId: currentStrategyId, cost: costOfExecution };
     }
   } catch (error) {
-    // Errors from strategy.assert() or llmService.generate()
-    logger.error(
-      `[McrService] Strategy/LLM Error asserting NL to session ${sessionId} using strategy "${activeStrategyName}": ${error.message}`,
-      { error: error.stack, errorCode: error.code } // Log stack for better debugging
-    );
+    logger.error(`[McrService] Error asserting NL to session ${sessionId} using strategy "${currentStrategyId}": ${error.message}`, { stack: error.stack, details: error.details, errorCode: error.code });
     return {
       success: false,
-      message: `Error during assertion: ${error.message}`, // User-friendly message
-      error: error.code || 'STRATEGY_ASSERT_FAILED', // Specific error code from strategy/LLM if available, else generic
-      details: error.message, // Full error message in details
-      strategy: activeStrategyName,
+      message: `Error during assertion: ${error.message}`,
+      error: error.code || ErrorCodes.STRATEGY_EXECUTION_ERROR,
+      details: error.message,
+      strategyId: currentStrategyId,
     };
   }
 }
 
 /**
- * Queries a session using a natural language question and the active translation strategy.
+ * Queries a session using a natural language question and a strategy chosen by `getOperationalStrategyJson`.
  * @param {string} sessionId - The ID of the session.
  * @param {string} naturalLanguageQuestion - The natural language question.
  * @param {object} [queryOptions] - Optional parameters for the query (e.g., style for answer, dynamicOntology).
  * @returns {Promise<{success: boolean, answer?: string, debugInfo?: object, error?: string, strategy?: string}>}
  */
-async function querySessionWithNL(
-  sessionId,
-  naturalLanguageQuestion,
-  queryOptions = {}
-) {
-  const { dynamicOntology, style = 'conversational' } = queryOptions; // Extract style for LOGIC_TO_NL_ANSWER
+async function querySessionWithNL(sessionId, naturalLanguageQuestion, queryOptions = {}) {
+  const activeStrategyJson = await getOperationalStrategyJson('Query', naturalLanguageQuestion);
+  const currentStrategyId = activeStrategyJson.id;
+  const { dynamicOntology, style = 'conversational' } = queryOptions;
   logger.info(
-    `[McrService] Enter querySessionWithNL for session ${sessionId} using strategy "${activeStrategyName}". NL Question: "${naturalLanguageQuestion}"`,
+    `[McrService] Enter querySessionWithNL for session ${sessionId} using strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}). NL Question: "${naturalLanguageQuestion}"`,
     { queryOptions }
   );
-  const operationId = `query-${Date.now()}`; // Unique ID for this operation
+  const operationId = `query-${Date.now()}`;
 
   if (!sessionManager.getSession(sessionId)) {
-    logger.warn(
-      `[McrService] Session ${sessionId} not found for query. OpID: ${operationId}`
-    );
-    return {
-      success: false,
-      message: 'Session not found.',
-      error: 'SESSION_NOT_FOUND', // Standardized error code
-      strategy: activeStrategyName,
-    };
+    logger.warn(`[McrService] Session ${sessionId} not found for query. OpID: ${operationId}`);
+    return { success: false, message: 'Session not found.', error: ErrorCodes.SESSION_NOT_FOUND, strategyId: currentStrategyId };
   }
 
-  const debugInfo = {
-    strategy: activeStrategyName,
-    operationId,
-    level: config.debugLevel, // Include current debug level being applied
-  };
+  const debugInfo = { strategyId: currentStrategyId, operationId, level: config.debugLevel };
 
   try {
-    const existingFacts = sessionManager.getKnowledgeBase(sessionId) || '';
-    let ontologyRules = ''; // For strategy context
+    const existingFacts = await sessionManager.getKnowledgeBase(sessionId) || '';
+    let ontologyRules = '';
     try {
       const globalOntologies = await ontologyService.listOntologies(true);
       if (globalOntologies && globalOntologies.length > 0) {
         ontologyRules = globalOntologies.map((ont) => ont.rules).join('\n');
-        if (config.debugLevel === 'verbose') {
-          logger.debug(
-            `[McrService] Loaded ${globalOntologies.length} global ontologies for strategy query context. OpID: ${operationId}`
-          );
-        }
       }
     } catch (ontError) {
-      logger.warn(
-        `[McrService] Error fetching global ontologies for query strategy context in session ${sessionId}: ${ontError.message}. OpID: ${operationId}`
-      );
-      if (config.debugLevel !== 'none') {
-        debugInfo.ontologyErrorForStrategy = `Failed to load global ontologies for query translation: ${ontError.message}`;
-      }
+      logger.warn(`[McrService] Error fetching global ontologies for query strategy context (session ${sessionId}): ${ontError.message}`);
+      debugInfo.ontologyErrorForStrategy = `Failed to load global ontologies for query translation: ${ontError.message}`;
     }
 
-    if (config.debugLevel === 'verbose') {
-      logger.debug(
-        `[McrService] Context for strategy query (OpID: ${operationId}):`,
-        {
-          sessionId,
-          existingFactsLength: existingFacts.length,
-          ontologyRulesLength: ontologyRules.length,
-        }
-      );
-    }
-
-    // Delegate NL to Prolog query translation to the active strategy
-    const lexiconSummary = await sessionManager.getLexiconSummary(sessionId); // Added await
-    const strategyOptions = { existingFacts, ontologyRules, lexiconSummary };
-
-    if (config.debugLevel === 'verbose') {
-      logger.info(
-        `[McrService] Calling strategy "${activeStrategyName}".query(). OpID: ${operationId}. Lexicon summary length: ${lexiconSummary?.length}`
-      );
-    }
-    const prologQuery = await activeStrategy.query(
+    const lexiconSummary = await sessionManager.getLexiconSummary(sessionId);
+    const initialContext = {
       naturalLanguageQuestion,
-      llmService,
-      strategyOptions
-    );
-    logger.info(
-      // Always log the generated prolog query at info level for traceability
-      `[McrService] Strategy "${activeStrategyName}" translated NL question to Prolog query (OpID: ${operationId}): ${prologQuery}`
-    );
+      existingFacts,
+      ontologyRules,
+      lexiconSummary,
+      llm_model_id: config.llmProvider.model,
+    };
 
-    if (config.debugLevel !== 'none') {
-      debugInfo.prologQuery = prologQuery;
+    logger.info(`[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for query translation. OpID: ${operationId}.`);
+    const executor = new StrategyExecutor(activeStrategyJson);
+    const prologQuery = await executor.execute(llmService, initialContext);
+
+    if (typeof prologQuery !== 'string' || !prologQuery.endsWith('.')) {
+        logger.error(`[McrService] Strategy "${currentStrategyId}" execution for query did not return a valid Prolog query string. OpID: ${operationId}. Output: ${prologQuery}`);
+        throw new MCRError(ErrorCodes.STRATEGY_INVALID_OUTPUT, 'Strategy execution for query returned an unexpected output format. Expected Prolog query string ending with a period.');
+    }
+    logger.info(`[McrService] Strategy "${currentStrategyId}" translated NL question to Prolog query (OpID: ${operationId}): ${prologQuery}`);
+    debugInfo.prologQuery = prologQuery;
+
+
+    let knowledgeBase = await sessionManager.getKnowledgeBase(sessionId); // Re-fetch or use existingFacts
+     if (knowledgeBase === null) { // Should not happen if session check passed
+        logger.error(`[McrService] Knowledge base is null for existing session ${sessionId}. OpID: ${operationId}. This indicates an unexpected state.`);
+        return { success: false, message: 'Internal error: Knowledge base not found for an existing session.', debugInfo, error: ErrorCodes.INTERNAL_KB_NOT_FOUND, strategyId: currentStrategyId };
     }
 
-    // The strategy's query method should throw an error if it fails or produces an invalid query.
 
-    // Get knowledge base for the session (session facts)
-    let knowledgeBase = await sessionManager.getKnowledgeBase(sessionId); // Await async call
-    if (knowledgeBase === null) {
-      // This condition might be less likely if getSession already confirmed existence.
-      // However, if getKnowledgeBase itself can return null for an existing session (e.g., empty facts), handle it.
-      // Assuming getSession check is primary for session existence.
-      // If session exists but KB is truly null/empty, it might be valid.
-      // For now, keeping the check as it was, but noting `await`.
-      logger.warn(
-        `[McrService] Knowledge base is null for session ${sessionId}. OpID: ${operationId}`
-      );
-      // This could mean an empty KB or an issue reading it.
-      // If an empty KB is valid, we might just proceed with an empty string.
-      // For safety, if it's null (not just empty string), it might indicate an issue.
-      // However, sessionManager.getKnowledgeBase returns null if sessionData is null.
-      // And sessionManager.getSession would have already returned null if sessionData was null.
-      // So this path should ideally not be hit if getSession passed.
-      // Let's assume if getSession passed, getKnowledgeBase will give a string (possibly empty).
-      // The original check `if (!sessionManager.getSession(sessionId))` handles non-existent sessions.
-      // The `|| ''` in `const existingFacts = await sessionManager.getKnowledgeBase(sessionId) || '';` for strategy options
-      // suggests empty string is the expected "empty" state.
-      // So, `knowledgeBase` here should not be null if session exists.
-      // This specific check might be redundant if `sessionManager.getSession(sessionId)` at the top is sufficient.
-      // Let's simplify: if `getSession` passed, `getKnowledgeBase` will give us the string (or it's an internal error).
-      // The `|| ''` pattern is good for `existingFacts` for strategy context.
-      // For the main KB for the reasoner, an empty string is fine.
-
-      // Re-evaluating: The first check `if (!await sessionManager.getSession(sessionId))` is the primary guard.
-      // If that passes, `sessionManager.getKnowledgeBase(sessionId)` should return a string (possibly empty).
-      // So, the `knowledgeBase === null` check here is likely redundant or indicates an unexpected state.
-      // For now, let's trust the initial `getSession` check and that `getKnowledgeBase` returns a string.
-      // The `existingFacts` for strategy context is handled with `|| ''`.
-      // The `knowledgeBase` for reasoner can be an empty string.
-      // No change needed here if the above logic holds. The `await` is the key fix.
-      // This case should ideally not be hit if the primary session check passed.
-      // If it does, it implies an internal inconsistency or an issue with getKnowledgeBase.
-      logger.error(
-        `[McrService] Knowledge base is null for existing session ${sessionId}. OpID: ${operationId}. This indicates an unexpected state.`
-      );
-      return {
-        success: false,
-        message:
-          'Internal error: Knowledge base not found for an existing session.',
-        debugInfo,
-        error: 'INTERNAL_KB_NOT_FOUND_FOR_SESSION', // More specific internal error code
-      };
-    }
-
-    // Augment with global ontologies
     try {
-      const globalOntologies = await ontologyService.listOntologies(true); // includeRules = true
+      const globalOntologies = await ontologyService.listOntologies(true);
       if (globalOntologies && globalOntologies.length > 0) {
-        const currentOntologyRules = globalOntologies // Renamed to avoid conflict with outer scope
-          .map((ont) => ont.rules)
-          .join('\n');
-        knowledgeBase += `\n% --- Global Ontologies ---\n${currentOntologyRules}`;
-        logger.debug(
-          `[McrService] Augmented knowledge base with ${globalOntologies.length} global ontologies.`
-        );
+        knowledgeBase += `\n% --- Global Ontologies ---\n${globalOntologies.map((ont) => ont.rules).join('\n')}`;
       }
     } catch (ontError) {
-      logger.error(
-        `[McrService] Error fetching global ontologies for session ${sessionId}: ${ontError.message}`,
-        { error: ontError }
-      );
-      // Decide if this is a fatal error for the query or just a warning
-      // For now, proceed with session KB only if global ontologies fail
-      debugInfo.ontologyError = `Failed to load global ontologies: ${ontError.message}`;
+      logger.error(`[McrService] Error fetching global ontologies for reasoner KB (session ${sessionId}): ${ontError.message}`);
+      debugInfo.ontologyErrorForReasoner = `Failed to load global ontologies for reasoner: ${ontError.message}`;
     }
 
-    // Augment with dynamic ontology if provided for this specific query
-    if (
-      dynamicOntology &&
-      typeof dynamicOntology === 'string' &&
-      dynamicOntology.trim() !== ''
-    ) {
+    if (dynamicOntology && typeof dynamicOntology === 'string' && dynamicOntology.trim() !== '') {
       knowledgeBase += `\n% --- Dynamic RAG Ontology (Query-Specific) ---\n${dynamicOntology.trim()}`;
-      logger.debug(
-        `[McrService] Augmented knowledge base with dynamic (RAG) ontology for session ${sessionId}.`
-      );
       debugInfo.dynamicOntologyProvided = true;
     }
 
-    if (config.debugLevel === 'verbose') {
-      debugInfo.knowledgeBaseSnapshot = knowledgeBase;
-      logger.debug(
-        `[McrService] Knowledge base for query execution (OpID: ${operationId}). Length: ${knowledgeBase.length}`
-      );
-    } else if (config.debugLevel === 'basic') {
-      debugInfo.knowledgeBaseSummary = `KB length: ${knowledgeBase.length}, Dynamic RAG provided: ${!!debugInfo.dynamicOntologyProvided}`;
-    }
+    if (config.debugLevel === 'verbose') debugInfo.knowledgeBaseSnapshot = knowledgeBase;
+    else if (config.debugLevel === 'basic') debugInfo.knowledgeBaseSummary = `KB length: ${knowledgeBase.length}, Dynamic RAG: ${!!debugInfo.dynamicOntologyProvided}`;
 
-    // 3. Execute Prolog query
-    if (config.debugLevel === 'verbose') {
-      logger.info(
-        `[McrService] Executing Prolog query with reasonerService. OpID: ${operationId}`
-      );
-    }
-    const prologResults = await reasonerService.executeQuery(
-      knowledgeBase,
-      prologQuery
-    );
+    const prologResults = await reasonerService.executeQuery(knowledgeBase, prologQuery);
+    if (config.debugLevel === 'verbose') debugInfo.prologResultsJSON = JSON.stringify(prologResults);
+    else if (config.debugLevel === 'basic') debugInfo.prologResultsSummary = Array.isArray(prologResults) ? `${prologResults.length} solution(s) found.` : `Result: ${prologResults}`;
 
-    if (config.debugLevel === 'verbose') {
-      logger.debug(
-        `[McrService] Prolog query execution results (OpID: ${operationId}):`,
-        prologResults
-      );
-      debugInfo.prologResults = prologResults; // Full results for verbose
-      debugInfo.prologResultsJSON = JSON.stringify(prologResults);
-    } else if (config.debugLevel === 'basic') {
-      // For basic, maybe just a summary of results, e.g., number of solutions or true/false
-      debugInfo.prologResultsSummary = Array.isArray(prologResults)
-        ? `${prologResults.length} solution(s) found.`
-        : `Result: ${prologResults}`;
-      // Avoid sending full JSON unless verbose
-    }
+    const logicToNlPromptContext = { naturalLanguageQuestion, prologResultsJSON: JSON.stringify(prologResults), style };
+    const naturalLanguageAnswer = await llmService.generate(prompts.LOGIC_TO_NL_ANSWER.system, fillTemplate(prompts.LOGIC_TO_NL_ANSWER.user, logicToNlPromptContext));
+    if (config.debugLevel === 'verbose') debugInfo.llmTranslationResultToNL = naturalLanguageAnswer;
 
-    // 4. Translate Prolog results to NL answer
-    const prologResultsForPrompt =
-      config.debugLevel === 'verbose'
-        ? debugInfo.prologResultsJSON
-        : JSON.stringify(prologResults);
-    const logicToNlPromptContext = {
-      naturalLanguageQuestion,
-      prologResultsJSON: prologResultsForPrompt, // Use potentially summarized or full JSON
-      style: style,
-    };
-    if (config.debugLevel === 'verbose') {
-      logger.info(
-        `[McrService] Generating NL answer from Prolog results using LLM. OpID: ${operationId}`
-      );
-      logger.debug(
-        `[McrService] Context for LOGIC_TO_NL_ANSWER prompt (OpID: ${operationId}):`,
-        logicToNlPromptContext
-      );
-    }
-
-    const naturalLanguageAnswer = await llmService.generate(
-      prompts.LOGIC_TO_NL_ANSWER.system,
-      fillTemplate(prompts.LOGIC_TO_NL_ANSWER.user, logicToNlPromptContext)
-    );
-    logger.info(
-      // Always log the final NL answer at info level
-      `[McrService] NL answer generated (OpID: ${operationId}): "${naturalLanguageAnswer}"`
-    );
-
-    if (config.debugLevel === 'verbose') {
-      debugInfo.llmTranslationResultToNL = naturalLanguageAnswer; // LLM's raw output for this step
-    }
-
-    logger.info(
-      `[McrService] Exit querySessionWithNL for session ${sessionId} successfully. OpID: ${operationId}. Strategy: ${activeStrategyName}`
-    );
+    logger.info(`[McrService] NL answer generated (OpID: ${operationId}): "${naturalLanguageAnswer}"`);
     return { success: true, answer: naturalLanguageAnswer, debugInfo };
+
   } catch (error) {
-    logger.error(
-      `[McrService] Error querying session ${sessionId} with NL (OpID: ${operationId}): ${error.message}`,
-      { error: error.stack } // Log full error for strategy related issues
-    );
+    logger.error(`[McrService] Error querying session ${sessionId} with NL (OpID: ${operationId}, Strategy ID: ${currentStrategyId}): ${error.message}`, { stack: error.stack, details: error.details, errorCode: error.code });
     debugInfo.error = error.message;
     return {
       success: false,
-      message: `Error during query: ${error.message}`, // User-friendly message
-      debugInfo, // Contains detailed error from the catch block if any
-      error: error.code || 'STRATEGY_QUERY_FAILED', // Specific error code from strategy/LLM if available, else generic
-      details: error.message, // Full error message in details
-      strategy: activeStrategyName,
+      message: `Error during query: ${error.message}`,
+      debugInfo,
+      error: error.code || ErrorCodes.STRATEGY_EXECUTION_ERROR,
+      details: error.message,
+      strategyId: currentStrategyId,
     };
   }
 }
 
-// The assertNLToSessionWithSIR function is now effectively superseded by using assertNLToSession
-// with the 'SIR-R1' strategy. If specific retry logic for SIR was desired independent of the strategy's
-// own retry mechanism (if any), it would need to be part of the SIRR1Strategy.
-// For now, assertNLToSessionWithSIR is removed as its functionality is covered by the strategy pattern.
 
 /**
  * Translates natural language text directly to Prolog facts/rules.
  * @param {string} naturalLanguageText - The natural language text.
- * @param {string} [strategyName] - Optional: specific strategy to use for this translation. Defaults to active strategy.
- * @returns {Promise<{success: boolean, rules?: string[], error?: string, strategy?: string, rawOutput?: string}>}
+ * @param {string} [strategyIdToUse] - Optional: specific strategy ID to use. Defaults to active strategy ID.
+ * @returns {Promise<{success: boolean, rules?: string[], error?: string, strategyId?: string}>}
  */
-async function translateNLToRulesDirect(
-  naturalLanguageText,
-  strategyName = activeStrategyName
-) {
-  const operationId = `transNLToRules-${Date.now()}`;
-  logger.info(
-    `[McrService] Enter translateNLToRulesDirect (OpID: ${operationId}). Strategy: "${strategyName}". NL Text: "${naturalLanguageText}"`
-  );
+async function translateNLToRulesDirect(naturalLanguageText, strategyIdToUse) {
+  // If no specific strategyIdToUse is provided, derive the default "Assert" variant.
+  const effectiveBaseId = strategyIdToUse || baseStrategyId;
+  // If a strategyIdToUse is explicitly passed, we honor that directly without routing.
+  // Otherwise, we use getOperationalStrategyJson which includes routing.
+  const strategyJsonToUse = strategyIdToUse ?
+                              (strategyManager.getStrategy(`${effectiveBaseId}-Assert`) || strategyManager.getStrategy(effectiveBaseId) || await getOperationalStrategyJson('Assert', naturalLanguageText))
+                            : await getOperationalStrategyJson('Assert', naturalLanguageText);
+  const currentStrategyId = strategyJsonToUse.id;
 
-  const strategyToUse = strategyManager.getStrategy(strategyName); // Use manager
-  // getStrategy returns default if named one not found, or throws if no strategies exist.
-  // So, strategyToUse should always be a valid strategy object if any are loaded.
+  const operationId = `transNLToRules-${Date.now()}`;
+  logger.info(`[McrService] Enter translateNLToRulesDirect (OpID: ${operationId}). Strategy ID: "${currentStrategyId}". NL Text: "${naturalLanguageText}"`);
+
+  if (!strategyJsonToUse) { // Should be caught by getOperationalStrategyJson if default also fails
+    logger.error(`[McrService] No valid strategy found for direct NL to Rules. Base ID: "${effectiveBaseId}". OpID: ${operationId}`);
+    return { success: false, message: `No valid strategy could be determined for base ID "${effectiveBaseId}".`, error: ErrorCodes.STRATEGY_NOT_FOUND, strategyId: effectiveBaseId };
+  }
 
   try {
-    const currentStrategyName = strategyToUse.getName();
-    logger.info(
-      `[McrService] Using strategy "${currentStrategyName}" for direct NL to Rules. OpID: ${operationId}`
-    );
-
-    // The `assert` method of a strategy is designed to return Prolog facts/rules.
-    // We don't have session context here (existingFacts, ontologyRules) for this direct translation.
-    // Strategies should be able to handle missing options if they are designed for this use case.
+    logger.info(`[McrService] Using strategy "${strategyJsonToUse.name}" (ID: ${currentStrategyId}) for direct NL to Rules. OpID: ${operationId}`);
     const globalOntologyRules = await ontologyService.getGlobalOntologyRulesAsString();
-    const prologRules = await strategyToUse.assert(
+    const initialContext = {
       naturalLanguageText,
-      llmService,
-      // No session-specific lexicon for direct translation, provide a default.
-      {
-        ontologyRules: globalOntologyRules,
-        lexiconSummary: 'No lexicon summary available for direct translation.'
-      }
-    );
-    logger.debug(
-      `[McrService] Strategy "${currentStrategyName}".assert() returned (OpID: ${operationId}):`,
-      { prologRules }
-    );
+      ontologyRules: globalOntologyRules,
+      lexiconSummary: 'No lexicon summary available for direct translation.',
+      llm_model_id: config.llmProvider.model,
+    };
+
+    const executor = new StrategyExecutor(strategyJsonToUse);
+    const prologRules = await executor.execute(llmService, initialContext);
+
+    if (!Array.isArray(prologRules) || !prologRules.every(r => typeof r === 'string')) {
+        logger.error(`[McrService] Strategy "${currentStrategyId}" execution for direct translation did not return an array of strings. OpID: ${operationId}. Output: ${JSON.stringify(prologRules)}`);
+        throw new MCRError(ErrorCodes.STRATEGY_INVALID_OUTPUT, 'Strategy execution for direct translation returned an unexpected output format. Expected array of Prolog strings.');
+    }
+    logger.debug(`[McrService] Strategy "${currentStrategyId}" execution returned (OpID: ${operationId}):`, { prologRules });
 
     if (!prologRules || prologRules.length === 0) {
-      logger.warn(
-        `[McrService] Strategy "${currentStrategyName}" extracted no rules from text (OpID: ${operationId}): "${naturalLanguageText}"`
-      );
-      return {
-        success: false,
-        message: 'Could not translate text into valid rules.',
-        error: 'NO_RULES_EXTRACTED_BY_STRATEGY', // Standardized error code
-        strategy: currentStrategyName,
-      };
+      logger.warn(`[McrService] Strategy "${currentStrategyId}" extracted no rules from text (OpID: ${operationId}): "${naturalLanguageText}"`);
+      return { success: false, message: 'Could not translate text into valid rules.', error: ErrorCodes.NO_RULES_EXTRACTED, strategyId: currentStrategyId };
     }
-    logger.info(
-      `[McrService] Successfully translated NL to Rules (Direct). OpID: ${operationId}. Rules count: ${prologRules.length}. Strategy: ${currentStrategyName}`
-    );
-    return {
-      success: true,
-      rules: prologRules,
-      strategy: currentStrategyName,
-    };
+    logger.info(`[McrService] Successfully translated NL to Rules (Direct). OpID: ${operationId}. Rules count: ${prologRules.length}. Strategy ID: ${currentStrategyId}`);
+    return { success: true, rules: prologRules, strategyId: currentStrategyId };
+
   } catch (error) {
-    const strategyNameToLog = strategyToUse ? strategyToUse.getName() : 'unknown';
-    logger.error(
-      `[McrService] Error translating NL to Rules (Direct) using strategy "${strategyNameToLog}" (OpID: ${operationId}): ${error.message}`,
-      { error: error.stack }
-    );
+    logger.error(`[McrService] Error translating NL to Rules (Direct) using strategy "${currentStrategyId}" (OpID: ${operationId}): ${error.message}`, { stack: error.stack, details: error.details, errorCode: error.code });
     return {
       success: false,
-      message: `Error during NL to Rules translation: ${error.message}`, // User-friendly message
-      error: error.code || 'NL_TO_RULES_TRANSLATION_FAILED', // Specific error code if available
-      details: error.message, // Full error message in details
-      strategy: strategyNameToLog,
+      message: `Error during NL to Rules translation: ${error.message}`,
+      error: error.code || ErrorCodes.STRATEGY_EXECUTION_ERROR,
+      details: error.message,
+      strategyId: currentStrategyId,
     };
   }
 }
@@ -642,186 +501,90 @@ async function translateRulesToNLDirect(prologRules, style = 'conversational') {
  * Generates a natural language explanation of how a query would be resolved using the active translation strategy for query conversion.
  * @param {string} sessionId - The ID of the session.
  * @param {string} naturalLanguageQuestion - The natural language question.
- * @returns {Promise<{success: boolean, explanation?: string, debugInfo?: object, error?: string, strategy?: string}>}
+ * @returns {Promise<{success: boolean, explanation?: string, debugInfo?: object, error?: string, strategyId?: string}>}
  */
 async function explainQuery(sessionId, naturalLanguageQuestion) {
+  const activeStrategyJson = await getOperationalStrategyJson('Query', naturalLanguageQuestion); // Explain uses a query strategy
+  const currentStrategyId = activeStrategyJson.id;
   const operationId = `explain-${Date.now()}`;
+
   logger.info(
-    `[McrService] Enter explainQuery for session ${sessionId} (OpID: ${operationId}). Strategy: "${activeStrategyName}". NL Question: "${naturalLanguageQuestion}"`
+    `[McrService] Enter explainQuery for session ${sessionId} (OpID: ${operationId}). Strategy: "${activeStrategyJson.name}" (ID: ${currentStrategyId}). NL Question: "${naturalLanguageQuestion}"`
   );
 
-  const sessionExists = await sessionManager.getSession(sessionId); // Await async call
-  if (!sessionExists) {
-    logger.warn(
-      `[McrService] Session ${sessionId} not found for explain query. OpID: ${operationId}`
-    );
-    return {
-      success: false,
-      message: 'Session not found.',
-      error: 'SESSION_NOT_FOUND', // Standardized error code
-      strategy: activeStrategyName,
-    };
+  if (!sessionManager.getSession(sessionId)) {
+    return { success: false, message: 'Session not found.', error: ErrorCodes.SESSION_NOT_FOUND, strategyId: currentStrategyId };
   }
 
-  const debugInfo = {
-    naturalLanguageQuestion, // Always include original question
-    strategy: activeStrategyName,
-    operationId,
-    level: config.debugLevel,
-  };
+  const debugInfo = { naturalLanguageQuestion, strategyId: currentStrategyId, operationId, level: config.debugLevel };
 
   try {
-    const existingFacts = sessionManager.getKnowledgeBase(sessionId) || '';
+    const existingFacts = await sessionManager.getKnowledgeBase(sessionId) || '';
     let contextOntologyRulesForQueryTranslation = '';
-
     try {
       const globalOntologies = await ontologyService.listOntologies(true);
       if (globalOntologies && globalOntologies.length > 0) {
-        contextOntologyRulesForQueryTranslation = globalOntologies
-          .map((ont) => ont.rules)
-          .join('\n');
-        if (config.debugLevel === 'verbose') {
-          logger.debug(
-            `[McrService] Fetched ${globalOntologies.length} global ontologies for NL_TO_QUERY context in explain. OpID: ${operationId}`
-          );
-        }
+        contextOntologyRulesForQueryTranslation = globalOntologies.map((ont) => ont.rules).join('\n');
       }
     } catch (ontError) {
-      logger.warn(
-        `[McrService] Error fetching global ontologies for NL_TO_QUERY context in explain (session ${sessionId}, OpID: ${operationId}): ${ontError.message}`
-      );
-      if (config.debugLevel !== 'none') {
-        debugInfo.ontologyErrorForStrategy = `Failed to load global ontologies for query translation context: ${ontError.message}`;
-      }
+      logger.warn(`[McrService] Error fetching global ontologies for NL_TO_QUERY context in explain (OpID: ${operationId}): ${ontError.message}`);
+      debugInfo.ontologyErrorForStrategy = `Failed to load global ontologies for query translation context: ${ontError.message}`;
     }
 
-    if (config.debugLevel === 'verbose') {
-      logger.debug(
-        `[McrService] Context for strategy query in explain (OpID: ${operationId}):`,
-        {
-          sessionId,
-          existingFactsLength: existingFacts.length,
-          ontologyRulesLength: contextOntologyRulesForQueryTranslation.length,
-        }
-      );
-    }
-
-    const lexiconSummary = sessionManager.getLexiconSummary(sessionId);
-    if (config.debugLevel === 'verbose') {
-      logger.info(
-        `[McrService] Calling strategy "${activeStrategyName}".query() for explanation. OpID: ${operationId}. Lexicon length: ${lexiconSummary?.length}`
-      );
-    }
-    const strategyOptions = {
+    const lexiconSummary = await sessionManager.getLexiconSummary(sessionId);
+    const initialStrategyContext = {
+      naturalLanguageQuestion,
       existingFacts,
       ontologyRules: contextOntologyRulesForQueryTranslation,
       lexiconSummary,
+      llm_model_id: config.llmProvider.model,
     };
-    const prologQuery = await activeStrategy.query(
-      naturalLanguageQuestion,
-      llmService,
-      strategyOptions
-    );
-    logger.info(
-      // Always log translated query
-      `[McrService] Strategy "${activeStrategyName}" translated NL to Prolog query for explanation (OpID: ${operationId}): ${prologQuery}`
-    );
-    if (config.debugLevel !== 'none') {
-      debugInfo.prologQuery = prologQuery;
-    }
 
-    if (config.debugLevel === 'verbose') {
-      debugInfo.sessionFactsSnapshot = existingFacts; // Verbose only
-    } else if (config.debugLevel === 'basic') {
-      debugInfo.sessionFactsSummary = `Session facts length: ${existingFacts.length}`;
-    }
+    logger.info(`[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for query translation in explain. OpID: ${operationId}.`);
+    const executor = new StrategyExecutor(activeStrategyJson);
+    const prologQuery = await executor.execute(llmService, initialStrategyContext);
 
-    let explainPromptOntologyRules = ''; // For the EXPLAIN_PROLOG_QUERY prompt context
+    if (typeof prologQuery !== 'string' || !prologQuery.endsWith('.')) {
+        logger.error(`[McrService] Strategy "${currentStrategyId}" execution for explain query did not return a valid Prolog query string. OpID: ${operationId}. Output: ${prologQuery}`);
+        throw new MCRError(ErrorCodes.STRATEGY_INVALID_OUTPUT, 'Strategy execution for explain query returned an unexpected output format. Expected Prolog query string ending with a period.');
+    }
+    logger.info(`[McrService] Strategy "${currentStrategyId}" translated NL to Prolog query for explanation (OpID: ${operationId}): ${prologQuery}`);
+    debugInfo.prologQuery = prologQuery;
+
+
+    if (config.debugLevel === 'verbose') debugInfo.sessionFactsSnapshot = existingFacts;
+    else if (config.debugLevel === 'basic') debugInfo.sessionFactsSummary = `Session facts length: ${existingFacts.length}`;
+
+    let explainPromptOntologyRules = '';
     try {
-      const ontologiesForExplainPrompt =
-        await ontologyService.listOntologies(true);
+      const ontologiesForExplainPrompt = await ontologyService.listOntologies(true);
       if (ontologiesForExplainPrompt && ontologiesForExplainPrompt.length > 0) {
-        explainPromptOntologyRules = ontologiesForExplainPrompt
-          .map((ont) => ont.rules)
-          .join('\n');
-        if (config.debugLevel === 'verbose') {
-          logger.debug(
-            `[McrService] Fetched ${ontologiesForExplainPrompt.length} global ontologies for EXPLAIN_PROLOG_QUERY prompt. OpID: ${operationId}`
-          );
-        }
+        explainPromptOntologyRules = ontologiesForExplainPrompt.map((ont) => ont.rules).join('\n');
       }
     } catch (ontErrorForExplain) {
-      logger.warn(
-        `[McrService] Error fetching global ontologies for EXPLAIN_PROLOG_QUERY prompt context (session ${sessionId}, OpID: ${operationId}): ${ontErrorForExplain.message}`
-      );
-      if (config.debugLevel !== 'none') {
-        debugInfo.ontologyErrorForPrompt = `Failed to load global ontologies for explanation prompt: ${ontErrorForExplain.message}`;
-      }
+      logger.warn(`[McrService] Error fetching global ontologies for EXPLAIN_PROLOG_QUERY prompt context (OpID: ${operationId}): ${ontErrorForExplain.message}`);
+      debugInfo.ontologyErrorForPrompt = `Failed to load global ontologies for explanation prompt: ${ontErrorForExplain.message}`;
     }
-    if (config.debugLevel === 'verbose') {
-      debugInfo.ontologyRulesForPromptSnapshot = explainPromptOntologyRules; // Verbose only
-    }
+    if (config.debugLevel === 'verbose') debugInfo.ontologyRulesForPromptSnapshot = explainPromptOntologyRules;
 
-    const explainPromptContext = {
-      naturalLanguageQuestion,
-      prologQuery,
-      sessionFacts: existingFacts, // Full facts for prompt, regardless of debugInfo level for API response
-      ontologyRules: explainPromptOntologyRules, // Full rules for prompt
-    };
-
-    if (config.debugLevel === 'verbose') {
-      logger.info(
-        `[McrService] Generating explanation using LLM with EXPLAIN_PROLOG_QUERY prompt. OpID: ${operationId}`
-      );
-      logger.debug(
-        `[McrService] Context for EXPLAIN_PROLOG_QUERY prompt (OpID: ${operationId}):`,
-        explainPromptContext // This context itself can be large
-      );
-    }
-
-    const explanation = await llmService.generate(
-      prompts.EXPLAIN_PROLOG_QUERY.system,
-      fillTemplate(prompts.EXPLAIN_PROLOG_QUERY.user, explainPromptContext)
-    );
-    logger.info(
-      // Always log generated explanation
-      `[McrService] Explanation generated for session ${sessionId}. OpID: ${operationId}. Length: ${explanation?.length}`
-    );
-
-    if (config.debugLevel === 'verbose') {
-      debugInfo.llmRawExplanation = explanation; // Verbose only
-    } else if (config.debugLevel === 'basic' && explanation) {
-      debugInfo.explanationSummary = `Explanation length: ${explanation.length}`;
-    }
+    const explainPromptContext = { naturalLanguageQuestion, prologQuery, sessionFacts: existingFacts, ontologyRules: explainPromptOntologyRules };
+    const explanation = await llmService.generate(prompts.EXPLAIN_PROLOG_QUERY.system, fillTemplate(prompts.EXPLAIN_PROLOG_QUERY.user, explainPromptContext));
 
     if (!explanation || explanation.trim() === '') {
-      logger.warn(
-        `[McrService] Empty explanation generated for query. OpID: ${operationId}. Strategy: ${activeStrategyName}`
-      );
-      return {
-        success: false,
-        message: 'Failed to generate an explanation for the query.',
-        debugInfo,
-        error: 'EMPTY_EXPLANATION_GENERATED', // Standardized error code
-      };
+      return { success: false, message: 'Failed to generate an explanation for the query.', debugInfo, error: ErrorCodes.LLM_EMPTY_RESPONSE, strategyId: currentStrategyId };
     }
-    logger.info(
-      `[McrService] Exit explainQuery successfully for session ${sessionId}. OpID: ${operationId}. Strategy: ${activeStrategyName}`
-    );
     return { success: true, explanation, debugInfo };
+
   } catch (error) {
-    logger.error(
-      `[McrService] Error explaining query for session ${sessionId} (OpID: ${operationId}): ${error.message}`,
-      { error: error.stack }
-    );
+    logger.error(`[McrService] Error explaining query for session ${sessionId} (OpID: ${operationId}, Strategy ID: ${currentStrategyId}): ${error.message}`, { stack: error.stack, details: error.details, errorCode: error.code });
     debugInfo.error = error.message;
     return {
       success: false,
-      message: `Error during query explanation: ${error.message}`, // User-friendly message
-      debugInfo, // Contains detailed error from the catch block if any
-      error: error.code || 'EXPLAIN_QUERY_FAILED', // Specific error code if available
-      details: error.message, // Full error message in details
-      strategy: activeStrategyName,
+      message: `Error during query explanation: ${error.message}`,
+      debugInfo,
+      error: error.code || ErrorCodes.STRATEGY_EXECUTION_ERROR,
+      details: error.message,
+      strategyId: currentStrategyId,
     };
   }
 }
@@ -950,9 +713,8 @@ async function debugFormatPrompt(templateName, inputVariables) {
 module.exports = {
   assertNLToSession,
   querySessionWithNL,
-  setTranslationStrategy, // Expose the function to change strategy
-  getActiveStrategyName, // Expose function to get current strategy name
-  // Expose session management directly if needed by API handlers for create/delete
+  setTranslationStrategy,
+  getActiveStrategyId, // Renamed
   createSession: sessionManager.createSession,
   getSession: sessionManager.getSession,
   deleteSession: sessionManager.deleteSession,

@@ -17,7 +17,10 @@
  * @param {string} userPrompt - The user-provided prompt or question.
  * @param {object} [options] - Optional parameters for the LLM generation (e.g., model, temperature, jsonMode).
  * @param {boolean} [options.jsonMode] - Hint to the LLM if the provider supports it, to structure output as JSON.
- * @returns {Promise<string>} A promise that resolves to the LLM's generated text response.
+ * @returns {Promise<{text: string, costData: object | null}>} A promise that resolves to an object containing
+ *          the LLM's generated text and cost data (e.g., token counts).
+ *          `costData` might be null if the provider cannot supply it.
+ *          Example `costData`: `{ prompt_tokens: number, completion_tokens: number, total_tokens: number }`
  * @throws {Error} If the LLM call fails or returns an error.
  */
 

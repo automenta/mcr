@@ -86,13 +86,31 @@ async function generate(systemPrompt, userPrompt, options = {}) {
     // Race the invoke promise against the timeout
     const response = await Promise.race([invokePromise, timeoutPromise]);
 
-    const result =
+    const textResult =
       typeof response.content === 'string'
         ? response.content
         : JSON.stringify(response.content);
 
-    logger.debug(`Ollama generation successful. Result: "${result}"`);
-    return result;
+    let costData = null;
+    if (response.response_metadata) {
+        // Typical Ollama metadata keys:
+        // response.response_metadata.total_duration
+        // response.response_metadata.load_duration
+        // response.response_metadata.prompt_eval_count
+        // response.response_metadata.prompt_eval_duration
+        // response.response_metadata.eval_count (completion tokens)
+        // response.response_metadata.eval_duration
+      costData = {
+        prompt_tokens: response.response_metadata.prompt_eval_count,
+        completion_tokens: response.response_metadata.eval_count,
+        total_tokens: (response.response_metadata.prompt_eval_count || 0) + (response.response_metadata.eval_count || 0),
+        raw_metadata: response.response_metadata // Store raw metadata for more detailed analysis if needed
+      };
+      logger.debug(`Ollama generation successful. Result: "${textResult.substring(0,100)}..."`, { costData });
+    } else {
+      logger.debug(`Ollama generation successful but no response_metadata found. Result: "${textResult.substring(0,100)}..."`);
+    }
+    return { text: textResult, costData };
   } catch (error) {
     logger.error(`Ollama generation failed: ${error.message}`, {
       error,

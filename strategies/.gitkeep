@@ -1,0 +1,26 @@
+# This file is intentionally blank.
+# It ensures the 'strategies' directory is created and tracked by Git,
+# even if it's initially empty or only contains JSON files that might be
+# ignored by some configurations.
+#
+# Please place your JSON strategy definition files in this directory.
+# Example:
+# strategies/
+#   sir-r1-strategy.json
+#   direct-s1-strategy.json
+#
+# Each JSON file should define a strategy graph according to the MCR Evolution Engine specification.
+# Key fields include:
+# - id: Unique identifier for the strategy (string).
+# - name: Human-readable name (string).
+# - description: Brief explanation of the strategy (string).
+# - nodes: Array of node objects defining the steps in the workflow.
+#   - id: Unique ID for the node (string).
+#   - type: Type of the node (e.g., "LLM_Call", "Parse_JSON", "SIR_To_Prolog").
+#   - ... other type-specific properties (e.g., prompt_template_name, input_variable, output_variable).
+# - edges: Array of edge objects defining connections between nodes.
+#   - from: ID of the source node (string).
+#   - to: ID of the target node (string).
+# - result_variable: (Optional) The name of the variable in the execution state that holds the final output of the strategy.
+#
+# Refer to the system specification for more details on the JSON schema.
