@@ -33,7 +33,7 @@ class InputRouter {
       );
     }
     this.db = db; // This should be the database module itself, not an instance
-    logger.info('[InputRouter] Initialized with database module.');
+    logger.info('[InputRouter] Initialized with database instance.');
   }
 
   /**
@@ -55,7 +55,6 @@ class InputRouter {
         'when',
         'why',
         'how',
-        'is',
         'are',
         'does',
         'do',

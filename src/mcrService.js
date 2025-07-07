@@ -175,9 +175,11 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
     logger.info(`[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for assertion. OpID: ${operationId}.`);
     const executor = new StrategyExecutor(activeStrategyJson);
     const executionResult = await executor.execute(llmService, initialContext);
-    const addedFacts = executionResult.result;
-    const costOfExecution = executionResult.totalCost;
 
+    const addedFacts = executionResult; // In SIR-R1-Assert, the result of the strategy is directly the array of prolog clauses.
+    const costOfExecution = null; // executionResult.totalCost; // TODO: Re-enable cost tracking if strategy executor provides it.
+
+    // Validate addedFacts structure (array of strings)
     if (!Array.isArray(addedFacts) || !addedFacts.every((f) => typeof f === 'string')) {
       logger.error(
         `[McrService] Strategy "${currentStrategyId}" execution for assertion did not return an array of strings. OpID: ${operationId}. Output: ${JSON.stringify(addedFacts)}`,
@@ -212,7 +214,9 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
     }
   } catch (error) {
     logger.error(`[McrService] Error asserting NL to session ${sessionId} using strategy "${currentStrategyId}": ${error.message}`, { stack: error.stack, details: error.details, errorCode: error.code });
-    return { success: false, message: `Error during assertion: ${error.message}`, error: error.code || ErrorCodes.STRATEGY_EXECUTION_ERROR, details: error.message, strategyId: currentStrategyId };
+    // Ensure cost is included in error returns if available, or null otherwise
+    const cost = error.costData || null; // Assuming error object might carry costData
+    return { success: false, message: `Error during assertion: ${error.message}`, error: error.code || ErrorCodes.STRATEGY_EXECUTION_ERROR, details: error.message, strategyId: currentStrategyId, cost };
   }
 }
 
@@ -251,8 +255,8 @@ async function querySessionWithNL(sessionId, naturalLanguageQuestion, queryOptio
     logger.info(`[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for query translation. OpID: ${operationId}.`);
     const executor = new StrategyExecutor(activeStrategyJson);
     const strategyExecutionResult = await executor.execute(llmService, initialContext);
-    const prologQuery = strategyExecutionResult.result;
-    // TODO: Accumulate/return strategyExecutionResult.totalCost
+    const prologQuery = strategyExecutionResult; // Corrected: strategyExecutionResult is the prolog query string
+    // TODO: Accumulate/return strategyExecutionResult.totalCost; if execute returns an object with cost
 
     if (typeof prologQuery !== 'string' || !prologQuery.endsWith('.')) {
       logger.error(`[McrService] Strategy "${currentStrategyId}" execution for query did not return a valid Prolog query string. OpID: ${operationId}. Output: ${prologQuery}`);
@@ -286,6 +290,7 @@ async function querySessionWithNL(sessionId, naturalLanguageQuestion, queryOptio
     else if (config.debugLevel === 'basic') debugInfo.knowledgeBaseSummary = `KB length: ${knowledgeBase.length}, Dynamic RAG: ${!!debugInfo.dynamicOntologyProvided}`;
 
     const prologResults = await reasonerService.executeQuery(knowledgeBase, prologQuery);
+
     if (config.debugLevel === 'verbose') debugInfo.prologResultsJSON = JSON.stringify(prologResults);
     else if (config.debugLevel === 'basic') debugInfo.prologResultsSummary = Array.isArray(prologResults) ? `${prologResults.length} solution(s) found.` : `Result: ${prologResults}`;
 
@@ -331,8 +336,8 @@ async function translateNLToRulesDirect(naturalLanguageText, strategyIdToUse) {
 
     const executor = new StrategyExecutor(strategyJsonToUse);
     const executionResult = await executor.execute(llmService, initialContext);
-    const prologRules = executionResult.result;
-    // TODO: Handle executionResult.totalCost
+    const prologRules = executionResult;
+    // TODO: Handle executionResult.totalCost; if execute returns an object with cost
 
     if (!Array.isArray(prologRules) || !prologRules.every((r) => typeof r === 'string')) {
       logger.error(`[McrService] Strategy "${currentStrategyId}" execution for direct translation did not return an array of strings. OpID: ${operationId}. Output: ${JSON.stringify(prologRules)}`);
@@ -420,8 +425,8 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
     logger.info(`[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for query translation in explain. OpID: ${operationId}.`);
     const executor = new StrategyExecutor(activeStrategyJson);
     const strategyExecutionResult = await executor.execute(llmService, initialStrategyContext);
-    const prologQuery = strategyExecutionResult.result;
-    // TODO: Handle strategyExecutionResult.totalCost
+    const prologQuery = strategyExecutionResult; // Corrected: strategyExecutionResult is the prolog query string
+    // TODO: Handle strategyExecutionResult.totalCost; if execute returns an object with cost
 
     if (typeof prologQuery !== 'string' || !prologQuery.endsWith('.')) {
       logger.error(`[McrService] Strategy "${currentStrategyId}" execution for explain query did not return a valid Prolog query string. OpID: ${operationId}. Output: ${prologQuery}`);

@@ -90,22 +90,27 @@ describe('InputRouter', () => {
       // LIMIT 1;
       // The actual implementation in InputRouter returns null without calling DB, so this test needs an update when InputRouter's getBestStrategy is implemented.
       // For now, testing the placeholder state:
-      expect(logger.warn).toHaveBeenCalledWith(
-        '[InputRouter] getBestStrategy: DB querying not yet implemented. Returning null.'
-      );
+      // expect(logger.warn).toHaveBeenCalledWith(
+      //   '[InputRouter] getBestStrategy: DB querying not yet implemented. Returning null.'
+      // );
+      // const result = await inputRouter.getBestStrategy(inputClass, llmModelId);
+      // expect(result).toBeNull();
+      expect(mockDb.queryPerformanceResults).toHaveBeenCalled();
       const result = await inputRouter.getBestStrategy(inputClass, llmModelId);
-      expect(result).toBeNull();
+      expect(result).toBeNull(); // Expect null when no results are returned
     });
 
     // TODO: Add more tests for getBestStrategy once its DB querying logic is implemented.
     // e.g., when results are returned, when errors occur, etc.
     // For now, the method has a hardcoded return null and a warn log.
 
-    it('should log a warning and return null as DB querying is not yet fully implemented', async () => {
+    it('should return null when DB querying returns no results', async () => {
+      mockDb.queryPerformanceResults.mockResolvedValue([]); // Ensure no results
       const result = await inputRouter.getBestStrategy(inputClass, llmModelId);
-      expect(logger.warn).toHaveBeenCalledWith(
-        '[InputRouter] getBestStrategy: DB querying not yet implemented. Returning null.'
-      );
+      // expect(logger.warn).toHaveBeenCalledWith(
+      //   '[InputRouter] getBestStrategy: DB querying not yet implemented. Returning null.'
+      // );
+      expect(mockDb.queryPerformanceResults).toHaveBeenCalled();
       expect(result).toBeNull();
     });
   });

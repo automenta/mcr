@@ -49,6 +49,7 @@ const mcrService = require('../src/mcrService');
 const llmService = require('../src/llmService');
 const reasonerService = require('../src/reasonerService');
 const sessionManager = require('../src/sessionManager');
+const { ErrorCodes } = require('../src/errors');
 const ontologyService = require('../src/ontologyService');
 const { prompts } = require('../src/prompts');
 
@@ -68,22 +69,29 @@ describe('MCR Service (mcrService.js)', () => {
       await mcrService.setTranslationStrategy('SIR-R1');
       sessionManager.getSession.mockReturnValue({ id: sessionId, facts: [] });
       ontologyService.listOntologies.mockResolvedValue([{ name: 'global', rules: 'universal_rule.' }]);
-      // Default mock for this suite - successful translation to a single Prolog fact
-      // This beforeEach is for the assertNLToSession suite
-      llmService.generate.mockImplementation(async (systemPrompt) => {
-        // This specific mock is for the happy path of assertion
-        if (systemPrompt === prompts.NL_TO_SIR_ASSERT.system) {
-          return { text: JSON.stringify({ statementType: 'fact', fact: { predicate: 'is_blue', arguments: ['sky'] } }), costData: null };
-        }
-        // Fallback for any other unexpected LLM calls within this suite's tests
-        return { text: `unexpected_assert_prompt: ${systemPrompt}`, costData: null };
-      });
       sessionManager.addFacts.mockReturnValue(true); // Default to successful fact addition
       sessionManager.getKnowledgeBase.mockReturnValue('');
       sessionManager.getLexiconSummary.mockReturnValue('lexicon_entry/1');
+
+      // More generic mock in beforeEach, specific tests will override
+      llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
+        // console.log('[DEBUG] Fallback LLM Mock Called - System:', systemPrompt.substring(0,50), 'User:', userPrompt ? userPrompt.substring(0,50) : 'N/A');
+        return { text: JSON.stringify({ error: `Fallback mock in assertNLToSession for prompt: ${systemPrompt.substring(0,50)}` }), costData: null };
+      });
     });
 
     it('should successfully assert a natural language statement using SIR-R1-Assert strategy', async () => {
+      // Specific mock for this test
+      llmService.generate.mockReset();
+      llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
+        if (systemPrompt === prompts.NL_TO_SIR_ASSERT.system && userPrompt && userPrompt.includes(nlText)) {
+          return { text: JSON.stringify({ statementType: 'fact', fact: { predicate: 'is_blue', arguments: ['sky'] } }), costData: null };
+        }
+        // console.log('[DEBUG] Unexpected assertNLToSession success test mock - System:', systemPrompt.substring(0,50), 'User:', userPrompt ? userPrompt.substring(0,50) : 'N/A');
+        return { text: JSON.stringify({ error: "Unexpected prompt in 'successfully assert' test specific mock" }), costData: null };
+      });
+      sessionManager.addFacts.mockReturnValue(true); // Ensure addFacts is true for this specific test's success path
+
       const result = await mcrService.assertNLToSession(sessionId, nlText);
       expect(result.success).toBe(true);
       expect(result.message).toBe('Facts asserted successfully.');
@@ -100,6 +108,7 @@ describe('MCR Service (mcrService.js)', () => {
     });
 
     it('should return error from strategy if LLM returns invalid SIR JSON', async () => {
+      llmService.generate.mockReset();
       llmService.generate.mockResolvedValue({ text: 'This is not valid JSON', costData: null });
       const result = await mcrService.assertNLToSession(sessionId, 'Is the sky blue?');
       expect(result.success).toBe(false);
@@ -109,45 +118,78 @@ describe('MCR Service (mcrService.js)', () => {
     });
 
     it('should return NO_FACTS_EXTRACTED if SIR strategy returns non-assertable SIR structure', async () => {
-      llmService.generate.mockResolvedValue({ text: JSON.stringify({ statementType: 'comment', text: 'ignore this' }), costData: null });
+      llmService.generate.mockReset();
+      llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
+        if (systemPrompt === prompts.NL_TO_SIR_ASSERT.system && userPrompt && userPrompt.includes(nlText)) {
+          return { text: JSON.stringify({ statementType: 'comment', text: 'ignore this' }), costData: null };
+        }
+        return { text: JSON.stringify({ error: "Unexpected prompt in NO_FACTS_EXTRACTED test" }), costData: null };
+      });
       const result = await mcrService.assertNLToSession(sessionId, nlText);
       expect(result.success).toBe(false);
       expect(result.message).toBe('Could not translate text into valid facts using the current strategy.');
-      expect(result.error).toBe('NO_FACTS_EXTRACTED');
+      expect(result.error).toBe(ErrorCodes.NO_FACTS_EXTRACTED);
     });
 
     it('should return SESSION_ADD_FACTS_FAILED if sessionManager.addFacts returns false', async () => {
+      llmService.generate.mockReset();
+      llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
+        if (systemPrompt === prompts.NL_TO_SIR_ASSERT.system && userPrompt && userPrompt.includes(nlText)) {
+          return { text: JSON.stringify({ statementType: 'fact', fact: { predicate: 'is_blue', arguments: ['sky'] } }), costData: null };
+        }
+        return { text: JSON.stringify({ error: "Unexpected prompt in SESSION_ADD_FACTS_FAILED test" }), costData: null };
+      });
       sessionManager.addFacts.mockReturnValue(false);
-      // llmService.generate will use the beforeEach mock, which produces valid facts
       const result = await mcrService.assertNLToSession(sessionId, nlText);
       expect(result.success).toBe(false);
       expect(result.message).toBe('Failed to add facts to session manager after validation.');
-      expect(result.error).toBe('SESSION_ADD_FACTS_FAILED');
+      expect(result.error).toBe(ErrorCodes.SESSION_ADD_FACTS_FAILED);
     });
 
     it('should handle errors from ontologyService.listOntologies gracefully and still assert', async () => {
+      llmService.generate.mockReset();
+      llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
+        if (systemPrompt === prompts.NL_TO_SIR_ASSERT.system && userPrompt && userPrompt.includes(nlText)) {
+          return { text: JSON.stringify({ statementType: 'fact', fact: { predicate: 'is_blue', arguments: ['sky'] } }), costData: null };
+        }
+        return { text: JSON.stringify({ error: "Unexpected prompt in ontologyService error test" }), costData: null };
+      });
       ontologyService.listOntologies.mockRejectedValue(new Error('Ontology service error'));
-      // llmService.generate from beforeEach provides valid SIR
       const result = await mcrService.assertNLToSession(sessionId, nlText);
       expect(result.success).toBe(true);
       expect(result.message).toBe('Facts asserted successfully.');
+      expect(result.addedFacts).toEqual([prologFact]);
     });
 
     it('should handle errors from llmService.generate (network error, etc.)', async () => {
-      llmService.generate.mockRejectedValue(new Error('LLM generation failed'));
+      // This mock specifically targets the NL_TO_SIR_ASSERT prompt for this test case
+      llmService.generate.mockReset();
+      llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
+        if (systemPrompt === prompts.NL_TO_SIR_ASSERT.system && userPrompt && userPrompt.includes(nlText)) {
+          return Promise.reject(new Error('LLM generation failed'));
+        }
+        // Fallback to prevent other tests from using this specific rejection
+        return { text: JSON.stringify({ statementType: 'fact', fact: { predicate: 'is_blue', arguments: ['sky'] } }), costData: null };
+      });
       const result = await mcrService.assertNLToSession(sessionId, nlText);
       expect(result.success).toBe(false);
       expect(result.message).toContain("Error during assertion: Execution failed at node 'step1_nl_to_sir_llm' (Type: LLM_Call) in strategy 'SIR-R1-Assert': LLM generation failed");
-      expect(result.error).toBe('STRATEGY_EXECUTION_ERROR');
+      expect(result.error).toBe(ErrorCodes.STRATEGY_EXECUTION_ERROR); // This is the error code from MCRError when strategy execution fails
     });
 
     it('should return validation error if reasonerService.validateKnowledgeBase returns isValid: false', async () => {
-      // llmService.generate from beforeEach produces 'is_blue(sky).'
+      llmService.generate.mockReset();
+      llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
+        if (systemPrompt === prompts.NL_TO_SIR_ASSERT.system && userPrompt && userPrompt.includes(nlText)) {
+          return { text: JSON.stringify({ statementType: 'fact', fact: { predicate: 'is_blue', arguments: ['sky'] } }), costData: null };
+        }
+        return { text: JSON.stringify({ error: "Unexpected prompt in reasonerService validation error test" }), costData: null };
+      });
       reasonerService.validateKnowledgeBase.mockResolvedValue({ isValid: false, error: 'Syntax error in asserted fact' });
-      const result = await mcrService.assertNLToSession(sessionId, 'A test statement.');
+      const result = await mcrService.assertNLToSession(sessionId, nlText);
       expect(result.success).toBe(false);
       expect(result.message).toBe('Failed to assert facts: Generated Prolog is invalid.');
-      expect(result.error).toBe('INVALID_GENERATED_PROLOG');
+      expect(result.error).toBe(ErrorCodes.INVALID_GENERATED_PROLOG);
       expect(result.details).toContain('Generated Prolog is invalid: "is_blue(sky)."');
       expect(result.details).toContain('Syntax error in asserted fact');
     });
@@ -166,43 +208,66 @@ describe('MCR Service (mcrService.js)', () => {
       sessionManager.getSession.mockReturnValue({ id: sessionId, facts: ['is_blue(sky).'] });
       sessionManager.getKnowledgeBase.mockReturnValue('is_blue(sky).');
       ontologyService.listOntologies.mockResolvedValue([{ name: 'global', rules: 'universal_rule.' }]);
+      // General mock for this describe block, specific tests can override if needed
       llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
-        if (systemPrompt === prompts.NL_TO_QUERY.system) {
+        if (systemPrompt === prompts.NL_TO_QUERY.system && userPrompt && userPrompt.includes(nlQuestion)) {
+          // Ensure this returns a string for the raw_llm_query_output
           return { text: prologQuery, costData: null };
         }
-        if (systemPrompt === prompts.LOGIC_TO_NL_ANSWER.system) {
-          if (userPrompt.includes(JSON.stringify(reasonerResults))) {
-            return { text: nlAnswer, costData: null };
-          }
+        if (systemPrompt === prompts.LOGIC_TO_NL_ANSWER.system && userPrompt && userPrompt.includes(JSON.stringify(reasonerResults))) {
+          return { text: nlAnswer, costData: null };
         }
-        return Promise.reject(new Error(`Unexpected LLM call in querySessionWithNL test. System: ${systemPrompt}`));
+        return Promise.reject(new Error(`Unexpected LLM call in querySessionWithNL default mock. System: ${systemPrompt.substring(0,50)}, User: ${userPrompt ? userPrompt.substring(0,100) : 'N/A'}`));
       });
       reasonerService.executeQuery.mockResolvedValue(reasonerResults);
     });
 
     it('should successfully query a session with NL using SIR-R1-Query strategy', async () => {
+       llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
+        if (systemPrompt === prompts.NL_TO_QUERY.system && userPrompt && userPrompt.includes(nlQuestion)) {
+          return { text: prologQuery, costData: null };
+        }
+        if (systemPrompt === prompts.LOGIC_TO_NL_ANSWER.system && userPrompt && userPrompt.includes(JSON.stringify(reasonerResults))) {
+          return { text: nlAnswer, costData: null };
+        }
+        return Promise.reject(new Error(`Unexpected LLM call in 'successfully query' test. System: ${systemPrompt.substring(0,50)}`));
+      });
       const result = await mcrService.querySessionWithNL(sessionId, nlQuestion);
       expect(result.success).toBe(true);
-      expect(result.answer).toBe(nlAnswer); // Asserting the string text
+      expect(result.answer).toBe(nlAnswer);
     });
 
     it('should successfully query with dynamic ontology', async () => {
+      llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
+        if (systemPrompt === prompts.NL_TO_QUERY.system && userPrompt && userPrompt.includes(nlQuestion)) {
+          return { text: prologQuery, costData: null };
+        }
+        if (systemPrompt === prompts.LOGIC_TO_NL_ANSWER.system && userPrompt && userPrompt.includes(JSON.stringify(reasonerResults))) {
+          return { text: nlAnswer, costData: null };
+        }
+        return Promise.reject(new Error(`Unexpected LLM call in 'dynamic ontology' test. System: ${systemPrompt.substring(0,50)}`));
+      });
       const result = await mcrService.querySessionWithNL(sessionId, nlQuestion, { dynamicOntology: dynamicOntologyText });
       expect(result.success).toBe(true);
-      expect(result.answer).toBe(nlAnswer); // Asserting the string text
+      expect(result.answer).toBe(nlAnswer);
     });
 
     it('should return error if LLM generates null for Prolog query', async () => {
-      llmService.generate.mockImplementation(async (systemPrompt) => {
-        if (systemPrompt === prompts.NL_TO_QUERY.system) return { text: null, costData: null };
-        if (systemPrompt === prompts.LOGIC_TO_NL_ANSWER.system) return { text: nlAnswer, costData: null };
-        return Promise.reject(new Error('Unexpected LLM call'));
+      llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
+        if (systemPrompt === prompts.NL_TO_QUERY.system && userPrompt && userPrompt.includes(nlQuestion)) {
+          // Simulate LLM returning an object that is not a string, or null text
+          return { text: null, costData: null };
+        }
+        if (systemPrompt === prompts.LOGIC_TO_NL_ANSWER.system) {
+          return { text: nlAnswer, costData: null };
+        }
+        return Promise.reject(new Error('Unexpected LLM call in "querySessionWithNL › should return error if LLM generates null for Prolog query" test'));
       });
       const result = await mcrService.querySessionWithNL(sessionId, nlQuestion);
       expect(result.success).toBe(false);
-      expect(result.message).toMatch(/Error during query: Execution failed at node 'step2_extract_prolog_query'/i);
-      expect(result.details).toMatch(/Input for Extract_Prolog_Query node step2_extract_prolog_query \(variable 'raw_llm_query_output'\) is not a string. Found: null/i);
-      expect(result.error).toBe('INVALID_NODE_INPUT');
+      expect(result.message).toMatch(/Error during query: Execution failed at node 'step2_extract_prolog_query' \(Type: Extract_Prolog_Query\) in strategy 'SIR-R1-Query': Input for Extract_Prolog_Query node step2_extract_prolog_query \(variable 'raw_llm_query_output'\) is not a string. Found: object/i);
+      expect(result.details).toMatch(/Input for Extract_Prolog_Query node step2_extract_prolog_query \(variable 'raw_llm_query_output'\) is not a string. Found: object/i);
+      expect(result.error).toBe(ErrorCodes.INVALID_NODE_INPUT);
     });
   });
 
@@ -212,11 +277,12 @@ describe('MCR Service (mcrService.js)', () => {
 
     beforeEach(async () => {
         await mcrService.setTranslationStrategy('SIR-R1');
-        llmService.generate.mockImplementation(async (systemPrompt) => {
-            if (systemPrompt === prompts.NL_TO_SIR_ASSERT.system) {
+        llmService.generate.mockReset(); // Important: Reset before setting new specific mock
+        llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
+            if (systemPrompt === prompts.NL_TO_SIR_ASSERT.system && userPrompt && userPrompt.includes(nlTextToTranslate)) {
                 return { text: JSON.stringify({ statementType: 'rule', rule: { head: {predicate: 'mortal', arguments: ['X']}, body: [{predicate: 'man', arguments: ['X']}]} }), costData: null };
             }
-            return { text: `mock_fallback_for_NL_TO_RULES_DIRECT: ${systemPrompt}`, costData: null };
+            return { text: JSON.stringify({ error: `Unexpected prompt in translateNLToRulesDirect test. System: ${systemPrompt.substring(0,50)} User: ${userPrompt ? userPrompt.substring(0,50) : 'N/A'}` }), costData: null };
         });
     });
 
@@ -232,6 +298,7 @@ describe('MCR Service (mcrService.js)', () => {
     const nlExplanation = 'John is the father of Peter.';
 
     beforeEach(() => {
+      llmService.generate.mockReset();
       llmService.generate.mockResolvedValue({ text: nlExplanation, costData: null });
     });
 
@@ -242,6 +309,7 @@ describe('MCR Service (mcrService.js)', () => {
     });
 
     it('should return error if LLM fails to generate an explanation (null text)', async () => {
+      llmService.generate.mockReset();
       llmService.generate.mockResolvedValue({ text: null, costData: null });
       const result = await mcrService.translateRulesToNLDirect(prologRules);
       expect(result.success).toBe(false);
@@ -250,6 +318,7 @@ describe('MCR Service (mcrService.js)', () => {
     });
 
     it('should return error if LLM fails to generate an explanation (LLM returns null object)', async () => {
+      llmService.generate.mockReset();
       llmService.generate.mockResolvedValue(null); // Simulate LLM returning null object
       const result = await mcrService.translateRulesToNLDirect(prologRules);
       expect(result.success).toBe(false);
@@ -261,84 +330,125 @@ describe('MCR Service (mcrService.js)', () => {
   describe('explainQuery', () => {
     const sessionId = 'test-session-explain';
     const nlQuestion = 'Why is the sky blue?';
-    const prologQueryForExplain = 'explain(color(sky,blue)).';
+    const prologQueryForExplain = 'explain(color(sky,blue)).'; // Example, actual output from NL_TO_QUERY might differ
     const explanation = 'The sky is blue due to Rayleigh scattering.';
 
     beforeEach(async () => {
-      await mcrService.setTranslationStrategy('SIR-R1');
+      await mcrService.setTranslationStrategy('SIR-R1'); // Ensures SIR-R1-Query is used for the first part
       sessionManager.getSession.mockReturnValue({ id: sessionId, facts: ['is_blue(sky).'] });
       sessionManager.getKnowledgeBase.mockReturnValue('is_blue(sky).');
+      // Default successful ontology listing
       ontologyService.listOntologies.mockResolvedValue([{ name: 'global', rules: 'universal_rule.' }]);
+
+      // Reset and set a more specific default mock for the explainQuery suite
+      llmService.generate.mockReset();
       llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
-        if (systemPrompt === prompts.NL_TO_QUERY.system && userPrompt.includes(nlQuestion)) {
+        if (systemPrompt === prompts.NL_TO_QUERY.system && userPrompt && userPrompt.includes(nlQuestion)) {
           return { text: prologQueryForExplain, costData: null };
         }
-        if (systemPrompt === prompts.EXPLAIN_PROLOG_QUERY.system && userPrompt.includes(prologQueryForExplain)) {
+        if (systemPrompt === prompts.EXPLAIN_PROLOG_QUERY.system && userPrompt && userPrompt.includes(prologQueryForExplain)) {
           return { text: explanation, costData: null };
         }
-        return Promise.reject(new Error(`Unexpected LLM call in explainQuery test: ${systemPrompt}`));
+        return Promise.reject(new Error(`Unexpected LLM call in explainQuery default mock. System: ${systemPrompt.substring(0,50)}, User: ${userPrompt ? userPrompt.substring(0,100) : 'N/A'}`));
       });
     });
 
     it('should successfully generate a query explanation using SIR-R1-Query strategy', async () => {
+      // This test will use the mock from beforeEach
       const result = await mcrService.explainQuery(sessionId, nlQuestion);
       expect(result.success).toBe(true);
-      expect(result.explanation).toBe(explanation); // Asserting the string text
+      expect(result.explanation).toBe(explanation);
     });
 
     it('should return error if LLM fails to translate NL to Prolog query for explanation', async () => {
-        llmService.generate.mockImplementation(async (systemPrompt) => {
-            if (systemPrompt === prompts.NL_TO_QUERY.system) {
+        llmService.generate.mockReset();
+        llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
+            // Fail the NL_TO_QUERY step
+            if (systemPrompt === prompts.NL_TO_QUERY.system && userPrompt && userPrompt.includes(nlQuestion)) {
                 return Promise.reject(new Error('Strategy query generation failed'));
             }
             // This part of mock might not be reached if the first call fails as expected
-            return { text: explanation, costData: null };
+            if (systemPrompt === prompts.EXPLAIN_PROLOG_QUERY.system) {
+                return { text: explanation, costData: null };
+            }
+            return Promise.reject(new Error('Unexpected LLM call in "explainQuery › should return error if LLM fails to translate NL to Prolog query" test'));
         });
         const result = await mcrService.explainQuery(sessionId, nlQuestion);
         expect(result.success).toBe(false);
-        // Message now reflects the actual error from the LLM_Call node failing
         expect(result.message).toMatch(/Error during query explanation: Execution failed at node 'step1_nl_to_query_llm' \(Type: LLM_Call\) in strategy 'SIR-R1-Query': Strategy query generation failed/i);
         expect(result.details).toMatch(/Strategy query generation failed/i);
-        expect(result.error).toBe('STRATEGY_EXECUTION_ERROR');
+        expect(result.error).toBe(ErrorCodes.STRATEGY_EXECUTION_ERROR);
     });
 
     it('should return error if LLM generates null for Prolog query for explanation', async () => {
-        llmService.generate.mockImplementation(async (systemPrompt) => {
-            if (systemPrompt === prompts.NL_TO_QUERY.system) return { text: null, costData: null };
-            if (systemPrompt === prompts.EXPLAIN_PROLOG_QUERY.system) return { text: explanation, costData: null };
-            return Promise.reject(new Error('Unexpected LLM call'));
+        llmService.generate.mockReset();
+        llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
+            // Return null for NL_TO_QUERY step
+            if (systemPrompt === prompts.NL_TO_QUERY.system && userPrompt && userPrompt.includes(nlQuestion)) {
+                 return { text: null, costData: null };
+            }
+            if (systemPrompt === prompts.EXPLAIN_PROLOG_QUERY.system) {
+                return { text: explanation, costData: null };
+            }
+            return Promise.reject(new Error('Unexpected LLM call in "explainQuery › should return error if LLM generates null for Prolog query" test'));
         });
         const result = await mcrService.explainQuery(sessionId, nlQuestion);
         expect(result.success).toBe(false);
-        expect(result.message).toMatch(/Error during query explanation: Execution failed at node 'step2_extract_prolog_query'/i);
-        expect(result.details).toMatch(/Input for Extract_Prolog_Query node step2_extract_prolog_query \(variable 'raw_llm_query_output'\) is not a string. Found: null/i);
-        expect(result.error).toBe('INVALID_NODE_INPUT');
+        expect(result.message).toMatch(/Error during query explanation: Execution failed at node 'step2_extract_prolog_query' \(Type: Extract_Prolog_Query\) in strategy 'SIR-R1-Query': Input for Extract_Prolog_Query node step2_extract_prolog_query \(variable 'raw_llm_query_output'\) is not a string. Found: object/i);
+        expect(result.details).toMatch(/Input for Extract_Prolog_Query node step2_extract_prolog_query \(variable 'raw_llm_query_output'\) is not a string. Found: object/i);
+        expect(result.error).toBe(ErrorCodes.INVALID_NODE_INPUT);
     });
 
-    it('should handle ontologyService error gracefully for NL_TO_QUERY prompt context', async () => {
-        ontologyService.listOntologies.mockImplementation(() => {
-            // Fail for the first call (NL_TO_QUERY prompt context for strategy execution)
-            if (llmService.generate.mock.calls.length < 1 || (llmService.generate.mock.calls.length > 0 && llmService.generate.mock.calls[0][0] === prompts.NL_TO_QUERY.system)) {
-                 // This condition needs to be specific to the first call intended for query translation step
-                if (!llmService.generate.mock.calls.find(call => call[0] === prompts.EXPLAIN_PROLOG_QUERY.system)) {
-                    return Promise.reject(new Error('Ontology N2Q prompt error for explain'));
-                }
+    it('should handle ontologyService error gracefully for NL_TO_QUERY prompt context and still explain', async () => {
+        // Specific mock for this test: ontologyService fails for the strategy execution part, but succeeds for the explanation prompt part
+        ontologyService.listOntologies.mockReset();
+        ontologyService.listOntologies
+            .mockImplementationOnce(() => Promise.reject(new Error('Ontology N2Q prompt error for explain'))) // Fails for strategy context
+            .mockResolvedValue([{ name: 'global', rules: 'universal_rule.' }]); // Succeeds for EXPLAIN_PROLOG_QUERY context
+
+        // LLM should still proceed for EXPLAIN_PROLOG_QUERY if NL_TO_QUERY provides a (potentially less optimal) query
+        llmService.generate.mockReset();
+        llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
+            if (systemPrompt === prompts.NL_TO_QUERY.system && userPrompt && userPrompt.includes(nlQuestion)) {
+                // Simulate that even with ontology error, a query might be generated (e.g., without ontology context)
+                return { text: prologQueryForExplain, costData: null };
             }
-            // Succeed for the second call (EXPLAIN_PROLOG_QUERY context for LLM)
-            return Promise.resolve([{ name: 'global', rules: 'universal_rule.' }]);
+            if (systemPrompt === prompts.EXPLAIN_PROLOG_QUERY.system && userPrompt && userPrompt.includes(prologQueryForExplain)) {
+                return { text: explanation, costData: null };
+            }
+            return Promise.reject(new Error('Unexpected LLM call in ontologyGracefulError (NL_TO_QUERY) test'));
+        });
+
+        const result = await mcrService.explainQuery(sessionId, nlQuestion);
+        expect(result.success).toBe(true); // Should still succeed as the explanation part works
+        expect(result.explanation).toBe(explanation);
+        // Optionally check debugInfo for logged ontology error
+        expect(result.debugInfo.ontologyErrorForStrategy).toContain('Ontology N2Q prompt error for explain');
+    });
+
+    it('should handle ontologyService error gracefully for EXPLAIN_PROLOG_QUERY prompt context and still explain', async () => {
+        // Specific mock for this test: ontologyService succeeds for strategy, fails for explanation prompt context
+        ontologyService.listOntologies.mockReset();
+        ontologyService.listOntologies
+            .mockResolvedValueOnce([{ name: 'global', rules: 'universal_rule.' }]) // Succeeds for strategy context
+            .mockImplementationOnce(() => Promise.reject(new Error('Ontology EXPLAIN prompt error'))); // Fails for EXPLAIN_PROLOG_QUERY context
+
+        // LLM should still proceed for EXPLAIN_PROLOG_QUERY, potentially without ontology context in that prompt
+        llmService.generate.mockReset();
+        llmService.generate.mockImplementation(async (systemPrompt, userPrompt) => {
+            if (systemPrompt === prompts.NL_TO_QUERY.system && userPrompt && userPrompt.includes(nlQuestion)) {
+                return { text: prologQueryForExplain, costData: null };
+            }
+            if (systemPrompt === prompts.EXPLAIN_PROLOG_QUERY.system && userPrompt && userPrompt.includes(prologQueryForExplain)) {
+                // Explanation might be different or less detailed if ontologyRules was empty, but it should still return something
+                return { text: explanation, costData: null };
+            }
+            return Promise.reject(new Error('Unexpected LLM call in ontologyGracefulError (EXPLAIN_PROLOG_QUERY) test'));
         });
         const result = await mcrService.explainQuery(sessionId, nlQuestion);
         expect(result.success).toBe(true);
         expect(result.explanation).toBe(explanation);
-    });
-
-    it('should handle ontologyService error gracefully for EXPLAIN_PROLOG_QUERY prompt context', async () => {
-        ontologyService.listOntologies
-            .mockResolvedValueOnce([{ name: 'global', rules: 'universal_rule.' }]) // For query translation
-            .mockRejectedValueOnce(new Error('Ontology EXPLAIN prompt error')); // For explanation prompt
-        const result = await mcrService.explainQuery(sessionId, nlQuestion);
-        expect(result.success).toBe(true);
-        expect(result.explanation).toBe(explanation);
+        expect(result.debugInfo.ontologyErrorForPrompt).toContain('Ontology EXPLAIN prompt error');
     });
   });
 });
