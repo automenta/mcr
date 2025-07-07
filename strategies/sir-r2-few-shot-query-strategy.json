@@ -1,0 +1,27 @@
+{
+  "id": "SIR-R2-FewShot-Query",
+  "name": "SIR-R2 Few-Shot Query Translation Strategy",
+  "description": "Translates a natural language question to Prolog query using a few-shot LLM prompt (NL_TO_QUERY_FEW_SHOT).",
+  "result_variable": "prolog_query",
+  "nodes": [
+    {
+      "id": "step1_nl_to_query_llm_few_shot",
+      "type": "LLM_Call",
+      "prompt_template_name": "NL_TO_QUERY_FEW_SHOT",
+      "model": "{{llm_model_id}}",
+      "output_variable": "raw_llm_query_output"
+    },
+    {
+      "id": "step2_extract_prolog_query",
+      "type": "Extract_Prolog_Query",
+      "input_variable": "raw_llm_query_output",
+      "output_variable": "prolog_query"
+    }
+  ],
+  "edges": [
+    {
+      "from": "step1_nl_to_query_llm_few_shot",
+      "to": "step2_extract_prolog_query"
+    }
+  ]
+}

@@ -1,52 +1,102 @@
-/* eslint-disable no-console */
 const readline = require('readline');
-const { apiClient } = require('../api'); // Removed API_BASE_URL, handleApiError
-const { readOntologyFile, handleCliOutput, printJson } = require('../utils');
-// Removed axios
+const path = require('path'); // For resolving ontology file path
+const { apiClient } = require('../api');
+const {
+  readFileContent,
+  handleCliOutput,
+  printJson,
+} = require('../../cliUtils'); // Added printJson
 
 async function assertFactAsync(sessionId, text, options, commandInstance) {
   const programOpts = commandInstance.parent.opts();
-  const response = await apiClient.post(`/sessions/${sessionId}/assert`, {
-    text,
-  });
-  handleCliOutput(response.data, programOpts, null, 'Facts asserted:\n');
+  const responseData = await apiClient.post(
+    `/sessions/${sessionId}/assert`,
+    { text },
+    programOpts
+  );
+  // Old README for POST /sessions/:sessionId/assert
+  // Response: { "addedFacts": ["...", "..."], "totalFactsInSession": N, "metadata": { "success": true } }
+  handleCliOutput(responseData, programOpts, null, 'Facts asserted:\n');
 }
 
-async function runInteractiveQueryMode(
+// Helper for custom non-JSON output for query results
+function displayQueryResults(responseData) {
+  console.log('Query Result:');
+  if (responseData.queryProlog) {
+    // Field from old README
+    console.log(`  Prolog Query: ${responseData.queryProlog}`);
+  }
+  process.stdout.write(`  Raw Result: `);
+  printJson(responseData.result); // 'result' field from old README
+  if (responseData.answer) {
+    // 'answer' field from old README
+    console.log(`  Answer: ${responseData.answer}`);
+  }
+  if (responseData.zeroShotLmAnswer) {
+    console.log(`  Zero-shot LLM Answer: ${responseData.zeroShotLmAnswer}`);
+  }
+  if (responseData.debug) {
+    process.stdout.write('  Debug Info: ');
+    printJson(responseData.debug);
+  }
+}
+
+// Interactive query mode function
+async function runInteractiveQueryModeAsync(
   initialSessionId,
-  options,
-  programOpts,
-  ontologyContent,
-  handleResponseCliFn
+  queryOptions, // { style, debug }
+  programOpts, // { json }
+  ontologyContent // string or null
 ) {
   let currentSessionId = initialSessionId;
+  let sessionCreatedInternally = false;
 
   if (!currentSessionId) {
-    const sessionResponse = await apiClient.post('/sessions');
-    currentSessionId = sessionResponse.data.sessionId;
-    if (!programOpts.json) {
-      console.log(
-        `New session created for interactive query. Session ID: ${currentSessionId}`
+    try {
+      const sessionResponse = await apiClient.post(
+        '/sessions',
+        {},
+        programOpts
       );
+      currentSessionId = sessionResponse.sessionId; // Assuming response is { sessionId: "..." }
+      sessionCreatedInternally = true;
+      if (!programOpts.json) {
+        console.log(
+          `New session created for interactive query. Session ID: ${currentSessionId}`
+        );
+      } else {
+        // For JSON output, we might want to log the session creation too
+        printJson(
+          { event: 'session_created_interactive', sessionId: currentSessionId },
+          true
+        );
+      }
+    } catch (error) {
+      // apiClient already handles errors by exiting, so this catch might not be strictly needed
+      // unless apiClient is changed to not exit.
+      console.error(`Could not start interactive session: ${error.message}`);
+      process.exit(1);
     }
   } else {
+    // Verify existing session
     try {
-      await apiClient.get(`/sessions/${currentSessionId}`);
+      await apiClient.get(`/sessions/${currentSessionId}`, null, programOpts);
       if (!programOpts.json) {
         console.log(`Continuing session: ${currentSessionId}`);
       }
     } catch (error) {
+      // apiClient handles exit, this is more for local console message if we change that
       console.error(
-        `Error verifying session ${currentSessionId}. Please check the session ID and server.`
+        `Error verifying session ${currentSessionId}. It may not exist or server is down: ${error.message}`
       );
-      process.exit(1);
+      process.exit(1); // Ensure exit if apiClient didn't (e.g. if it's changed)
     }
   }
 
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    prompt: programOpts.json ? '' : 'Query> ',
+    prompt: programOpts.json ? '' : `Query (${currentSessionId})> `,
   });
 
   if (!programOpts.json) rl.prompt();
@@ -68,58 +118,70 @@ async function runInteractiveQueryMode(
     try {
       const requestBody = {
         query: questionInput,
-        options: { style: options.style, debug: options.debug },
+        options: { style: queryOptions.style, debug: queryOptions.debug },
       };
       if (ontologyContent) {
-        requestBody.ontology = ontologyContent;
+        requestBody.ontology = ontologyContent; // Dynamic RAG context
       }
-      const response = await apiClient.post(
+      const responseData = await apiClient.post(
         `/sessions/${currentSessionId}/query`,
-        requestBody
+        requestBody,
+        programOpts
       );
-      handleResponseCliFn(response);
+
+      if (programOpts.json) {
+        handleCliOutput(responseData, programOpts);
+      } else {
+        displayQueryResults(responseData);
+      }
     } catch (error) {
-      if (!error.response && !programOpts.json) {
+      // apiClient.post should handle errors and exit.
+      // If it doesn't, or for non-API errors:
+      if (!programOpts.json) {
         console.error(`Error during query: ${error.message}`);
-      } else if (!error.response && programOpts.json) {
-        console.error(
-          JSON.stringify({ error: 'query_failed', message: error.message })
+      } else {
+        printJson(
+          { error: 'query_failed_interactive', message: error.message },
+          true
         );
       }
     }
     if (!programOpts.json) rl.prompt();
   }).on('close', async () => {
-    if (currentSessionId) {
+    if (currentSessionId && sessionCreatedInternally) {
       try {
         const deleteResponse = await apiClient.delete(
-          `/sessions/${currentSessionId}`
+          `/sessions/${currentSessionId}`,
+          programOpts
         );
         if (!programOpts.json) {
           console.log(
-            deleteResponse.data.message ||
-              `Session ${currentSessionId} terminated.`
+            deleteResponse.message || `Session ${currentSessionId} terminated.`
           );
         } else {
-          console.log(
-            JSON.stringify({
-              action: 'session_terminated_interactive_query',
+          printJson(
+            {
+              event: 'session_terminated_interactive',
               sessionId: currentSessionId,
-              details: deleteResponse.data,
-            })
+              details: deleteResponse,
+            },
+            true
           );
         }
       } catch (error) {
+        // Error handled by apiClient.delete or local console
         if (!programOpts.json) {
           console.error(
-            `Failed to terminate session ${currentSessionId} during cleanup: ${error.message}`
+            `Failed to terminate session ${currentSessionId}: ${error.message}`
           );
         } else {
-          console.error(
-            JSON.stringify({
-              action: 'session_termination_failed_interactive_query',
+          printJson(
+            {
+              event: 'session_termination_failed_interactive',
               sessionId: currentSessionId,
               error: error.message,
-            })
+            },
+            true
           );
         }
       }
@@ -135,72 +197,56 @@ async function querySessionAsync(
   sessionIdArg,
   questionArg,
   options,
-  programOpts
+  commandInstance
 ) {
-  const currentSessionId = sessionIdArg;
+  const programOpts = commandInstance.parent.opts();
   let ontologyContent = null;
+
   if (options.ontology) {
-    ontologyContent = readOntologyFile(options.ontology);
+    ontologyContent = readFileContent(
+      options.ontology,
+      'Ontology file for query context'
+    );
     if (ontologyContent && !programOpts.json) {
-      console.log(`Using ontology for query: ${options.ontology}`);
+      console.log(
+        `Using ontology for query: ${path.resolve(options.ontology)}`
+      );
     }
   }
 
-  function handleResponseCli(response) {
+  const isInteractive = !sessionIdArg || !questionArg; // Enter interactive if session OR question is missing
+
+  if (isInteractive) {
+    if (!programOpts.json) {
+      console.log('Entering interactive query mode...');
+      if (sessionIdArg && !questionArg)
+        console.log(`Session ID for interactive mode: ${sessionIdArg}`);
+    }
+    await runInteractiveQueryModeAsync(
+      sessionIdArg,
+      options,
+      programOpts,
+      ontologyContent
+    );
+  } else {
+    // Single-shot query
+    const requestBody = {
+      query: questionArg,
+      options: { style: options.style, debug: options.debug },
+    };
+    if (ontologyContent) {
+      requestBody.ontology = ontologyContent;
+    }
+    const responseData = await apiClient.post(
+      `/sessions/${sessionIdArg}/query`,
+      requestBody,
+      programOpts
+    );
     if (programOpts.json) {
-      handleCliOutput(response.data, programOpts);
+      handleCliOutput(responseData, programOpts);
     } else {
-      handleResponse(response);
+      displayQueryResults(responseData);
     }
-  }
-
-  function handleResponse(response) {
-    console.log('Query Result:');
-    console.log(`  Prolog Query: ${response.data.queryProlog}`);
-    process.stdout.write(`  Raw Result: `);
-    printJson(response.data.result);
-    console.log(`  Answer: ${response.data.answer}`);
-    if (response.data.debug) {
-      process.stdout.write('  Debug Info: ');
-      printJson(response.data.debug);
-    }
-  }
-
-  try {
-    const isInteractive = !sessionIdArg || !questionArg;
-
-    if (isInteractive) {
-      await runInteractiveQueryMode(
-        currentSessionId,
-        options,
-        programOpts,
-        ontologyContent,
-        handleResponseCli
-      );
-    } else {
-      const requestBody = {
-        query: questionArg,
-        options: { style: options.style, debug: options.debug },
-      };
-      if (ontologyContent) {
-        requestBody.ontology = ontologyContent;
-      }
-
-      const response = await apiClient.post(
-        `/sessions/${currentSessionId}/query`,
-        requestBody
-      );
-      handleResponseCli(response);
-    }
-  } catch (error) {
-    if (!error.response && !error.request && !programOpts.json) {
-      console.error(`An unexpected error occurred: ${error.message}`);
-    } else if (!error.response && !error.request && programOpts.json) {
-      console.error(
-        JSON.stringify({ error: 'unexpected_error', message: error.message })
-      );
-    }
-    process.exit(1);
   }
 }
 
@@ -211,16 +257,21 @@ async function explainQueryAsync(
   commandInstance
 ) {
   const programOpts = commandInstance.parent.opts();
-  const response = await apiClient.post(
+  // Old README for POST /sessions/:sessionId/explain-query
+  // Request: { "query": "Who are Mary's grandparents?" }
+  // Response: { "query": "...", "explanation": "..." }
+  const responseData = await apiClient.post(
     `/sessions/${sessionId}/explain-query`,
-    { query: question }
+    { query: question },
+    programOpts
   );
+
   if (programOpts.json) {
-    handleCliOutput(response.data, programOpts);
+    handleCliOutput(responseData, programOpts);
   } else {
     console.log('Query Explanation:');
-    console.log(`  Query: ${response.data.query}`);
-    console.log(`  Explanation: ${response.data.explanation}`);
+    console.log(`  Query: ${responseData.query}`); // Matches old README response field
+    console.log(`  Explanation: ${responseData.explanation}`); // Matches old README response field
   }
 }
 
@@ -230,10 +281,10 @@ module.exports = (program) => {
     .description('Assert natural language facts into a session')
     .action(assertFactAsync);
 
-  const queryCmd = program
+  program
     .command('query [sessionId] [question]')
     .description(
-      'Query a session with a natural language question. Enters interactive mode if sessionId and question are omitted, or if only sessionId is provided.'
+      'Query a session with NL. Enters interactive mode if question is omitted, or if both sessionId and question are omitted.'
     )
     .option(
       '-s, --style <style>',
@@ -243,16 +294,14 @@ module.exports = (program) => {
     .option('-d, --debug', 'Include debug information in the response')
     .option(
       '-o, --ontology <file>',
-      'Specify an ontology file to use for this query.'
-    );
-
-  queryCmd.action(async (sessionId, question, options, command) => {
-    const programOpts = command.parent.opts();
-    await querySessionAsync(sessionId, question, options, programOpts);
-  });
+      'Path to an ontology file for dynamic query context (RAG)'
+    )
+    .action(querySessionAsync);
 
   program
     .command('explain-query <sessionId> <question>')
-    .description('Get an explanation for a natural language query')
+    .description(
+      'Get an explanation for a natural language query against a session'
+    )
     .action(explainQueryAsync);
 };

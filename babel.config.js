@@ -4,9 +4,10 @@ module.exports = {
       '@babel/preset-env',
       {
         targets: {
-          node: '18', // Align with package.json "engines"
+          node: '18', // Assuming Node 18+ based on old config and common practice
         },
       },
     ],
+    '@babel/preset-react',
   ],
 };

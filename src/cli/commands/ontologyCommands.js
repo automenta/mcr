@@ -1,7 +1,6 @@
-/* eslint-disable no-console */
 const path = require('path');
 const { apiClient } = require('../api');
-const { handleCliOutput, readFileContent } = require('../utils');
+const { handleCliOutput, readFileContent } = require('../../cliUtils');
 
 async function addOntologyAsync(name, rulesFile, options, commandInstance) {
   const programOpts = commandInstance.parent.opts();
@@ -10,8 +9,13 @@ async function addOntologyAsync(name, rulesFile, options, commandInstance) {
   if (!programOpts.json) {
     console.log(`Using rules file: ${path.resolve(rulesFile)}`);
   }
-  const response = await apiClient.post('/ontologies', { name, rules });
-  handleCliOutput(response.data, programOpts, null, 'Ontology added:\n');
+  // apiClient.post will return response.data directly or handleApiError will exit
+  const responseData = await apiClient.post(
+    '/ontologies',
+    { name, rules },
+    programOpts
+  );
+  handleCliOutput(responseData, programOpts, null, 'Ontology added:\n');
 }
 
 async function updateOntologyAsync(name, rulesFile, options, commandInstance) {
@@ -21,26 +25,40 @@ async function updateOntologyAsync(name, rulesFile, options, commandInstance) {
   if (!programOpts.json) {
     console.log(`Using rules file: ${path.resolve(rulesFile)}`);
   }
-  const response = await apiClient.put(`/ontologies/${name}`, { rules });
-  handleCliOutput(response.data, programOpts, null, 'Ontology updated:\n');
+  const responseData = await apiClient.put(
+    `/ontologies/${name}`,
+    { rules },
+    programOpts
+  );
+  handleCliOutput(responseData, programOpts, null, 'Ontology updated:\n');
 }
 
-async function getOntologiesAsync(options, commandInstance) {
+async function listOntologiesAsync(options, commandInstance) {
+  // Changed name to listOntologiesAsync from getOntologiesAsync for clarity
   const programOpts = commandInstance.parent.opts();
-  const response = await apiClient.get('/ontologies');
-  handleCliOutput(response.data, programOpts, null, 'Available Ontologies:\n');
+  const responseData = await apiClient.get('/ontologies', null, programOpts);
+  handleCliOutput(responseData, programOpts, null, 'Available Ontologies:\n');
 }
 
 async function getOntologyAsync(name, options, commandInstance) {
   const programOpts = commandInstance.parent.opts();
-  const response = await apiClient.get(`/ontologies/${name}`);
-  handleCliOutput(response.data, programOpts, null, 'Ontology details:\n');
+  const responseData = await apiClient.get(
+    `/ontologies/${name}`,
+    null,
+    programOpts
+  );
+  handleCliOutput(responseData, programOpts, null, 'Ontology details:\n');
 }
 
 async function deleteOntologyAsync(name, options, commandInstance) {
   const programOpts = commandInstance.parent.opts();
-  const response = await apiClient.delete(`/ontologies/${name}`);
-  handleCliOutput(response.data, programOpts, 'message', 'Ontology deleted: ');
+  const responseData = await apiClient.delete(
+    `/ontologies/${name}`,
+    programOpts
+  );
+  // Old README for DELETE /ontologies/:name shows:
+  // { "message": "Ontology family_relations deleted.", "ontologyName": "family_relations" }
+  handleCliOutput(responseData, programOpts, 'message'); // Using 'message' key
 }
 
 module.exports = (program) => {
@@ -57,9 +75,9 @@ module.exports = (program) => {
     .action(updateOntologyAsync);
 
   program
-    .command('get-ontologies')
+    .command('list-ontologies') // Changed command name from get-ontologies
     .description('List all available ontologies')
-    .action(getOntologiesAsync);
+    .action(listOntologiesAsync);
 
   program
     .command('get-ontology <name>')

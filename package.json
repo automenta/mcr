@@ -1,56 +1,45 @@
 {
   "name": "model-context-reasoner",
-  "version": "2.1.0",
-  "description": "Connect LLMs and Logic",
+  "version": "1.0.0",
+  "description": "Model Context Reasoner (MCR): Connects Large Language Models (LLMs) with formal logic reasoners (Prolog) for advanced AI applications.",
   "main": "mcr.js",
   "bin": {
-    "mcr-cli": "./mcr-cli.js"
+    "mcr-cli": "./cli.js"
   },
   "scripts": {
     "start": "node mcr.js",
-    "cli": "node mcr-cli.js",
+    "demo": "node demo.js",
+    "chat": "node chat.js",
+    "chat:tui": "node cli.js chat",
     "test": "jest",
     "test:coverage": "jest --coverage",
     "format": "prettier --write .",
-    "lint": "eslint . --fix"
+    "lint": "eslint . --fix",
+    "generate-examples": "node ./scripts/generate_example.js",
+    "generate-ontology": "node ./scripts/generate_ontology.js"
   },
   "keywords": [
     "llm",
     "prolog",
     "reasoning",
+    "ai",
     "api",
-    "ai"
+    "nlp",
+    "logic programming"
   ],
+  "author": "Your Name or Organization",
   "license": "MIT",
-  "dependencies": {
-    "@langchain/community": "^0.3.47",
-    "@langchain/core": "0.3.61",
-    "@langchain/google-genai": "^0.2.14",
-    "@langchain/openai": "^0.5.16",
-    "axios": "^1.10.0",
-    "commander": "^14.0.0",
-    "dotenv": "^16.1.0-rc2",
-    "express": "^5.1.0",
-    "langchain": "^0.3.29",
-    "tau-prolog": "^0.3.4",
-    "uuid": "^9.0.0",
-    "winston": "^3.17.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "overrides": {
-    "ignore": "^5.2.0"
-  },
+  "type": "commonjs",
   "files": [
     "mcr.js",
-    "mcr-cli.js",
+    "cli.js",
+    "chat.js",
+    "demo.js",
     "src/",
     "ontologies/",
     "README.md",
-    "LICENSE",
-    "CODE.md",
-    ".env.example"
+    ".env.example",
+    "LICENSE"
   ],
   "repository": {
     "type": "git",
@@ -60,18 +49,57 @@
     "url": "https://github.com/yourusername/model-context-reasoner/issues"
   },
   "homepage": "https://github.com/yourusername/model-context-reasoner#readme",
+  "dependencies": {
+    "@langchain/anthropic": "^0.3.24",
+    "@langchain/community": "^0.3.48",
+    "@langchain/core": "^0.3.62",
+    "@langchain/google-genai": "^0.2.14",
+    "@langchain/openai": "^0.5.18",
+    "axios": "^1.6.0",
+    "chalk": "^4.1.2",
+    "commander": "^14.0.0",
+    "dotenv": "^16.6.1",
+    "express": "^4.17.1",
+    "ink": "^6.0.1",
+    "ink-text-input": "^6.0.0",
+    "inquirer": "^8.2.0",
+    "langchain": "^0.3.29",
+    "react": "^19.1.0",
+    "sqlite3": "^5.1.7",
+    "tau-prolog": "^0.3.4",
+    "uuid": "^11.1.0",
+    "winston": "^3.0.0",
+    "yargs": "^18.0.0"
+  },
   "devDependencies": {
-    "@babel/core": "^7.27.7",
-    "@babel/preset-env": "^7.27.2",
-    "@eslint/eslintrc": "^3.3.1",
-    "@eslint/js": "^9.30.0",
-    "babel-jest": "^30.0.2",
-    "eslint": "^9.30.0",
-    "eslint-config-prettier": "^10.1.5",
-    "eslint-plugin-jest": "^29.0.1",
-    "globals": "^16.2.0",
-    "jest": "^30.0.3",
-    "prettier": "^3.6.2",
-    "supertest": "^7.1.1"
+    "@babel/core": "^7.28.0",
+    "@babel/preset-env": "^7.28.0",
+    "@babel/preset-react": "^7.27.1",
+    "@babel/register": "^7.27.1",
+    "@eslint/js": "^9.30.1",
+    "babel-jest": "^30.0.4",
+    "eslint": "^9.1.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-jest": "^28.2.0",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^15.0.0",
+    "jest": "^29.0.0",
+    "prettier": "^3.2.5",
+    "supertest": "^6.0.0"
+  },
+  "jest": {
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/old/test/"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/old/"
+    ],
+    "transformIgnorePatterns": [
+      "/node_modules/(?!yargs|uuid|chalk)/"
+    ]
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

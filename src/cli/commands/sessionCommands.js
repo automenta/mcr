@@ -1,22 +1,33 @@
-const { apiClient } = require('../api');
-const { handleCliOutput } = require('../utils');
+const { apiClient } = require('../api'); // Use new apiClient
+const { handleCliOutput } = require('../../cliUtils'); // Use new handleCliOutput
 
 async function createSessionAsync(options, commandInstance) {
-  const programOpts = commandInstance.parent.opts();
-  const response = await apiClient.post('/sessions');
-  handleCliOutput(response.data, programOpts, null, 'Session created:\n');
+  const programOpts = commandInstance.parent.opts(); // Get global options like --json
+  // apiClient.post will return response.data directly or handleApiError will exit
+  const responseData = await apiClient.post('/sessions', {}, programOpts);
+  handleCliOutput(responseData, programOpts, null, 'Session created:\n');
 }
 
 async function getSessionAsync(sessionId, options, commandInstance) {
   const programOpts = commandInstance.parent.opts();
-  const response = await apiClient.get(`/sessions/${sessionId}`);
-  handleCliOutput(response.data, programOpts, null, 'Session details:\n');
+  const responseData = await apiClient.get(
+    `/sessions/${sessionId}`,
+    null,
+    programOpts
+  );
+  handleCliOutput(responseData, programOpts, null, 'Session details:\n');
 }
 
 async function deleteSessionAsync(sessionId, options, commandInstance) {
   const programOpts = commandInstance.parent.opts();
-  const response = await apiClient.delete(`/sessions/${sessionId}`);
-  handleCliOutput(response.data, programOpts, 'message');
+  const responseData = await apiClient.delete(
+    `/sessions/${sessionId}`,
+    programOpts
+  );
+  // The old version used 'message' as the messageKey. Let's check API spec.
+  // old/README.md for DELETE /sessions/:sessionId shows:
+  // { "message": "Session a-unique-uuid terminated.", "sessionId": "a-unique-uuid" }
+  handleCliOutput(responseData, programOpts, 'message');
 }
 
 module.exports = (program) => {

@@ -1,32 +1,70 @@
-const AllHandlers = require('./handlers'); // Import from the new index file
+// new/src/routes.js
+const express = require('express');
+const apiHandlers = require('./apiHandlers');
+const mcpHandler = require('./mcpHandler');
+const logger = require('./logger'); // Import logger
 
-const setupRoutes = (app) => {
-  app.get('/', AllHandlers.getRoot);
+function setupRoutes(app) {
+  logger.info('[Routes] Setting up API routes...');
+  const router = express.Router();
 
-  // Session Management
-  app.post('/sessions', AllHandlers.createSession);
-  app.get('/sessions/:sessionId', AllHandlers.getSession);
-  app.delete('/sessions/:sessionId', AllHandlers.deleteSession);
+  // Health check endpoint
+  router.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', message: 'MCR server is running' });
+  });
 
-  // Fact Assertion and Querying
-  app.post('/sessions/:sessionId/assert', AllHandlers.assertAsync);
-  app.post('/sessions/:sessionId/query', AllHandlers.queryAsync);
-  app.post('/sessions/:sessionId/explain-query', AllHandlers.explainQueryAsync);
+  // Basic status endpoint (can be kept or removed if /health is preferred)
+  // router.get('/status', (req, res) => res.status(200).json({ status: 'ok', message: 'MCR Streamlined API is running.' }));
+  router.get('/status', apiHandlers.getStatusHandler); // Use dedicated handler
 
-  // Translation Endpoints
-  app.post('/translate/nl-to-rules', AllHandlers.translateNlToRulesAsync);
-  app.post('/translate/rules-to-nl', AllHandlers.translateRulesToNlAsync);
+  // Session management
+  router.post('/sessions', apiHandlers.createSessionHandler);
+  router.get('/sessions/:sessionId', apiHandlers.getSessionHandler); // Added GET session
+  router.delete('/sessions/:sessionId', apiHandlers.deleteSessionHandler); // Added DELETE session
 
-  // Prompt Management
-  app.get('/prompts', AllHandlers.getPrompts);
-  app.post('/debug/format-prompt', AllHandlers.debugFormatPromptAsync);
+  // Fact assertion and querying
+  router.post(
+    '/sessions/:sessionId/assert',
+    apiHandlers.assertToSessionHandler
+  );
+  router.post('/sessions/:sessionId/query', apiHandlers.querySessionHandler);
+  router.post(
+    '/sessions/:sessionId/explain-query',
+    apiHandlers.explainQueryHandler
+  );
 
-  // Ontology Management
-  app.post('/ontologies', AllHandlers.addOntology);
-  app.put('/ontologies/:name', AllHandlers.updateOntology);
-  app.get('/ontologies', AllHandlers.getOntologies);
-  app.get('/ontologies/:name', AllHandlers.getOntology);
-  app.delete('/ontologies/:name', AllHandlers.deleteOntology);
-};
+  // Ontology management
+  router.post('/ontologies', apiHandlers.createOntologyHandler);
+  router.get('/ontologies', apiHandlers.listOntologiesHandler);
+  router.get('/ontologies/:name', apiHandlers.getOntologyHandler);
+  router.put('/ontologies/:name', apiHandlers.updateOntologyHandler);
+  router.delete('/ontologies/:name', apiHandlers.deleteOntologyHandler);
+
+  // Direct translation
+  router.post('/translate/nl-to-rules', apiHandlers.nlToRulesDirectHandler);
+  router.post('/translate/rules-to-nl', apiHandlers.rulesToNlDirectHandler);
+
+  // Strategy Management Endpoints
+  router.get('/strategies', apiHandlers.listStrategiesHandler); // New
+  router.put('/strategies/active', apiHandlers.setStrategyHandler); // New (or POST /strategies/active)
+  router.get('/strategies/active', apiHandlers.getActiveStrategyHandler); // New
+
+  // Utility & Debugging
+  router.get('/prompts', apiHandlers.getPromptsHandler);
+  router.post('/debug/format-prompt', apiHandlers.debugFormatPromptHandler);
+
+  app.use('/api/v1', router); // Prefix all API routes with /api/v1
+
+  // MCP SSE Endpoint - should not be prefixed by /api/v1 if client expects /mcp/sse directly
+  app.get('/mcp/sse', mcpHandler.handleSse);
+
+  // A simple root message for the server
+  app.get('/', (req, res) => {
+    res.status(200).send('Welcome to MCR Streamlined. API is at /api/v1');
+  });
+  logger.info(
+    '[Routes] API routes setup complete. MCP SSE route also configured.'
+  );
+}
 
 module.exports = setupRoutes;

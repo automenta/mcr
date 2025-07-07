@@ -1,226 +1,218 @@
+// new/src/sessionManager.js
 const { v4: uuidv4 } = require('uuid');
-const path = require('path');
-const { logger } = require('./logger');
-const ApiError = require('./errors');
-const ConfigManager = require('./config');
-const storage = require('./storageUtils');
+const logger = require('./logger');
 
-const SessionManager = {
-  _sessions: {},
-  _ontologies: {},
+// In-memory store for sessions.
+// Structure: { sessionId: { id: string, createdAt: Date, facts: string[] }, ... }
+const sessions = {};
 
-  _getSessionStoragePath() {
-    const currentConfig = ConfigManager.get();
-    return path.resolve(currentConfig.session.storagePath);
-  },
+/**
+ * Creates a new session.
+ * @returns {{id: string, createdAt: Date, facts: string[]}} The created session object.
+ */
+function createSession() {
+  const sessionId = uuidv4();
+  const session = {
+    id: sessionId,
+    createdAt: new Date(),
+    facts: [], // Stores Prolog facts as strings
+    lexicon: new Set(), // Stores predicate/arity strings e.g., "is_color/2"
+  };
+  sessions[sessionId] = session;
+  logger.info(`Session created: ${sessionId}`);
+  // Return a copy, ensuring lexicon is also copied if it's to be exposed directly
+  // For now, getSession will not expose lexicon directly, only through getLexiconSummary
+  return {
+    id: session.id,
+    createdAt: session.createdAt,
+    facts: [...session.facts],
+  };
+}
 
-  _getOntologyStoragePath() {
-    const currentConfig = ConfigManager.get();
-    return path.resolve(
-      currentConfig.ontology.storagePath || './ontologies_data'
+/**
+ * Retrieves a session by its ID (excluding lexicon for direct external access).
+ * @param {string} sessionId - The ID of the session.
+ * @returns {{id: string, createdAt: Date, facts: string[]}|null} The session object or null if not found.
+ */
+function getSession(sessionId) {
+  if (!sessions[sessionId]) {
+    logger.warn(`Session not found: ${sessionId}`);
+    return null;
+  }
+  const session = sessions[sessionId];
+  // Return a copy, excluding direct lexicon access from this general getter
+  return {
+    id: session.id,
+    createdAt: session.createdAt,
+    facts: [...session.facts],
+  };
+}
+
+/**
+ * Adds facts to a session. Facts are expected to be an array of strings.
+ * Each string is a Prolog fact/rule ending with a period.
+ * @param {string} sessionId - The ID of the session.
+ * @param {string[]} newFacts - An array of Prolog fact strings to add.
+ * @returns {boolean} True if facts were added, false if session not found or facts invalid.
+ */
+function addFacts(sessionId, newFacts) {
+  if (!sessions[sessionId]) {
+    logger.warn(`Cannot add facts: Session not found: ${sessionId}`);
+    return false;
+  }
+  if (
+    !Array.isArray(newFacts) ||
+    !newFacts.every((f) => typeof f === 'string')
+  ) {
+    logger.warn(
+      `Cannot add facts: newFacts must be an array of strings. Session: ${sessionId}`
     );
-  },
+    return false;
+  }
 
-  _parseOntologyRules(rulesString) {
-    if (!rulesString || typeof rulesString !== 'string') return [];
-    return rulesString
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith('%'));
-  },
+  // Basic validation: ensure facts end with a period.
+  const validatedFacts = newFacts
+    .map((f) => f.trim())
+    .filter((f) => f.length > 0);
+  const invalidFacts = validatedFacts.filter((f) => !f.endsWith('.'));
+  if (invalidFacts.length > 0) {
+    logger.warn(
+      `Some facts do not end with a period and were not added. Session: ${sessionId}`,
+      { invalidFacts }
+    );
+    // Optionally, filter out invalid facts or reject the whole batch
+    // For now, let's be strict and reject if any are malformed for simplicity
+    // return false;
+  }
 
-  _getSessionFilePath(sessionId) {
-    return path.join(this._getSessionStoragePath(), `${sessionId}.json`);
-  },
+  // Update lexicon before adding facts
+  _updateLexiconWithFacts(sessionId, validatedFacts);
 
-  _saveSession(session) {
-    const sessionStoragePath = this._getSessionStoragePath();
-    storage.ensurePathExists(sessionStoragePath, 'session');
-    const filePath = this._getSessionFilePath(session.sessionId);
-    storage.saveJsonFile(filePath, session, 'session', session.sessionId);
-  },
+  sessions[sessionId].facts.push(...validatedFacts);
+  logger.info(
+    `${validatedFacts.length} facts added to session: ${sessionId}. Total facts: ${sessions[sessionId].facts.length}. Lexicon size: ${sessions[sessionId].lexicon.size}`
+  );
+  return true;
+}
 
-  _loadSession(sessionId) {
-    const filePath = this._getSessionFilePath(sessionId);
-    const session = storage.loadJsonFile(filePath, 'session', sessionId);
-    if (session) {
-      this._sessions[sessionId] = session;
-    }
-    return session;
-  },
+/**
+ * Helper function to parse facts and update the session's lexicon.
+ * This is a simplified parser. A robust Prolog parser would be more accurate.
+ * @param {string} sessionId - The ID of the session.
+ * @param {string[]} facts - An array of Prolog fact strings.
+ */
+function _updateLexiconWithFacts(sessionId, facts) {
+  if (!sessions[sessionId]) return;
 
-  _getOntologyFilePath(name) {
-    return path.join(this._getOntologyStoragePath(), `${name}.pl`);
-  },
+  facts.forEach((fact) => {
+    // Remove comments and trim
+    const cleanFact = fact.replace(/%.*$/, '').trim();
+    if (!cleanFact.endsWith('.')) return; // Ensure it's a complete clause
 
-  _saveOntology(name, rules) {
-    const ontologyStoragePath = this._getOntologyStoragePath();
-    storage.ensurePathExists(ontologyStoragePath, 'ontology');
-    const filePath = this._getOntologyFilePath(name);
-    storage.saveRawFile(filePath, rules, 'ontology', name);
-  },
+    let termToParse = cleanFact;
 
-  _loadOntology(name) {
-    const filePath = this._getOntologyFilePath(name);
-    const rules = storage.loadRawFile(filePath, 'ontology', name);
-    if (rules) {
-      this._ontologies[name] = rules;
-    }
-    return rules;
-  },
-
-  _loadAllOntologies() {
-    const ontologyStoragePath = this._getOntologyStoragePath();
-    storage.ensurePathExists(ontologyStoragePath, 'ontology');
-    try {
-      const files = storage.readDir(ontologyStoragePath, 'ontology');
-      files.forEach((file) => {
-        if (file.endsWith('.pl')) {
-          const name = path.basename(file, '.pl');
-          this._loadOntology(name);
-        }
-      });
-      logger.info(
-        `Loaded ${Object.keys(this._ontologies).length} ontologies from ${ontologyStoragePath}`
-      );
-    } catch (error) {
-      // Error already logged by storage.readDir if it throws an ApiError
-      // If it's another type of error, or if we want specific handling here:
-      logger.error(
-        `Failed to process files for loading ontologies from ${ontologyStoragePath}: ${error.message}`,
-        { internalErrorCode: 'ONTOLOGY_LOAD_ALL_PROCESSING_ERROR' }
-      );
-      // Depending on desired behavior, might re-throw or handle to allow partial loading
-    }
-  },
-
-  create() {
-    const sessionId = uuidv4();
-    const now = new Date().toISOString();
-    const newSession = { sessionId, createdAt: now, facts: [], factCount: 0 };
-    this._sessions[sessionId] = newSession;
-    this._saveSession(newSession);
-    logger.info(`Created new session: ${sessionId}`);
-    return newSession;
-  },
-
-  get(sessionId) {
-    let session = this._sessions[sessionId];
-    if (!session) {
-      session = this._loadSession(sessionId);
-    }
-    if (!session) {
-      throw new ApiError(
-        404,
-        `Session with ID '${sessionId}' not found.`,
-        'SESSION_NOT_FOUND'
-      );
-    }
-    return session;
-  },
-
-  delete(sessionId) {
-    this.get(sessionId);
-    delete this._sessions[sessionId];
-    const filePath = this._getSessionFilePath(sessionId);
-    storage.deleteFile(filePath, 'session', sessionId);
-    logger.info(`Terminated session: ${sessionId}`);
-  },
-
-  addFacts(sessionId, newFacts) {
-    const session = this.get(sessionId);
-    session.facts.push(...newFacts);
-    session.factCount = session.facts.length;
-    this._saveSession(session);
-    logger.info(`Session ${sessionId}: Asserted ${newFacts.length} new facts.`);
-  },
-
-  getFactsWithOntology(sessionId, additionalOntology = null) {
-    const session = this.get(sessionId);
-    let ontologyFacts = [];
-    if (additionalOntology) {
-      ontologyFacts = this._parseOntologyRules(additionalOntology);
+    // Check if it's a rule (contains ':-')
+    const ruleMatch = cleanFact.match(/^(.*?):-(.*)\.$/);
+    if (ruleMatch) {
+      termToParse = ruleMatch[1].trim(); // Parse only the head of the rule
+      // We could also parse predicates from ruleMatch[2] (the body) if desired in the future
     } else {
-      ontologyFacts = Object.values(this._ontologies).flatMap((rulesString) =>
-        this._parseOntologyRules(rulesString)
+      // It's a fact, remove the trailing period for parsing
+      termToParse = cleanFact.slice(0, -1).trim();
+    }
+
+    // Attempt to match predicate and arguments for terms like predicate(...).
+    const structuredTermMatch = termToParse.match(
+      /^([a-z_][a-zA-Z0-9_]*)\((.*)\)$/
+    );
+
+    if (structuredTermMatch) {
+      const predicate = structuredTermMatch[1];
+      const argsString = structuredTermMatch[2];
+
+      let arity = 0;
+      if (argsString.trim() !== '') {
+        // Heuristic for counting arguments: splits by comma, but tries to respect commas within quotes or parentheses.
+        // This is not a full parser and will have limitations with deeply nested structures or complex terms.
+        const potentialArgs = argsString.match(/(?:[^,(]|\([^)]*\)|'[^']*')+/g);
+        arity = potentialArgs ? potentialArgs.length : 0;
+      }
+      sessions[sessionId].lexicon.add(`${predicate}/${arity}`);
+      logger.debug(
+        `[LexiconUpdate] Added ${predicate}/${arity} from structured term: ${termToParse}`
       );
+    } else {
+      // Handle simple atoms (facts or rule heads without parentheses, arity 0)
+      // e.g., 'is_raining.' or 'system_initialized :- true.' (head is 'system_initialized')
+      const simpleAtomMatch = termToParse.match(/^([a-z_][a-zA-Z0-9_]*)$/);
+      if (simpleAtomMatch) {
+        const predicate = simpleAtomMatch[1];
+        sessions[sessionId].lexicon.add(`${predicate}/0`);
+        logger.debug(
+          `[LexiconUpdate] Added ${predicate}/0 from simple atom: ${termToParse}`
+        );
+      } else {
+        logger.debug(
+          `[LexiconUpdate] Could not parse predicate/arity from term: ${termToParse} (original: ${fact})`
+        );
+      }
     }
-    return [...session.facts, ...ontologyFacts];
-  },
+  });
+}
 
-  getNonSessionOntologyFacts(sessionId) {
-    const session = this.get(sessionId);
-    return Object.values(this._ontologies)
-      .flatMap((rulesString) => this._parseOntologyRules(rulesString))
-      .filter((rule) => !session.facts.includes(rule));
-  },
+/**
+ * Retrieves all facts for a given session as a single string.
+ * @param {string} sessionId - The ID of the session.
+ * @returns {string|null} A string containing all Prolog facts (newline-separated) or null if session not found.
+ */
+function getKnowledgeBase(sessionId) {
+  const session = sessions[sessionId];
+  if (!session) {
+    logger.warn(`Cannot get knowledge base: Session not found: ${sessionId}`);
+    return null;
+  }
+  return session.facts.join('\n');
+}
 
-  addOntology(name, rules) {
-    if (this._ontologies[name]) {
-      throw new ApiError(
-        409,
-        `Ontology with name '${name}' already exists.`,
-        'ONTOLOGY_ALREADY_EXISTS'
-      );
-    }
-    this._ontologies[name] = rules;
-    this._saveOntology(name, rules);
-    logger.info(`Added new ontology: ${name}`);
-    return { name, rules };
-  },
+/**
+ * Deletes a session.
+ * @param {string} sessionId - The ID of the session to delete.
+ * @returns {boolean} True if the session was deleted, false if not found.
+ */
+function deleteSession(sessionId) {
+  if (!sessions[sessionId]) {
+    logger.warn(`Cannot delete session: Session not found: ${sessionId}`);
+    return false;
+  }
+  delete sessions[sessionId];
+  logger.info(`Session deleted: ${sessionId}`);
+  return true;
+}
 
-  updateOntology(name, rules) {
-    if (!this._ontologies[name] && !this._loadOntology(name)) {
-      throw new ApiError(
-        404,
-        `Ontology with name '${name}' not found.`,
-        'ONTOLOGY_NOT_FOUND'
-      );
-    }
-    this._ontologies[name] = rules;
-    this._saveOntology(name, rules);
-    logger.info(`Updated ontology: ${name}`);
-    return { name, rules };
-  },
-
-  getOntologies() {
-    return Object.keys(this._ontologies).map((name) => ({
-      name,
-      rules: this._ontologies[name],
-    }));
-  },
-
-  getOntology(name) {
-    let ontology = this._ontologies[name];
-    if (!ontology) {
-      ontology = this._loadOntology(name);
-    }
-    if (!ontology) {
-      throw new ApiError(
-        404,
-        `Ontology with name '${name}' not found.`,
-        'ONTOLOGY_NOT_FOUND'
-      );
-    }
-    return { name, rules: ontology };
-  },
-
-  deleteOntology(name) {
-    if (!this._ontologies[name] && !this._loadOntology(name)) {
-      throw new ApiError(
-        404,
-        `Ontology with name '${name}' not found.`,
-        'ONTOLOGY_NOT_FOUND'
-      );
-    }
-    delete this._ontologies[name];
-    const filePath = this._getOntologyFilePath(name);
-    storage.deleteFile(filePath, 'ontology', name);
-    logger.info(`Deleted ontology: ${name}`);
-    return { message: `Ontology ${name} deleted.` };
-  },
+module.exports = {
+  createSession,
+  getSession,
+  addFacts,
+  getKnowledgeBase,
+  deleteSession,
+  getLexiconSummary, // Expose the new function
 };
 
-SessionManager._loadAllOntologies();
-
-module.exports = SessionManager;
+/**
+ * Retrieves a summary of the lexicon for a given session.
+ * @param {string} sessionId - The ID of the session.
+ * @returns {string|null} A string representing the lexicon summary or null if session not found.
+ */
+function getLexiconSummary(sessionId) {
+  const session = sessions[sessionId];
+  if (!session) {
+    logger.warn(`Cannot get lexicon summary: Session not found: ${sessionId}`);
+    return null;
+  }
+  if (session.lexicon.size === 0) {
+    return "No specific predicates identified in the current session's knowledge base yet.";
+  }
+  // Sort for consistent output, helpful for prompts and testing
+  const sortedLexicon = Array.from(session.lexicon).sort();
+  return `Known Predicates (name/arity):\n- ${sortedLexicon.join('\n- ')}`;
+}
