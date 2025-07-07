@@ -50,7 +50,7 @@ function getProvider() {
  * @param {string} userPrompt - The user's query or input.
  * @param {object} [options={}] - Additional options for the provider (e.g., jsonMode).
  * @param {boolean} [options.jsonMode=false] - Hint to the provider to format output as JSON.
- * @returns {Promise<string>} The generated text from the LLM.
+ * @returns {Promise<{text: string, costData: object | null}>} The generated text and cost data from the LLM.
  * @throws {Error} If the provider is not configured or generation fails.
  */
 async function generate(systemPrompt, userPrompt, options = {}) {
@@ -64,7 +64,15 @@ async function generate(systemPrompt, userPrompt, options = {}) {
 
   try {
     // logger.debug(`LLMService:generate called with provider ${provider.name}`, { systemPrompt, userPrompt, options });
-    return await provider.generate(systemPrompt, userPrompt, options);
+    // Provider's generate method now returns an object { text: string, costData: object | null }
+    const result = await provider.generate(systemPrompt, userPrompt, options);
+    if (typeof result === 'string') {
+      // This case handles providers that might not have been updated yet to return costData.
+      // It's a fallback for backward compatibility during transition.
+      logger.warn(`[llmService] Provider ${provider.name} returned a string instead of {text, costData} object. Assuming no cost data.`);
+      return { text: result, costData: null };
+    }
+    return result;
   } catch (error) {
     logger.error(
       `Error during LLM generation with ${provider.name}: ${error.message}`,

@@ -387,10 +387,9 @@ class Evaluator {
             }
           }
 
-          // Placeholder for LLM Model ID and Cost
-          // TODO: These need to be properly sourced from strategy execution or LLM service responses
-          const llmModelId = strategyInstance.nodes?.find(n => n.type === "LLM_Call")?.model || "default_llm_model";
-          const costMetrics = apiResponseData.cost || { placeholder_cost: 0 }; // Look for cost in API response, else placeholder
+          // LLM Model ID is determined later in the finally block.
+          // Cost is now expected to be in apiResponseData.cost directly from the API handlers.
+          // const costMetrics = apiResponseData.cost || { placeholder_cost: 0 }; // This was for the outer scope
 
           // Determine raw_output
           let rawOutputForDb = null;
@@ -405,10 +404,10 @@ class Evaluator {
 
           const dbRecord = {
             strategy_hash: strategyHash,
-            llm_model_id: llmModelId, // Placeholder
+            llm_model_id: "determined_in_finally", // Placeholder, will be set in finally
             example_id: evalCase.id,
             metrics: caseResult.scores,
-            cost: costMetrics, // Placeholder
+            cost: apiResponseData.cost || { "note": "Cost data not received from API" }, // Use cost from API response
             latency_ms: caseResult.durationMs, // This will be updated in finally
             raw_output: rawOutputForDb,
           };
@@ -428,7 +427,19 @@ class Evaluator {
 
           // Prepare and insert DB record here, after durationMs is finalized
           const llmModelId = strategyInstance.nodes?.find(n => n.type === "LLM_Call")?.model?.replace("{{llm_model_id}}", config.llm.defaultModelId || "unknown") || config.llm.defaultModelId || "unknown_model";
-          const costMetrics = { note: "Cost metrics not yet implemented" }; // Placeholder
+          // Use the cost data from apiResponseData if available, otherwise default.
+          // apiResponseData is from the try block, so it might not be set if an error occurred before the API call.
+          // In case of error before API call, apiResponseData might be undefined.
+          // If an error occurred *during* the API call, apiResponseData might be error.response.data.
+          // For simplicity, we assume apiResponseData.cost is correctly populated by handlers on success.
+          // If an error occurred, cost might be missing or partial.
+          let actualCostMetrics = { note: "Cost data unavailable or error before capture" };
+          if (apiResponseData && apiResponseData.cost) {
+            actualCostMetrics = apiResponseData.cost;
+          } else if (caseResult.error && caseResult.error.cost) { // If error object contains cost (less likely)
+            actualCostMetrics = caseResult.error.cost;
+          }
+
 
           let rawOutputForDb = null;
           if (evalCase.inputType === 'assert' && caseResult.actualProlog) {
@@ -447,8 +458,9 @@ class Evaluator {
             strategy_hash: strategyHash,
             llm_model_id: llmModelId,
             example_id: evalCase.id,
+            input_type: evalCase.inputType, // Added input_type
             metrics: caseResult.scores,
-            cost: costMetrics,
+            cost: actualCostMetrics,
             latency_ms: caseResult.durationMs,
             raw_output: rawOutputForDb,
           };

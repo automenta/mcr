@@ -40,6 +40,7 @@ const registerChatCommand = require('./src/cli/commands/chatCommand');
 const registerDemoCommand = require('./src/cli/commands/demoCommands');
 const registerSandboxCommand = require('./src/cli/commands/sandboxCommands');
 const registerStrategyCommands = require('./src/cli/commands/strategyCommands'); // New
+const { runEvaluatorTui } = require('./src/cli/evaluatorTui'); // Added for perf-dashboard
 // ... etc.
 
 registerSessionCommands(program);
@@ -52,6 +53,15 @@ registerStrategyCommands(program); // New
 registerChatCommand(program);
 registerDemoCommand(program);
 registerSandboxCommand(program);
+
+// Perf Dashboard command
+program
+  .command('perf-dashboard')
+  .description('Launch the Performance Dashboard and Database Explorer TUI.')
+  .action(() => {
+    logger.info('Launching Performance Dashboard TUI...');
+    runEvaluatorTui();
+  });
 
 // Server control commands
 program

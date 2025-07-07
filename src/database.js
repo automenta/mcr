@@ -30,6 +30,7 @@ function initDb() {
           strategy_hash TEXT NOT NULL,
           llm_model_id TEXT,
           example_id TEXT NOT NULL,
+          input_type TEXT, -- Added: 'assert' or 'query'
           metrics TEXT,          -- JSON object
           cost TEXT,             -- JSON object
           latency_ms INTEGER,

@@ -156,6 +156,12 @@ class StrategyExecutor {
     const queue = [this._findStartNode().id]; // Start with the ID of the start node
 
     let finalOutput; // To store the output of the designated final node if one exists
+    const accumulatedCost = { // Initialize accumulated cost
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        total_tokens: 0,
+        details: [] // To store costData from each LLM call if needed
+    };
 
     while (queue.length > 0) {
       const currentNodeId = queue.shift();

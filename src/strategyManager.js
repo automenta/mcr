@@ -119,6 +119,33 @@ class StrategyManager {
   getAvailableStrategies() {
     return Array.from(this.strategies.values()).map(s => ({ id: s.id, name: s.name }));
   }
+
+  /**
+   * Retrieves a strategy JSON object by its SHA256 hash.
+   * @param {string} hash - The SHA256 hash of the strategy JSON.
+   * @returns {object | undefined} The strategy JSON object, or undefined if not found.
+   */
+  getStrategyByHash(hash) {
+    if (!hash) {
+      logger.warn('[StrategyManager] Attempted to get strategy with no hash.');
+      return undefined;
+    }
+    const crypto = require('crypto');
+    for (const strategyJson of this.strategies.values()) {
+      try {
+        const currentStrategyHash = crypto.createHash('sha256').update(JSON.stringify(strategyJson)).digest('hex');
+        if (currentStrategyHash === hash) {
+          logger.debug(`[StrategyManager] Found strategy by hash ${hash}: ID ${strategyJson.id}`);
+          return strategyJson;
+        }
+      } catch (error) {
+        // Should not happen if strategyJson is valid, but good to be cautious
+        logger.error(`[StrategyManager] Error hashing strategy ID ${strategyJson.id} while searching for hash ${hash}: ${error.message}`);
+      }
+    }
+    logger.warn(`[StrategyManager] Strategy with hash "${hash}" not found among loaded strategies.`);
+    return undefined;
+  }
 }
 
 // Singleton instance

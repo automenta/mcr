@@ -117,7 +117,27 @@ Ready to explore the power of MCR?
 
 ---
 
-## Slide 8: The Future is Reasoned 🌟
+## Slide 8: ✨ NEW: Self-Optimizing AI with the MCR Evolution Engine!  AutoML for Logic!
+
+**MCR now gets SMARTER over time, AUTOMATICALLY!** 🚀
+
+-   **Evolution Engine:** MCR includes a built-in supervisory loop that continuously:
+    -   **Discovers** new ways to translate language to logic.
+    -   **Evaluates** how well these "translation strategies" perform.
+    -   **Refines** them to improve accuracy, speed, and cost-efficiency.
+-   **Data-Driven Improvement:** All performance data is stored, analyzed, and used to guide the evolution.
+-   **Optimal Runtime Performance:** The `InputRouter` uses this learned knowledge to pick the BEST strategy for any given live input.
+
+**Benefits:**
+-   **Adapts & Improves:** MCR isn't static; it learns and evolves.
+-   **Peak Efficiency:** Always uses the most effective known method for the task.
+-   **Reduced Manual Tuning:** Less need for human intervention to optimize prompts and strategies.
+
+**MCR is not just intelligent; it's intelligently self-improving!**
+
+---
+
+## Slide 9: The Future is Reasoned & Evolving 🌟
 
 MCR is more than just a tool; it's a step towards more intelligent and reliable AI.
 

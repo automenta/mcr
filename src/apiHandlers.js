@@ -52,7 +52,7 @@ async function assertToSessionHandler(req, res, next) {
       );
       res
         .status(200)
-        .json({ message: result.message, addedFacts: result.addedFacts });
+        .json({ message: result.message, addedFacts: result.addedFacts, cost: result.cost }); // Added cost
     } else {
       logger.warn(
         `[API][${correlationId}] Failed to assert to session ${sessionId}. Message: ${result.message}, Error: ${result.error}`
@@ -169,7 +169,7 @@ async function querySessionHandler(req, res, next) {
       logger.info(
         `[API][${correlationId}] Successfully queried session ${sessionId}. Answer length: ${result.answer?.length}`
       );
-      const responsePayload = { answer: result.answer };
+      const responsePayload = { answer: result.answer, cost: result.cost }; // Added cost
 
       // Only include debugInfo in response if client requested it AND server's level allows some form of it.
       // mcrService now shapes debugInfo based on its config.debugLevel.
@@ -554,7 +554,7 @@ async function nlToRulesDirectHandler(req, res, next) {
       );
       res
         .status(200)
-        .json({ rules: result.rules, rawOutput: result.rawOutput }); // rawOutput might be useful for clients
+        .json({ rules: result.rules, rawOutput: result.rawOutput, cost: result.cost }); // Added cost
     } else {
       logger.warn(
         `[API][${correlationId}] Failed to translate NL to Rules (Direct). Message: ${result.message}, Error: ${result.error}`
@@ -775,7 +775,7 @@ async function explainQueryHandler(req, res, next) {
       logger.info(
         `[API][${correlationId}] Successfully explained query for session ${sessionId}. Explanation length: ${result.explanation?.length}`
       );
-      const responsePayload = { explanation: result.explanation };
+      const responsePayload = { explanation: result.explanation, cost: result.cost }; // Added cost
       // Similar logic for including debugInfo as in querySessionHandler
       if (
         clientRequestedDebugExplain &&
@@ -925,7 +925,7 @@ async function rulesToNlDirectHandler(req, res, next) {
       logger.info(
         `[API][${correlationId}] Successfully translated Rules to NL (Direct). Explanation length: ${result.explanation?.length}`
       );
-      res.status(200).json({ explanation: result.explanation });
+      res.status(200).json({ explanation: result.explanation, cost: result.cost }); // Added cost
     } else {
       logger.warn(
         `[API][${correlationId}] Failed to translate Rules to NL (Direct). Message: ${result.message}, Error: ${result.error}`

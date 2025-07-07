@@ -41,14 +41,17 @@ async function getOperationalStrategyJson(operationType, naturalLanguageText) {
 
   if (inputRouterInstance && naturalLanguageText) {
     try {
-      const recommendedStrategyId = await inputRouterInstance.route(naturalLanguageText, config.llmProvider.model);
-      if (recommendedStrategyId) {
-        strategyJson = strategyManager.getStrategy(recommendedStrategyId);
+      const recommendedStrategyHash = await inputRouterInstance.route(naturalLanguageText, config.llmProvider.model);
+      if (recommendedStrategyHash) {
+        // InputRouter returns a hash, try to get strategy by hash
+        strategyJson = strategyManager.getStrategyByHash(recommendedStrategyHash);
         if (strategyJson) {
-          logger.info(`[McrService] InputRouter recommended strategy "${recommendedStrategyId}" (Name: "${strategyJson.name}") for ${operationType} on input: "${naturalLanguageText.substring(0,50)}..."`);
-          strategyIdToUse = recommendedStrategyId;
+          logger.info(`[McrService] InputRouter recommended strategy by HASH "${recommendedStrategyHash}" (ID: "${strategyJson.id}", Name: "${strategyJson.name}") for ${operationType} on input: "${naturalLanguageText.substring(0,50)}..."`);
+          strategyIdToUse = strategyJson.id; // Log the actual ID
         } else {
-          logger.warn(`[McrService] InputRouter recommended strategy ID "${recommendedStrategyId}" but it was not found in StrategyManager. Falling back for input: "${naturalLanguageText.substring(0,50)}..."`);
+          // This case might occur if an evolved strategy's hash is known to router,
+          // but the strategy definition isn't loaded in strategyManager yet (e.g. optimizer run separately).
+          logger.warn(`[McrService] InputRouter recommended strategy HASH "${recommendedStrategyHash}" but it was not found by StrategyManager. Falling back for input: "${naturalLanguageText.substring(0,50)}..."`);
         }
       } else {
         // This is a common case, e.g. router has no data yet, or text is too generic.
@@ -193,38 +196,40 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
 
     logger.info(`[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for assertion. OpID: ${operationId}.`);
     const executor = new StrategyExecutor(activeStrategyJson);
-    const addedFacts = await executor.execute(llmService, initialContext);
+    const executionResult = await executor.execute(llmService, initialContext);
+    const addedFacts = executionResult.result;
+    const costOfExecution = executionResult.totalCost;
 
     // Ensure addedFacts is an array of strings, as expected by downstream logic
     if (!Array.isArray(addedFacts) || !addedFacts.every(f => typeof f === 'string')) {
-        logger.error(`[McrService] Strategy "${currentStrategyId}" execution for assertion did not return an array of strings. OpID: ${operationId}. Output: ${JSON.stringify(addedFacts)}`);
+        logger.error(`[McrService] Strategy "${currentStrategyId}" execution for assertion did not return an array of strings. OpID: ${operationId}. Output: ${JSON.stringify(addedFacts)}`, { costOfExecution });
         throw new MCRError(ErrorCodes.STRATEGY_INVALID_OUTPUT, 'Strategy execution for assertion returned an unexpected output format. Expected array of Prolog strings.');
     }
-    logger.debug(`[McrService] Strategy "${currentStrategyId}" execution returned (OpID: ${operationId}):`, { addedFacts });
+    logger.debug(`[McrService] Strategy "${currentStrategyId}" execution returned (OpID: ${operationId}):`, { addedFacts, costOfExecution });
 
 
     if (!addedFacts || addedFacts.length === 0) {
-      logger.warn(`[McrService] Strategy "${currentStrategyId}" returned no facts for text: "${naturalLanguageText}". OpID: ${operationId}`);
-      return { success: false, message: 'Could not translate text into valid facts using the current strategy.', error: ErrorCodes.NO_FACTS_EXTRACTED, strategyId: currentStrategyId };
+      logger.warn(`[McrService] Strategy "${currentStrategyId}" returned no facts for text: "${naturalLanguageText}". OpID: ${operationId}`, { costOfExecution });
+      return { success: false, message: 'Could not translate text into valid facts using the current strategy.', error: ErrorCodes.NO_FACTS_EXTRACTED, strategyId: currentStrategyId, cost: costOfExecution };
     }
 
     for (const factString of addedFacts) {
       const validationResult = await reasonerService.validateKnowledgeBase(factString); // Validates syntax
       if (!validationResult.isValid) {
         const validationErrorMsg = `Generated Prolog is invalid: "${factString}". Error: ${validationResult.error}`;
-        logger.error(`[McrService] Validation failed for generated Prolog. OpID: ${operationId}. Details: ${validationErrorMsg}`);
-        return { success: false, message: 'Failed to assert facts: Generated Prolog is invalid.', error: ErrorCodes.INVALID_GENERATED_PROLOG, details: validationErrorMsg, strategyId: currentStrategyId };
+        logger.error(`[McrService] Validation failed for generated Prolog. OpID: ${operationId}. Details: ${validationErrorMsg}`, { costOfExecution });
+        return { success: false, message: 'Failed to assert facts: Generated Prolog is invalid.', error: ErrorCodes.INVALID_GENERATED_PROLOG, details: validationErrorMsg, strategyId: currentStrategyId, cost: costOfExecution };
       }
     }
     logger.info(`[McrService] All ${addedFacts.length} generated facts validated successfully. OpID: ${operationId}`);
 
     const addSuccess = sessionManager.addFacts(sessionId, addedFacts);
     if (addSuccess) {
-      logger.info(`[McrService] Facts successfully added to session ${sessionId}. OpID: ${operationId}. Facts:`, { addedFacts });
-      return { success: true, message: 'Facts asserted successfully.', addedFacts, strategyId: currentStrategyId };
+      logger.info(`[McrService] Facts successfully added to session ${sessionId}. OpID: ${operationId}. Facts:`, { addedFacts, costOfExecution });
+      return { success: true, message: 'Facts asserted successfully.', addedFacts, strategyId: currentStrategyId, cost: costOfExecution };
     } else {
-      logger.error(`[McrService] Failed to add facts to session ${sessionId} after validation. OpID: ${operationId}`);
-      return { success: false, message: 'Failed to add facts to session manager after validation.', error: ErrorCodes.SESSION_ADD_FACTS_FAILED, strategyId: currentStrategyId };
+      logger.error(`[McrService] Failed to add facts to session ${sessionId} after validation. OpID: ${operationId}`, { costOfExecution });
+      return { success: false, message: 'Failed to add facts to session manager after validation.', error: ErrorCodes.SESSION_ADD_FACTS_FAILED, strategyId: currentStrategyId, cost: costOfExecution };
     }
   } catch (error) {
     logger.error(`[McrService] Error asserting NL to session ${sessionId} using strategy "${currentStrategyId}": ${error.message}`, { stack: error.stack, details: error.details, errorCode: error.code });

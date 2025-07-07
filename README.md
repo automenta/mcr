@@ -41,6 +41,67 @@ This combination unlocks possibilities for more robust, explainable, and sophist
 - **⚙️ CLI**: A command-line interface for server control, direct API interaction, demos, and a sandbox mode.
 - **📃 API**: A comprehensive RESTful API for programmatic integration.
 
+## 🏛️ System Architecture Diagram
+
+The following diagram illustrates the main components of the MCR system, including the core reasoning services and the Evolution Engine:
+
+```mermaid
+graph TD
+    subgraph MCR Evolution Engine
+        direction LR
+        CO[Optimization Coordinator]
+        SE[Strategy Evolver]
+        CG[Curriculum Generator]
+        PD[Performance Database]
+
+        CO -- Selects & Mutates (via SE) --> SE
+        CO -- Generates (via CG) --> CG
+        SE -- Stores Evolved Strategy --> SM[Strategy Manager]
+        CG -- Stores New Eval Cases --> EvalCasesDir[/src/evalCases/generated/]
+        CO -- Triggers Evaluation --> EV[Evaluator]
+        EV -- Stores Results --> PD
+        CO -- Queries for Selection --> PD
+    end
+
+    subgraph MCR Core System
+        direction LR
+        MCR_Service[MCR Service]
+        SM -- Loads Strategies --> MCR_Service
+        SEcore[Strategy Executor]
+        MCR_Service -- Uses --> SEcore
+        LLM[LLM Service]
+        RS[Reasoner Service]
+        SMgr[Session Manager]
+        OS[Ontology Service]
+
+        SEcore -- Uses --> LLM
+        MCR_Service -- Uses --> RS
+        MCR_Service -- Uses --> SMgr
+        MCR_Service -- Uses --> OS
+
+        IR[Input Router]
+        MCR_Service -- Uses for Routing --> IR
+        IR -- Queries for Best Strategy --> PD
+    end
+
+    CLI_API[CLI / API Clients] -- Interact --> MCR_Service
+    EV -- Evaluates Strategies from --> SM
+    EV -- Uses Eval Cases from --> EvalCasesDir
+
+    SM -- Loads Strategies from --> StrategiesDir[/strategies/]
+
+
+    classDef engine fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef core fill:#lightgrey,stroke:#333,stroke-width:2px;
+    classDef external fill:#bbf,stroke:#333,stroke-width:2px;
+    classDef db fill:#FFD700,stroke:#333,stroke-width:2px;
+
+    class CO,SE,CG,EV,IR engine;
+    class MCR_Service,SM,SEcore,LLM,RS,SMgr,OS core;
+    class CLI_API external;
+    class PD,EvalCasesDir,StrategiesDir db;
+```
+
 ## 🏁 Quick Start
 
 This section guides you through getting MCR up and running quickly for development or local use. For using MCR as a published package in your own project, see the "📦 Using MCR as a Package" section below.
@@ -236,6 +297,95 @@ MCR offers direct Command Line Interface (CLI) commands via `./cli.js` (or `mcr-
 - `./cli.js list-ontologies`: Lists global ontologies.
 - `./cli.js demo run <example-name>`: Runs predefined demonstrations. See below for more details.
 - `./cli.js sandbox`: Starts an interactive sandbox for experimenting with NL to Logic steps.
+- `./cli.js perf-dashboard`: Launches an interactive TUI to explore performance results and strategy evolution.
+
+## 🤖 MCR Evolution Engine
+
+MCR includes a sophisticated **Evolution Engine**, a supervisory control loop designed to autonomously discover, evaluate, and refine translation strategies. This engine works to continuously improve MCR's performance, accuracy, and efficiency over time.
+
+The system is bootstrapped with functional, human-authored strategies, ensuring immediate usability. The evolution process runs asynchronously (typically offline), augmenting the pool of available strategies.
+
+### Core Components:
+
+1.  **Optimization Coordinator (`src/evolution/optimizer.js`)**:
+    *   Orchestrates the entire evolution loop.
+    *   On first run (or with `--runBootstrap`), it executes all pre-defined strategies against an evaluation curriculum to establish baseline performance data in the `Performance Database`.
+    *   Selects existing strategies for improvement based on performance data.
+    *   Invokes the `StrategyEvolver` to create new candidate strategies.
+    *   May invoke the `CurriculumGenerator` to create new, targeted evaluation examples.
+    *   Evaluates new strategies and persists their performance.
+
+2.  **Strategy Evolver (`src/evolution/strategyEvolver.js`)**:
+    *   Creates new candidate strategies by mutating existing ones.
+    *   The primary mutation method is "Iterative Critique":
+        1.  Selects a node in a strategy graph (e.g., an `LLM_Call` node).
+        2.  Extracts its prompt and identifies failing examples from the `Performance Database`.
+        3.  Uses an LLM to critique and rewrite the prompt to address these failures.
+        4.  Creates a new strategy JSON definition with the updated prompt.
+
+3.  **Curriculum Generator (`src/evolution/curriculumGenerator.js`)**:
+    *   Expands the set of evaluation cases to prevent overfitting and ensure strategies are robust.
+    *   Analyzes performance data to identify weaknesses or gaps in the current curriculum.
+    *   Uses an LLM to generate new `EvaluationCase` objects targeting these areas. These are saved in `src/evalCases/generated/`.
+
+4.  **Input Router (`src/evolution/inputRouter.js`)**:
+    *   Integrated into `mcrService.js` to select the optimal strategy for a given live input at runtime.
+    *   Performs a quick classification of the input.
+    *   Queries the `Performance Database` for the strategy with the best aggregate performance (metrics, cost, latency) for that input class and the current LLM.
+
+### Performance Database (`performance_results.db`)
+
+This SQLite database is crucial for the Evolution Engine. It stores the detailed results of every evaluation run.
+
+-   **Purpose**:
+    *   Provides data for the `OptimizationCoordinator` to select strategies for evolution.
+    *   Gives context to the `StrategyEvolver` (e.g., failing examples).
+    *   Informs the `CurriculumGenerator` about areas needing more test cases.
+    *   Allows the `InputRouter` to make data-driven decisions at runtime.
+    *   Serves as a rich dataset for analyzing strategy performance and for potential fine-tuning of models.
+-   **Schema (`performance_results` table)**:
+    *   `id` (INTEGER PK): Unique ID for the run.
+    *   `strategy_hash` (TEXT): SHA-256 hash of the strategy's JSON definition.
+    *   `llm_model_id` (TEXT): Identifier of the LLM used (e.g., "ollama/llama3").
+    *   `example_id` (TEXT): ID of the `EvaluationCase` used.
+    *   `metrics` (JSON TEXT): JSON object of metric scores (e.g., `{ "exactMatchProlog": 1, ... }`).
+    *   `cost` (JSON TEXT): JSON object of cost metrics (e.g., `{ "prompt_tokens": 120, "completion_tokens": 80, "total_tokens": 200 }`).
+    *   `latency_ms` (INTEGER): Total time for the execution in milliseconds.
+    *   `timestamp` (DATETIME): UTC timestamp of the evaluation run.
+    *   `raw_output` (TEXT): The final string or JSON array output of the strategy.
+
+### Running the Optimizer
+
+The Optimization Coordinator can be run as a standalone script:
+
+```bash
+node src/evolution/optimizer.js [options]
+```
+
+**Common Options:**
+-   `--iterations <num>` or `-i <num>`: Number of evolution cycles to run (default: 1).
+-   `--bootstrapOnly`: Only run the bootstrap/baselining step and exit.
+-   `--runBootstrap`: Run bootstrap before starting iterations (useful if DB is empty or needs refreshing).
+-   `--evalCasesPath <path>`: Path to evaluation cases (default: `src/evalCases`).
+
+**Example:**
+To run bootstrap and then 3 evolution iterations:
+```bash
+node src/evolution/optimizer.js --runBootstrap --iterations 3
+```
+
+### Performance Dashboard TUI
+
+To explore the `performance_results.db` and view strategy performance, use the Performance Dashboard TUI:
+
+```bash
+./cli.js perf-dashboard
+```
+This interface allows you to:
+- List all evaluated strategy hashes.
+- Select a strategy to view its individual evaluation runs.
+- See detailed metrics, cost, latency, and raw output for each run.
+- View overall summary statistics from the database.
 
 ## 🧪 Enhanced Demo Runner (`node demo.js`)
 
@@ -481,15 +631,12 @@ MCR exposes a RESTful API. All requests and responses are JSON.
   - **Response (200 OK)**:
     ```json
     {
-      "message": "Facts asserted successfully", // Or a more descriptive message from the service
-      // "sessionId": "unique-session-uuid", // Often included, but main info is below
-      "addedFacts": ["on(cat, mat).", "likes(X, milk) :- cat(X)."], // Actual Prolog facts added
-      "strategy": "SIR-R1" // Name of the translation strategy used
-      // "originalText": "The cat is on the mat. All cats like milk.",
-      // "currentFactCount": 2 // Updated fact count in the session
+      "message": "Facts asserted successfully",
+      "addedFacts": ["on(cat, mat).", "likes(X, milk) :- cat(X)."],
+      "strategyId": "SIR-R1-Assert", // ID of the strategy used
+      "cost": { "prompt_tokens": 50, "completion_tokens": 25, "total_tokens": 75 } // Example cost
     }
     ```
-    _(Note: Exact response structure for `addedFacts`, `message` may vary slightly based on `mcrService` output)_
   - **Response (400 Bad Request)**: If `text` is missing or invalid.
   - **Response (404 Not Found)**: If session does not exist.
 
@@ -515,17 +662,14 @@ MCR exposes a RESTful API. All requests and responses are JSON.
     ```json
     {
       "answer": "Yes, the cat is on the mat.",
-      // "sessionId": "unique-session-uuid",
-      // "originalQuery": "Is the cat on the mat?",
+      "cost": {
+        "translation": { "prompt_tokens": 40, "completion_tokens": 10, "total_tokens": 50 },
+        "nlGeneration": { "prompt_tokens": 30, "completion_tokens": 20, "total_tokens": 50 }
+      },
       "debugInfo": {
-        // Included if options.debug was true and server's MCR_DEBUG_LEVEL is not "none".
-        // Content varies based on MCR_DEBUG_LEVEL ('basic' or 'verbose').
-        "level": "verbose", // Example: indicates the level of debug info provided
+        "level": "verbose",
         "prologQuery": "on(cat, mat).",
-        // "knowledgeBaseSnapshot": "on(cat, mat).\n...", // If verbose
-        // "knowledgeBaseSummary": "KB length: 123", // If basic
-        // ... other fields
-        "strategy": "SIR-R1"
+        "strategyId": "SIR-R1-Query"
       }
     }
     ```
@@ -549,14 +693,13 @@ MCR exposes a RESTful API. All requests and responses are JSON.
     ```json
     {
       "explanation": "The query asks for individuals who are grandparents of Mary...",
-      // "sessionId": "unique-session-uuid",
-      // "originalQuery": "Who are Mary's grandparents?",
+      "cost": {
+        "translation": { "prompt_tokens": 45, "completion_tokens": 15, "total_tokens": 60 },
+        "explanation": { "prompt_tokens": 60, "completion_tokens": 150, "total_tokens": 210 }
+      },
       "debugInfo": {
-        // Included if options.debug was true and server's MCR_DEBUG_LEVEL is not "none".
-        // Content varies based on MCR_DEBUG_LEVEL.
-        "level": "basic", // Example
+        "level": "basic",
         "prologQuery": "grandparent(X, mary)."
-        // ... other fields
       }
     }
     ```
@@ -579,14 +722,12 @@ MCR exposes a RESTful API. All requests and responses are JSON.
     ```json
     {
       "rules": [
-        // Array of Prolog rule strings
         "can_fly(X) :- bird(X).",
         "bird(penguin).",
         "not(can_fly(penguin))."
       ],
-      // "rawOutput": "Full LLM output string (strategy-dependent, e.g., not typically present for SIR-R1)",
-      "strategy": "SIR-R1" // Name of the translation strategy used
-      // "originalText": "Birds can fly. Penguins are birds but cannot fly."
+      "strategyId": "SIR-R1-Assert",
+      "cost": { "prompt_tokens": 70, "completion_tokens": 40, "total_tokens": 110 }
     }
     ```
   - **Response (400 Bad Request)**: If `text` is missing.
@@ -603,8 +744,8 @@ MCR exposes a RESTful API. All requests and responses are JSON.
   - **Response (200 OK)**:
     ```json
     {
-      "explanation": "A parent (X) is defined as either a father (X) of Y or a mother (X) of Y."
-      // "originalRules": "parent(X, Y) :- father(X, Y).\nparent(X, Y) :- mother(X, Y)."
+      "explanation": "A parent (X) is defined as either a father (X) of Y or a mother (X) of Y.",
+      "cost": { "prompt_tokens": 30, "completion_tokens": 50, "total_tokens": 80 }
     }
     ```
   - **Response (400 Bad Request)**: If `rules` are missing or invalid.
