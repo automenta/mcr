@@ -37,6 +37,7 @@
     "demo.js",
     "src/",
     "ontologies/",
+    "strategies/",
     "README.md",
     ".env.example",
     "LICENSE"

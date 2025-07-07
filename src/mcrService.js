@@ -332,7 +332,7 @@ async function translateNLToRulesDirect(naturalLanguageText, strategyIdToUse) {
   try {
     logger.info(`[McrService] Using strategy "${strategyJsonToUse.name}" (ID: ${currentStrategyId}) for direct NL to Rules. OpID: ${operationId}`);
     const globalOntologyRules = await ontologyService.getGlobalOntologyRulesAsString();
-    const initialContext = { naturalLanguageText, ontologyRules: globalOntologyRules, lexiconSummary: 'No lexicon summary available for direct translation.', llm_model_id: config.llmProvider.model };
+    const initialContext = { naturalLanguageText, ontologyRules: globalOntologyRules, lexiconSummary: 'No lexicon summary available for direct translation.', existingFacts: '', llm_model_id: config.llmProvider.model };
 
     const executor = new StrategyExecutor(strategyJsonToUse);
     const executionResult = await executor.execute(llmService, initialContext);

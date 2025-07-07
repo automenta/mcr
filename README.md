@@ -220,8 +220,43 @@ async function createMcrSession() {
   }
 }
 
-createMcrSession();
+// createMcrSession(); // Example call
 ```
+
+**4. Direct Library Usage (Experimental/Advanced):**
+While the primary way to use MCR is via its server API, core functionalities can be imported directly if you are embedding MCR within a larger Node.js application and managing the MCR lifecycle yourself. This is an advanced use case.
+
+```javascript
+// main.js in your project
+const mcrService = require('model-context-reasoner/src/mcrService'); // Adjust path if needed after installation
+const config = require('model-context-reasoner/src/config'); // MCR's config
+const logger = require('model-context-reasoner/src/logger'); // MCR's logger
+
+async function useMcrDirectly() {
+  // Ensure MCR's config (e.g., .env variables) is loaded as MCR services depend on it.
+  // logger.info('MCR Config loaded by direct import:', config);
+
+  const sessionId = await mcrService.createSession();
+  if (!sessionId || !sessionId.id) {
+    logger.error('Failed to create session directly.');
+    return;
+  }
+  logger.info(`Directly created session: ${sessionId.id}`);
+
+  const assertResult = await mcrService.assertNLToSession(sessionId.id, 'The sun is bright.');
+  logger.info('Direct assert result:', assertResult);
+
+  if (assertResult.success) {
+    const queryResult = await mcrService.querySessionWithNL(sessionId.id, 'Is the sun bright?');
+    logger.info('Direct query result:', queryResult);
+  }
+}
+
+useMcrDirectly().catch(error => {
+  logger.error('Error in direct MCR usage:', error);
+});
+```
+**Note:** Direct library usage requires careful setup of MCR's dependencies and configurations (like LLM providers, environment variables) within your host application. For most users, interacting with the MCR server via its API is the recommended and more robust approach.
 
 ## 🛠️ Development Setup and Installation
 
@@ -284,9 +319,43 @@ The `./cli.js chat` command launches a comprehensive Ink-based Text User Interfa
 
 ## 💻 CLI (`./cli.js`)
 
-MCR offers direct Command Line Interface (CLI) commands via `./cli.js` (or `mcr-cli` if linked). Use `./cli.js --help` to see all commands.
+MCR offers direct Command Line Interface (CLI) commands via `./cli.js` (or `mcr-cli` if linked after global installation or linking). Use `./cli.js --help` to see all commands.
 
-**Core CLI Commands Examples:**
+### Basic Usage Examples
+
+1.  **Start the MCR Server:**
+    ```bash
+    ./cli.js start-server
+    ```
+    (Ensure your `.env` file is configured, especially for LLM provider API keys.)
+
+2.  **Check Server Status (in another terminal):**
+    ```bash
+    ./cli.js status
+    ```
+
+3.  **Create a new session:**
+    ```bash
+    ./cli.js create-session
+    # Output will be something like: Session created: { id: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' }
+    ```
+
+4.  **Assert a fact to the session (replace `<sessionId>` with actual ID):**
+    ```bash
+    ./cli.js assert <sessionId> "The sky is blue."
+    ```
+
+5.  **Query the session:**
+    ```bash
+    ./cli.js query <sessionId> "What color is the sky?"
+    ```
+
+6.  **Launch Interactive Chat TUI (server must be running):**
+    ```bash
+    ./cli.js chat
+    ```
+
+### All Core CLI Commands Examples:
 
 - `./cli.js status`: Checks server status.
 - `./cli.js start-server`: Starts the MCR server.
