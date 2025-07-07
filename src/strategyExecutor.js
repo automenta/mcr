@@ -274,10 +274,14 @@ class StrategyExecutor {
               promptTemplate.user,
               templateContext
             );
-            output = await llmProvider.generate(
+            const llmResult = await llmProvider.generate(
               promptTemplate.system,
               userPrompt
             );
+            // Output of an LLM_Call node is the 'text' property of the result.
+            // Cost is handled separately.
+            output = llmResult.text;
+            // TODO: Accumulate llmResult.costData into totalCost for the execution
             logger.debug(
               `[StrategyExecutor] Node ${node.id}: LLM call completed. Output length: ${output?.length}`
             );
@@ -426,18 +430,14 @@ class StrategyExecutor {
         if (node.output_variable) {
           executionState[node.output_variable] = output;
           logger.debug(
-            `[StrategyExecutor] Node ${node.id}: Stored output in variable '${node.output_variable}'.`
+            `[StrategyExecutor] Node ${node.id}: Stored output in variable '${node.output_variable}'. Value: ${JSON.stringify(output)}`
           );
         } else {
-          // If no output_variable is specified, the output of this node might be the final output of the graph.
-          // This assumes a graph has one "terminal" node whose output is the result.
-          // A more robust way would be to designate an output node in the strategy JSON.
           finalOutput = output;
           logger.debug(
-            `[StrategyExecutor] Node ${node.id}: Output not stored in a variable, considered as potential final output.`
+            `[StrategyExecutor] Node ${node.id}: Output not stored in a variable, considered as potential final output. Value: ${JSON.stringify(output)}`
           );
         }
-
         const nextNodeIds = this.adjacencyMap.get(currentNodeId) || [];
         nextNodeIds.forEach((nextNodeId) => {
           if (!visited.has(nextNodeId) && !queue.includes(nextNodeId)) {
@@ -497,7 +497,6 @@ class StrategyExecutor {
       );
       result = executionState; // Fallback for debugging, not ideal for production
     }
-
     logger.debug(
       `[StrategyExecutor] Final execution result for strategy "${this.strategy.id}":`,
       result

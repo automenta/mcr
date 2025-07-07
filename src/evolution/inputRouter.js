@@ -33,7 +33,7 @@ class InputRouter {
       );
     }
     this.db = db; // This should be the database module itself, not an instance
-    logger.info('[InputRouter] Initialized with database module.');
+    logger.info('[InputRouter] Initialized with database instance.');
   }
 
   /**
@@ -55,7 +55,6 @@ class InputRouter {
         'when',
         'why',
         'how',
-        'is',
         'are',
         'does',
         'do',
@@ -65,13 +64,15 @@ class InputRouter {
         'should',
       ].some((kw) => nlLower.startsWith(kw) || nlLower.includes(` ${kw} `))
     ) {
+      const logText = naturalLanguageText.length > 50 ? naturalLanguageText.substring(0, 50) + '...' : naturalLanguageText;
       logger.debug(
-        `[InputRouter] Classified input as '${DEFAULT_QUERY_CLASS}': "${naturalLanguageText.substring(0, 50)}..."`
+        `[InputRouter] Classified input as '${DEFAULT_QUERY_CLASS}': "${logText}"`
       );
       return DEFAULT_QUERY_CLASS;
     }
+    const logText = naturalLanguageText.length > 50 ? naturalLanguageText.substring(0, 50) + '...' : naturalLanguageText;
     logger.debug(
-      `[InputRouter] Classified input as '${DEFAULT_ASSERT_CLASS}': "${naturalLanguageText.substring(0, 50)}..."`
+      `[InputRouter] Classified input as '${DEFAULT_ASSERT_CLASS}': "${logText}"`
     );
     return DEFAULT_ASSERT_CLASS;
   }
