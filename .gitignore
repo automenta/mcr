@@ -5,3 +5,4 @@ coverage/
 data/
 .idea
 evaluation-report.json
+performance_results.db
