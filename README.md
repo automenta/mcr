@@ -1,4 +1,4 @@
-````markdown
+
 # 🧠 Model Context Reasoner (MCR) ✨
 
 **For a high-level, marketing-oriented overview of MCR, its applications, and benefits, please see our [OVERVIEW.md](OVERVIEW.md).**
@@ -113,7 +113,6 @@ git clone https://github.com/yourusername/model-context-reasoner.git # Replace w
 cd model-context-reasoner
 npm install
 ```
-````
 
 **2. Configure LLM:**
 Create a `.env` file in the project root (copy from `.env.example`) and add your chosen LLM provider API key and settings.
