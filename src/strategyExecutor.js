@@ -186,13 +186,14 @@ class StrategyExecutor {
   /**
    * Executes the strategy workflow.
    * @param {ILlmProvider} llmProvider - An instance of an LLM provider.
+   * @param {IReasonProvider} reasonerService - An instance of a reasoner service provider.
    * @param {object} initialContext - The initial context for the execution,
    *                                  e.g., { naturalLanguageText, existingFacts, ontologyRules, lexiconSummary }
    *                                  or { naturalLanguageQuestion, existingFacts, ontologyRules, lexiconSummary }
    * @returns {Promise<any>} The final output of the strategy.
    * @throws {MCRError} If execution fails at any step or the graph is malformed.
    */
-  async execute(llmProvider, initialContext) {
+  async execute(llmProvider, reasonerService, initialContext) {
     logger.info(
       `[StrategyExecutor] Executing strategy "${this.strategy.id}"...`
     );
@@ -238,55 +239,32 @@ class StrategyExecutor {
       let output;
       try {
         switch (node.type) {
-          case 'LLM_Call':
-            if (!node.prompt_template_name) {
-              throw new MCRError(
-                ErrorCodes.INVALID_STRATEGY_NODE,
-                `LLM_Call node ${node.id} missing 'prompt_template_name'.`
-              );
-            }
-            const promptTemplate = prompts[node.prompt_template_name];
-            if (!promptTemplate) {
-              throw new MCRError(
-                ErrorCodes.PROMPT_TEMPLATE_NOT_FOUND,
-                `Prompt template "${node.prompt_template_name}" not found for node ${node.id}.`
-              );
-            }
+      case 'LLM_Call': {
+        let systemPrompt, userPrompt;
+        const templateContext = { ...executionState, llm_model_id: node.model || initialContext.llm_model_id || 'default_model' };
 
-            // Prepare context for template filling
-            // Variables in the prompt template (e.g., {{naturalLanguageText}})
-            // should be present in executionState.
-            const templateContext = { ...executionState };
-            // Allow model to be specified in node or fall back to a default from initialContext or config
-            templateContext.llm_model_id =
-              node.model || initialContext.llm_model_id || 'default_model';
+        if (node.prompt_text && node.prompt_text.user) {
+          systemPrompt = node.prompt_text.system || ''; // Default to empty string if system prompt not provided
+          userPrompt = fillTemplate(node.prompt_text.user, templateContext);
+          logger.debug(`[StrategyExecutor] Node ${node.id}: Using embedded prompt text.`);
+        } else if (node.prompt_template_name) {
+          const promptTemplate = prompts[node.prompt_template_name];
+          if (!promptTemplate) {
+            throw new MCRError(ErrorCodes.PROMPT_TEMPLATE_NOT_FOUND, `Prompt template "${node.prompt_template_name}" not found for node ${node.id}.`);
+          }
+          systemPrompt = promptTemplate.system;
+          userPrompt = fillTemplate(promptTemplate.user, templateContext);
+          logger.debug(`[StrategyExecutor] Node ${node.id}: Using named prompt template '${node.prompt_template_name}'. Context keys: ${Object.keys(templateContext).join(', ')}`);
+        } else {
+          throw new MCRError(ErrorCodes.INVALID_STRATEGY_NODE, `LLM_Call node ${node.id} missing required 'prompt_template_name' or 'prompt_text' property.`);
+        }
 
-            // Fill input variables for the prompt from executionState
-            // Example: if node.input_mapping = {"text_to_process": "naturalLanguageText"},
-            // then templateContext.text_to_process = executionState.naturalLanguageText.
-            // For simplicity now, assume direct mapping: prompt variables match executionState keys.
-
-            logger.debug(
-              `[StrategyExecutor] Node ${node.id}: Preparing LLM call with template ${node.prompt_template_name}. Context keys: ${Object.keys(templateContext).join(', ')}`
-            );
-
-            const userPrompt = fillTemplate(
-              promptTemplate.user,
-              templateContext
-            );
-            const llmResult = await llmProvider.generate(
-              promptTemplate.system,
-              userPrompt
-            );
-            // Output of an LLM_Call node is the 'text' property of the result.
-            // Cost is handled separately.
-            output = llmResult.text;
-            // TODO: Accumulate llmResult.costData into totalCost for the execution
-            logger.debug(
-              `[StrategyExecutor] Node ${node.id}: LLM call completed. Output length: ${output?.length}`
-            );
-            break;
-
+        const llmResult = await llmProvider.generate(systemPrompt, userPrompt);
+        output = llmResult.text;
+        // TODO: Accumulate llmResult.costData into totalCost for the execution
+        logger.debug(`[StrategyExecutor] Node ${node.id}: LLM call completed. Output length: ${output?.length}`);
+        break;
+      }
           case 'Parse_JSON':
             if (!node.input_variable) {
               throw new MCRError(
@@ -417,6 +395,27 @@ class StrategyExecutor {
             output = cleanedQuery;
             logger.debug(
               `[StrategyExecutor] Node ${node.id}: Prolog query extraction completed. Query: "${output}"`
+            );
+            break;
+
+          case 'Reasoner_Call':
+            if (!node.input_variable) {
+              throw new MCRError(ErrorCodes.INVALID_STRATEGY_NODE, `Reasoner_Call node ${node.id} missing 'input_variable'.`);
+            }
+            const queryToRun = executionState[node.input_variable];
+            if (typeof queryToRun !== 'string') {
+              throw new MCRError(ErrorCodes.INVALID_NODE_INPUT, `Input for Reasoner_Call node ${node.id} (variable '${node.input_variable}') is not a string. Found: ${typeof queryToRun}`);
+            }
+            // Use the session's knowledge base from the execution state.
+            // This assumes 'existingFacts' is consistently populated in the initial context.
+            const kbForReasonerCall = executionState.existingFacts || '';
+            // Add ontology rules if they are also in the context
+            const ontologyForReasonerCall = executionState.ontologyRules || '';
+            const fullKbForCall = `${kbForReasonerCall}\n${ontologyForReasonerCall}`;
+
+            output = await reasonerService.executeQuery(fullKbForCall, queryToRun);
+            logger.debug(
+              `[StrategyExecutor] Node ${node.id}: Reasoner_Call completed. Results: ${JSON.stringify(output)}`
             );
             break;
 

@@ -65,23 +65,33 @@ async function getOperationalStrategyJson(operationType, naturalLanguageText) {
     let strategyIdToLog = operationalStrategyId;
 
     if (!strategyJson) {
-      logger.warn(
-        `[McrService] Configured operational strategy "${operationalStrategyId}" not found. Trying base ID "${baseStrategyId}".`
-      );
-      strategyJson = strategyManager.getStrategy(baseStrategyId);
-      strategyIdToLog = baseStrategyId;
+      // NEW, SMARTER FALLBACK LOGIC
+      logger.warn(`[McrService] Operational strategy "${operationalStrategyId}" not found. Falling back to a canonical strategy for type "${operationType}".`);
+      const fallbackId = operationType === 'Assert' ? 'SIR-R1-Assert' : 'SIR-R1-Query';
+      strategyJson = strategyManager.getStrategy(fallbackId);
+      strategyIdToLog = fallbackId;
+
       if (!strategyJson) {
-        logger.warn(
-          `[McrService] Configured base strategy "${baseStrategyId}" also not found for ${operationType}. Falling back to StrategyManager's default.`
-        );
-        strategyJson = strategyManager.getDefaultStrategy();
-        strategyIdToLog = strategyJson.id;
-        logger.warn(
-          `[McrService] Using system default strategy "${strategyIdToLog}" (Name: "${strategyJson.name}") for ${operationType}.`
-        );
+          logger.error(`[McrService] Canonical fallback strategy "${fallbackId}" not found! Trying base ID "${baseStrategyId}".`);
+          strategyJson = strategyManager.getStrategy(baseStrategyId);
+          strategyIdToLog = baseStrategyId;
+          if (!strategyJson) {
+            logger.error(
+              `[McrService] Configured base strategy "${baseStrategyId}" also not found for ${operationType}. Falling back to StrategyManager's default.`
+            );
+            strategyJson = strategyManager.getDefaultStrategy();
+            strategyIdToLog = strategyJson.id;
+            logger.warn(
+              `[McrService] Using system default strategy "${strategyIdToLog}" (Name: "${strategyJson.name}") for ${operationType}.`
+            );
+          } else {
+            logger.info(
+              `[McrService] Using configured base strategy "${strategyIdToLog}" (Name: "${strategyJson.name}") for ${operationType} as canonical fallback was not found.`
+            );
+          }
       } else {
         logger.info(
-          `[McrService] Using configured base strategy "${strategyIdToLog}" (Name: "${strategyJson.name}") for ${operationType} as operational variant was not found.`
+          `[McrService] Using canonical fallback strategy "${strategyIdToLog}" (Name: "${strategyJson.name}") for ${operationType}.`
         );
       }
     } else {
@@ -174,7 +184,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
 
     logger.info(`[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for assertion. OpID: ${operationId}.`);
     const executor = new StrategyExecutor(activeStrategyJson);
-    const executionResult = await executor.execute(llmService, initialContext);
+    const executionResult = await executor.execute(llmService, reasonerService, initialContext);
 
     const addedFacts = executionResult; // In SIR-R1-Assert, the result of the strategy is directly the array of prolog clauses.
     const costOfExecution = null; // executionResult.totalCost; // TODO: Re-enable cost tracking if strategy executor provides it.
@@ -254,7 +264,7 @@ async function querySessionWithNL(sessionId, naturalLanguageQuestion, queryOptio
 
     logger.info(`[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for query translation. OpID: ${operationId}.`);
     const executor = new StrategyExecutor(activeStrategyJson);
-    const strategyExecutionResult = await executor.execute(llmService, initialContext);
+    const strategyExecutionResult = await executor.execute(llmService, reasonerService, initialContext);
     const prologQuery = strategyExecutionResult; // Corrected: strategyExecutionResult is the prolog query string
     // TODO: Accumulate/return strategyExecutionResult.totalCost; if execute returns an object with cost
 
@@ -335,7 +345,7 @@ async function translateNLToRulesDirect(naturalLanguageText, strategyIdToUse) {
     const initialContext = { naturalLanguageText, ontologyRules: globalOntologyRules, lexiconSummary: 'No lexicon summary available for direct translation.', existingFacts: '', llm_model_id: config.llmProvider.model };
 
     const executor = new StrategyExecutor(strategyJsonToUse);
-    const executionResult = await executor.execute(llmService, initialContext);
+    const executionResult = await executor.execute(llmService, reasonerService, initialContext);
     const prologRules = executionResult;
     // TODO: Handle executionResult.totalCost; if execute returns an object with cost
 
@@ -424,7 +434,7 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
 
     logger.info(`[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for query translation in explain. OpID: ${operationId}.`);
     const executor = new StrategyExecutor(activeStrategyJson);
-    const strategyExecutionResult = await executor.execute(llmService, initialStrategyContext);
+    const strategyExecutionResult = await executor.execute(llmService, reasonerService, initialStrategyContext);
     const prologQuery = strategyExecutionResult; // Corrected: strategyExecutionResult is the prolog query string
     // TODO: Handle strategyExecutionResult.totalCost; if execute returns an object with cost
 

@@ -6,6 +6,11 @@ const GeminiProvider = require('./llmProviders/geminiProvider');
 
 let selectedProvider;
 
+function forceReinitializeProvider() {
+  selectedProvider = null;
+  logger.info('[llmService] Provider selection has been reset. Will re-initialize on next call to getProvider().');
+}
+
 function getProvider() {
   if (!selectedProvider) {
     const providerName = config.llm.provider.toLowerCase();
@@ -93,6 +98,7 @@ async function generate(systemPrompt, userPrompt, options = {}) {
 
 module.exports = {
   generate,
+  forceReinitializeProvider,
   // Expose getProvider for potential direct use or testing if needed
   // getProviderInstance: getProvider
 };

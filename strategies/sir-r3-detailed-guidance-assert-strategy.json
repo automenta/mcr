@@ -7,7 +7,7 @@
     {
       "id": "step1_nl_to_sir_llm_detailed",
       "type": "LLM_Call",
-      "prompt_template_name": "NL_TO_SIR_DETAILED_GUIDANCE_ASSERT",
+      "prompt_template_name": "NL_TO_SIR_ASSERT_GUIDED",
       "model": "{{llm_model_id}}",
       "output_variable": "sir_json_string"
     },
