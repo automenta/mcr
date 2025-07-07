@@ -5,22 +5,22 @@
  */
 const baseEvals = [
   {
-    id: "BE001_SimpleAssert",
+    id: 'BE001_SimpleAssert',
     description: "Simple fact assertion: 'The sky is blue.'",
-    naturalLanguageInput: "The sky is blue.",
-    inputType: "assert",
-    expectedProlog: ["is_color(sky, blue)."],
-    metrics: ["exactMatchProlog"],
-    tags: ["assertion", "simple-fact", "core", "reduced-set"],
+    naturalLanguageInput: 'The sky is blue.',
+    inputType: 'assert',
+    expectedProlog: ['is_color(sky, blue).'],
+    metrics: ['exactMatchProlog'],
+    tags: ['assertion', 'simple-fact', 'core', 'reduced-set'],
   },
   {
-    id: "BE002_SimpleRule",
+    id: 'BE002_SimpleRule',
     description: "Simple rule assertion: 'All humans are mortal.'",
-    naturalLanguageInput: "All humans are mortal.",
-    inputType: "assert",
-    expectedProlog: ["mortal(X) :- is_a(X, human)."],
-    metrics: ["exactMatchProlog"],
-    tags: ["assertion", "simple-rule", "core", "reduced-set"],
+    naturalLanguageInput: 'All humans are mortal.',
+    inputType: 'assert',
+    expectedProlog: ['mortal(X) :- is_a(X, human).'],
+    metrics: ['exactMatchProlog'],
+    tags: ['assertion', 'simple-rule', 'core', 'reduced-set'],
   },
   // {
   //   id: "BE003",
@@ -55,14 +55,16 @@ const baseEvals = [
   //   notes: "Depends on BE002 and an assertion like 'is_a(socrates, human).' being present in the session. The NL answer match might be less strict."
   // },
   {
-    id: "BE006_NegatedFact",
-    description: "Negated fact assertion: 'Paris is not the capital of Germany.'",
-    naturalLanguageInput: "Paris is not the capital of Germany.",
-    inputType: "assert",
-    expectedProlog: ["not(is_capital_of(paris, germany))."],
-    metrics: ["exactMatchProlog"],
-    tags: ["assertion", "negation", "core", "reduced-set"],
-    notes: "Tests handling of negation. Expected Prolog is for SIR-style negation."
+    id: 'BE006_NegatedFact',
+    description:
+      "Negated fact assertion: 'Paris is not the capital of Germany.'",
+    naturalLanguageInput: 'Paris is not the capital of Germany.',
+    inputType: 'assert',
+    expectedProlog: ['not(is_capital_of(paris, germany)).'],
+    metrics: ['exactMatchProlog'],
+    tags: ['assertion', 'negation', 'core', 'reduced-set'],
+    notes:
+      'Tests handling of negation. Expected Prolog is for SIR-style negation.',
   },
   // {
   //   id: "BE007",
@@ -94,40 +96,50 @@ const logger = require('../logger'); // Assuming logger is available
  * @returns {import('../evaluator').EvaluationCase[]} An array of all loaded evaluation cases.
  */
 function loadCasesRecursively(currentPath, rootCasesDir) {
-    let cases = [];
-    const stats = fs.statSync(currentPath);
+  let cases = [];
+  const stats = fs.statSync(currentPath);
 
-    if (stats.isDirectory()) {
-        const files = fs.readdirSync(currentPath);
-        for (const file of files) {
-            cases.push(...loadCasesRecursively(path.join(currentPath, file), rootCasesDir));
-        }
-    } else if (stats.isFile() && (currentPath.endsWith('.js') || currentPath.endsWith('.json'))) {
-        const relativePath = path.relative(rootCasesDir, currentPath);
-        try {
-            // Check if the file is the entry point itself to avoid self-requiring issues if not handled carefully
-            // This specific check might be too broad or unnecessary depending on file structure and how require resolves.
-            // if (path.basename(currentPath) === path.basename(__filename) && path.dirname(currentPath) === __dirname) {
-            //     logger.debug(`[loadCasesRecursively] Skipping self-require: ${currentPath}`);
-            //     return cases; // Skip
-            // }
-
-            const casesFromFile = require(currentPath); // require() caches, which is fine
-            if (Array.isArray(casesFromFile)) {
-                // Add source file info for better traceability if needed later
-                // casesFromFile.forEach(c => c.sourceFile = relativePath);
-                cases.push(...casesFromFile);
-                logger.debug(`[loadCasesRecursively] Loaded ${casesFromFile.length} cases from ${relativePath}`);
-            } else {
-                logger.warn(`[loadCasesRecursively] File ${relativePath} does not export an array. Skipping.`);
-            }
-        } catch (loadErr) {
-            logger.error(`[loadCasesRecursively] Error loading or parsing cases from ${relativePath}: ${loadErr.message}`);
-        }
+  if (stats.isDirectory()) {
+    const files = fs.readdirSync(currentPath);
+    for (const file of files) {
+      cases.push(
+        ...loadCasesRecursively(path.join(currentPath, file), rootCasesDir)
+      );
     }
-    return cases;
-}
+  } else if (
+    stats.isFile() &&
+    (currentPath.endsWith('.js') || currentPath.endsWith('.json'))
+  ) {
+    const relativePath = path.relative(rootCasesDir, currentPath);
+    try {
+      // Check if the file is the entry point itself to avoid self-requiring issues if not handled carefully
+      // This specific check might be too broad or unnecessary depending on file structure and how require resolves.
+      // if (path.basename(currentPath) === path.basename(__filename) && path.dirname(currentPath) === __dirname) {
+      //     logger.debug(`[loadCasesRecursively] Skipping self-require: ${currentPath}`);
+      //     return cases; // Skip
+      // }
 
+      const casesFromFile = require(currentPath); // require() caches, which is fine
+      if (Array.isArray(casesFromFile)) {
+        // Add source file info for better traceability if needed later
+        // casesFromFile.forEach(c => c.sourceFile = relativePath);
+        cases.push(...casesFromFile);
+        logger.debug(
+          `[loadCasesRecursively] Loaded ${casesFromFile.length} cases from ${relativePath}`
+        );
+      } else {
+        logger.warn(
+          `[loadCasesRecursively] File ${relativePath} does not export an array. Skipping.`
+        );
+      }
+    } catch (loadErr) {
+      logger.error(
+        `[loadCasesRecursively] Error loading or parsing cases from ${relativePath}: ${loadErr.message}`
+      );
+    }
+  }
+  return cases;
+}
 
 /**
  * Loads all evaluation cases from .js and .json files in the specified directory, including subdirectories.
@@ -135,18 +147,26 @@ function loadCasesRecursively(currentPath, rootCasesDir) {
  * @returns {import('../evaluator').EvaluationCase[]} An array of all loaded evaluation cases.
  */
 function loadAllEvalCases(casesRootDir = path.join(__dirname)) {
-    logger.info(`[loadAllEvalCases] Starting recursive load of evaluation cases from root: ${casesRootDir}`);
-    if (!fs.existsSync(casesRootDir) || !fs.statSync(casesRootDir).isDirectory()) {
-        logger.error(`[loadAllEvalCases] Evaluation cases directory not found or not a directory: ${casesRootDir}`);
-        return [];
-    }
-    const allLoadedCases = loadCasesRecursively(casesRootDir, casesRootDir);
-    logger.info(`[loadAllEvalCases] Total evaluation cases loaded recursively from ${casesRootDir}: ${allLoadedCases.length}`);
-    return allLoadedCases;
+  logger.info(
+    `[loadAllEvalCases] Starting recursive load of evaluation cases from root: ${casesRootDir}`
+  );
+  if (
+    !fs.existsSync(casesRootDir) ||
+    !fs.statSync(casesRootDir).isDirectory()
+  ) {
+    logger.error(
+      `[loadAllEvalCases] Evaluation cases directory not found or not a directory: ${casesRootDir}`
+    );
+    return [];
+  }
+  const allLoadedCases = loadCasesRecursively(casesRootDir, casesRootDir);
+  logger.info(
+    `[loadAllEvalCases] Total evaluation cases loaded recursively from ${casesRootDir}: ${allLoadedCases.length}`
+  );
+  return allLoadedCases;
 }
 
-
 module.exports = {
-    baseEvals, // Export individual set if needed elsewhere
-    loadAllEvalCases // Export the loader function
+  baseEvals, // Export individual set if needed elsewhere
+  loadAllEvalCases, // Export the loader function
 };

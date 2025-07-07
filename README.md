@@ -308,51 +308,51 @@ The system is bootstrapped with functional, human-authored strategies, ensuring 
 ### Core Components:
 
 1.  **Optimization Coordinator (`src/evolution/optimizer.js`)**:
-    *   Orchestrates the entire evolution loop.
-    *   On first run (or with `--runBootstrap`), it executes all pre-defined strategies against an evaluation curriculum to establish baseline performance data in the `Performance Database`.
-    *   Selects existing strategies for improvement based on performance data.
-    *   Invokes the `StrategyEvolver` to create new candidate strategies.
-    *   May invoke the `CurriculumGenerator` to create new, targeted evaluation examples.
-    *   Evaluates new strategies and persists their performance.
+    - Orchestrates the entire evolution loop.
+    - On first run (or with `--runBootstrap`), it executes all pre-defined strategies against an evaluation curriculum to establish baseline performance data in the `Performance Database`.
+    - Selects existing strategies for improvement based on performance data.
+    - Invokes the `StrategyEvolver` to create new candidate strategies.
+    - May invoke the `CurriculumGenerator` to create new, targeted evaluation examples.
+    - Evaluates new strategies and persists their performance.
 
 2.  **Strategy Evolver (`src/evolution/strategyEvolver.js`)**:
-    *   Creates new candidate strategies by mutating existing ones.
-    *   The primary mutation method is "Iterative Critique":
-        1.  Selects a node in a strategy graph (e.g., an `LLM_Call` node).
-        2.  Extracts its prompt and identifies failing examples from the `Performance Database`.
-        3.  Uses an LLM to critique and rewrite the prompt to address these failures.
-        4.  Creates a new strategy JSON definition with the updated prompt.
+    - Creates new candidate strategies by mutating existing ones.
+    - The primary mutation method is "Iterative Critique":
+      1.  Selects a node in a strategy graph (e.g., an `LLM_Call` node).
+      2.  Extracts its prompt and identifies failing examples from the `Performance Database`.
+      3.  Uses an LLM to critique and rewrite the prompt to address these failures.
+      4.  Creates a new strategy JSON definition with the updated prompt.
 
 3.  **Curriculum Generator (`src/evolution/curriculumGenerator.js`)**:
-    *   Expands the set of evaluation cases to prevent overfitting and ensure strategies are robust.
-    *   Analyzes performance data to identify weaknesses or gaps in the current curriculum.
-    *   Uses an LLM to generate new `EvaluationCase` objects targeting these areas. These are saved in `src/evalCases/generated/`.
+    - Expands the set of evaluation cases to prevent overfitting and ensure strategies are robust.
+    - Analyzes performance data to identify weaknesses or gaps in the current curriculum.
+    - Uses an LLM to generate new `EvaluationCase` objects targeting these areas. These are saved in `src/evalCases/generated/`.
 
 4.  **Input Router (`src/evolution/inputRouter.js`)**:
-    *   Integrated into `mcrService.js` to select the optimal strategy for a given live input at runtime.
-    *   Performs a quick classification of the input.
-    *   Queries the `Performance Database` for the strategy with the best aggregate performance (metrics, cost, latency) for that input class and the current LLM.
+    - Integrated into `mcrService.js` to select the optimal strategy for a given live input at runtime.
+    - Performs a quick classification of the input.
+    - Queries the `Performance Database` for the strategy with the best aggregate performance (metrics, cost, latency) for that input class and the current LLM.
 
 ### Performance Database (`performance_results.db`)
 
 This SQLite database is crucial for the Evolution Engine. It stores the detailed results of every evaluation run.
 
--   **Purpose**:
-    *   Provides data for the `OptimizationCoordinator` to select strategies for evolution.
-    *   Gives context to the `StrategyEvolver` (e.g., failing examples).
-    *   Informs the `CurriculumGenerator` about areas needing more test cases.
-    *   Allows the `InputRouter` to make data-driven decisions at runtime.
-    *   Serves as a rich dataset for analyzing strategy performance and for potential fine-tuning of models.
--   **Schema (`performance_results` table)**:
-    *   `id` (INTEGER PK): Unique ID for the run.
-    *   `strategy_hash` (TEXT): SHA-256 hash of the strategy's JSON definition.
-    *   `llm_model_id` (TEXT): Identifier of the LLM used (e.g., "ollama/llama3").
-    *   `example_id` (TEXT): ID of the `EvaluationCase` used.
-    *   `metrics` (JSON TEXT): JSON object of metric scores (e.g., `{ "exactMatchProlog": 1, ... }`).
-    *   `cost` (JSON TEXT): JSON object of cost metrics (e.g., `{ "prompt_tokens": 120, "completion_tokens": 80, "total_tokens": 200 }`).
-    *   `latency_ms` (INTEGER): Total time for the execution in milliseconds.
-    *   `timestamp` (DATETIME): UTC timestamp of the evaluation run.
-    *   `raw_output` (TEXT): The final string or JSON array output of the strategy.
+- **Purpose**:
+  - Provides data for the `OptimizationCoordinator` to select strategies for evolution.
+  - Gives context to the `StrategyEvolver` (e.g., failing examples).
+  - Informs the `CurriculumGenerator` about areas needing more test cases.
+  - Allows the `InputRouter` to make data-driven decisions at runtime.
+  - Serves as a rich dataset for analyzing strategy performance and for potential fine-tuning of models.
+- **Schema (`performance_results` table)**:
+  - `id` (INTEGER PK): Unique ID for the run.
+  - `strategy_hash` (TEXT): SHA-256 hash of the strategy's JSON definition.
+  - `llm_model_id` (TEXT): Identifier of the LLM used (e.g., "ollama/llama3").
+  - `example_id` (TEXT): ID of the `EvaluationCase` used.
+  - `metrics` (JSON TEXT): JSON object of metric scores (e.g., `{ "exactMatchProlog": 1, ... }`).
+  - `cost` (JSON TEXT): JSON object of cost metrics (e.g., `{ "prompt_tokens": 120, "completion_tokens": 80, "total_tokens": 200 }`).
+  - `latency_ms` (INTEGER): Total time for the execution in milliseconds.
+  - `timestamp` (DATETIME): UTC timestamp of the evaluation run.
+  - `raw_output` (TEXT): The final string or JSON array output of the strategy.
 
 ### Running the Optimizer
 
@@ -363,13 +363,15 @@ node src/evolution/optimizer.js [options]
 ```
 
 **Common Options:**
--   `--iterations <num>` or `-i <num>`: Number of evolution cycles to run (default: 1).
--   `--bootstrapOnly`: Only run the bootstrap/baselining step and exit.
--   `--runBootstrap`: Run bootstrap before starting iterations (useful if DB is empty or needs refreshing).
--   `--evalCasesPath <path>`: Path to evaluation cases (default: `src/evalCases`).
+
+- `--iterations <num>` or `-i <num>`: Number of evolution cycles to run (default: 1).
+- `--bootstrapOnly`: Only run the bootstrap/baselining step and exit.
+- `--runBootstrap`: Run bootstrap before starting iterations (useful if DB is empty or needs refreshing).
+- `--evalCasesPath <path>`: Path to evaluation cases (default: `src/evalCases`).
 
 **Example:**
 To run bootstrap and then 3 evolution iterations:
+
 ```bash
 node src/evolution/optimizer.js --runBootstrap --iterations 3
 ```
@@ -381,7 +383,9 @@ To explore the `performance_results.db` and view strategy performance, use the P
 ```bash
 ./cli.js perf-dashboard
 ```
+
 This interface allows you to:
+
 - List all evaluated strategy hashes.
 - Select a strategy to view its individual evaluation runs.
 - See detailed metrics, cost, latency, and raw output for each run.
@@ -401,6 +405,7 @@ A new enhanced demo runner (`demo.js`) is available to showcase various MCR capa
 **How to Use:**
 
 1.  **Ensure the MCR server is running:**
+
     ```bash
     node mcr.js
     # OR
@@ -408,11 +413,13 @@ A new enhanced demo runner (`demo.js`) is available to showcase various MCR capa
     ```
 
 2.  **List available examples:**
+
     ```bash
     node demo.js --list
     # or
     node demo.js -l
     ```
+
     This will output a list of example keys and their descriptions.
 
 3.  **Run a specific example:**
@@ -430,15 +437,16 @@ A new enhanced demo runner (`demo.js`) is available to showcase various MCR capa
 
 **Available Examples (as of this writing):**
 
--   `simple-assertions`: A basic demo asserting simple facts and querying them.
--   `family-ontology`: Demonstrates reasoning with a pre-loaded family ontology (`family.pl`).
--   `scientific-kb`: A demo asserting facts about a simple scientific domain (chemistry/physics) and querying them.
--   `error-handling`: Demonstrates how the system handles various error conditions and invalid inputs.
+- `simple-assertions`: A basic demo asserting simple facts and querying them.
+- `family-ontology`: Demonstrates reasoning with a pre-loaded family ontology (`family.pl`).
+- `scientific-kb`: A demo asserting facts about a simple scientific domain (chemistry/physics) and querying them.
+- `error-handling`: Demonstrates how the system handles various error conditions and invalid inputs.
 
 **Adding New Examples:**
 
 1.  Create a new JavaScript file in the `src/demos/` directory (e.g., `myNewDemo.js`).
 2.  The file should export a class that extends the `Example` class (from `demo.js`).
+
     ```javascript
     // src/demos/myNewDemo.js
     const { Example } = require('../../demo'); // Adjust path if structure changes
@@ -460,12 +468,17 @@ A new enhanced demo runner (`demo.js`) is available to showcase various MCR capa
         await this.createSession();
         await this.assertFact('My demo is working.');
         const result = await this.query('Is my demo working?');
-        await this.assertCondition(result && result.answer.includes('yes'), 'Demo works!', 'Demo failed!');
+        await this.assertCondition(
+          result && result.answer.includes('yes'),
+          'Demo works!',
+          'Demo failed!'
+        );
         this.dLog.success('My New Demo completed!');
       }
     }
     module.exports = MyNewDemo;
     ```
+
 3.  The `demo.js` script will automatically discover any `*Demo.js` files in `src/demos/` that export a class extending `Example`. The command-line key for the demo will be derived from its `getName()` method (e.g., "My New Demo" becomes "my-new-demo").
 
 ## 📊 Evaluation System (`src/evaluator.js`)
@@ -477,27 +490,31 @@ The evaluator runs a suite of test cases, each defining a natural language input
 
 **Running the Evaluator:**
 Execute the script from the project root:
+
 ```bash
 node src/evaluator.js [options]
 ```
 
 **Command-Line Options:**
--   `--casesPath <path>` or `-p <path>`: Specifies the path to the directory containing evaluation case files (e.g., `src/evalCases`). Defaults to `src/evalCases`.
--   `--strategies <list>` or `-s <list>`: A comma-separated list of strategy names to run (e.g., `SIR-R1,Direct-S1`). If omitted, all available strategies are run.
--   `--tags <list>` or `-t <list>`: A comma-separated list of tags to filter evaluation cases. Only cases matching at least one specified tag will be run (e.g., `simple,rules,family-ontology`).
+
+- `--casesPath <path>` or `-p <path>`: Specifies the path to the directory containing evaluation case files (e.g., `src/evalCases`). Defaults to `src/evalCases`.
+- `--strategies <list>` or `-s <list>`: A comma-separated list of strategy names to run (e.g., `SIR-R1,Direct-S1`). If omitted, all available strategies are run.
+- `--tags <list>` or `-t <list>`: A comma-separated list of tags to filter evaluation cases. Only cases matching at least one specified tag will be run (e.g., `simple,rules,family-ontology`).
 
 **Example:**
 Run only `SIR-R1` strategy on cases tagged `family-ontology`:
+
 ```bash
 node src/evaluator.js -s SIR-R1 -t family-ontology
 ```
 
 **Metrics:**
 The evaluator uses several metrics to assess performance, including:
--   `exactMatchProlog`: Checks for an exact string match of the generated Prolog against the expected Prolog.
--   `prologStructureMatch`: A more lenient match that normalizes Prolog (e.g., removes comments, standardizes some whitespace) before comparison.
--   `exactMatchAnswer`: Checks for an exact string match of the generated natural language answer against the expected answer (for queries).
--   `semanticSimilarityAnswer`: Uses an LLM to compare the semantic meaning of the generated NL answer with the expected answer.
+
+- `exactMatchProlog`: Checks for an exact string match of the generated Prolog against the expected Prolog.
+- `prologStructureMatch`: A more lenient match that normalizes Prolog (e.g., removes comments, standardizes some whitespace) before comparison.
+- `exactMatchAnswer`: Checks for an exact string match of the generated natural language answer against the expected answer (for queries).
+- `semanticSimilarityAnswer`: Uses an LLM to compare the semantic meaning of the generated NL answer with the expected answer.
 
 **Output:**
 The evaluator prints a summary of results to the console and saves a detailed `evaluation-report.json` file in the project root.
@@ -508,39 +525,43 @@ MCR provides scripts to accelerate development and testing by leveraging LLMs to
 
 ### 1. Generate Evaluation Examples (`scripts/generate_example.js`)
 
--   **Purpose:** Automatically creates new evaluation cases (`EvaluationCase` objects) for use with `evaluator.js`.
--   **Command:**
-    ```bash
-    # Using npm script
-    npm run generate-examples -- --domain "<domain_name>" --instructions "<detailed_instructions_for_LLM>" [--provider <llm_provider>] [--model <model_name>]
+- **Purpose:** Automatically creates new evaluation cases (`EvaluationCase` objects) for use with `evaluator.js`.
+- **Command:**
 
-    # Direct node execution
-    node scripts/generate_example.js --domain "chemistry" --instructions "Generate diverse queries about molecular composition and reactions, including some negations and rule-based assertions."
-    ```
--   **Arguments:**
-    -   `--domain` (alias `-d`): The subject domain (e.g., "history", "chemistry"). (Required)
-    -   `--instructions` (alias `-i`): Specific instructions for the LLM on what kind of examples to generate. (Required)
-    -   `--provider` (alias `-p`): Optional LLM provider (e.g., `openai`, `gemini`, `ollama`). Defaults to `MCR_LLM_PROVIDER` in `.env` or `ollama`.
-    -   `--model` (alias `-m`): Optional specific model name for the chosen provider.
--   **Output:** Saves a new JavaScript file (e.g., `chemistryGeneratedEvalCases.js`) containing an array of `EvaluationCase` objects to the `src/evalCases/` directory.
+  ```bash
+  # Using npm script
+  npm run generate-examples -- --domain "<domain_name>" --instructions "<detailed_instructions_for_LLM>" [--provider <llm_provider>] [--model <model_name>]
+
+  # Direct node execution
+  node scripts/generate_example.js --domain "chemistry" --instructions "Generate diverse queries about molecular composition and reactions, including some negations and rule-based assertions."
+  ```
+
+- **Arguments:**
+  - `--domain` (alias `-d`): The subject domain (e.g., "history", "chemistry"). (Required)
+  - `--instructions` (alias `-i`): Specific instructions for the LLM on what kind of examples to generate. (Required)
+  - `--provider` (alias `-p`): Optional LLM provider (e.g., `openai`, `gemini`, `ollama`). Defaults to `MCR_LLM_PROVIDER` in `.env` or `ollama`.
+  - `--model` (alias `-m`): Optional specific model name for the chosen provider.
+- **Output:** Saves a new JavaScript file (e.g., `chemistryGeneratedEvalCases.js`) containing an array of `EvaluationCase` objects to the `src/evalCases/` directory.
 
 ### 2. Generate Ontology (`scripts/generate_ontology.js`)
 
--   **Purpose:** Automatically generates Prolog facts and rules for a specified domain, creating a new ontology file.
--   **Command:**
-    ```bash
-    # Using npm script
-    npm run generate-ontology -- --domain "<domain_name>" --instructions "<detailed_instructions_for_LLM>" [--provider <llm_provider>] [--model <model_name>]
+- **Purpose:** Automatically generates Prolog facts and rules for a specified domain, creating a new ontology file.
+- **Command:**
 
-    # Direct node execution
-    node scripts/generate_ontology.js --domain "mythology" --instructions "Generate Prolog facts and rules describing Greek gods, their relationships (parent_of, sibling_of, spouse_of), and their domains (e.g., god_of_sea). Include some basic rules for deducing relationships like grandparent_of."
-    ```
--   **Arguments:**
-    -   `--domain` (alias `-d`): The subject domain for the ontology. (Required)
-    -   `--instructions` (alias `-i`): Specific instructions for the LLM on the content, style, and scope of the ontology. (Required)
-    -   `--provider` (alias `-p`): Optional LLM provider.
-    -   `--model` (alias `-m`): Optional specific model name.
--   **Output:** Saves a new Prolog file (e.g., `mythologyGeneratedOntology.pl`) to the `ontologies/` directory.
+  ```bash
+  # Using npm script
+  npm run generate-ontology -- --domain "<domain_name>" --instructions "<detailed_instructions_for_LLM>" [--provider <llm_provider>] [--model <model_name>]
+
+  # Direct node execution
+  node scripts/generate_ontology.js --domain "mythology" --instructions "Generate Prolog facts and rules describing Greek gods, their relationships (parent_of, sibling_of, spouse_of), and their domains (e.g., god_of_sea). Include some basic rules for deducing relationships like grandparent_of."
+  ```
+
+- **Arguments:**
+  - `--domain` (alias `-d`): The subject domain for the ontology. (Required)
+  - `--instructions` (alias `-i`): Specific instructions for the LLM on the content, style, and scope of the ontology. (Required)
+  - `--provider` (alias `-p`): Optional LLM provider.
+  - `--model` (alias `-m`): Optional specific model name.
+- **Output:** Saves a new Prolog file (e.g., `mythologyGeneratedOntology.pl`) to the `ontologies/` directory.
 
 ## 🔌 API Reference
 
@@ -587,7 +608,6 @@ MCR exposes a RESTful API. All requests and responses are JSON.
 #### Session Management
 
 - `POST /api/v1/sessions`
-
   - **Description**: Creates a new reasoning session.
   - **Response (201 Created)**:
     ```json
@@ -600,7 +620,6 @@ MCR exposes a RESTful API. All requests and responses are JSON.
     _(Note: `factCount`, `llmProvider`, `reasonerProvider` may be included by some session managers but are not part of the core MCR session object upon creation)._
 
 - `GET /api/v1/sessions/:sessionId`
-
   - **Description**: Retrieves the details of a specific session.
   - **Parameters**: `sessionId` (path) - The ID of the session.
   - **Response (200 OK)**: Same structure as `POST /sessions` response, but reflecting the current state of the session.
@@ -634,7 +653,11 @@ MCR exposes a RESTful API. All requests and responses are JSON.
       "message": "Facts asserted successfully",
       "addedFacts": ["on(cat, mat).", "likes(X, milk) :- cat(X)."],
       "strategyId": "SIR-R1-Assert", // ID of the strategy used
-      "cost": { "prompt_tokens": 50, "completion_tokens": 25, "total_tokens": 75 } // Example cost
+      "cost": {
+        "prompt_tokens": 50,
+        "completion_tokens": 25,
+        "total_tokens": 75
+      } // Example cost
     }
     ```
   - **Response (400 Bad Request)**: If `text` is missing or invalid.
@@ -643,7 +666,6 @@ MCR exposes a RESTful API. All requests and responses are JSON.
 #### Querying the Knowledge Base
 
 - `POST /api/v1/sessions/:sessionId/query`
-
   - **Description**: Translates a natural language question into a Prolog query, executes it, and returns a natural language answer.
   - **Parameters**: `sessionId` (path) - The ID of the session.
   - **Request Body**:
@@ -663,8 +685,16 @@ MCR exposes a RESTful API. All requests and responses are JSON.
     {
       "answer": "Yes, the cat is on the mat.",
       "cost": {
-        "translation": { "prompt_tokens": 40, "completion_tokens": 10, "total_tokens": 50 },
-        "nlGeneration": { "prompt_tokens": 30, "completion_tokens": 20, "total_tokens": 50 }
+        "translation": {
+          "prompt_tokens": 40,
+          "completion_tokens": 10,
+          "total_tokens": 50
+        },
+        "nlGeneration": {
+          "prompt_tokens": 30,
+          "completion_tokens": 20,
+          "total_tokens": 50
+        }
       },
       "debugInfo": {
         "level": "verbose",
@@ -694,8 +724,16 @@ MCR exposes a RESTful API. All requests and responses are JSON.
     {
       "explanation": "The query asks for individuals who are grandparents of Mary...",
       "cost": {
-        "translation": { "prompt_tokens": 45, "completion_tokens": 15, "total_tokens": 60 },
-        "explanation": { "prompt_tokens": 60, "completion_tokens": 150, "total_tokens": 210 }
+        "translation": {
+          "prompt_tokens": 45,
+          "completion_tokens": 15,
+          "total_tokens": 60
+        },
+        "explanation": {
+          "prompt_tokens": 60,
+          "completion_tokens": 150,
+          "total_tokens": 210
+        }
       },
       "debugInfo": {
         "level": "basic",
@@ -709,7 +747,6 @@ MCR exposes a RESTful API. All requests and responses are JSON.
 #### Direct Translation Endpoints
 
 - `POST /api/v1/translate/nl-to-rules`
-
   - **Description**: Translates natural language text into a list of Prolog facts/rules.
   - **Request Body**:
     ```json
@@ -727,7 +764,11 @@ MCR exposes a RESTful API. All requests and responses are JSON.
         "not(can_fly(penguin))."
       ],
       "strategyId": "SIR-R1-Assert",
-      "cost": { "prompt_tokens": 70, "completion_tokens": 40, "total_tokens": 110 }
+      "cost": {
+        "prompt_tokens": 70,
+        "completion_tokens": 40,
+        "total_tokens": 110
+      }
     }
     ```
   - **Response (400 Bad Request)**: If `text` is missing.
@@ -745,7 +786,11 @@ MCR exposes a RESTful API. All requests and responses are JSON.
     ```json
     {
       "explanation": "A parent (X) is defined as either a father (X) of Y or a mother (X) of Y.",
-      "cost": { "prompt_tokens": 30, "completion_tokens": 50, "total_tokens": 80 }
+      "cost": {
+        "prompt_tokens": 30,
+        "completion_tokens": 50,
+        "total_tokens": 80
+      }
     }
     ```
   - **Response (400 Bad Request)**: If `rules` are missing or invalid.
@@ -755,7 +800,6 @@ MCR exposes a RESTful API. All requests and responses are JSON.
 Ontologies are global collections of Prolog facts/rules.
 
 - `POST /api/v1/ontologies`
-
   - **Description**: Creates a new global ontology.
   - **Request Body**:
     ```json
@@ -774,7 +818,6 @@ Ontologies are global collections of Prolog facts/rules.
   - **Response (400 Bad Request)**: If `name` or `rules` are missing, or name conflict.
 
 - `GET /api/v1/ontologies`
-
   - **Description**: Retrieves a list of all global ontologies.
   - **Query Parameters**: `?includeRules=true` (optional) to include the `rules` content in the list.
   - **Response (200 OK)**: Array of ontology objects.
@@ -786,14 +829,12 @@ Ontologies are global collections of Prolog facts/rules.
     ```
 
 - `GET /api/v1/ontologies/:name`
-
   - **Description**: Retrieves a specific global ontology by its name.
   - **Parameters**: `name` (path) - The name of the ontology.
   - **Response (200 OK)**: The ontology object.
   - **Response (404 Not Found)**: If ontology does not exist.
 
 - `PUT /api/v1/ontologies/:name`
-
   - **Description**: Updates an existing global ontology.
   - **Parameters**: `name` (path) - The name of the ontology to update.
   - **Request Body**:
@@ -819,7 +860,6 @@ Ontologies are global collections of Prolog facts/rules.
 #### Utility & Debugging Endpoints
 
 - `GET /api/v1/prompts`
-
   - **Description**: Retrieves all raw prompt templates loaded by the MCR server.
   - **Response (200 OK)**: An object where keys are template names (e.g., `NL_TO_RULES`) and values are the template strings.
     ```json
@@ -915,7 +955,6 @@ Claude should then be able to discover and use the MCR tools.
 To add support for a new LLM provider (e.g., "MyNewLLM"):
 
 1.  **Create Provider Module**:
-
     - Add a new file, e.g., `src/llmProviders/myNewLlmProvider.js`.
     - This module must export an object with at least:
       - `name` (string): The identifier for the provider (e.g., `'mynewllm'`).
@@ -946,12 +985,10 @@ To add support for a new LLM provider (e.g., "MyNewLLM"):
       ```
 
 2.  **Register in `src/llmService.js`**:
-
     - Import your new provider: `const MyNewLlmProvider = require('./llmProviders/myNewLlmProvider');`
     - Add a `case` for `'mynewllm'` in the `switch` statement within the `getProvider()` function to set `selectedProvider = MyNewLlmProvider;`.
 
 3.  **Update Configuration (`src/config.js`)**:
-
     - Add a configuration section for your provider under `config.llm`:
       ```javascript
       // In config.js, inside the config object:
@@ -968,7 +1005,6 @@ To add support for a new LLM provider (e.g., "MyNewLLM"):
     - Update `validateConfig()` in `src/config.js` if your provider has mandatory configuration (e.g., API key).
 
 4.  **Update `.env.example`**:
-
     - Add environment variable examples for your new provider (e.g., `MYNEWLLM_API_KEY`, `MCR_LLM_MODEL_MYNEWLLM`).
 
 5.  **Documentation**:
@@ -1129,24 +1165,20 @@ Defines the contract for a symbolic reasoning engine.
 The MCR service exposes a RESTful API for interaction.
 
 - **`POST /sessions`**
-
   - **Description:** Creates a new reasoning session.
   - **Response Body:** `{ "sessionId": "string" }`
 
 - **`POST /sessions/{sessionId}/assert`**
-
   - **Description:** Asserts new knowledge into the session's KB using the currently configured Translation Strategy.
   - **Request Body:** `{ "text": "string" }`
   - **Response Body:** `{ "addedClauses": ["string"], "knowledgeBase": "string" }`
 
 - **`POST /sessions/{sessionId}/query`**
-
   - **Description:** Poses a natural language query to the session's KB.
   - **Request Body:** `{ "query": "string" }`
   - **Response Body:** `{ "prologQuery": "string", "rawResult": object, "naturalLanguageAnswer": "string" }`
 
 - **`PUT /sessions/{sessionId}/kb`**
-
   - **Description:** Directly overwrites the entire KB of a session. The new KB is validated before being saved.
   - **Request Body:** `{ "knowledgeBase": "string" }`
   - **Response Body:** `200 OK`

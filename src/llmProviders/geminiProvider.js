@@ -87,7 +87,10 @@ async function generate(systemPrompt, userPrompt, options = {}) {
     logger.debug('Gemini generating with messages:', { messages, options });
     // Invoke directly to get the AIMessage object which might contain usage_metadata
     const aiMessage = await gemini.invoke(messages, generationOptions);
-    const textResult = typeof aiMessage.content === 'string' ? aiMessage.content : JSON.stringify(aiMessage.content);
+    const textResult =
+      typeof aiMessage.content === 'string'
+        ? aiMessage.content
+        : JSON.stringify(aiMessage.content);
 
     let costData = null;
     // Langchain often puts usage_metadata directly on the AIMessage object or within its response_metadata
@@ -97,25 +100,36 @@ async function generate(systemPrompt, userPrompt, options = {}) {
         prompt_tokens: aiMessage.usageMetadata.promptTokenCount,
         completion_tokens: aiMessage.usageMetadata.candidatesTokenCount, // Or sometimes responseTokenCount
         total_tokens: aiMessage.usageMetadata.totalTokenCount,
-        raw_metadata: aiMessage.usageMetadata
+        raw_metadata: aiMessage.usageMetadata,
       };
-      logger.debug('Gemini generation successful.', { textResult: textResult.substring(0,100)+'...', costData });
-    } else if (aiMessage.response_metadata && aiMessage.response_metadata.usageMetadata) {
+      logger.debug('Gemini generation successful.', {
+        textResult: textResult.substring(0, 100) + '...',
+        costData,
+      });
+    } else if (
+      aiMessage.response_metadata &&
+      aiMessage.response_metadata.usageMetadata
+    ) {
       // Fallback if it's nested under response_metadata
       costData = {
-        prompt_tokens: aiMessage.response_metadata.usageMetadata.promptTokenCount,
-        completion_tokens: aiMessage.response_metadata.usageMetadata.candidatesTokenCount,
+        prompt_tokens:
+          aiMessage.response_metadata.usageMetadata.promptTokenCount,
+        completion_tokens:
+          aiMessage.response_metadata.usageMetadata.candidatesTokenCount,
         total_tokens: aiMessage.response_metadata.usageMetadata.totalTokenCount,
-        raw_metadata: aiMessage.response_metadata.usageMetadata
+        raw_metadata: aiMessage.response_metadata.usageMetadata,
       };
-      logger.debug('Gemini generation successful (metadata from response_metadata).', { textResult: textResult.substring(0,100)+'...', costData });
-    }
-    else {
-      logger.debug(`Gemini generation successful but no usageMetadata found. Result: "${textResult.substring(0,100)}..."`);
+      logger.debug(
+        'Gemini generation successful (metadata from response_metadata).',
+        { textResult: textResult.substring(0, 100) + '...', costData }
+      );
+    } else {
+      logger.debug(
+        `Gemini generation successful but no usageMetadata found. Result: "${textResult.substring(0, 100)}..."`
+      );
     }
 
     return { text: textResult, costData };
-
   } catch (error) {
     logger.error(`Gemini generation failed: ${error.message}`, {
       error,

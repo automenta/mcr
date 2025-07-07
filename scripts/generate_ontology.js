@@ -13,8 +13,15 @@ if (!fs.existsSync(ontologiesDir)) {
   fs.mkdirSync(ontologiesDir, { recursive: true });
 }
 
-async function generateOntology(domain, instructions, llmProviderName, modelName) {
-  logger.info(`Generating ontology for domain: "${domain}" with instructions: "${instructions}" using ${llmProviderName}`);
+async function generateOntology(
+  domain,
+  instructions,
+  llmProviderName,
+  modelName
+) {
+  logger.info(
+    `Generating ontology for domain: "${domain}" with instructions: "${instructions}" using ${llmProviderName}`
+  );
 
   if (!prompts.GENERATE_ONTOLOGY) {
     logger.error('GENERATE_ONTOLOGY prompt is not defined in prompts.js.');
@@ -27,19 +34,29 @@ async function generateOntology(domain, instructions, llmProviderName, modelName
   const originalOllamaModel = process.env.MCR_LLM_MODEL_OLLAMA;
 
   if (llmProviderName) {
-    logger.info(`Temporarily setting LLM provider to: ${llmProviderName} for this script run.`);
+    logger.info(
+      `Temporarily setting LLM provider to: ${llmProviderName} for this script run.`
+    );
     process.env.MCR_LLM_PROVIDER = llmProviderName;
     if (modelName) {
-      logger.info(`Temporarily setting model to: ${modelName} for ${llmProviderName}.`);
-      if (llmProviderName.toLowerCase() === 'openai') process.env.MCR_LLM_MODEL_OPENAI = modelName;
-      if (llmProviderName.toLowerCase() === 'gemini') process.env.MCR_LLM_MODEL_GEMINI = modelName;
-      if (llmProviderName.toLowerCase() === 'ollama') process.env.MCR_LLM_MODEL_OLLAMA = modelName;
+      logger.info(
+        `Temporarily setting model to: ${modelName} for ${llmProviderName}.`
+      );
+      if (llmProviderName.toLowerCase() === 'openai')
+        process.env.MCR_LLM_MODEL_OPENAI = modelName;
+      if (llmProviderName.toLowerCase() === 'gemini')
+        process.env.MCR_LLM_MODEL_GEMINI = modelName;
+      if (llmProviderName.toLowerCase() === 'ollama')
+        process.env.MCR_LLM_MODEL_OLLAMA = modelName;
     }
     // Note: See generate_example.js for comments on limitations of this env var switching method
     // with module caching.
   }
 
-  const filledPrompt = fillTemplate(prompts.GENERATE_ONTOLOGY.user, { domain, instructions });
+  const filledPrompt = fillTemplate(prompts.GENERATE_ONTOLOGY.user, {
+    domain,
+    instructions,
+  });
   const systemPrompt = prompts.GENERATE_ONTOLOGY.system;
 
   let generatedProlog;
@@ -53,9 +70,12 @@ async function generateOntology(domain, instructions, llmProviderName, modelName
     if (llmProviderName) {
       process.env.MCR_LLM_PROVIDER = originalProvider;
       if (modelName) {
-        if (llmProviderName.toLowerCase() === 'openai') process.env.MCR_LLM_MODEL_OPENAI = originalOpenAIModel;
-        if (llmProviderName.toLowerCase() === 'gemini') process.env.MCR_LLM_MODEL_GEMINI = originalGeminiModel;
-        if (llmProviderName.toLowerCase() === 'ollama') process.env.MCR_LLM_MODEL_OLLAMA = originalOllamaModel;
+        if (llmProviderName.toLowerCase() === 'openai')
+          process.env.MCR_LLM_MODEL_OPENAI = originalOpenAIModel;
+        if (llmProviderName.toLowerCase() === 'gemini')
+          process.env.MCR_LLM_MODEL_GEMINI = originalGeminiModel;
+        if (llmProviderName.toLowerCase() === 'ollama')
+          process.env.MCR_LLM_MODEL_OLLAMA = originalOllamaModel;
       }
     }
   }
@@ -64,7 +84,10 @@ async function generateOntology(domain, instructions, llmProviderName, modelName
 
   // Clean up the Prolog output
   // Remove markdown code blocks if present
-  let cleanedProlog = generatedProlog.replace(/```prolog\s*([\s\S]*?)\s*```/g, '$1');
+  let cleanedProlog = generatedProlog.replace(
+    /```prolog\s*([\s\S]*?)\s*```/g,
+    '$1'
+  );
   cleanedProlog = cleanedProlog.replace(/```\s*([\s\S]*?)\s*```/g, '$1'); // Generic code block
 
   // Trim whitespace and ensure it's not empty
@@ -91,32 +114,41 @@ if (require.main === module) {
     .option('domain', {
       alias: 'd',
       type: 'string',
-      description: 'The domain for which to generate the ontology (e.g., "biology", "space_exploration")',
+      description:
+        'The domain for which to generate the ontology (e.g., "biology", "space_exploration")',
       demandOption: true,
     })
     .option('instructions', {
       alias: 'i',
       type: 'string',
-      description: 'Specific instructions for the content, source material, or style of the ontology',
+      description:
+        'Specific instructions for the content, source material, or style of the ontology',
       demandOption: true,
     })
     .option('provider', {
-        alias: 'p',
-        type: 'string',
-        description: 'LLM provider to use (e.g., openai, gemini, ollama). Overrides .env MCR_LLM_PROVIDER.',
-        default: process.env.MCR_LLM_PROVIDER || 'ollama',
+      alias: 'p',
+      type: 'string',
+      description:
+        'LLM provider to use (e.g., openai, gemini, ollama). Overrides .env MCR_LLM_PROVIDER.',
+      default: process.env.MCR_LLM_PROVIDER || 'ollama',
     })
     .option('model', {
-        alias: 'm',
-        type: 'string',
-        description: 'Specific model name for the provider. Overrides .env model.',
+      alias: 'm',
+      type: 'string',
+      description:
+        'Specific model name for the provider. Overrides .env model.',
     })
-    .help()
-    .argv;
+    .help().argv;
 
-  generateOntology(argv.domain, argv.instructions, argv.provider, argv.model)
-    .catch(error => {
-      logger.error(`An error occurred during ontology generation: ${error.message}`);
-      process.exit(1);
-    });
+  generateOntology(
+    argv.domain,
+    argv.instructions,
+    argv.provider,
+    argv.model
+  ).catch((error) => {
+    logger.error(
+      `An error occurred during ontology generation: ${error.message}`
+    );
+    process.exit(1);
+  });
 }

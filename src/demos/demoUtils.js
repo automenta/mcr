@@ -5,7 +5,8 @@ const demoLogger = {
   heading: (text) => console.log(`\n🚀 ${chalk.bold.blue(text)}`),
   step: (text) => console.log(`\n➡️  ${chalk.bold(text)}`),
   info: (label, data) => {
-    const dataString = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+    const dataString =
+      typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
     console.log(`   ${chalk.cyan(label)}: ${dataString}`);
   },
   nl: (label, text) => console.log(`   🗣️ ${chalk.yellow(label)}: "${text}"`),
@@ -25,7 +26,8 @@ const demoLogger = {
     }
     console.log(logString);
   },
-  mcrResponse: (label, text) => console.log(`   🤖 ${chalk.green(label)}: ${text}`),
+  mcrResponse: (label, text) =>
+    console.log(`   🤖 ${chalk.green(label)}: ${text}`),
   success: (text) => console.log(`   ✅ ${chalk.green(text)}`),
   error: (text, details) => {
     console.error(`   ❌ ${chalk.red.bold('Error:')} ${chalk.red(text)}`);
@@ -42,13 +44,18 @@ const demoLogger = {
   },
   assertion: (status, message) => {
     if (status) {
-      console.log(`   👍 ${chalk.bold.green('ASSERT OK:')} ${chalk.green(message)}`);
+      console.log(
+        `   👍 ${chalk.bold.green('ASSERT OK:')} ${chalk.green(message)}`
+      );
     } else {
-      console.log(`   👎 ${chalk.bold.red('ASSERT FAIL:')} ${chalk.red(message)}`);
+      console.log(
+        `   👎 ${chalk.bold.red('ASSERT FAIL:')} ${chalk.red(message)}`
+      );
     }
   },
   cleanup: (text) => console.log(`   🧹 ${chalk.dim(text)}`), // Dim/Gray
-  divider: (char = '-', length = 60) => console.log('\n' + chalk.gray(char.repeat(length))),
+  divider: (char = '-', length = 60) =>
+    console.log('\n' + chalk.gray(char.repeat(length))),
 };
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

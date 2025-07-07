@@ -48,7 +48,9 @@ class SimpleAssertionsDemo extends Example {
       const result = await this.query(item.q);
       if (result) {
         // Basic check, can be more sophisticated
-        const condition = result.answer.toLowerCase().includes(item.expected.toLowerCase());
+        const condition = result.answer
+          .toLowerCase()
+          .includes(item.expected.toLowerCase());
         await this.assertCondition(
           condition,
           `Query for "${item.q}" returned expected information. Answer: "${result.answer}"`,
@@ -56,9 +58,9 @@ class SimpleAssertionsDemo extends Example {
         );
       } else {
         await this.assertCondition(
-            false,
-            "",
-            `Query for "${item.q}" failed or returned no result.`
+          false,
+          '',
+          `Query for "${item.q}" failed or returned no result.`
         );
       }
     }

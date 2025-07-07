@@ -1,4 +1,3 @@
----
 ## Slide 1: 🧠✨ Model Context Reasoner (MCR): Supercharge Your AI!
 
 **Problem:** LLMs are amazing, but struggle with complex logic and verifiable facts.
@@ -25,7 +24,7 @@
 **Traditional AI vs. MCR-Powered AI:**
 
 | Feature            | Traditional LLM Apps | MCR-Enhanced Apps                      |
-| :----------------- | :------------------- | :------------------------------------- |
+|:-------------------|:---------------------|:---------------------------------------|
 | **Consistency**    | Can be erratic       | **Logically Sound & Consistent**       |
 | **Explainability** | Often a "black box"  | **Clear, Verifiable Reasoning**        |
 | **Complex Q&A**    | Struggles            | **Handles Intricate Queries**          |

@@ -39,12 +39,9 @@ const mockTauSession = {
     if (options && options.success) options.success();
   }),
   query: jest.fn((query) => {
-    if (query.includes('this is not a valid query')) {
-      // Simulate query error
-      mockTauSession._lastQueryHadError = true;
-    } else {
-      mockTauSession._lastQueryHadError = false;
-    }
+    mockTauSession._lastQueryHadError = !!query.includes(
+      'this is not a valid query'
+    );
   }),
   answer: jest.fn((callback) => {
     if (mockTauSession._lastQueryHadError) {

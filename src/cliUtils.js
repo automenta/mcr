@@ -188,29 +188,43 @@ const logger = require('./logger'); // For logging
 async function checkAndStartServer(programOpts = {}) {
   const healthCheckUrl = `http://${config.server.host}:${config.server.port}/`;
 
-  logger.info(`[cliUtils] Attempting health check for server at ${healthCheckUrl}...`);
+  logger.info(
+    `[cliUtils] Attempting health check for server at ${healthCheckUrl}...`
+  );
   let alive = await isServerAliveAsync(healthCheckUrl, 2, 300); // Quick check: 2 retries, 300ms delay
 
   if (alive) {
     logger.info('[cliUtils] MCR server is already running and healthy.');
     return true;
   } else {
-    logger.info('[cliUtils] MCR server not detected or not healthy. Attempting to start it...');
+    logger.info(
+      '[cliUtils] MCR server not detected or not healthy. Attempting to start it...'
+    );
     try {
-      logger.debug('[cliUtils] Calling startMcrServerAsync to launch server process...');
+      logger.debug(
+        '[cliUtils] Calling startMcrServerAsync to launch server process...'
+      );
       await startMcrServerAsync(programOpts);
-      logger.info('[cliUtils] startMcrServerAsync call completed (server process should be launched).');
+      logger.info(
+        '[cliUtils] startMcrServerAsync call completed (server process should be launched).'
+      );
 
       const initialWait = 1500; // 1.5 seconds initial wait for server to boot
-      logger.debug(`[cliUtils] Waiting ${initialWait}ms for server to initialize after launch command...`);
-      await new Promise(resolve => setTimeout(resolve, initialWait));
+      logger.debug(
+        `[cliUtils] Waiting ${initialWait}ms for server to initialize after launch command...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, initialWait));
 
-      logger.info('[cliUtils] Initial startup period passed. Verifying server status with new health checks...');
+      logger.info(
+        '[cliUtils] Initial startup period passed. Verifying server status with new health checks...'
+      );
       // Verification retries: 3 retries, 300ms delay
       alive = await isServerAliveAsync(healthCheckUrl, 3, 300);
 
       if (alive) {
-        logger.info('[cliUtils] MCR server started and confirmed healthy by cliUtils.');
+        logger.info(
+          '[cliUtils] MCR server started and confirmed healthy by cliUtils.'
+        );
         return true;
       } else {
         logger.error(
@@ -218,8 +232,11 @@ async function checkAndStartServer(programOpts = {}) {
         );
         return false;
       }
-    } catch (error) { // This catch is for errors from startMcrServerAsync itself (e.g., process spawn error or initial health check within it failing)
-      logger.error(`[cliUtils] Error during automated server start process (startMcrServerAsync itself failed): ${error.message}`);
+    } catch (error) {
+      // This catch is for errors from startMcrServerAsync itself (e.g., process spawn error or initial health check within it failing)
+      logger.error(
+        `[cliUtils] Error during automated server start process (startMcrServerAsync itself failed): ${error.message}`
+      );
       return false;
     }
   }

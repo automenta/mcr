@@ -59,11 +59,14 @@ async function runQuery(knowledgeBase, query, limit = 10) {
   const results = [];
 
   logger.debug(`[PrologReasoner] Attempting to run query. Query: "${query}"`);
-  logger.debug(`[PrologReasoner] Knowledge Base (first 500 chars):\n${knowledgeBase.substring(0, 500)}`);
+  logger.debug(
+    `[PrologReasoner] Knowledge Base (first 500 chars):\n${knowledgeBase.substring(0, 500)}`
+  );
   if (knowledgeBase.length > 500) {
-    logger.debug('[PrologReasoner] Knowledge Base is longer than 500 characters and has been truncated in this log entry.');
+    logger.debug(
+      '[PrologReasoner] Knowledge Base is longer than 500 characters and has been truncated in this log entry.'
+    );
   }
-
 
   return new Promise((resolve, reject) => {
     try {
@@ -71,12 +74,16 @@ async function runQuery(knowledgeBase, query, limit = 10) {
       logger.debug('[PrologReasoner] Consulting knowledge base...');
       session.consult(knowledgeBase, {
         success: () => {
-          logger.info('[PrologReasoner] Knowledge base consulted successfully.');
+          logger.info(
+            '[PrologReasoner] Knowledge base consulted successfully.'
+          );
           // Query
           logger.debug(`[PrologReasoner] Executing Prolog query: "${query}"`);
           session.query(query, {
             success: () => {
-              logger.info(`[PrologReasoner] Prolog query "${query}" execution initiated successfully.`);
+              logger.info(
+                `[PrologReasoner] Prolog query "${query}" execution initiated successfully.`
+              );
               function processNextAnswer() {
                 session.answer({
                   success: (answer) => {
@@ -100,8 +107,12 @@ async function runQuery(knowledgeBase, query, limit = 10) {
                     }
 
                     const formatted = formatAnswer(answer);
-                    logger.debug(`[PrologReasoner] Raw answer for "${query}": ${answer.toString()}`);
-                    logger.info(`[PrologReasoner] Formatted answer for "${query}": ${JSON.stringify(formatted)}`);
+                    logger.debug(
+                      `[PrologReasoner] Raw answer for "${query}": ${answer.toString()}`
+                    );
+                    logger.info(
+                      `[PrologReasoner] Formatted answer for "${query}": ${JSON.stringify(formatted)}`
+                    );
                     results.push(formatted);
 
                     if (results.length >= limit) {
@@ -144,8 +155,12 @@ async function runQuery(knowledgeBase, query, limit = 10) {
           });
         },
         error: (err) => {
-          logger.error(`[PrologReasoner] Syntax error or issue consulting knowledgeBase: ${err}`);
-          logger.debug(`[PrologReasoner] Failing Knowledge Base (first 500 chars for context):\n${knowledgeBase.substring(0, 500)}`);
+          logger.error(
+            `[PrologReasoner] Syntax error or issue consulting knowledgeBase: ${err}`
+          );
+          logger.debug(
+            `[PrologReasoner] Failing Knowledge Base (first 500 chars for context):\n${knowledgeBase.substring(0, 500)}`
+          );
           reject(new Error(`Prolog knowledge base error: ${err}`));
         },
       });
@@ -166,8 +181,11 @@ async function runQuery(knowledgeBase, query, limit = 10) {
  *          indicating if the knowledge base is valid.
  */
 async function validateKnowledgeBase(knowledgeBase) {
-  const kbSnippet = knowledgeBase.substring(0, 200) + (knowledgeBase.length > 200 ? '...' : '');
-  logger.info(`[PrologReasonerProvider] Validating knowledge base (approx. ${knowledgeBase.length} chars). Snippet: "${kbSnippet}"`);
+  const kbSnippet =
+    knowledgeBase.substring(0, 200) + (knowledgeBase.length > 200 ? '...' : '');
+  logger.info(
+    `[PrologReasonerProvider] Validating knowledge base (approx. ${knowledgeBase.length} chars). Snippet: "${kbSnippet}"`
+  );
 
   try {
     const session = prolog.create(100);
@@ -179,38 +197,48 @@ async function validateKnowledgeBase(knowledgeBase) {
       session.consult(knowledgeBase);
     } catch (syncError) {
       consultError = syncError;
-      logger.debug(`[PrologReasonerProvider] Synchronous error during consult: ${syncError}`);
+      logger.debug(
+        `[PrologReasonerProvider] Synchronous error during consult: ${syncError}`
+      );
     }
 
     // Additionally, use the callback mechanism if no synchronous error occurred,
     // as some errors might only be reported asynchronously.
     if (!consultError) {
-        const consultPromise = new Promise((resolveConsult, rejectConsult) => {
-            session.consult(knowledgeBase, {
-                success: () => {
-                    resolveConsult(null); // No error
-                },
-                error: (err) => {
-                    resolveConsult(err); // Resolve with error to handle it uniformly
-                }
-            });
+      const consultPromise = new Promise((resolveConsult, rejectConsult) => {
+        session.consult(knowledgeBase, {
+          success: () => {
+            resolveConsult(null); // No error
+          },
+          error: (err) => {
+            resolveConsult(err); // Resolve with error to handle it uniformly
+          },
         });
-        consultError = await consultPromise;
-        if (consultError) {
-             logger.debug(`[PrologReasonerProvider] Asynchronous error reported via callback during consult: ${consultError}`);
-        }
+      });
+      consultError = await consultPromise;
+      if (consultError) {
+        logger.debug(
+          `[PrologReasonerProvider] Asynchronous error reported via callback during consult: ${consultError}`
+        );
+      }
     }
 
     if (consultError) {
-      logger.warn(`[PrologReasonerProvider] Knowledge base validation FAILED. Error: ${consultError}. Snippet: "${kbSnippet}"`);
+      logger.warn(
+        `[PrologReasonerProvider] Knowledge base validation FAILED. Error: ${consultError}. Snippet: "${kbSnippet}"`
+      );
       return { isValid: false, error: String(consultError) };
     }
 
-    logger.info(`[PrologReasonerProvider] Knowledge base validation PASSED. Snippet: "${kbSnippet}"`);
+    logger.info(
+      `[PrologReasonerProvider] Knowledge base validation PASSED. Snippet: "${kbSnippet}"`
+    );
     return { isValid: true };
   } catch (e) {
     // This catch is for unexpected errors in the validation logic itself
-    logger.error(`[PrologReasonerProvider] Exception during knowledge base validation process. Error: ${e.message}. Snippet: "${kbSnippet}"`);
+    logger.error(
+      `[PrologReasonerProvider] Exception during knowledge base validation process. Error: ${e.message}. Snippet: "${kbSnippet}"`
+    );
     return { isValid: false, error: e.message };
   }
 }

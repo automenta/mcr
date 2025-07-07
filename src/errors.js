@@ -76,12 +76,10 @@ const ErrorCodes = {
   STRATEGY_EXECUTION_ERROR: 'STRATEGY_EXECUTION_ERROR',
   STRATEGY_INVALID_OUTPUT: 'STRATEGY_INVALID_OUTPUT',
 
-
   // SIR Specific Errors
   INVALID_SIR_STRUCTURE: 'INVALID_SIR_STRUCTURE',
   INVALID_SIR_ARGUMENT: 'INVALID_SIR_ARGUMENT',
   JSON_PARSING_FAILED: 'JSON_PARSING_FAILED',
-
 
   // MCR/Session Errors
   SESSION_NOT_FOUND: 'SESSION_NOT_FOUND',
@@ -107,7 +105,6 @@ class MCRError extends Error {
     Error.captureStackTrace(this, this.constructor);
   }
 }
-
 
 module.exports = {
   ApiError,

@@ -26,12 +26,15 @@ class AbstractReasoningDemo extends Example {
       { fact: 'has_property(glorb, slimy).', type: 'prolog' },
       { fact: 'is_a(flumph, glorb).', type: 'prolog' }, // Flumphs are a type of glorb
       { fact: 'action(glorb, quibbles).', type: 'prolog' },
-      { fact: 'related_to(zorp, glorb).', type: 'prolog'},
-      { fact: 'says(floopy, "ni").', type: 'prolog'},
+      { fact: 'related_to(zorp, glorb).', type: 'prolog' },
+      { fact: 'says(floopy, "ni").', type: 'prolog' },
       // A rule
-      { fact: 'can_fly(X) :- has_property(X, winged), is_a(X, creature).', type: 'prolog'},
-      { fact: 'has_property(griffon, winged).', type: 'prolog'},
-      { fact: 'is_a(griffon, creature).', type: 'prolog'}
+      {
+        fact: 'can_fly(X) :- has_property(X, winged), is_a(X, creature).',
+        type: 'prolog',
+      },
+      { fact: 'has_property(griffon, winged).', type: 'prolog' },
+      { fact: 'is_a(griffon, creature).', type: 'prolog' },
     ];
 
     for (const item of factsAndRules) {
@@ -49,10 +52,10 @@ class AbstractReasoningDemo extends Example {
       { q: 'What is zorp related to?', expected: 'glorb' },
       { q: 'Can a glorb fly?', expected: 'no' }, // No "winged" property asserted for glorb
       { q: 'Can a griffon fly?', expected: 'yes' },
-      { q: 'What does a floopy say?', expected: 'ni'},
-      { q: 'Does a flumph quibble?', expected: 'yes' } // This requires a rule: action(X, Y) :- is_a(X,Z), action(Z,Y).
-                                                      // For now, let's test without it and expect 'no' or 'I don't know'
-                                                      // then add the rule.
+      { q: 'What does a floopy say?', expected: 'ni' },
+      { q: 'Does a flumph quibble?', expected: 'yes' }, // This requires a rule: action(X, Y) :- is_a(X,Z), action(Z,Y).
+      // For now, let's test without it and expect 'no' or 'I don't know'
+      // then add the rule.
     ];
 
     // Query for "Does a flumph quibble?" - expecting no, then add rule and expect yes.
@@ -61,7 +64,9 @@ class AbstractReasoningDemo extends Example {
     for (const item of queries) {
       const result = await this.query(item.q);
       if (result && typeof result.answer === 'string') {
-        const condition = result.answer.toLowerCase().includes(item.expected.toLowerCase());
+        const condition = result.answer
+          .toLowerCase()
+          .includes(item.expected.toLowerCase());
         await this.assertCondition(
           condition,
           `Query for "${item.q}" returned expected: "${item.expected}". Answer: "${result.answer}"`,
@@ -69,47 +74,67 @@ class AbstractReasoningDemo extends Example {
         );
       } else {
         await this.assertCondition(
-            false,
-            "",
-            `Query for "${item.q}" failed or returned no result (or not a string). Expected: "${item.expected}"`
+          false,
+          '',
+          `Query for "${item.q}" failed or returned no result (or not a string). Expected: "${item.expected}"`
         );
       }
     }
 
     // Test "Does a flumph quibble?" - Phase 1 (expecting no/unknown)
-    this.dLog.info('Testing query "Does a flumph quibble?" before adding inheritance rule...');
+    this.dLog.info(
+      'Testing query "Does a flumph quibble?" before adding inheritance rule...'
+    );
     let result = await this.query(flumphQuibbleQuery.q);
-    let expectedBeforeRule = "no"; // Or "I don't know" - depends on LLM's fallback
+    let expectedBeforeRule = 'no'; // Or "I don't know" - depends on LLM's fallback
     if (result && typeof result.answer === 'string') {
-        const condition = result.answer.toLowerCase().includes(expectedBeforeRule) || result.answer.toLowerCase().includes("don't know");
-        await this.assertCondition(
-            condition,
-            `Query for "${flumphQuibbleQuery.q}" (before rule) correctly returned something like "${expectedBeforeRule}". Answer: "${result.answer}"`,
-            `Query for "${flumphQuibbleQuery.q}" (before rule) - Expected "${expectedBeforeRule}", got "${result.answer}"`
-        );
+      const condition =
+        result.answer.toLowerCase().includes(expectedBeforeRule) ||
+        result.answer.toLowerCase().includes("don't know");
+      await this.assertCondition(
+        condition,
+        `Query for "${flumphQuibbleQuery.q}" (before rule) correctly returned something like "${expectedBeforeRule}". Answer: "${result.answer}"`,
+        `Query for "${flumphQuibbleQuery.q}" (before rule) - Expected "${expectedBeforeRule}", got "${result.answer}"`
+      );
     } else {
-         await this.assertCondition(false, "", `Query for "${flumphQuibbleQuery.q}" (before rule) failed or returned no result.`);
+      await this.assertCondition(
+        false,
+        '',
+        `Query for "${flumphQuibbleQuery.q}" (before rule) failed or returned no result.`
+      );
     }
 
     // Add the inheritance rule for actions
-    this.dLog.step('Asserting action inheritance rule: action(X,Y) :- is_a(X,Z), action(Z,Y).');
-    await this.assertFact('action(X,Action) :- is_a(X,SuperType), action(SuperType,Action).', 'prolog');
+    this.dLog.step(
+      'Asserting action inheritance rule: action(X,Y) :- is_a(X,Z), action(Z,Y).'
+    );
+    await this.assertFact(
+      'action(X,Action) :- is_a(X,SuperType), action(SuperType,Action).',
+      'prolog'
+    );
 
     // Test "Does a flumph quibble?" - Phase 2 (expecting yes)
-    this.dLog.info('Testing query "Does a flumph quibble?" after adding inheritance rule...');
-    flumphQuibbleQuery.expected = "yes"; // Now we expect yes
+    this.dLog.info(
+      'Testing query "Does a flumph quibble?" after adding inheritance rule...'
+    );
+    flumphQuibbleQuery.expected = 'yes'; // Now we expect yes
     result = await this.query(flumphQuibbleQuery.q);
     if (result && typeof result.answer === 'string') {
-        const condition = result.answer.toLowerCase().includes(flumphQuibbleQuery.expected.toLowerCase());
-        await this.assertCondition(
-            condition,
-            `Query for "${flumphQuibbleQuery.q}" (after rule) returned expected: "${flumphQuibbleQuery.expected}". Answer: "${result.answer}"`,
-            `Query for "${flumphQuibbleQuery.q}" (after rule) - Expected "${flumphQuibbleQuery.expected}", got "${result.answer}"`
-        );
+      const condition = result.answer
+        .toLowerCase()
+        .includes(flumphQuibbleQuery.expected.toLowerCase());
+      await this.assertCondition(
+        condition,
+        `Query for "${flumphQuibbleQuery.q}" (after rule) returned expected: "${flumphQuibbleQuery.expected}". Answer: "${result.answer}"`,
+        `Query for "${flumphQuibbleQuery.q}" (after rule) - Expected "${flumphQuibbleQuery.expected}", got "${result.answer}"`
+      );
     } else {
-         await this.assertCondition(false, "", `Query for "${flumphQuibbleQuery.q}" (after rule) failed or returned no result.`);
+      await this.assertCondition(
+        false,
+        '',
+        `Query for "${flumphQuibbleQuery.q}" (after rule) failed or returned no result.`
+      );
     }
-
 
     this.dLog.success('Abstract KB queries completed.');
     this.dLog.divider();

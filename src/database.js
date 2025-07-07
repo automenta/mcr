@@ -41,9 +41,16 @@ function initDb() {
 
       db.run(createTableSql, (err) => {
         if (err) {
-          logger.error('Error creating performance_results table:', err.message);
+          logger.error(
+            'Error creating performance_results table:',
+            err.message
+          );
           db.close((closeErr) => {
-            if (closeErr) logger.error('Error closing DB after table creation failure:', closeErr.message);
+            if (closeErr)
+              logger.error(
+                'Error closing DB after table creation failure:',
+                closeErr.message
+              );
             db = null; // Reset db instance
             reject(err);
           });
@@ -92,22 +99,27 @@ async function insertPerformanceResult(resultData) {
     const metricsJson = JSON.stringify(metrics);
     const costJson = JSON.stringify(cost || {}); // Default to empty object if cost is undefined
 
-    currentDb.run(insertSql, [
-      strategy_hash,
-      llm_model_id,
-      example_id,
-      metricsJson,
-      costJson,
-      latency_ms,
-      raw_output
-    ], function (err) { // Use function() to access this.lastID
-      if (err) {
-        logger.error('Error inserting performance result:', err.message);
-        return reject(err);
+    currentDb.run(
+      insertSql,
+      [
+        strategy_hash,
+        llm_model_id,
+        example_id,
+        metricsJson,
+        costJson,
+        latency_ms,
+        raw_output,
+      ],
+      function (err) {
+        // Use function() to access this.lastID
+        if (err) {
+          logger.error('Error inserting performance result:', err.message);
+          return reject(err);
+        }
+        logger.info(`Inserted performance result with ID: ${this.lastID}`);
+        resolve(this.lastID);
       }
-      logger.info(`Inserted performance result with ID: ${this.lastID}`);
-      resolve(this.lastID);
-    });
+    );
   });
 }
 
@@ -139,7 +151,7 @@ module.exports = {
   closeDb,
   queryPerformanceResults, // Added new function
   // Expose DB_PATH for testing or other modules if needed
-  DB_PATH
+  DB_PATH,
 };
 
 /**
@@ -153,10 +165,16 @@ async function queryPerformanceResults(sqlQuery, params = []) {
   return new Promise((resolve, reject) => {
     currentDb.all(sqlQuery, params, (err, rows) => {
       if (err) {
-        logger.error(`Error executing query: ${sqlQuery}`, { error: err.message, params });
+        logger.error(`Error executing query: ${sqlQuery}`, {
+          error: err.message,
+          params,
+        });
         return reject(err);
       }
-      logger.debug(`Query executed successfully: ${sqlQuery}`, { params, rowCount: rows ? rows.length : 0 });
+      logger.debug(`Query executed successfully: ${sqlQuery}`, {
+        params,
+        rowCount: rows ? rows.length : 0,
+      });
       resolve(rows);
     });
   });

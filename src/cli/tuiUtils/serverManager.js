@@ -57,21 +57,26 @@ async function startMcrServerAsync(/* _programOpts */) {
     });
 
     serverInstance.on('exit', (code, signal) => {
-      if (code !== 0 && signal !== 'SIGTERM') { // Log only if exit was unexpected
+      if (code !== 0 && signal !== 'SIGTERM') {
+        // Log only if exit was unexpected
         logger.error(
           `MCR server process (spawned) exited unexpectedly. Code: ${code}, Signal: ${signal}.`,
           { stdout: serverStdOut, stderr: serverStdErr }
         );
         // Do not reject here solely based on exit, health check is the primary indicator
       } else {
-        logger.info(`MCR server process (spawned) exited. Code: ${code}, Signal: ${signal}.`);
+        logger.info(
+          `MCR server process (spawned) exited. Code: ${code}, Signal: ${signal}.`
+        );
       }
     });
 
     // serverInstance.unref(); // Let's keep this commented to see if it affects behavior
 
     const healthCheckUrl = `http://${config.server.host}:${config.server.port}/`;
-    logger.debug(`[serverManager] Health check URL for spawned server: ${healthCheckUrl}`);
+    logger.debug(
+      `[serverManager] Health check URL for spawned server: ${healthCheckUrl}`
+    );
 
     // Reduced retries for faster feedback during debugging
     isServerAliveAsync(healthCheckUrl, 5, 500)
@@ -93,7 +98,8 @@ async function startMcrServerAsync(/* _programOpts */) {
           );
         }
       })
-      .catch((err) => { // This catch is for isServerAliveAsync errors
+      .catch((err) => {
+        // This catch is for isServerAliveAsync errors
         logger.error('Error during server health check:', {
           error: err,
           stdout: serverStdOut,

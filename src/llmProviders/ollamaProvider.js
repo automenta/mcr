@@ -11,18 +11,14 @@ let ollamaInstance;
 function getOllamaInstance() {
   if (!ollamaInstance) {
     try {
-      logger.debug(
-        '[OllamaProvider] Attempting to instantiate ChatOllama...'
-      );
+      logger.debug('[OllamaProvider] Attempting to instantiate ChatOllama...');
       ollamaInstance = new ChatOllama({
         // Changed from OllamaLangchain
         baseUrl: config.llm.ollama.baseURL,
         model: config.llm.ollama.model,
         // temperature: 0, // Optional: for more deterministic output
       });
-      logger.debug(
-        '[OllamaProvider] ChatOllama instantiated successfully.'
-      );
+      logger.debug('[OllamaProvider] ChatOllama instantiated successfully.');
       logger.info(
         `Ollama provider initialized with model ${config.llm.ollama.model} at ${config.llm.ollama.baseURL}`
       );
@@ -76,11 +72,12 @@ async function generate(systemPrompt, userPrompt, options = {}) {
     logger.debug(`Ollama generating with messages:`, { messages, options });
 
     const invokePromise = ollama.invoke(messages);
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(
-        () => reject(new Error('Ollama request timed out after 20 seconds')),
-        20000
-      ) // 20s timeout
+    const timeoutPromise = new Promise(
+      (_, reject) =>
+        setTimeout(
+          () => reject(new Error('Ollama request timed out after 20 seconds')),
+          20000
+        ) // 20s timeout
     );
 
     // Race the invoke promise against the timeout
@@ -93,22 +90,29 @@ async function generate(systemPrompt, userPrompt, options = {}) {
 
     let costData = null;
     if (response.response_metadata) {
-        // Typical Ollama metadata keys:
-        // response.response_metadata.total_duration
-        // response.response_metadata.load_duration
-        // response.response_metadata.prompt_eval_count
-        // response.response_metadata.prompt_eval_duration
-        // response.response_metadata.eval_count (completion tokens)
-        // response.response_metadata.eval_duration
+      // Typical Ollama metadata keys:
+      // response.response_metadata.total_duration
+      // response.response_metadata.load_duration
+      // response.response_metadata.prompt_eval_count
+      // response.response_metadata.prompt_eval_duration
+      // response.response_metadata.eval_count (completion tokens)
+      // response.response_metadata.eval_duration
       costData = {
         prompt_tokens: response.response_metadata.prompt_eval_count,
         completion_tokens: response.response_metadata.eval_count,
-        total_tokens: (response.response_metadata.prompt_eval_count || 0) + (response.response_metadata.eval_count || 0),
-        raw_metadata: response.response_metadata // Store raw metadata for more detailed analysis if needed
+        total_tokens:
+          (response.response_metadata.prompt_eval_count || 0) +
+          (response.response_metadata.eval_count || 0),
+        raw_metadata: response.response_metadata, // Store raw metadata for more detailed analysis if needed
       };
-      logger.debug(`Ollama generation successful. Result: "${textResult.substring(0,100)}..."`, { costData });
+      logger.debug(
+        `Ollama generation successful. Result: "${textResult.substring(0, 100)}..."`,
+        { costData }
+      );
     } else {
-      logger.debug(`Ollama generation successful but no response_metadata found. Result: "${textResult.substring(0,100)}..."`);
+      logger.debug(
+        `Ollama generation successful but no response_metadata found. Result: "${textResult.substring(0, 100)}..."`
+      );
     }
     return { text: textResult, costData };
   } catch (error) {

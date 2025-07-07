@@ -24,21 +24,31 @@ const NullLlmProvider = {
         statementType: 'fact',
         fact: {
           predicate: 'null_response_fact',
-          arguments: ['input_was', (userPrompt || 'empty').replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase().substring(0, 30)],
+          arguments: [
+            'input_was',
+            (userPrompt || 'empty')
+              .replace(/[^a-zA-Z0-9_]/g, '_')
+              .toLowerCase()
+              .substring(0, 30),
+          ],
         },
       };
       // Attempt to simulate a scenario where a rule might be generated if userPrompt is long
       // This is a very rough heuristic for testing.
-      if (userPrompt && userPrompt.length > 50 && userPrompt.toLowerCase().includes('if')) {
-         const sirRule = {
-            statementType: 'rule',
-            rule: {
-                head: { predicate: 'null_rule_head', arguments: ['X'] },
-                body: [{ predicate: 'null_rule_body', arguments: ['X'] }]
-            }
-         };
-         logger.debug('[NullLlmProvider] Returning placeholder SIR Rule JSON.');
-         return JSON.stringify(sirRule);
+      if (
+        userPrompt &&
+        userPrompt.length > 50 &&
+        userPrompt.toLowerCase().includes('if')
+      ) {
+        const sirRule = {
+          statementType: 'rule',
+          rule: {
+            head: { predicate: 'null_rule_head', arguments: ['X'] },
+            body: [{ predicate: 'null_rule_body', arguments: ['X'] }],
+          },
+        };
+        logger.debug('[NullLlmProvider] Returning placeholder SIR Rule JSON.');
+        return JSON.stringify(sirRule);
       }
 
       logger.debug('[NullLlmProvider] Returning placeholder SIR Fact JSON.');

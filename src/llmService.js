@@ -69,7 +69,9 @@ async function generate(systemPrompt, userPrompt, options = {}) {
     if (typeof result === 'string') {
       // This case handles providers that might not have been updated yet to return costData.
       // It's a fallback for backward compatibility during transition.
-      logger.warn(`[llmService] Provider ${provider.name} returned a string instead of {text, costData} object. Assuming no cost data.`);
+      logger.warn(
+        `[llmService] Provider ${provider.name} returned a string instead of {text, costData} object. Assuming no cost data.`
+      );
       return { text: result, costData: null };
     }
     return result;

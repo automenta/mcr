@@ -8,7 +8,7 @@ async function createSessionHandler(req, res, next) {
   const correlationId = req.correlationId;
   logger.info(`[API][${correlationId}] Enter createSessionHandler`);
   try {
-    const session = await mcrService.createSession(); // Await async call
+    const session = mcrService.createSession(); // Await async call
     logger.info(
       `[API][${correlationId}] Session created successfully: ${session.id}`
     );
@@ -52,7 +52,11 @@ async function assertToSessionHandler(req, res, next) {
       );
       res
         .status(200)
-        .json({ message: result.message, addedFacts: result.addedFacts, cost: result.cost }); // Added cost
+        .json({
+          message: result.message,
+          addedFacts: result.addedFacts,
+          cost: result.cost,
+        }); // Added cost
     } else {
       logger.warn(
         `[API][${correlationId}] Failed to assert to session ${sessionId}. Message: ${result.message}, Error: ${result.error}`
@@ -330,10 +334,14 @@ async function listStrategiesHandler(req, res, next) {
   logger.info(`[API][${correlationId}] Enter listStrategiesHandler`);
   try {
     const strategies = mcrService.getAvailableStrategies(); // This should be synchronous from strategyManager via mcrService
-    logger.info(`[API][${correlationId}] Successfully listed available strategies. Count: ${strategies.length}`);
+    logger.info(
+      `[API][${correlationId}] Successfully listed available strategies. Count: ${strategies.length}`
+    );
     res.status(200).json({ strategies });
   } catch (error) {
-    logger.error(`[API][${correlationId}] Error listing strategies:`, { error: error.stack });
+    logger.error(`[API][${correlationId}] Error listing strategies:`, {
+      error: error.stack,
+    });
     next(new ApiError(500, 'Failed to list strategies.'));
   }
 }
@@ -341,31 +349,61 @@ async function listStrategiesHandler(req, res, next) {
 async function setStrategyHandler(req, res, next) {
   const correlationId = req.correlationId;
   const { strategyName } = req.body;
-  logger.info(`[API][${correlationId}] Enter setStrategyHandler. StrategyName: ${strategyName}`);
+  logger.info(
+    `[API][${correlationId}] Enter setStrategyHandler. StrategyName: ${strategyName}`
+  );
 
-  if (!strategyName || typeof strategyName !== 'string' || strategyName.trim() === '') {
-    logger.warn(`[API][${correlationId}] Invalid input for setStrategyHandler: "strategyName" is missing or invalid.`);
-    return next(new ApiError(400, 'Invalid input: "strategyName" is required.'));
+  if (
+    !strategyName ||
+    typeof strategyName !== 'string' ||
+    strategyName.trim() === ''
+  ) {
+    logger.warn(
+      `[API][${correlationId}] Invalid input for setStrategyHandler: "strategyName" is missing or invalid.`
+    );
+    return next(
+      new ApiError(400, 'Invalid input: "strategyName" is required.')
+    );
   }
 
   try {
     const success = mcrService.setTranslationStrategy(strategyName);
     if (success) {
       const currentStrategy = mcrService.getActiveStrategyName();
-      logger.info(`[API][${correlationId}] Translation strategy successfully set to: ${currentStrategy}`);
-      res.status(200).json({ message: `Translation strategy set to ${currentStrategy}`, activeStrategy: currentStrategy });
+      logger.info(
+        `[API][${correlationId}] Translation strategy successfully set to: ${currentStrategy}`
+      );
+      res
+        .status(200)
+        .json({
+          message: `Translation strategy set to ${currentStrategy}`,
+          activeStrategy: currentStrategy,
+        });
     } else {
-      logger.warn(`[API][${correlationId}] Failed to set translation strategy to: ${strategyName}. It might be invalid or already active.`);
+      logger.warn(
+        `[API][${correlationId}] Failed to set translation strategy to: ${strategyName}. It might be invalid or already active.`
+      );
       // mcrService.setTranslationStrategy now returns false if strategy is unknown or already active (but logs info for latter)
       // It's better to check if it's simply not found vs already active.
       // For now, if it's not found, it's a 400. If found but already active, it's still a success.
       // The mcrService.setTranslationStrategy was updated to handle this.
       // If it returns false, it implies the strategy was not found.
-      next(new ApiError(400, `Failed to set translation strategy. Unknown strategy: ${strategyName}.`, 'STRATEGY_NOT_FOUND'));
+      next(
+        new ApiError(
+          400,
+          `Failed to set translation strategy. Unknown strategy: ${strategyName}.`,
+          'STRATEGY_NOT_FOUND'
+        )
+      );
     }
   } catch (error) {
-    logger.error(`[API][${correlationId}] Error setting translation strategy:`, { error: error.stack });
-    next(new ApiError(500, `Failed to set translation strategy: ${error.message}`));
+    logger.error(
+      `[API][${correlationId}] Error setting translation strategy:`,
+      { error: error.stack }
+    );
+    next(
+      new ApiError(500, `Failed to set translation strategy: ${error.message}`)
+    );
   }
 }
 
@@ -374,14 +412,17 @@ async function getActiveStrategyHandler(req, res, next) {
   logger.info(`[API][${correlationId}] Enter getActiveStrategyHandler`);
   try {
     const activeStrategy = mcrService.getActiveStrategyName();
-    logger.info(`[API][${correlationId}] Successfully retrieved active strategy: ${activeStrategy}`);
+    logger.info(
+      `[API][${correlationId}] Successfully retrieved active strategy: ${activeStrategy}`
+    );
     res.status(200).json({ activeStrategy });
   } catch (error) {
-    logger.error(`[API][${correlationId}] Error retrieving active strategy:`, { error: error.stack });
+    logger.error(`[API][${correlationId}] Error retrieving active strategy:`, {
+      error: error.stack,
+    });
     next(new ApiError(500, 'Failed to retrieve active strategy.'));
   }
 }
-
 
 // --- Ontology Handlers ---
 
@@ -554,7 +595,11 @@ async function nlToRulesDirectHandler(req, res, next) {
       );
       res
         .status(200)
-        .json({ rules: result.rules, rawOutput: result.rawOutput, cost: result.cost }); // Added cost
+        .json({
+          rules: result.rules,
+          rawOutput: result.rawOutput,
+          cost: result.cost,
+        }); // Added cost
     } else {
       logger.warn(
         `[API][${correlationId}] Failed to translate NL to Rules (Direct). Message: ${result.message}, Error: ${result.error}`
@@ -775,7 +820,10 @@ async function explainQueryHandler(req, res, next) {
       logger.info(
         `[API][${correlationId}] Successfully explained query for session ${sessionId}. Explanation length: ${result.explanation?.length}`
       );
-      const responsePayload = { explanation: result.explanation, cost: result.cost }; // Added cost
+      const responsePayload = {
+        explanation: result.explanation,
+        cost: result.cost,
+      }; // Added cost
       // Similar logic for including debugInfo as in querySessionHandler
       if (
         clientRequestedDebugExplain &&
@@ -925,7 +973,9 @@ async function rulesToNlDirectHandler(req, res, next) {
       logger.info(
         `[API][${correlationId}] Successfully translated Rules to NL (Direct). Explanation length: ${result.explanation?.length}`
       );
-      res.status(200).json({ explanation: result.explanation, cost: result.cost }); // Added cost
+      res
+        .status(200)
+        .json({ explanation: result.explanation, cost: result.cost }); // Added cost
     } else {
       logger.warn(
         `[API][${correlationId}] Failed to translate Rules to NL (Direct). Message: ${result.message}, Error: ${result.error}`

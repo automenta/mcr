@@ -9,9 +9,15 @@ async function listStrategiesAsync(options, commandInstance) {
   if (programOpts.json) {
     handleCliOutput(responseData, programOpts);
   } else {
-    if (responseData && responseData.strategies && responseData.strategies.length > 0) {
+    if (
+      responseData &&
+      responseData.strategies &&
+      responseData.strategies.length > 0
+    ) {
       console.log('Available translation strategies:');
-      responseData.strategies.forEach(strategy => console.log(`- ${strategy}`));
+      responseData.strategies.forEach((strategy) =>
+        console.log(`- ${strategy}`)
+      );
     } else {
       console.log('No translation strategies available.');
     }
@@ -20,9 +26,18 @@ async function listStrategiesAsync(options, commandInstance) {
 
 async function getActiveStrategyAsync(options, commandInstance) {
   const programOpts = commandInstance.parent.opts();
-  const responseData = await apiClient.get('/strategies/active', null, programOpts);
+  const responseData = await apiClient.get(
+    '/strategies/active',
+    null,
+    programOpts
+  );
   // Expected response: { activeStrategy: "StrategyName" }
-  handleCliOutput(responseData, programOpts, 'activeStrategy', 'Active translation strategy:\n');
+  handleCliOutput(
+    responseData,
+    programOpts,
+    'activeStrategy',
+    'Active translation strategy:\n'
+  );
 }
 
 async function setStrategyAsync(strategyName, options, commandInstance) {

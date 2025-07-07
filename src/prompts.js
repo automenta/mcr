@@ -377,7 +377,6 @@ Question: "{{naturalLanguageQuestion}}"
 
 Prolog Query:`;
 
-
 // --- Prompts for SIRR2FewShotStrategy ---
 prompts.NL_TO_SIR_ASSERT_FEWSHOT = {
   system: `You are an expert AI assistant that translates natural language statements into a structured JSON representation (SIR) for later conversion to Prolog.
@@ -436,7 +435,7 @@ Translate ONLY the following NEW natural language text into the SIR JSON format,
 
 New Text: "{{naturalLanguageText}}"
 
-SIR JSON Output:`
+SIR JSON Output:`,
 };
 
 // --- Prompts for SIRR3DetailedGuidanceStrategy ---
@@ -489,7 +488,7 @@ Translate ONLY the following NEW natural language text into the SIR JSON format,
 
 New Text: "{{naturalLanguageText}}"
 
-SIR JSON Output:`
+SIR JSON Output:`,
 };
 
 // --- Prompt for generating EvaluationCase objects ---
@@ -566,7 +565,7 @@ INSTRUCTIONS: "{{instructions}}"
 
 Generate a JSON array of 3 to 5 diverse "EvaluationCase" objects based on the above domain and instructions, strictly following the schema and principles. Ensure Prolog syntax is correct.
 
-JSON Array Output:`
+JSON Array Output:`,
 };
 
 // --- Prompt for generating Prolog ontology ---
@@ -601,7 +600,7 @@ INSTRUCTIONS: "{{instructions}}"
 Generate a Prolog ontology (a collection of facts and rules) based on the above domain and instructions.
 Ensure the output is only valid Prolog code, with each fact and rule ending with a period.
 
-Prolog Code Output:`
+Prolog Code Output:`,
 };
 
 // --- Prompt for Semantic Similarity Metric ---
@@ -617,17 +616,23 @@ Text 1 (Expected Answer): "{{text1}}"
 Text 2 (Actual Answer): "{{text2}}"
 
 Are Text 1 and Text 2 semantically SIMILAR or DIFFERENT in the context of the original question?
-Your response should be a single word: SIMILAR or DIFFERENT.`
+Your response should be a single word: SIMILAR or DIFFERENT.`,
 };
-
 
 // Store dynamically added prompts
 const dynamicPrompts = {};
 
 function addOrUpdatePromptTemplate(name, templateObject) {
-  if (!name || typeof name !== 'string' || !templateObject || typeof templateObject !== 'object') {
+  if (
+    !name ||
+    typeof name !== 'string' ||
+    !templateObject ||
+    typeof templateObject !== 'object'
+  ) {
     // Add basic validation if necessary, or let it be flexible
-    console.warn(`[Prompts] Invalid attempt to add or update prompt template with name: ${name}`);
+    console.warn(
+      `[Prompts] Invalid attempt to add or update prompt template with name: ${name}`
+    );
     return;
   }
   dynamicPrompts[name] = templateObject;
@@ -637,7 +642,7 @@ function getPromptTemplateByName(templateName) {
   // eslint-disable-next-line no-prototype-builtins
   if (prompts.hasOwnProperty(templateName)) {
     return prompts[templateName];
-  // eslint-disable-next-line no-prototype-builtins
+    // eslint-disable-next-line no-prototype-builtins
   } else if (dynamicPrompts.hasOwnProperty(templateName)) {
     return dynamicPrompts[templateName];
   }
@@ -646,12 +651,13 @@ function getPromptTemplateByName(templateName) {
 
 // --- Prompt for Critiquing and Rewriting Prompts ---
 prompts.CRITIQUE_AND_REWRITE_PROMPT = {
-    name: 'CRITIQUE_AND_REWRITE_PROMPT',
-    description: 'Critiques an original prompt based on failure examples and rewrites it.',
-    tags: ['evolution', 'meta', 'internal'],
-    system: `You are an expert prompt engineer. Your task is to meticulously analyze an original prompt, understand its goal, identify its weaknesses based on provided failure examples, and then rewrite it for improved performance.
+  name: 'CRITIQUE_AND_REWRITE_PROMPT',
+  description:
+    'Critiques an original prompt based on failure examples and rewrites it.',
+  tags: ['evolution', 'meta', 'internal'],
+  system: `You are an expert prompt engineer. Your task is to meticulously analyze an original prompt, understand its goal, identify its weaknesses based on provided failure examples, and then rewrite it for improved performance.
 Focus on clarity, specificity, robustness, and adherence to output format requirements (if any were implied by the original prompt or its context) in the rewritten prompt. Ensure the new prompt still aims to achieve the original goal.`,
-    user: `The original prompt is designed to achieve the following goal:
+  user: `The original prompt is designed to achieve the following goal:
 "{{prompt_goal}}"
 
 Original Prompt Text:
@@ -673,10 +679,9 @@ IMPORTANT INSTRUCTIONS FOR YOUR OUTPUT:
 - Do NOT include any preamble, explanation, self-critique, or markdown formatting (like \`\`\`json or \`\`\` text wrappers) around the rewritten prompt.
 - The rewritten prompt should be ready to be used directly in place of the original.
 `,
-    expectedFormat: 'text', // plain text output
-    version: '1.0'
+  expectedFormat: 'text', // plain text output
+  version: '1.0',
 };
-
 
 module.exports = {
   prompts,
