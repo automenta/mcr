@@ -56,12 +56,10 @@ Where can MCR make a difference?
 **MCR: The 3-Step Symphony**
 
 1.  **Understand 🗣️ (LLM):**
-
     - User provides information or asks a question in natural language.
     - MCR uses an LLM (like GPT, Gemini, Claude) to understand the _meaning_.
 
 2.  **Structure 🧠 (MCR + LLM):**
-
     - The LLM, guided by MCR's "Translation Strategies," converts this meaning into formal logic rules and facts (like `is_a(cat, mammal).`).
     - This knowledge is stored in a dedicated `Session` for the user.
 
@@ -91,21 +89,18 @@ Where can MCR make a difference?
 Ready to explore the power of MCR?
 
 1.  **For a Quick Taste (TUI Chat):**
-
     - The easiest way to see MCR in action!
     - Run the MCR server, then launch the interactive chat.
     - Assert facts, ask questions, and see MCR reason in real-time.
     - _(See `README.md` for `npm run chat` or `./cli.js chat` instructions)_
 
 2.  **For Developers (API Integration):**
-
     - Start the MCR server.
     - Use any HTTP client to interact with the MCR API (create sessions, assert facts, query knowledge).
     - Perfect for integrating MCR into your own applications.
     - _(Detailed API reference in `README.md`)_
 
 3.  **Explore the Code:**
-
     - Dive into the MCR codebase to understand its architecture and capabilities.
     - Contributions and feedback are welcome!
 

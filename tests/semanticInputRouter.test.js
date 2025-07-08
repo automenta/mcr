@@ -274,7 +274,8 @@ describe('SemanticInputRouter', () => {
       expect(logger.error).toHaveBeenCalledWith(
         expect.stringContaining(
           'Error during semantic classification: Embedding failed for input'
-        )
+        ),
+        expect.anything() // For the { stack: ... } object
       );
       expect(classification).toBe('general_assert'); // Default fallback for assertion-like text
     });
@@ -356,7 +357,8 @@ describe('SemanticInputRouter', () => {
       expect(logger.error).toHaveBeenCalledWith(
         expect.stringContaining(
           '[SemanticInputRouter] Error getting best strategy: DB Error'
-        )
+        ),
+        expect.anything() // For the { stack: ... } object
       );
     });
   });
