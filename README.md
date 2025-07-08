@@ -168,9 +168,11 @@ The core functionality of MCR is delivered via its server. You can start it from
 
 - **Using `npx` (recommended for easy execution):**
   `npx` can execute package binaries. Since `mcr-cli` (which points to `cli.js`) is the registered binary for this package, you can use `npx mcr-cli <command>`. For example, to start the server:
+
   ```bash
   npx mcr-cli start-server
   ```
+
   Ensure any required `.env` file is present in the directory where you run this command.
 
 - **Via `package.json` script in your project:**
@@ -391,6 +393,7 @@ The system is bootstrapped with functional, human-authored strategies, ensuring 
 ### Core Components:
 
 1.  **Optimization Coordinator (`src/evolution/optimizer.js`)**:
+
     - Orchestrates the entire evolution loop.
     - On first run (or with `--runBootstrap`), it executes all pre-defined strategies against an evaluation curriculum to establish baseline performance data in the `Performance Database`.
     - Selects existing strategies for improvement based on performance data.
@@ -399,6 +402,7 @@ The system is bootstrapped with functional, human-authored strategies, ensuring 
     - Evaluates new strategies and persists their performance.
 
 2.  **Strategy Evolver (`src/evolution/strategyEvolver.js`)**:
+
     - Creates new candidate strategies by mutating existing ones.
     - The primary mutation method is "Iterative Critique":
       1.  Selects a node in a strategy graph (e.g., an `LLM_Call` node).
@@ -407,6 +411,7 @@ The system is bootstrapped with functional, human-authored strategies, ensuring 
       4.  Creates a new strategy JSON definition with the updated prompt.
 
 3.  **Curriculum Generator (`src/evolution/curriculumGenerator.js`)**:
+
     - Expands the set of evaluation cases to prevent overfitting and ensure strategies are robust.
     - Analyzes performance data to identify weaknesses or gaps in the current curriculum.
     - Uses an LLM to generate new `EvaluationCase` objects targeting these areas. These are saved in `src/evalCases/generated/`.
@@ -532,7 +537,7 @@ A new enhanced demo runner (`demo.js`) is available to showcase various MCR capa
 
     ```javascript
     // src/demos/myNewDemo.js
-    const { Example } = require('../../demo'); // Adjust path if structure changes
+    const { Example } = require('../../../demo'); // Adjust path if structure changes
 
     class MyNewDemo extends Example {
       getName() {
@@ -706,6 +711,7 @@ Claude should then be able to discover and use the MCR tools.
 To add support for a new LLM provider (e.g., "MyNewLLM"):
 
 1.  **Create Provider Module**:
+
     - Add a new file, e.g., `src/llmProviders/myNewLlmProvider.js`.
     - This module must export an object with at least:
       - `name` (string): The identifier for the provider (e.g., `'mynewllm'`).
@@ -736,10 +742,12 @@ To add support for a new LLM provider (e.g., "MyNewLLM"):
       ```
 
 2.  **Register in `src/llmService.js`**:
+
     - Import your new provider: `const MyNewLlmProvider = require('./llmProviders/myNewLlmProvider');`
     - Add a `case` for `'mynewllm'` in the `switch` statement within the `getProvider()` function to set `selectedProvider = MyNewLlmProvider;`.
 
 3.  **Update Configuration (`src/config.js`)**:
+
     - Add a configuration section for your provider under `config.llm`:
       ```javascript
       // In config.js, inside the config object:
@@ -756,6 +764,7 @@ To add support for a new LLM provider (e.g., "MyNewLLM"):
     - Update `validateConfig()` in `src/config.js` if your provider has mandatory configuration (e.g., API key).
 
 4.  **Update `.env.example`**:
+
     - Add environment variable examples for your new provider (e.g., `MYNEWLLM_API_KEY`, `MCR_LLM_MODEL_MYNEWLLM`).
 
 5.  **Documentation**:
@@ -916,20 +925,24 @@ Defines the contract for a symbolic reasoning engine.
 The MCR service exposes a RESTful API for interaction.
 
 - **`POST /sessions`**
+
   - **Description:** Creates a new reasoning session.
   - **Response Body:** `{ "sessionId": "string" }`
 
 - **`POST /sessions/{sessionId}/assert`**
+
   - **Description:** Asserts new knowledge into the session's KB using the currently configured Translation Strategy.
   - **Request Body:** `{ "text": "string" }`
   - **Response Body:** `{ "addedClauses": ["string"], "knowledgeBase": "string" }`
 
 - **`POST /sessions/{sessionId}/query`**
+
   - **Description:** Poses a natural language query to the session's KB.
   - **Request Body:** `{ "query": "string" }`
   - **Response Body:** `{ "prologQuery": "string", "rawResult": object, "naturalLanguageAnswer": "string" }`
 
 - **`PUT /sessions/{sessionId}/kb`**
+
   - **Description:** Directly overwrites the entire KB of a session. The new KB is validated before being saved.
   - **Request Body:** `{ "knowledgeBase": "string" }`
   - **Response Body:** `200 OK`

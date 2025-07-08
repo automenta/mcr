@@ -1,10 +1,6 @@
 // src/evaluation/metrics.js
 const logger = require('../logger'); // Assuming logger is accessible via ../
-const {
-  prompts,
-  fillTemplate,
-  getPromptTemplateByName,
-} = require('../prompts'); // Assuming prompts is accessible
+const { fillTemplate, getPromptTemplateByName } = require('../prompts'); // Assuming prompts is accessible
 
 // Helper for normalizeProlog, kept internal to this module
 const normalizeSingleProlog = (code) => {

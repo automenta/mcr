@@ -63,7 +63,7 @@ const config = {
 
 // Validation for required keys based on provider
 function validateConfig() {
-  const { provider, gemini, openai, anthropic, generic_openai } = config.llm; // Include new provider configs
+  const { provider, gemini, openai, anthropic } = config.llm; // Include new provider configs
 
   const selectedProvider = provider.toLowerCase(); // Normalize for comparison
 
@@ -87,14 +87,15 @@ function validateConfig() {
         'Configuration Error: MCR_LLM_PROVIDER is "anthropic" but ANTHROPIC_API_KEY is not set.'
       );
     }
-  // Ollama is the default and doesn't require an API key.
+    // Ollama is the default and doesn't require an API key.
   } else if (selectedProvider === 'generic_openai') {
     if (!config.llm.generic_openai?.model) {
       throw new Error(
         'Configuration Error: MCR_LLM_PROVIDER is "generic_openai" but MCR_LLM_MODEL_GENERIC_OPENAI is not set.'
       );
     }
-    if (!config.llm.generic_openai?.baseURL) { // Kept original config.llm path for baseURL check
+    if (!config.llm.generic_openai?.baseURL) {
+      // Kept original config.llm path for baseURL check
       throw new Error(
         'Configuration Error: MCR_LLM_PROVIDER is "generic_openai" but MCR_LLM_GENERIC_OPENAI_BASE_URL is not set.'
       );

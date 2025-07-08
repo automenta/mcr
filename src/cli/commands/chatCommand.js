@@ -66,9 +66,7 @@ const McrApp = ({
         // For now, use config directly for LLM info, and API for server liveness.
         const llmProvider = config.llm.provider;
         const llmModel = config.llm[llmProvider]?.model || 'default';
-        setLlmInfoDisplay(
-          `LLM: ${llmProvider} (${llmModel})`
-        );
+        setLlmInfoDisplay(`LLM: ${llmProvider} (${llmModel})`);
       } else {
         setServerStatusDisplay(status.status || 'Offline'); // 'offline', 'error_response'
         setLlmInfoDisplay('LLM: N/A');

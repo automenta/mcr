@@ -256,7 +256,9 @@ describe('SemanticInputRouter', () => {
       );
       // Check that the logger was called about the init failure from _initializeArchetypeEmbeddings
       expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to initialize archetype embeddings: Failed to init'),
+        expect.stringContaining(
+          'Failed to initialize archetype embeddings: Failed to init'
+        ),
         expect.anything() // For the { stack: ... } object
       );
     });

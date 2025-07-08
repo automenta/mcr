@@ -1,12 +1,21 @@
 // new/mcr.js - Main server entry point
 console.log('[MCR Pre-Init] Starting mcr.js...'); // Very early log
 
+/**
+ * Initializes and starts the MCR Express server.
+ * Configures logging, sets up graceful shutdown handlers,
+ * and handles uncaught exceptions and unhandled promise rejections.
+ * @returns {import('http').Server} The running HTTP server instance.
+ */
 function startServer() {
   const app = require('./src/app');
-  console.log('[MCR Pre-Init] app required.');
+  // console.log('[MCR Pre-Init] app required.'); // Logger not yet available
   const config = require('./src/config');
-  console.log('[MCR Pre-Init] config required.');
+  // console.log('[MCR Pre-Init] config required.'); // Logger not yet available
   const logger = require('./src/logger');
+
+  logger.debug('[MCR Init] app required.');
+  logger.debug('[MCR Init] config required.');
 
   const PORT = config.server.port;
   const HOST = config.server.host;
