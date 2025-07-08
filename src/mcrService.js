@@ -28,75 +28,53 @@ let baseStrategyId = config.translationStrategy;
 
 async function getOperationalStrategyJson(operationType, naturalLanguageText) {
   let strategyJson = null;
+  const llmModelId = config.llm[config.llm.provider]?.model || 'default';
 
+  // 1. Attempt to find the best strategy using the Input Router
   if (inputRouterInstance && naturalLanguageText) {
     try {
       const recommendedStrategyHash = await inputRouterInstance.route(
         naturalLanguageText,
-        config.llmProvider.model
+        llmModelId
       );
       if (recommendedStrategyHash) {
         strategyJson = strategyManager.getStrategyByHash(recommendedStrategyHash);
         if (strategyJson) {
           logger.info(
-            `[McrService] InputRouter recommended strategy by HASH "${recommendedStrategyHash}" (ID: "${strategyJson.id}", Name: "${strategyJson.name}") for ${operationType} on input: "${naturalLanguageText.substring(0, 50)}..."`
+            `[McrService] InputRouter recommended strategy by HASH "${recommendedStrategyHash.substring(0, 12)}" (ID: "${strategyJson.id}") for input: "${naturalLanguageText.substring(0, 50)}..."`
           );
         } else {
           logger.warn(
-            `[McrService] InputRouter recommended strategy HASH "${recommendedStrategyHash}" but it was not found by StrategyManager. Falling back for input: "${naturalLanguageText.substring(0, 50)}..."`
+            `[McrService] InputRouter recommended strategy HASH "${recommendedStrategyHash.substring(0, 12)}" but it was not found by StrategyManager. Falling back.`
           );
         }
-      } else {
-        logger.debug(
-          `[McrService] InputRouter did not recommend a specific strategy for "${naturalLanguageText.substring(0, 50)}...". Falling back to default logic.`
-        );
       }
     } catch (routerError) {
       logger.error(
-        `[McrService] InputRouter failed to recommend a strategy: ${routerError.message}. Falling back.`,
-        routerError
+        `[McrService] InputRouter failed: ${routerError.message}. Falling back.`
       );
     }
   }
 
+  // 2. Fallback to configured strategy if router doesn't provide one
   if (!strategyJson) {
-    const operationalStrategyId = `${baseStrategyId}-${operationType}`;
+    const operationSuffix = operationType === 'Assert' ? '-Assert' : '-Query';
+    const operationalStrategyId = `${baseStrategyId}${operationSuffix}`;
     strategyJson = strategyManager.getStrategy(operationalStrategyId);
-    let strategyIdToLog = operationalStrategyId;
-
-    if (!strategyJson) {
-      // NEW, SMARTER FALLBACK LOGIC
-      logger.warn(`[McrService] Operational strategy "${operationalStrategyId}" not found. Falling back to a canonical strategy for type "${operationType}".`);
-      const fallbackId = operationType === 'Assert' ? 'SIR-R1-Assert' : 'SIR-R1-Query';
-      strategyJson = strategyManager.getStrategy(fallbackId);
-      strategyIdToLog = fallbackId;
-
-      if (!strategyJson) {
-          logger.error(`[McrService] Canonical fallback strategy "${fallbackId}" not found! Trying base ID "${baseStrategyId}".`);
-          strategyJson = strategyManager.getStrategy(baseStrategyId);
-          strategyIdToLog = baseStrategyId;
-          if (!strategyJson) {
-            logger.error(
-              `[McrService] Configured base strategy "${baseStrategyId}" also not found for ${operationType}. Falling back to StrategyManager's default.`
-            );
-            strategyJson = strategyManager.getDefaultStrategy();
-            strategyIdToLog = strategyJson.id;
-            logger.warn(
-              `[McrService] Using system default strategy "${strategyIdToLog}" (Name: "${strategyJson.name}") for ${operationType}.`
-            );
-          } else {
-            logger.info(
-              `[McrService] Using configured base strategy "${strategyIdToLog}" (Name: "${strategyJson.name}") for ${operationType} as canonical fallback was not found.`
-            );
-          }
-      } else {
-        logger.info(
-          `[McrService] Using canonical fallback strategy "${strategyIdToLog}" (Name: "${strategyJson.name}") for ${operationType}.`
-        );
-      }
-    } else {
+    if (strategyJson) {
       logger.info(
-        `[McrService] Using configured operational strategy "${strategyIdToLog}" (Name: "${strategyJson.name}") for ${operationType}.`
+        `[McrService] Using configured operational strategy: "${strategyJson.id}"`
+      );
+    } else {
+      // 3. Final fallback to the base strategy ID or system default
+      logger.warn(
+        `[McrService] Operational strategy "${operationalStrategyId}" not found. Trying base strategy "${baseStrategyId}".`
+      );
+      strategyJson =
+        strategyManager.getStrategy(baseStrategyId) ||
+        strategyManager.getDefaultStrategy();
+      logger.info(
+        `[McrService] Using fallback strategy: "${strategyJson.id}"`
       );
     }
   }

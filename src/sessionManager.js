@@ -72,17 +72,11 @@ function addFacts(sessionId, newFacts) {
 
   // Basic validation: ensure facts end with a period.
   const validatedFacts = newFacts
-    .map((f) => f.trim())
-    .filter((f) => f.length > 0);
-  const invalidFacts = validatedFacts.filter((f) => !f.endsWith('.'));
-  if (invalidFacts.length > 0) {
-    logger.warn(
-      `Some facts do not end with a period and were not added. Session: ${sessionId}`,
-      { invalidFacts }
-    );
-    // Optionally, filter out invalid facts or reject the whole batch
-    // For now, let's be strict and reject if any are malformed for simplicity
-    // return false;
+    .map((f) => String(f).trim())
+    .filter((f) => f.length > 0 && f.endsWith('.'));
+
+  if (validatedFacts.length !== newFacts.length) {
+      logger.warn(`[SessionManager] Some facts were invalid (empty or not ending with '.') and were not added to session ${sessionId}.`);
   }
 
   // Update lexicon before adding facts
