@@ -3,13 +3,15 @@ const llmService = require('./llmService');
 const reasonerService = require('./reasonerService');
 const sessionManager = require('./sessionManager');
 const ontologyService = require('./ontologyService');
-const { prompts, fillTemplate } = require('./prompts');
+const { prompts, fillTemplate, getPromptTemplateByName } = require('./prompts'); // Added getPromptTemplateByName
 const logger = require('./logger');
 const config = require('./config');
 const strategyManager = require('./strategyManager');
 const StrategyExecutor = require('./strategyExecutor');
 const { MCRError, ErrorCodes } = require('./errors');
 const InputRouter = require('./evolution/inputRouter');
+// Import the new service
+const translationService = require('./services/translationService');
 const db = require('./database');
 
 let inputRouterInstance;
@@ -492,333 +494,7 @@ async function querySessionWithNL(
   }
 }
 
-async function translateNLToRulesDirect(naturalLanguageText, strategyIdToUse) {
-  const effectiveBaseId = strategyIdToUse || baseStrategyId;
-  const strategyJsonToUse = strategyIdToUse
-    ? strategyManager.getStrategy(`${effectiveBaseId}-Assert`) ||
-      strategyManager.getStrategy(effectiveBaseId) ||
-      (await getOperationalStrategyJson('Assert', naturalLanguageText))
-    : await getOperationalStrategyJson('Assert', naturalLanguageText);
-
-  if (!strategyJsonToUse) {
-    logger.error(
-      `[McrService] No valid strategy found for direct NL to Rules. Base ID: "${effectiveBaseId}".`
-    );
-    return {
-      success: false,
-      message: `No valid strategy could be determined for base ID "${effectiveBaseId}".`,
-      error: ErrorCodes.STRATEGY_NOT_FOUND,
-      strategyId: effectiveBaseId,
-    };
-  }
-  const currentStrategyId = strategyJsonToUse.id;
-  const operationId = `transNLToRules-${Date.now()}`;
-  logger.info(
-    `[McrService] Enter translateNLToRulesDirect (OpID: ${operationId}). Strategy ID: "${currentStrategyId}". NL Text: "${naturalLanguageText}"`
-  );
-
-  try {
-    logger.info(
-      `[McrService] Using strategy "${strategyJsonToUse.name}" (ID: ${currentStrategyId}) for direct NL to Rules. OpID: ${operationId}`
-    );
-    const globalOntologyRules =
-      await ontologyService.getGlobalOntologyRulesAsString();
-    const initialContext = {
-      naturalLanguageText,
-      ontologyRules: globalOntologyRules,
-      lexiconSummary: 'No lexicon summary available for direct translation.',
-      existingFacts: '',
-      llm_model_id: config.llm[config.llm.provider]?.model || 'default',
-    };
-
-    const executor = new StrategyExecutor(strategyJsonToUse);
-    const executionResult = await executor.execute(
-      llmService,
-      reasonerService,
-      initialContext
-    );
-    const prologRules = executionResult;
-    // TODO: Handle executionResult.totalCost; if execute returns an object with cost
-
-    if (
-      !Array.isArray(prologRules) ||
-      !prologRules.every((r) => typeof r === 'string')
-    ) {
-      logger.error(
-        `[McrService] Strategy "${currentStrategyId}" execution for direct translation did not return an array of strings. OpID: ${operationId}. Output: ${JSON.stringify(prologRules)}`
-      );
-      throw new MCRError(
-        ErrorCodes.STRATEGY_INVALID_OUTPUT,
-        'Strategy execution for direct translation returned an unexpected output format. Expected array of Prolog strings.'
-      );
-    }
-    logger.debug(
-      `[McrService] Strategy "${currentStrategyId}" execution returned (OpID: ${operationId}):`,
-      { prologRules }
-    );
-
-    if (!prologRules || prologRules.length === 0) {
-      logger.warn(
-        `[McrService] Strategy "${currentStrategyId}" extracted no rules from text (OpID: ${operationId}): "${naturalLanguageText}"`
-      );
-      return {
-        success: false,
-        message: 'Could not translate text into valid rules.',
-        error: ErrorCodes.NO_RULES_EXTRACTED,
-        strategyId: currentStrategyId,
-      };
-    }
-    logger.info(
-      `[McrService] Successfully translated NL to Rules (Direct). OpID: ${operationId}. Rules count: ${prologRules.length}. Strategy ID: ${currentStrategyId}`
-    );
-    return { success: true, rules: prologRules, strategyId: currentStrategyId };
-  } catch (error) {
-    logger.error(
-      `[McrService] Error translating NL to Rules (Direct) using strategy "${currentStrategyId}" (OpID: ${operationId}): ${error.message}`,
-      { stack: error.stack, details: error.details, errorCode: error.code }
-    );
-    return {
-      success: false,
-      message: `Error during NL to Rules translation: ${error.message}`,
-      error: error.code || ErrorCodes.STRATEGY_EXECUTION_ERROR,
-      details: error.message,
-      strategyId: currentStrategyId,
-    };
-  }
-}
-
-async function translateRulesToNLDirect(prologRules, style = 'conversational') {
-  const operationId = `transRulesToNL-${Date.now()}`;
-  logger.info(
-    `[McrService] Enter translateRulesToNLDirect (OpID: ${operationId}). Style: ${style}. Rules length: ${prologRules?.length}`
-  );
-  logger.debug(
-    `[McrService] Rules for direct translation to NL (OpID: ${operationId}):\n${prologRules}`
-  );
-
-  if (
-    !prologRules ||
-    typeof prologRules !== 'string' ||
-    prologRules.trim() === ''
-  ) {
-    logger.warn(
-      `[McrService] translateRulesToNLDirect called with empty or invalid prologRules. OpID: ${operationId}`
-    );
-    return {
-      success: false,
-      message: 'Input Prolog rules must be a non-empty string.',
-      error: 'EMPTY_RULES_INPUT',
-    };
-  }
-
-  try {
-    const promptContext = { prologRules, style };
-    logger.info(
-      `[McrService] Generating NL explanation from rules using LLM. OpID: ${operationId}`
-    );
-    logger.debug(
-      `[McrService] Context for RULES_TO_NL_DIRECT prompt (OpID: ${operationId}):`,
-      promptContext
-    );
-    const rulesToNLPromptUser = fillTemplate(
-      prompts.RULES_TO_NL_DIRECT.user,
-      promptContext
-    );
-
-    const llmExplanationResult = await llmService.generate(
-      prompts.RULES_TO_NL_DIRECT.system,
-      rulesToNLPromptUser
-    );
-    const nlExplanationText =
-      llmExplanationResult && typeof llmExplanationResult.text === 'string'
-        ? llmExplanationResult.text
-        : null;
-    // TODO: Handle llmExplanationResult.costData
-
-    logger.debug(
-      `[McrService] Prolog rules translated to NL (Direct) (OpID: ${operationId}):\n${nlExplanationText}`
-    );
-
-    if (
-      !nlExplanationText ||
-      (typeof nlExplanationText === 'string' && nlExplanationText.trim() === '')
-    ) {
-      logger.warn(
-        `[McrService] Empty explanation generated for rules to NL (Direct). OpID: ${operationId}`
-      );
-      return {
-        success: false,
-        message: 'Failed to generate a natural language explanation.',
-        error: 'EMPTY_EXPLANATION_GENERATED',
-      };
-    }
-    logger.info(
-      `[McrService] Successfully translated Rules to NL (Direct). OpID: ${operationId}. Explanation length: ${nlExplanationText.length}.`
-    );
-    return { success: true, explanation: nlExplanationText };
-  } catch (error) {
-    logger.error(
-      `[McrService] Error translating Rules to NL (Direct) (OpID: ${operationId}): ${error.message}`,
-      { error: error.stack }
-    );
-    return {
-      success: false,
-      message: `Error during Rules to NL translation: ${error.message}`,
-      error: error.code || 'RULES_TO_NL_TRANSLATION_FAILED',
-      details: error.message,
-    };
-  }
-}
-
-async function explainQuery(sessionId, naturalLanguageQuestion) {
-  const activeStrategyJson = await getOperationalStrategyJson(
-    'Query',
-    naturalLanguageQuestion
-  );
-  const currentStrategyId = activeStrategyJson.id;
-  const operationId = `explain-${Date.now()}`;
-
-  logger.info(
-    `[McrService] Enter explainQuery for session ${sessionId} (OpID: ${operationId}). Strategy: "${activeStrategyJson.name}" (ID: ${currentStrategyId}). NL Question: "${naturalLanguageQuestion}"`
-  );
-
-  if (!sessionManager.getSession(sessionId)) {
-    return {
-      success: false,
-      message: 'Session not found.',
-      error: ErrorCodes.SESSION_NOT_FOUND,
-      strategyId: currentStrategyId,
-    };
-  }
-
-  const debugInfo = {
-    naturalLanguageQuestion,
-    strategyId: currentStrategyId,
-    operationId,
-    level: config.debugLevel,
-  };
-
-  try {
-    const existingFacts =
-      (await sessionManager.getKnowledgeBase(sessionId)) || '';
-    let contextOntologyRulesForQueryTranslation = '';
-    try {
-      const globalOntologies = await ontologyService.listOntologies(true);
-      if (globalOntologies && globalOntologies.length > 0) {
-        contextOntologyRulesForQueryTranslation = globalOntologies
-          .map((ont) => ont.rules)
-          .join('\n');
-      }
-    } catch (ontError) {
-      logger.warn(
-        `[McrService] Error fetching global ontologies for NL_TO_QUERY context in explain (OpID: ${operationId}): ${ontError.message}`
-      );
-      debugInfo.ontologyErrorForStrategy = `Failed to load global ontologies for query translation context: ${ontError.message}`;
-    }
-
-    const lexiconSummary = await sessionManager.getLexiconSummary(sessionId);
-    const initialStrategyContext = {
-      naturalLanguageQuestion,
-      existingFacts,
-      ontologyRules: contextOntologyRulesForQueryTranslation,
-      lexiconSummary,
-      llm_model_id: config.llm[config.llm.provider]?.model || 'default',
-    };
-
-    logger.info(
-      `[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for query translation in explain. OpID: ${operationId}.`
-    );
-    const executor = new StrategyExecutor(activeStrategyJson);
-    const strategyExecutionResult = await executor.execute(
-      llmService,
-      reasonerService,
-      initialStrategyContext
-    );
-    const prologQuery = strategyExecutionResult; // Corrected: strategyExecutionResult is the prolog query string
-    // TODO: Handle strategyExecutionResult.totalCost; if execute returns an object with cost
-
-    if (typeof prologQuery !== 'string' || !prologQuery.endsWith('.')) {
-      logger.error(
-        `[McrService] Strategy "${currentStrategyId}" execution for explain query did not return a valid Prolog query string. OpID: ${operationId}. Output: ${prologQuery}`
-      );
-      throw new MCRError(
-        ErrorCodes.STRATEGY_INVALID_OUTPUT,
-        'Strategy execution for explain query returned an unexpected output format. Expected Prolog query string ending with a period.'
-      );
-    }
-    logger.info(
-      `[McrService] Strategy "${currentStrategyId}" translated NL to Prolog query for explanation (OpID: ${operationId}): ${prologQuery}`
-    );
-    debugInfo.prologQuery = prologQuery;
-
-    if (config.debugLevel === 'verbose')
-      debugInfo.sessionFactsSnapshot = existingFacts;
-    else if (config.debugLevel === 'basic')
-      debugInfo.sessionFactsSummary = `Session facts length: ${existingFacts.length}`;
-
-    let explainPromptOntologyRules = '';
-    try {
-      const ontologiesForExplainPrompt =
-        await ontologyService.listOntologies(true);
-      if (ontologiesForExplainPrompt && ontologiesForExplainPrompt.length > 0) {
-        explainPromptOntologyRules = ontologiesForExplainPrompt
-          .map((ont) => ont.rules)
-          .join('\n');
-      }
-    } catch (ontErrorForExplain) {
-      logger.warn(
-        `[McrService] Error fetching global ontologies for EXPLAIN_PROLOG_QUERY prompt context (OpID: ${operationId}): ${ontErrorForExplain.message}`
-      );
-      debugInfo.ontologyErrorForPrompt = `Failed to load global ontologies for explanation prompt: ${ontErrorForExplain.message}`;
-    }
-    if (config.debugLevel === 'verbose')
-      debugInfo.ontologyRulesForPromptSnapshot = explainPromptOntologyRules;
-
-    const explainPromptContext = {
-      naturalLanguageQuestion,
-      prologQuery,
-      sessionFacts: existingFacts,
-      ontologyRules: explainPromptOntologyRules,
-    };
-    const llmExplanationResult = await llmService.generate(
-      prompts.EXPLAIN_PROLOG_QUERY.system,
-      fillTemplate(prompts.EXPLAIN_PROLOG_QUERY.user, explainPromptContext)
-    );
-    const explanationText =
-      llmExplanationResult && typeof llmExplanationResult.text === 'string'
-        ? llmExplanationResult.text
-        : null;
-    // TODO: Handle llmExplanationResult.costData
-
-    if (
-      !explanationText ||
-      (typeof explanationText === 'string' && explanationText.trim() === '')
-    ) {
-      return {
-        success: false,
-        message: 'Failed to generate an explanation for the query.',
-        debugInfo,
-        error: ErrorCodes.LLM_EMPTY_RESPONSE,
-        strategyId: currentStrategyId,
-      };
-    }
-    return { success: true, explanation: explanationText, debugInfo };
-  } catch (error) {
-    logger.error(
-      `[McrService] Error explaining query for session ${sessionId} (OpID: ${operationId}, Strategy ID: ${currentStrategyId}): ${error.message}`,
-      { stack: error.stack, details: error.details, errorCode: error.code }
-    );
-    debugInfo.error = error.message;
-    return {
-      success: false,
-      message: `Error during query explanation: ${error.message}`,
-      debugInfo,
-      error: error.code || ErrorCodes.STRATEGY_EXECUTION_ERROR,
-      details: error.message,
-      strategyId: currentStrategyId,
-    };
-  }
-}
+// Removed translateNLToRulesDirect, translateRulesToNLDirect, explainQuery as they are now in translationService.js
 
 async function getPrompts() {
   const operationId = `getPrompts-${Date.now()}`;
@@ -932,10 +608,14 @@ module.exports = {
   getSession: sessionManager.getSession,
   deleteSession: sessionManager.deleteSession,
   getLexiconSummary: sessionManager.getLexiconSummary,
-  translateNLToRulesDirect,
-  translateRulesToNLDirect,
-  explainQuery,
+  // translateNLToRulesDirect, // Now in translationService
+  // translateRulesToNLDirect, // Now in translationService
+  // explainQuery,             // Now in translationService
   getPrompts,
   debugFormatPrompt,
   getAvailableStrategies: strategyManager.getAvailableStrategies,
+  // Add methods from translationService to mcrService's exports
+  translateNLToRulesDirect: translationService.translateNLToRulesDirect,
+  translateRulesToNLDirect: translationService.translateRulesToNLDirect,
+  explainQuery: translationService.explainQuery,
 };

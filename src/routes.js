@@ -1,8 +1,14 @@
 // new/src/routes.js
 const express = require('express');
-const apiHandlers = require('./apiHandlers');
 const mcpHandler = require('./mcpHandler');
 const logger = require('./logger'); // Import logger
+
+// Import new handler modules
+const sessionHandlers = require('./api/sessionHandlers');
+const strategyHandlers = require('./api/strategyHandlers');
+const ontologyHandlers = require('./api/ontologyHandlers');
+const translationHandlers = require('./api/translationHandlers');
+const utilityHandlers = require('./api/utilityHandlers');
 
 function setupRoutes(app) {
   logger.info('[Routes] Setting up API routes...');
@@ -13,45 +19,44 @@ function setupRoutes(app) {
     res.status(200).json({ status: 'ok', message: 'MCR server is running' });
   });
 
-  // Basic status endpoint (can be kept or removed if /health is preferred)
-  // router.get('/status', (req, res) => res.status(200).json({ status: 'ok', message: 'MCR Streamlined API is running.' }));
-  router.get('/status', apiHandlers.getStatusHandler); // Use dedicated handler
+  // Basic status endpoint
+  router.get('/status', utilityHandlers.getStatusHandler);
 
   // Session management
-  router.post('/sessions', apiHandlers.createSessionHandler);
-  router.get('/sessions/:sessionId', apiHandlers.getSessionHandler); // Added GET session
-  router.delete('/sessions/:sessionId', apiHandlers.deleteSessionHandler); // Added DELETE session
+  router.post('/sessions', sessionHandlers.createSessionHandler);
+  router.get('/sessions/:sessionId', sessionHandlers.getSessionHandler);
+  router.delete('/sessions/:sessionId', sessionHandlers.deleteSessionHandler);
 
   // Fact assertion and querying
   router.post(
     '/sessions/:sessionId/assert',
-    apiHandlers.assertToSessionHandler
+    sessionHandlers.assertToSessionHandler
   );
-  router.post('/sessions/:sessionId/query', apiHandlers.querySessionHandler);
+  router.post('/sessions/:sessionId/query', sessionHandlers.querySessionHandler);
   router.post(
     '/sessions/:sessionId/explain-query',
-    apiHandlers.explainQueryHandler
+    translationHandlers.explainQueryHandler // Moved to translationHandlers
   );
 
   // Ontology management
-  router.post('/ontologies', apiHandlers.createOntologyHandler);
-  router.get('/ontologies', apiHandlers.listOntologiesHandler);
-  router.get('/ontologies/:name', apiHandlers.getOntologyHandler);
-  router.put('/ontologies/:name', apiHandlers.updateOntologyHandler);
-  router.delete('/ontologies/:name', apiHandlers.deleteOntologyHandler);
+  router.post('/ontologies', ontologyHandlers.createOntologyHandler);
+  router.get('/ontologies', ontologyHandlers.listOntologiesHandler);
+  router.get('/ontologies/:name', ontologyHandlers.getOntologyHandler);
+  router.put('/ontologies/:name', ontologyHandlers.updateOntologyHandler);
+  router.delete('/ontologies/:name', ontologyHandlers.deleteOntologyHandler);
 
   // Direct translation
-  router.post('/translate/nl-to-rules', apiHandlers.nlToRulesDirectHandler);
-  router.post('/translate/rules-to-nl', apiHandlers.rulesToNlDirectHandler);
+  router.post('/translate/nl-to-rules', translationHandlers.nlToRulesDirectHandler);
+  router.post('/translate/rules-to-nl', translationHandlers.rulesToNlDirectHandler);
 
   // Strategy Management Endpoints
-  router.get('/strategies', apiHandlers.listStrategiesHandler); // New
-  router.put('/strategies/active', apiHandlers.setStrategyHandler); // New (or POST /strategies/active)
-  router.get('/strategies/active', apiHandlers.getActiveStrategyHandler); // New
+  router.get('/strategies', strategyHandlers.listStrategiesHandler);
+  router.put('/strategies/active', strategyHandlers.setStrategyHandler);
+  router.get('/strategies/active', strategyHandlers.getActiveStrategyHandler);
 
   // Utility & Debugging
-  router.get('/prompts', apiHandlers.getPromptsHandler);
-  router.post('/debug/format-prompt', apiHandlers.debugFormatPromptHandler);
+  router.get('/prompts', utilityHandlers.getPromptsHandler);
+  router.post('/debug/format-prompt', utilityHandlers.debugFormatPromptHandler);
 
   app.use('/api/v1', router); // Prefix all API routes with /api/v1
 

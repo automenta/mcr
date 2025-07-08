@@ -90,6 +90,7 @@ const ErrorCodes = {
   REASONER_ERROR: 'REASONER_ERROR',
   INTERNAL_KB_NOT_FOUND: 'INTERNAL_KB_NOT_FOUND', // For mcrService internal logic
   NO_STRATEGY_AVAILABLE: 'NO_STRATEGY_AVAILABLE', // When strategy manager has no strategies
+  EMPTY_EXPLANATION_GENERATED: 'EMPTY_EXPLANATION_GENERATED', // Added missing error code
 
   // Config Errors
   CONFIG_VALIDATION_ERROR: 'CONFIG_VALIDATION_ERROR',
