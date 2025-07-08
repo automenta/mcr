@@ -48,6 +48,10 @@ const config = {
   // Debug level for API responses and potentially logs
   // Options: 'none', 'basic', 'verbose'. Default: 'none' (most restrictive)
   debugLevel: process.env.MCR_DEBUG_LEVEL || 'none',
+  sessionStore: {
+    type: process.env.MCR_SESSION_STORE_TYPE || 'memory', // 'memory' or 'file'
+    filePath: process.env.MCR_SESSION_STORE_FILE_PATH || path.resolve(process.cwd(), './.sessions'), // Default path for file store
+  },
 };
 
 // Validation for required keys based on provider
