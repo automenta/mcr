@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const chalk = require('chalk');
-const { apiClient } = require('./cli/api'); // Using CLI's apiClient for convenience
+// const { apiClient } = require('./cli/api'); // Using CLI's apiClient for convenience // apiClient removed
 const strategyManager = require('./strategyManager'); // To get strategy instances
 const logger = require('./logger'); // General logger
 const { demoLogger } = require('./demos/demoUtils'); // For colorful output, similar to demo.js
@@ -394,6 +394,7 @@ class Evaluator {
 
         const startTime = Date.now();
         let sessionIdForThisCase;
+        let apiResponseData = {}; // Declare apiResponseData here to make it accessible in finally block
 
         try {
           if (evalCase.sessionId) {
@@ -431,7 +432,7 @@ class Evaluator {
             );
           }
 
-          let apiResponseData = {}; // To store response data that might contain cost/token info
+          // let apiResponseData = {}; // To store response data that might contain cost/token info // Moved declaration up
           if (evalCase.inputType === 'assert') {
             const axios = (await import('axios')).default;
             const response = await axios.post(
@@ -542,10 +543,15 @@ class Evaluator {
           // const costMetrics = apiResponseData.cost || { placeholder_cost: 0 }; // This was for the outer scope
 
           // Determine raw_output
-          let rawOutputForDb = null;
+          // let rawOutputForDb = null; // This variable is unused in this scope, defined later in 'finally'
+          // The following block seems to be incorrectly structured and causing a parsing error.
+          // It looks like an attempt to assign to rawOutputForDb within conditional logic,
+          // but the initial assignment is missing.
+          // Commenting out this problematic block as rawOutputForDb is correctly handled in the finally block.
+          /*
           if (evalCase.inputType === 'assert' && caseResult.actualProlog) {
-            rawOutputForDb = Array.isArray(caseResult.actualProlog)
-              ? caseResult.actualProlog.join('\n')
+            // rawOutputForDb = Array.isArray(caseResult.actualProlog) // This assignment is unused
+            //   ? caseResult.actualProlog.join('\n')
               : caseResult.actualProlog;
           } else if (
             evalCase.inputType === 'query' &&
@@ -558,18 +564,19 @@ class Evaluator {
               ? caseResult.actualProlog.join('\n')
               : caseResult.actualProlog;
           }
+          */
 
-          const dbRecord = {
-            strategy_hash: strategyHash,
-            llm_model_id: 'determined_in_finally', // Placeholder, will be set in finally
-            example_id: evalCase.id,
-            metrics: caseResult.scores,
-            cost: apiResponseData.cost || {
-              note: 'Cost data not received from API',
-            }, // Use cost from API response
-            latency_ms: caseResult.durationMs, // This will be updated in finally
-            raw_output: rawOutputForDb,
-          };
+          // const dbRecord = { // This definition is superseded by the one in the finally block
+          //   strategy_hash: strategyHash,
+          //   llm_model_id: 'determined_in_finally', // Placeholder, will be set in finally
+          //   example_id: evalCase.id,
+          //   metrics: caseResult.scores,
+          //   cost: apiResponseData.cost || {
+          //     note: 'Cost data not received from API',
+          //   }, // Use cost from API response
+          //   latency_ms: caseResult.durationMs, // This will be updated in finally
+          //   raw_output: rawOutputForDb,
+          // };
 
           // Insert into database (latency_ms will be updated in finally block before this)
           // We'll actually call insertPerformanceResult in the finally block
@@ -597,19 +604,27 @@ class Evaluator {
               ) ||
             config.llm.defaultModelId ||
             'unknown_model';
-          // Use the cost data from apiResponseData if available, otherwise default.
-          // apiResponseData is from the try block, so it might not be set if an error occurred before the API call.
-          // In case of error before API call, apiResponseData might be undefined.
-          // If an error occurred *during* the API call, apiResponseData might be error.response.data.
-          // For simplicity, we assume apiResponseData.cost is correctly populated by handlers on success.
-          // If an error occurred, cost might be missing or partial.
+
           let actualCostMetrics = {
             note: 'Cost data unavailable or error before capture',
           };
-          if (apiResponseData && apiResponseData.cost) {
+
+          // apiResponseData is defined in the try block. If an error occurred before apiResponseData was set,
+          // it will be undefined here.
+          // Check if apiResponseData exists and has a cost property.
+          // Ensure apiResponseData is defined before accessing properties
+          if (
+            typeof apiResponseData !== 'undefined' &&
+            apiResponseData &&
+            apiResponseData.cost
+          ) {
             actualCostMetrics = apiResponseData.cost;
-          } else if (caseResult.error && caseResult.error.cost) {
-            // If error object contains cost (less likely)
+          } else if (
+            caseResult.error &&
+            typeof caseResult.error === 'object' &&
+            caseResult.error.cost
+          ) {
+            // If error object contains cost (less likely, and ensure error is an object)
             actualCostMetrics = caseResult.error.cost;
           }
 

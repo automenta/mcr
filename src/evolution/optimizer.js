@@ -4,8 +4,8 @@ const { hideBin } = require('yargs/helpers');
 const logger = require('../logger');
 const strategyManager = require('../strategyManager');
 const { Evaluator } = require('../evaluator'); // Assuming Evaluator class is exported
-const { initDb, closeDb, DB_PATH } = require('../database'); // Assuming DB_PATH is exported for direct queries if needed
-const sqlite3 = require('sqlite3').verbose();
+const { initDb, closeDb } = require('../database'); // DB_PATH removed
+// const sqlite3 = require('sqlite3').verbose(); // sqlite3 removed
 // Placeholder for StrategyEvolver and CurriculumGenerator
 // const StrategyEvolver = require('./strategyEvolver');
 // const CurriculumGenerator = require('./curriculumGenerator');
@@ -165,7 +165,8 @@ class OptimizationCoordinator {
     return null;
   }
 
-  async generateNewCurriculum(currentStrategy = null, failingCases = null) {
+  async generateNewCurriculum(/* currentStrategy = null, failingCases = null */) {
+    // Parameters removed
     logger.info('[Optimizer] Generating new curriculum...');
     // Placeholder for CurriculumGenerator invocation
     // const newCases = await this.curriculumGenerator.generate(currentStrategy, failingCases);
@@ -177,7 +178,8 @@ class OptimizationCoordinator {
     return [];
   }
 
-  async evaluateStrategy(strategyJson, curriculumCases = null) {
+  async evaluateStrategy(strategyJson /*, curriculumCases = null */) {
+    // Parameter removed
     if (!strategyJson) {
       logger.warn(
         '[Optimizer] No strategy JSON provided to evaluate. Skipping evaluation.'

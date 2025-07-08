@@ -8,7 +8,9 @@ let selectedProvider;
 
 function forceReinitializeProvider() {
   selectedProvider = null;
-  logger.info('[llmService] Provider selection has been reset. Will re-initialize on next call to getProvider().');
+  logger.info(
+    '[llmService] Provider selection has been reset. Will re-initialize on next call to getProvider().'
+  );
 }
 
 function getProvider() {

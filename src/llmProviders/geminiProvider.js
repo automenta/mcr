@@ -1,7 +1,7 @@
 // new/src/llmProviders/geminiProvider.js
 const { ChatGoogleGenerativeAI } = require('@langchain/google-genai');
 const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
-const { StringOutputParser } = require('@langchain/core/output_parsers');
+// const { StringOutputParser } = require('@langchain/core/output_parsers'); // Removed
 
 const config = require('../config');
 const logger = require('../logger');

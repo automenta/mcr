@@ -43,18 +43,18 @@ function getOllamaInstance() {
  */
 async function generate(systemPrompt, userPrompt, options = {}) {
   const ollama = getOllamaInstance();
-  let fullPromptContent = systemPrompt
-    ? `${systemPrompt}\n\n${userPrompt}`
-    : userPrompt;
+  // let fullPromptContent = systemPrompt // This variable is unused
+  //   ? `${systemPrompt}\n\n${userPrompt}`
+  //   : userPrompt;
 
   // Rudimentary check for JSON mode - actual JSON output depends on model fine-tuning and prompt engineering
   // For more robust JSON output with Ollama, the model itself needs to support it well,
   // or you might need to use specific grammar/template features if available via Langchain/Ollama.
-  if (options.jsonMode) {
-    fullPromptContent +=
-      '\n\nRespond ONLY with valid JSON. Do not include any explanatory text before or after the JSON object.';
-    // logger.debug('Attempting JSON mode with prompt adjustment.');
-  }
+  // if (options.jsonMode) { // fullPromptContent is not defined, so this block is problematic
+  // fullPromptContent +=
+  //   '\n\nRespond ONLY with valid JSON. Do not include any explanatory text before or after the JSON object.';
+  // logger.debug('Attempting JSON mode with prompt adjustment.');
+  // }
 
   const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
 

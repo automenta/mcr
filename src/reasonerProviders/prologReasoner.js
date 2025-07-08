@@ -205,7 +205,8 @@ async function validateKnowledgeBase(knowledgeBase) {
     // Additionally, use the callback mechanism if no synchronous error occurred,
     // as some errors might only be reported asynchronously.
     if (!consultError) {
-      const consultPromise = new Promise((resolveConsult, rejectConsult) => {
+      const consultPromise = new Promise((resolveConsult) => {
+        // rejectConsult removed
         session.consult(knowledgeBase, {
           success: () => {
             resolveConsult(null); // No error

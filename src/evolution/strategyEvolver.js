@@ -1,7 +1,7 @@
 // src/evolution/strategyEvolver.js
 const crypto = require('crypto');
 const logger = require('../logger');
-const { initDb, closeDb } = require('../database');
+const { initDb } = require('../database'); // closeDb removed
 const llmService = require('../llmService'); // Assuming llmService is set up and provides a 'generate' method
 const {
   prompts,

@@ -40,7 +40,7 @@ const registerChatCommand = require('./src/cli/commands/chatCommand');
 const registerDemoCommand = require('./src/cli/commands/demoCommands');
 const registerSandboxCommand = require('./src/cli/commands/sandboxCommands');
 const registerStrategyCommands = require('./src/cli/commands/strategyCommands'); // New
-const { runEvaluatorTui } = require('./src/cli/evaluatorTui'); // Added for perf-dashboard
+// const { runEvaluatorTui } = require('./src/cli/evaluatorTui'); // Moved to dynamic import
 // ... etc.
 
 registerSessionCommands(program);
@@ -58,9 +58,17 @@ registerSandboxCommand(program);
 program
   .command('perf-dashboard')
   .description('Launch the Performance Dashboard and Database Explorer TUI.')
-  .action(() => {
+  .action(async () => {
+    // Changed to async to support dynamic import
     logger.info('Launching Performance Dashboard TUI...');
-    runEvaluatorTui();
+    try {
+      // Dynamically import runEvaluatorTui when the command is actually run
+      const { runEvaluatorTui } = await import('./src/cli/evaluatorTui.js'); // Assuming .js if it's ESM
+      runEvaluatorTui();
+    } catch (err) {
+      logger.error('Failed to load or run Performance Dashboard TUI:', err);
+      process.exit(1);
+    }
   });
 
 // Server control commands
@@ -71,49 +79,20 @@ program
     // This action will effectively do what `mcr.js` (root) does.
     // We can either require and run mcr.js or duplicate its server start logic.
     // For simplicity and to keep mcr.js as the single source of truth for server startup,
-    // we can try to import and run its main logic if modularized, or spawn it as a child process.
-    // Let's try to adapt the server starting logic here directly for now.
-
-    // console.log('Attempting to start MCR server...'); // Use logger once configured
-    // const logger = require('./src/logger'); // Ensure logger is available
+    // We will now import and use the startServer function from mcr.js
+    const { startServer } = require('./mcr'); // Corrected path
+    const logger = require('./src/logger'); // logger is still useful for CLI messages
 
     try {
-      // The logic from mcr.js (root file)
-      const app = require('./src/app');
-      const config = require('./src/config');
-      const logger = require('./src/logger'); // Assuming logger is configured by just requiring it
-
-      const PORT = config.server.port;
-      const HOST = config.server.host;
-
-      const server = app.listen(PORT, HOST, () => {
-        logger.info(
-          `MCR Streamlined server listening on http://${HOST}:${PORT} (started via CLI)`
-        );
-        logger.info(`Current LLM provider: ${config.llm.provider}`);
-        logger.info(`Current Reasoner provider: ${config.reasoner.provider}`);
-        logger.info(`Log level set to: ${config.logLevel}`);
-      });
-
-      // Graceful shutdown logic (copied from mcr.js, might need to be centralized)
-      const shutdown = (signal) => {
-        logger.info(`${signal} signal received: closing HTTP server`);
-        server.close(() => {
-          logger.info('HTTP server closed');
-          process.exit(0);
-        });
-      };
-
-      process.on('SIGTERM', () => shutdown('SIGTERM'));
-      process.on('SIGINT', () => shutdown('SIGINT'));
-
-      // Note: Unhandled rejection and uncaught exception handlers are process-wide.
-      // If cli.js is the main entry point for the server, they should be here or in a shared module.
-      // If mcr.js is run directly, it has its own.
-      // For now, let's assume these are handled if the server is started directly.
-      // If this `start-server` command makes the CLI the *only* way to start, then they are needed here.
+      logger.info('Attempting to start MCR server via mcr.js module...');
+      startServer();
+      // The startServer function in mcr.js now handles all server setup,
+      // including logging, signal handling, and error handling.
+      // No need to duplicate that logic here.
+      // logger.info('MCR server started successfully via CLI using mcr.js.');
+      // Note: startServer() in mcr.js logs "Server is running", so this ^ might be redundant.
     } catch (error) {
-      (console || logger).error('Failed to start MCR server via CLI:', error);
+      logger.error('Failed to start MCR server via CLI using mcr.js:', error);
       process.exit(1);
     }
   });
