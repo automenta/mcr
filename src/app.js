@@ -2,7 +2,7 @@
 const express = require('express');
 const setupRoutes = require('./routes');
 const { errorHandlerMiddleware } = require('./errors');
-const logger = require('./logger'); // For logging server start
+const logger = require('./util/logger'); // For logging server start
 
 const app = express();
 

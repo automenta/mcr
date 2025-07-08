@@ -1,6 +1,6 @@
 // src/cli/commands/strategyCommands.js
 const { apiClient } = require('../api');
-const { handleCliOutput } = require('../../cliUtils');
+const { handleCliOutput } = require('../../util/cliUtils');
 
 async function listStrategiesAsync(options, commandInstance) {
   const programOpts = commandInstance.parent.opts();

@@ -1,8 +1,8 @@
-const { demoLogger } = require('../../demos/demoUtils');
-const { runSimpleQADemoAsync } = require('../../demos/simpleQADemo');
+const { demoLogger } = require('../../demo/demoUtils');
+const { runSimpleQADemoAsync } = require('../../demo/simpleQADemo');
 const {
   runFamilyOntologyDemoAsync,
-} = require('../../demos/familyOntologyDemo');
+} = require('../../demo/familyOntologyDemo');
 const config = require('../../config'); // To log LLM provider
 // Note: The old demo.js had logic to initialize mcrCore with a modified config (log level).
 // The new services (mcrService, ontologyService) are generally stateless or configure from require('./config').

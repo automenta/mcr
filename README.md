@@ -671,11 +671,11 @@ A new enhanced demo runner (`demo.js`) is available to showcase various MCR capa
 
 **Adding New Examples:**
 
-1.  Create a new JavaScript file in the `src/demos/` directory (e.g., `myNewDemo.js`).
+1.  Create a new JavaScript file in the `src/demo/` directory (e.g., `myNewDemo.js`).
 2.  The file should export a class that extends the `Example` class (from `demo.js`).
 
     ```javascript
-    // src/demos/myNewDemo.js
+    // src/demo/myNewDemo.js
     const { Example } = require('../../../demo'); // Adjust path if structure changes
 
     class MyNewDemo extends Example {
@@ -706,7 +706,7 @@ A new enhanced demo runner (`demo.js`) is available to showcase various MCR capa
     module.exports = MyNewDemo;
     ```
 
-3.  The `demo.js` script will automatically discover any `*Demo.js` files in `src/demos/` that export a class extending `Example`. The command-line key for the demo will be derived from its `getName()` method (e.g., "My New Demo" becomes "my-new-demo").
+3.  The `demo.js` script will automatically discover any `*Demo.js` files in `src/demo/` that export a class extending `Example`. The command-line key for the demo will be derived from its `getName()` method (e.g., "My New Demo" becomes "my-new-demo").
 
 ## 📊 Evaluation System (`src/evaluator.js`)
 

@@ -1,7 +1,7 @@
 // new/src/mcpHandler.js
 const mcrService = require('./mcrService');
 const { ApiError } = require('./errors'); // For consistent error structure if needed
-const logger = require('./logger');
+const logger = require('./util/logger');
 const { v4: uuidv4 } = require('uuid'); // For generating invocation IDs
 
 // Define the tools MCR will offer via MCP

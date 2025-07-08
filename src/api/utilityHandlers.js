@@ -1,7 +1,7 @@
 // new/src/api/utilityHandlers.js
 const mcrService = require('../mcrService');
 const { ApiError } = require('../errors');
-const logger = require('../logger');
+const logger = require('../util/logger');
 const { name, version, description } = require('../../package.json'); // Adjusted path
 const config = require('../config');
 

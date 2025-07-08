@@ -1,7 +1,7 @@
 // src/strategyManager.js
 const fs = require('fs');
 const path = require('path');
-const logger = require('./logger');
+const logger = require('./util/logger');
 const config = require('./config');
 const { MCRError, ErrorCodes } = require('./errors');
 

@@ -2,8 +2,8 @@
 const fs = require('fs');
 const yargs = require('yargs/yargs');
 const { hideBin } = require('yargs/helpers');
-const llmService = require('../src/llmService');
-const logger = require('../src/logger');
+const llmService = require('../llmService');
+const logger = require('./logger');
 
 /**
  * Common utility function for generator scripts to handle LLM calls.

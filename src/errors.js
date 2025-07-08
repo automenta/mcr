@@ -1,5 +1,5 @@
 // new/src/errors.js
-const logger = require('./logger');
+const logger = require('./util/logger');
 
 class ApiError extends Error {
   constructor(statusCode, message, errorCode = 'API_ERROR', details = null) {

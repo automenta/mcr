@@ -1,8 +1,8 @@
 // src/services/embeddingService.js
 const { GoogleGenerativeAIEmbeddings } = require('@langchain/google-genai');
 const { OllamaEmbeddings } = require('@langchain/community/embeddings/ollama');
-const config = require('../config');
-const logger = require('../logger');
+const config = require('./config');
+const logger = require('./util/logger');
 
 /**
  * @typedef {Array<number>} EmbeddingVector
@@ -29,7 +29,7 @@ const logger = require('../logger');
  *
  * @implements {IEmbeddingService}
  */
-class EmbeddingService {
+class Embedding {
   constructor() {
     const provider = config.llm.provider.toLowerCase();
     this.embeddingProvider = null;
@@ -145,4 +145,4 @@ class EmbeddingService {
   }
 }
 
-module.exports = EmbeddingService;
+module.exports = Embedding;

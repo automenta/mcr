@@ -1,4 +1,4 @@
-const logger = require('../logger');
+const logger = require('../util/logger');
 const { ErrorCodes, MCRError } = require('../errors');
 // const { loadAllEvalCases } = require('../evalCases/baseEvals'); // No longer needed here
 

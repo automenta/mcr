@@ -173,11 +173,11 @@ const readFileContent = (filePath, fileDescription = 'File') => {
   }
 };
 
-const config = require('./config'); // To get server URL for health check
+const config = require('../config'); // To get server URL for health check
 const {
   isServerAliveAsync,
   startMcrServerAsync,
-} = require('./cli/tuiUtils/serverManager');
+} = require('../cli/tuiUtils/serverManager');
 const logger = require('./logger'); // For logging
 
 /**

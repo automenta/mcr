@@ -8,7 +8,7 @@ const {
   setupGeneratorScript,
   ensureDirectoryExists,
   writeGeneratedFile,
-} = require('./_generatorUtils');
+} = require('./src/util/generatorUtils');
 
 const SCRIPT_NAME = 'generate_example.js';
 const evalCasesDir = path.join(__dirname, '..', 'src', 'evalCases');

@@ -1,6 +1,6 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-const logger = require('./logger'); // Assuming a logger utility exists
+const logger = require('../util/logger'); // Assuming a logger utility exists
 
 const DB_PATH = path.join(process.cwd(), 'performance_results.db');
 

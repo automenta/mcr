@@ -4,9 +4,9 @@ const { hideBin } = require('yargs/helpers');
 const chalk = require('chalk');
 const fs = require('fs');
 const path = require('path');
-const logger = require('./src/logger'); // Using the same logger
-const { demoLogger } = require('./src/demos/demoUtils');
-const { checkAndStartServer } = require('./src/cliUtils');
+const logger = require('./src/util/logger'); // Using the same logger
+const { demoLogger } = require('./src/demo/demoUtils');
+const { checkAndStartServer } = require('./src/util/cliUtils');
 const config = require('./src/config');
 
 const API_BASE_URL = `http://${config.server.host}:${config.server.port}/api/v1`;
@@ -236,7 +236,7 @@ class Example {
 // Function to discover examples
 function loadExamples() {
   const exampleBlueprints = {}; // Stores { key: { Class, defaultInstance (for info) } }
-  const demosDir = path.join(__dirname, 'src', 'demos');
+  const demosDir = path.join(__dirname, 'src', 'demo');
   const files = fs.readdirSync(demosDir);
 
   files.forEach((file) => {
@@ -327,7 +327,7 @@ async function main() {
     if (Object.keys(exampleBlueprints).length === 0) {
       demoLogger.info(
         'Status',
-        'No examples found. Check src/demos directory.'
+        'No examples found. Check src/demo directory.'
       );
       return;
     }
@@ -343,7 +343,7 @@ async function main() {
     demoLogger.error('No examples found and no example specified.');
     console.log(
       chalk.yellow(
-        'Please create demo files in src/demos/ ending with "Demo.js" and implementing the Example class.'
+        'Please create demo files in src/demo/ ending with "Demo.js" and implementing the Example class.'
       )
     );
     return;

@@ -1,6 +1,6 @@
 // src/reasonerProviders/prologReasoner.js
 const prolog = require('tau-prolog');
-const logger = require('../logger');
+const logger = require('../util/logger');
 
 /**
  * Helper to format Prolog answers.

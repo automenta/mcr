@@ -1,7 +1,7 @@
 // new/src/routes.js
 const express = require('express');
 const mcpHandler = require('./mcpHandler');
-const logger = require('./logger'); // Import logger
+const logger = require('./util/logger'); // Import logger
 
 // Import new handler modules
 const sessionHandlers = require('./api/sessionHandlers');

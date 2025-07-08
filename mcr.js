@@ -12,7 +12,7 @@ function startServer() {
   // console.log('[MCR Pre-Init] app required.'); // Logger not yet available
   const config = require('./src/config');
   // console.log('[MCR Pre-Init] config required.'); // Logger not yet available
-  const logger = require('./src/logger');
+  const logger = require('./src/util/logger');
 
   logger.debug('[MCR Init] app required.');
   logger.debug('[MCR Init] config required.');

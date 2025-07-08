@@ -1,5 +1,5 @@
 const { apiClient } = require('../api'); // Use new apiClient
-const { handleCliOutput } = require('../../cliUtils'); // Use new handleCliOutput
+const { handleCliOutput } = require('../../util/cliUtils'); // Use new handleCliOutput
 
 async function createSessionAsync(options, commandInstance) {
   const programOpts = commandInstance.parent.opts(); // Get global options like --json

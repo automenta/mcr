@@ -1,7 +1,7 @@
 // new/src/api/strategyHandlers.js
 const mcrService = require('../mcrService');
 const { ApiError } = require('../errors');
-const logger = require('../logger');
+const logger = require('../util/logger');
 
 async function listStrategiesHandler(req, res, next) {
   const correlationId = req.correlationId;

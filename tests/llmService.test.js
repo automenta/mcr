@@ -38,7 +38,7 @@ jest.mock('../src/config', () => ({
 }));
 
 // Mock logger (can be done more simply if not changing levels)
-jest.mock('../src/logger', () => ({
+jest.mock('../src/util/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
@@ -50,11 +50,11 @@ jest.mock('../src/logger', () => ({
 const mockOllamaGenerate = jest.fn();
 const mockGeminiGenerate = jest.fn();
 
-jest.mock('../src/llmProviders/ollamaProvider', () => ({
+jest.mock('../src/llm/ollamaProvider', () => ({
   name: 'ollama',
   generate: mockOllamaGenerate,
 }));
-jest.mock('../src/llmProviders/geminiProvider', () => ({
+jest.mock('../src/llm/geminiProvider', () => ({
   name: 'gemini',
   generate: mockGeminiGenerate,
 }));
@@ -69,13 +69,13 @@ describe('LlmService', () => {
 
   beforeAll(() => {
     // Set logger level to silent for all tests in this suite
-    require('../src/logger').level = 'silent';
+    require('../src/util/logger').level = 'silent';
   });
 
   afterAll(() => {
     // Restore original log level (if it matters for other suites)
     // This depends on how logger is shared/cached across test files by Jest
-    require('../src/logger').level = mockConfig.logLevel || 'info';
+    require('../src/util/logger').level = mockConfig.logLevel || 'info';
   });
 
   beforeEach(() => {
@@ -180,7 +180,7 @@ describe('LlmService', () => {
     // Configure to use 'ollama', but then mock the ollamaProvider to be broken.
     config.llm.provider = 'ollama';
 
-    jest.doMock('../src/llmProviders/ollamaProvider', () => ({
+    jest.doMock('../src/llm/ollamaProvider', () => ({
       name: 'ollama', // Keep the name consistent for lookup
       // generate method is intentionally missing
     }));

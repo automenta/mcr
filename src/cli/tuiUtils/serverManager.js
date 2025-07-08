@@ -3,7 +3,7 @@ const axios = require('axios');
 const { spawn } = require('child_process');
 const path = require('path');
 const config = require('../../config'); // Use new config directly
-const logger = require('../../logger'); // Use main logger
+const logger = require('../../util/logger'); // Use main logger
 
 async function isServerAliveAsync(url, retries = 5, delayTime = 1000) {
   for (let i = 0; i < retries; i++) {

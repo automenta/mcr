@@ -4,7 +4,7 @@ const { ChatOllama } = require('@langchain/community/chat_models/ollama');
 // const { StringOutputParser } = require('@langchain/core/output_parsers');
 // const { PromptTemplate } = require('@langchain/core/prompts');
 const config = require('../config');
-const logger = require('../logger');
+const logger = require('../util/logger');
 
 let ollamaInstance;
 

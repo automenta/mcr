@@ -1,8 +1,8 @@
 const React = require('react');
 const { Box, Text, render, useApp, useInput } = require('ink');
 const { useEffect, useState } = require('react'); // useCallback removed
-const dbModule = require('../database'); // To interact with the database
-const logger = require('../logger'); // For logging errors
+const dbModule = require('../store/database'); // To interact with the database
+const logger = require('../util/logger'); // For logging errors
 const SelectInput = require('ink-select-input').default;
 const Spinner = require('ink-spinner').default;
 

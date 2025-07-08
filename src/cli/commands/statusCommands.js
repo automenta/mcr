@@ -1,6 +1,6 @@
 const { getServerStatus, API_BASE_URL } = require('../api'); // Use the new non-exiting getServerStatus
-const { handleCliOutput } = require('../../cliUtils');
-const logger = require('../../logger'); // Use the main logger
+const { handleCliOutput } = require('../../util/cliUtils');
+const logger = require('../../util/logger'); // Use the main logger
 
 async function getServerStatusCliAsync(options, commandInstance) {
   const programOpts = commandInstance.parent.opts();

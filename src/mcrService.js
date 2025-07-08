@@ -2,17 +2,17 @@
 const llmService = require('./llmService');
 const reasonerService = require('./reasonerService');
 // const sessionManager = require('./sessionManager'); // Old import
-const InMemorySessionStore = require('./InMemorySessionStore');
-const FileSessionStore = require('./FileSessionStore'); // Import FileSessionStore
+const InMemorySessionStore = require('./store/InMemorySessionStore');
+const FileSessionStore = require('./store/FileSessionStore'); // Import FileSessionStore
 const ontologyService = require('./ontologyService');
 const { prompts, fillTemplate, getPromptTemplateByName } = require('./prompts');
-const logger = require('./logger');
+const logger = require('./util/logger');
 const config = require('./config');
 const strategyManager = require('./strategyManager');
 const StrategyExecutor = require('./strategyExecutor');
 const { MCRError, ErrorCodes } = require('./errors');
 const KeywordInputRouter = require('./evolution/keywordInputRouter.js');
-const db = require('./database');
+const db = require('./store/database');
 
 // Instantiate the session store based on configuration
 let sessionStore;

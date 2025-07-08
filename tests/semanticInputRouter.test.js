@@ -1,12 +1,12 @@
 // tests/semanticInputRouter.test.js
 const SemanticInputRouter = require('../src/evolution/semanticInputRouter');
-const EmbeddingService = require('../src/services/embeddingService'); // Using the mock
+const Embedding = require('../src/embedding'); // Using the mock
 const { inputArchetypes } = require('../src/evolution/semanticArchetypes');
-const logger = require('../src/logger');
+const logger = require('../src/util/logger');
 const { MCRError, ErrorCodes } = require('../src/errors');
 
 // Mock logger to prevent console output during tests and allow assertions
-jest.mock('../src/logger', () => ({
+jest.mock('../src/util/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
@@ -29,7 +29,7 @@ describe('SemanticInputRouter', () => {
     };
 
     // Use the actual (mock) EmbeddingService but spy on its methods
-    mockEmbeddingService = new EmbeddingService({ embeddingDimension: 3 }); // Use small dimension for predictable mock
+    mockEmbeddingService = new Embedding({ embeddingDimension: 3 }); // Use small dimension for predictable mock
     jest.spyOn(mockEmbeddingService, 'getEmbedding');
     jest.spyOn(mockEmbeddingService, 'getEmbeddings');
 

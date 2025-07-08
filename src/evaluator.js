@@ -4,15 +4,15 @@ const path = require('path');
 const chalk = require('chalk');
 // const { apiClient } = require('./cli/api'); // Using CLI's apiClient for convenience // apiClient removed
 const strategyManager = require('./strategyManager'); // To get strategy instances
-const logger = require('./logger'); // General logger
-const { demoLogger } = require('./demos/demoUtils'); // For colorful output, similar to demo.js
-const { checkAndStartServer } = require('./cliUtils');
+const logger = require('./util/logger'); // General logger
+const { demoLogger } = require('./demo/demoUtils'); // For colorful output, similar to demo.js
+const { checkAndStartServer } = require('./util/cliUtils');
 const config = require('./config');
 const crypto = require('crypto'); // For SHA-256 hashing
 // yargs and hideBin will be imported dynamically in main
 const llmServiceModule = require('./llmService'); // For semantic similarity metric generate function
 // const { prompts, fillTemplate } = require('./prompts'); // Now used by metrics.js
-const { initDb, insertPerformanceResult, closeDb } = require('./database'); // Import database functions
+const { initDb, insertPerformanceResult, closeDb } = require('./store/database'); // Import database functions
 const { loadAllEvalCases } = require('./evalCases/baseEvals'); // MOVED HERE
 const metrics = require('./evaluation/metrics'); // Import the new metrics module
 

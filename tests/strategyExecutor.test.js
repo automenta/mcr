@@ -4,7 +4,7 @@ const { MCRError, ErrorCodes } = require('../src/errors');
 // const logger = require('../src/logger'); // Unused
 
 // Mock logger to prevent console output during tests
-jest.mock('../src/logger', () => ({
+jest.mock('../src/util/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),

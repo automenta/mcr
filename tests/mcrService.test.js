@@ -30,7 +30,7 @@ jest.mock('../src/reasonerService', () => ({
 
 // Mock the actual session store that mcrService will use (InMemorySessionStore by default for tests)
 // The mock needs to provide async methods now.
-jest.mock('../src/InMemorySessionStore', () => {
+jest.mock('../src/store/InMemorySessionStore', () => {
   const mockInstance = {
     initialize: jest.fn().mockResolvedValue(undefined),
     createSession: jest.fn(),
@@ -50,7 +50,7 @@ jest.mock('../src/ontologyService', () => ({
     .fn()
     .mockResolvedValue('global_ontology_rule_from_mock.'),
 }));
-jest.mock('../src/logger', () => ({
+jest.mock('../src/util/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
@@ -61,7 +61,7 @@ const mcrService = require('../src/mcrService');
 const llmService = require('../src/llmService');
 const reasonerService = require('../src/reasonerService');
 // const sessionManager = require('../src/sessionManager'); // Old import
-const InMemorySessionStore = require('../src/InMemorySessionStore'); // Import the class
+const InMemorySessionStore = require('../src/store/InMemorySessionStore'); // Import the class
 const { ErrorCodes } = require('../src/errors');
 const ontologyService = require('../src/ontologyService');
 const { prompts } = require('../src/prompts');

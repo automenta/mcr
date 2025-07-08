@@ -1,5 +1,5 @@
 const { apiClient } = require('../api');
-const { handleCliOutput, printJson } = require('../../cliUtils'); // Using new cliUtils
+const { handleCliOutput, printJson } = require('../../util/cliUtils'); // Using new cliUtils
 
 async function listPromptsAsync(options, commandInstance) {
   const programOpts = commandInstance.parent.opts();

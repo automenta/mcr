@@ -5,7 +5,7 @@ const {
   readFileContent,
   handleCliOutput,
   printJson,
-} = require('../../cliUtils'); // Added printJson
+} = require('../../util/cliUtils'); // Added printJson
 
 async function assertFactAsync(sessionId, text, options, commandInstance) {
   const programOpts = commandInstance.parent.opts();

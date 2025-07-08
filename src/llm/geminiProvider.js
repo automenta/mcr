@@ -4,7 +4,7 @@ const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
 // const { StringOutputParser } = require('@langchain/core/output_parsers'); // Removed
 
 const config = require('../config');
-const logger = require('../logger');
+const logger = require('../util/logger');
 
 let geminiInstance;
 

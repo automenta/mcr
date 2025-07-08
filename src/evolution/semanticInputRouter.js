@@ -1,5 +1,5 @@
 // src/evolution/semanticInputRouter.js
-const logger = require('../logger');
+const logger = require('../util/logger');
 const { MCRError, ErrorCodes } = require('../errors');
 const { inputArchetypes } = require('./semanticArchetypes');
 
@@ -10,7 +10,7 @@ const DEFAULT_SEMANTIC_QUERY_CLASS = 'general_query'; // Fallback, though ideall
 class SemanticInputRouter {
   /**
    * @param {object} db - The database instance.
-   * @param {import('../services/embeddingService').IEmbeddingService} embeddingService - Service to generate text embeddings.
+   * @param {import('../embedding').IEmbeddingService} embeddingService - Service to generate text embeddings.
    */
   constructor(db, embeddingService) {
     if (!db) {

@@ -1,6 +1,6 @@
 const axios = require('axios');
 const config = require('../config'); // Use the new config system
-const { handleApiError } = require('../cliUtils'); // Use the new error handler
+const { handleApiError } = require('../util/cliUtils'); // Use the new error handler
 
 const API_BASE_URL = `http://${config.server.host}:${config.server.port}`;
 

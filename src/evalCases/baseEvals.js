@@ -81,7 +81,7 @@ const baseEvals = [
 
 const fs = require('fs');
 const path = require('path');
-const logger = require('../logger'); // Assuming logger is available
+const logger = require('../util/logger'); // Assuming logger is available
 
 /**
  * Loads all evaluation cases from .js and .json files in the specified directory.

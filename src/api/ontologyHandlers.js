@@ -1,7 +1,7 @@
 // new/src/api/ontologyHandlers.js
 const ontologyService = require('../ontologyService');
 const { ApiError } = require('../errors');
-const logger = require('../logger');
+const logger = require('../util/logger');
 
 async function createOntologyHandler(req, res, next) {
   const correlationId = req.correlationId;

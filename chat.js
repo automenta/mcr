@@ -2,9 +2,9 @@
 const axios = require('axios');
 const inquirer = require('inquirer');
 const config = require('./src/config'); // To get server URL
-const logger = require('./src/logger'); // Using the same logger for consistency
+const logger = require('./src/util/logger'); // Using the same logger for consistency
 const winston = require('winston'); // Import winston for format utilities
-const { checkAndStartServer } = require('./src/cliUtils');
+const { checkAndStartServer } = require('./src/util/cliUtils');
 
 const API_BASE_URL = `http://${config.server.host}:${config.server.port}/api/v1`;
 let currentSessionId = null;

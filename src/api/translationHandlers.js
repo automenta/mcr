@@ -1,7 +1,7 @@
 // new/src/api/translationHandlers.js
 const mcrService = require('../mcrService');
 const { ApiError } = require('../errors');
-const logger = require('../logger');
+const logger = require('../util/logger');
 const config = require('../config');
 
 async function nlToRulesDirectHandler(req, res, next) {

@@ -7,7 +7,7 @@ const {
   setupGeneratorScript,
   ensureDirectoryExists,
   writeGeneratedFile,
-} = require('./_generatorUtils');
+} = require('./src/util/generatorUtils');
 
 const SCRIPT_NAME = 'generate_ontology.js';
 const ontologiesDir = path.join(__dirname, '..', 'ontologies');

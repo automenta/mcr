@@ -1,6 +1,6 @@
 const path = require('path');
 const { apiClient } = require('../api');
-const { handleCliOutput, readFileContent } = require('../../cliUtils');
+const { handleCliOutput, readFileContent } = require('../../util/cliUtils');
 
 async function nlToRulesAsync(text, options, commandInstance) {
   const programOpts = commandInstance.parent.opts();

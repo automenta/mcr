@@ -17,7 +17,7 @@ jest.mock('../src/config', () => ({
   ontology: {},
 }));
 
-jest.mock('../src/logger', () => ({
+jest.mock('../src/util/logger', () => ({
   // Basic logger mock
   info: jest.fn(),
   warn: jest.fn(),
@@ -138,7 +138,7 @@ jest.mock('tau-prolog', () => ({
 */
 
 const mockPrologReasonerExecuteQuery = jest.fn();
-jest.mock('../src/reasonerProviders/prologReasoner.js', () => ({
+jest.mock('../src/reason/prologReasoner.js', () => ({
   isSupported: () => true, // Assume it's always supported for tests
   executeQuery: mockPrologReasonerExecuteQuery,
 }));

@@ -2,7 +2,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const config = require('./config');
-const logger = require('./logger');
+const logger = require('./util/logger');
 const { ApiError } = require('./errors');
 const reasonerService = require('./reasonerService'); // Import reasonerService
 
