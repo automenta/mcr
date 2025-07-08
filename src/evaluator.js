@@ -11,9 +11,10 @@ const config = require('./config');
 const crypto = require('crypto'); // For SHA-256 hashing
 // yargs and hideBin will be imported dynamically in main
 const llmServiceModule = require('./llmService'); // For semantic similarity metric generate function
-const { prompts, fillTemplate } = require('./prompts');
+// const { prompts, fillTemplate } = require('./prompts'); // Now used by metrics.js
 const { initDb, insertPerformanceResult, closeDb } = require('./database'); // Import database functions
 const { loadAllEvalCases } = require('./evalCases/baseEvals'); // MOVED HERE
+const metrics = require('./evaluation/metrics'); // Import the new metrics module
 
 // --- Evaluation Case Structure ---
 /**
@@ -30,130 +31,7 @@ const { loadAllEvalCases } = require('./evalCases/baseEvals'); // MOVED HERE
  * @property {string} [sessionId] - Optional: if set, evaluator will use this session ID, otherwise creates one per strategy.
  */
 
-// --- Metrics Implementation ---
-const metrics = {
-  /**
-   * Checks for exact match of generated Prolog with expected Prolog.
-   * For arrays, order matters and content must be identical.
-   * @param {string | string[]} actualProlog - Generated Prolog.
-   * @param {string | string[]} expectedProlog - Expected Prolog.
-   * @returns {boolean} True if exact match.
-   */
-  exactMatchProlog: (actualProlog, expectedProlog) => {
-    if (typeof actualProlog !== typeof expectedProlog) return false;
-    if (Array.isArray(actualProlog)) {
-      if (actualProlog.length !== expectedProlog.length) return false;
-      // Normalize by sorting if order doesn't matter, but for now, order matters.
-      // To make order not matter: return actualProlog.slice().sort().join('') === expectedProlog.slice().sort().join('');
-      return actualProlog.every((val, index) => val === expectedProlog[index]);
-    }
-    return actualProlog === expectedProlog;
-  },
-
-  /**
-   * Checks for exact match of the natural language answer (for queries).
-   * @param {string} actualAnswer - Generated NL answer.
-   * @param {string} expectedAnswer - Expected NL answer.
-   * @returns {boolean} True if exact match.
-   */
-  exactMatchAnswer: (actualAnswer, expectedAnswer) => {
-    if (typeof actualAnswer !== 'string' || typeof expectedAnswer !== 'string')
-      return false;
-    return actualAnswer.trim() === expectedAnswer.trim();
-  },
-
-  /**
-   * Normalizes Prolog code for comparison.
-   * - Removes comments
-   * - Standardizes whitespace around operators and parentheses
-   * - Sorts terms in a conjunction (if top-level and order doesn't strictly matter) - this is complex, start simple.
-   * - Standardizes variable names (e.g., _Var0, _Var1) - this is also complex.
-   * For now, focuses on comment removal and whitespace normalization.
-   * @param {string | string[]} prologCode - Prolog code.
-   * @returns {string | string[]} Normalized Prolog code.
-   */
-  normalizeProlog: (prologCode) => {
-    const normalizeSingle = (code) => {
-      if (typeof code !== 'string') return code;
-      // Remove comments
-      let norm = code.replace(/%.*?\n/g, '\n').replace(/%.*?$/, '');
-      // Standardize whitespace: remove leading/trailing, collapse multiple spaces, space around operators
-      norm = norm.trim().replace(/\s+/g, ' ');
-      norm = norm.replace(/\s*([(),.:-])\s*/g, '$1'); // Space around operators, commas, parentheses
-      norm = norm.replace(/([(),.:-])\s*([(),.:-])/g, '$1$2'); // Remove space between consecutive operators
-      return norm;
-    };
-
-    if (Array.isArray(prologCode)) {
-      return prologCode.map(normalizeSingle);
-    }
-    return normalizeSingle(prologCode);
-  },
-
-  /**
-   * Checks for structural match of Prolog code after normalization.
-   * @param {string | string[]} actualProlog - Generated Prolog.
-   * @param {string | string[]} expectedProlog - Expected Prolog.
-   * @returns {boolean} True if normalized versions match.
-   */
-  prologStructureMatch: (actualProlog, expectedProlog) => {
-    const normActual = metrics.normalizeProlog(actualProlog);
-    const normExpected = metrics.normalizeProlog(expectedProlog);
-    return metrics.exactMatchProlog(normActual, normExpected); // Reuse exactMatch for normalized strings
-  },
-
-  /**
-   * Checks for semantic similarity of natural language answers using an LLM.
-   * @async
-   * @param {string} actualAnswer - Generated NL answer.
-   * @param {string} expectedAnswer - Expected NL answer.
-   * @param {LlmService} llmService - Instance of LlmService.
-   * @param {string} originalQuestion - The original question, for context.
-   * @returns {Promise<boolean>} True if answers are deemed semantically similar by the LLM.
-   */
-  semanticSimilarityAnswer: async (
-    actualAnswer,
-    expectedAnswer,
-    llmGenerateFunc,
-    originalQuestion = ''
-  ) => {
-    if (
-      typeof actualAnswer !== 'string' ||
-      typeof expectedAnswer !== 'string' ||
-      typeof llmGenerateFunc !== 'function'
-    ) {
-      logger.error(
-        'semanticSimilarityAnswer called with invalid arguments or missing llmGenerateFunc.'
-      );
-      return false;
-    }
-    if (actualAnswer.trim() === expectedAnswer.trim()) return true; // Exact match is semantically similar
-
-    if (!prompts.SEMANTIC_SIMILARITY_CHECK) {
-      logger.error('Semantic similarity check prompt not found!');
-      return false;
-    }
-    const systemPrompt = prompts.SEMANTIC_SIMILARITY_CHECK.system;
-    const userPrompt = fillTemplate(prompts.SEMANTIC_SIMILARITY_CHECK.user, {
-      text1: expectedAnswer,
-      text2: actualAnswer,
-      context: originalQuestion
-        ? `The original question was: "${originalQuestion}"`
-        : 'No specific question context provided.',
-    });
-
-    try {
-      const response = await llmGenerateFunc(systemPrompt, userPrompt);
-      logger.debug(`Semantic similarity LLM response: ${response}`);
-      // Expecting LLM to output "SIMILAR" or "DIFFERENT" (or parse a JSON if prompt asks for it)
-      // For now, simple string check, case-insensitive.
-      return response.trim().toLowerCase().startsWith('similar');
-    } catch (error) {
-      logger.error(`Error during semantic similarity check: ${error.message}`);
-      return false;
-    }
-  },
-};
+// --- Metrics Implementation --- (Moved to src/evaluation/metrics.js)
 
 class Evaluator {
   constructor(evaluationCasesPath, selectedStrategies = [], selectedTags = []) {
