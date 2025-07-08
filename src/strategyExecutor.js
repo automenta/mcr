@@ -124,6 +124,117 @@ function convertSirToProlog(sirJson, strategyName = 'UnknownStrategy') {
 }
 
 /**
+ * Converts a Logical Form (LF) JSON object into Prolog clauses.
+ * @param {object | object[]} lfJson - The LF JSON data, can be a single LF object or an array of LF objects.
+ * @param {string} [strategyName='UnknownStrategy'] - The name of the strategy, for logging purposes.
+ * @returns {string[]} An array of Prolog clause strings.
+ * @throws {MCRError} If the LF JSON structure is invalid or arguments are of unexpected types.
+ */
+function convertLfToProlog(lfJson, strategyName = 'UnknownStrategy') {
+  const clauses = [];
+
+  const formatLfArgument = (arg) => {
+    if (!arg || !arg.type) {
+      throw new MCRError(ErrorCodes.INVALID_LF_STRUCTURE, `Invalid LF argument structure: ${JSON.stringify(arg)} in ${strategyName}`);
+    }
+    switch (arg.type) {
+      case 'variable':
+        if (!arg.name || typeof arg.name !== 'string' || !/^[A-Z_][a-zA-Z0-9_]*$/.test(arg.name)) {
+          throw new MCRError(ErrorCodes.INVALID_LF_ARGUMENT, `Invalid variable name: ${JSON.stringify(arg.name)} in ${strategyName}`);
+        }
+        return arg.name;
+      case 'atom':
+        if (typeof arg.value !== 'string') {
+          throw new MCRError(ErrorCodes.INVALID_LF_ARGUMENT, `Atom value must be a string: ${JSON.stringify(arg.value)} in ${strategyName}`);
+        }
+        // Basic atom validation/quoting (simplified)
+        if (/^[a-z_][a-zA-Z0-9_]*$/.test(arg.value) && arg.value !== 'not') { // 'not' needs quoting if it's an atom
+          return arg.value;
+        }
+        return `'${arg.value.replace(/'/g, "''")}'`; // Quoted atom
+      case 'number':
+        if (typeof arg.value !== 'number') {
+            throw new MCRError(ErrorCodes.INVALID_LF_ARGUMENT, `Number value must be a number: ${JSON.stringify(arg.value)} in ${strategyName}`);
+        }
+        return arg.value.toString();
+      case 'list':
+        if (!Array.isArray(arg.elements)) {
+            throw new MCRError(ErrorCodes.INVALID_LF_ARGUMENT, `List elements must be an array: ${JSON.stringify(arg.elements)} in ${strategyName}`);
+        }
+        return `[${arg.elements.map(formatLfArgument).join(',')}]`;
+      // Allow complex terms (functors) as arguments directly
+      case 'term':
+        if (!arg.value || typeof arg.value.predicate !== 'string' || !Array.isArray(arg.value.args)) {
+             throw new MCRError(ErrorCodes.INVALID_LF_ARGUMENT, `Invalid nested term structure for argument: ${JSON.stringify(arg.value)} in ${strategyName}`);
+        }
+        return formatLfTerm(arg.value);
+      default:
+        throw new MCRError(ErrorCodes.INVALID_LF_ARGUMENT, `Unknown LF argument type: ${arg.type} in ${strategyName}`);
+    }
+  };
+
+  const formatLfTerm = (term) => {
+    if (!term || typeof term.predicate !== 'string' || !Array.isArray(term.args)) {
+      throw new MCRError(ErrorCodes.INVALID_LF_STRUCTURE, `Invalid LF term structure: ${JSON.stringify(term)} in ${strategyName}`);
+    }
+    let predicateToFormat = term.predicate;
+    // Basic atom validation/quoting (simplified)
+    if (!/^[a-z_][a-zA-Z0-9_]*$/.test(predicateToFormat) || predicateToFormat === 'not') {
+      predicateToFormat = `'${predicateToFormat.replace(/'/g, "''")}'`;
+    }
+    const formattedArgs = term.args.map(formatLfArgument);
+    let result = `${predicateToFormat}(${formattedArgs.join(',')})`;
+    if (term.isNegative === true) {
+      result = `not(${result})`;
+    }
+    return result;
+  };
+
+  const processSingleLfItem = (item) => {
+    if (!item || !item.type) {
+      logger.warn(`[${strategyName}] Invalid LF item structure, missing type: ${JSON.stringify(item)}`);
+      return;
+    }
+    switch (item.type) {
+      case 'fact':
+        if (!item.term) {
+          throw new MCRError(ErrorCodes.INVALID_LF_STRUCTURE, `LF 'fact' item missing 'term': ${JSON.stringify(item)} in ${strategyName}`);
+        }
+        clauses.push(`${formatLfTerm(item.term)}.`);
+        break;
+      case 'rule':
+        if (!item.head || !item.body) {
+          throw new MCRError(ErrorCodes.INVALID_LF_STRUCTURE, `LF 'rule' item missing 'head' or 'body': ${JSON.stringify(item)} in ${strategyName}`);
+        }
+        const headStr = formatLfTerm(item.head); // Head itself cannot be negated with 'isNegative' at top level of head
+        if (!Array.isArray(item.body)) {
+            throw new MCRError(ErrorCodes.INVALID_LF_STRUCTURE, `LF 'rule' body must be an array of terms: ${JSON.stringify(item.body)} in ${strategyName}`);
+        }
+        if (item.body.length === 0) {
+          clauses.push(`${headStr}.`); // Fact-rule (rule with empty body)
+        } else {
+          // Body terms can be negated using 'isNegative' property on each term object
+          const bodyStr = item.body.map(formatLfTerm).join(', ');
+          clauses.push(`${headStr} :- ${bodyStr}.`);
+        }
+        break;
+      default:
+        logger.warn(`[${strategyName}] Unknown LF item type: ${item.type} for item: ${JSON.stringify(item)}`);
+    }
+  };
+
+  if (Array.isArray(lfJson)) {
+    lfJson.forEach(processSingleLfItem);
+  } else if (typeof lfJson === 'object' && lfJson !== null && lfJson.type) {
+    processSingleLfItem(lfJson);
+  } else if (lfJson && Object.keys(lfJson).length > 0) {
+    logger.warn(`[${strategyName}] Unexpected LF JSON format. Expected object with type or array of such objects. Received: ${JSON.stringify(lfJson).substring(0, 200)}`);
+  }
+  return clauses;
+}
+
+
+/**
  * @class StrategyExecutor
  * Executes a translation strategy defined by a JSON object.
  * The strategy JSON outlines a workflow graph of nodes (operations) and edges (data flow).
@@ -354,6 +465,18 @@ class StrategyExecutor {
             );
             break;
 
+          case 'LF_To_Prolog': // New Node Type for LF
+            if (!node.input_variable) {
+              throw new MCRError(ErrorCodes.INVALID_STRATEGY_NODE, `LF_To_Prolog node ${node.id} missing 'input_variable'.`);
+            }
+            const lfJson = executionState[node.input_variable];
+            if (typeof lfJson !== 'object' || lfJson === null) {
+              throw new MCRError(ErrorCodes.INVALID_NODE_INPUT, `Input for LF_To_Prolog node ${node.id} (variable '${node.input_variable}') is not an object. Found: ${typeof lfJson}`);
+            }
+            output = convertLfToProlog(lfJson, this.strategy.name || this.strategy.id);
+            logger.debug(`[StrategyExecutor] Node ${node.id}: LF to Prolog conversion completed. Clauses generated: ${output.length}`);
+            break;
+
           case 'Split_String_To_Array':
             if (!node.input_variable) {
               throw new MCRError(
@@ -447,6 +570,63 @@ class StrategyExecutor {
             );
             break;
 
+          case 'Conditional_Router': {
+            if (!node.input_variable) {
+              throw new MCRError(ErrorCodes.INVALID_STRATEGY_NODE, `Conditional_Router node ${node.id} missing 'input_variable'.`);
+            }
+            if (!Array.isArray(node.branches) || node.branches.length === 0) {
+              throw new MCRError(ErrorCodes.INVALID_STRATEGY_NODE, `Conditional_Router node ${node.id} missing 'branches' array or branches are empty.`);
+            }
+
+            const inputValue = executionState[node.input_variable];
+            let routed = false;
+            let defaultTarget = null;
+
+            for (const branch of node.branches) {
+              if (!branch.target) {
+                logger.warn(`[StrategyExecutor] Node ${node.id}: Branch ${JSON.stringify(branch)} missing 'target'. Skipping.`);
+                continue;
+              }
+              if (branch.condition === 'default') {
+                defaultTarget = branch.target;
+                continue; // Evaluate default branch last
+              }
+
+              if (branch.condition === 'property_exists') {
+                if (!branch.property) {
+                  logger.warn(`[StrategyExecutor] Node ${node.id}: Branch ${JSON.stringify(branch)} 'property_exists' missing 'property'. Skipping.`);
+                  continue;
+                }
+                // Check if inputValue is an object and has the property
+                if (typeof inputValue === 'object' && inputValue !== null && Object.prototype.hasOwnProperty.call(inputValue, branch.property)) {
+                  logger.debug(`[StrategyExecutor] Node ${node.id}: Condition 'property_exists' for property '${branch.property}' met. Routing to '${branch.target}'.`);
+                  if (!visited.has(branch.target) && !queue.includes(branch.target)) {
+                    queue.push(branch.target);
+                  }
+                  routed = true;
+                  break; // Route to the first met condition
+                }
+              } else {
+                logger.warn(`[StrategyExecutor] Node ${node.id}: Unknown condition type '${branch.condition}' in branch. Skipping.`);
+              }
+            }
+
+            if (!routed && defaultTarget) {
+              logger.debug(`[StrategyExecutor] Node ${node.id}: No explicit condition met. Routing to default target '${defaultTarget}'.`);
+              if (!visited.has(defaultTarget) && !queue.includes(defaultTarget)) {
+                queue.push(defaultTarget);
+              }
+              routed = true;
+            }
+
+            if (!routed) {
+              logger.warn(`[StrategyExecutor] Node ${node.id}: No conditions met and no default branch taken. Workflow may halt here for this path.`);
+            }
+            // Conditional_Router does not produce an 'output' in the typical sense to be stored in output_variable.
+            // It directs control flow. So, 'output' remains undefined.
+            break;
+          }
+
           default:
             throw new MCRError(
               ErrorCodes.UNKNOWN_NODE_TYPE,
@@ -454,23 +634,32 @@ class StrategyExecutor {
             );
         }
 
-        if (node.output_variable) {
+        // If the current node is a Conditional_Router, it handles its own routing, so we skip the generic nextNodeId queuing.
+        if (node.type === 'Conditional_Router') {
+          // Output for Conditional_Router is undefined as it only directs flow.
+          // It doesn't set finalOutput or executionState unless specifically designed to do so, which is not typical for a router.
+        } else if (node.output_variable) {
           executionState[node.output_variable] = output;
           logger.debug(
             `[StrategyExecutor] Node ${node.id}: Stored output in variable '${node.output_variable}'. Value: ${JSON.stringify(output)}`
           );
         } else {
+          // Only set finalOutput if it's not a Conditional_Router, as routers don't have a singular output value.
           finalOutput = output;
           logger.debug(
             `[StrategyExecutor] Node ${node.id}: Output not stored in a variable, considered as potential final output. Value: ${JSON.stringify(output)}`
           );
         }
-        const nextNodeIds = this.adjacencyMap.get(currentNodeId) || [];
-        nextNodeIds.forEach((nextNodeId) => {
-          if (!visited.has(nextNodeId) && !queue.includes(nextNodeId)) {
-            queue.push(nextNodeId);
-          }
-        });
+
+        // Standard way to queue next nodes, unless it's a Conditional_Router which handles its own branching.
+        if (node.type !== 'Conditional_Router') {
+          const nextNodeIds = this.adjacencyMap.get(currentNodeId) || [];
+          nextNodeIds.forEach((nextNodeId) => {
+            if (!visited.has(nextNodeId) && !queue.includes(nextNodeId)) {
+              queue.push(nextNodeId);
+            }
+          });
+        }
       } catch (error) {
         logger.error(
           `[StrategyExecutor] Error processing node ${node.id} (Type: ${node.type}) in strategy ${this.strategy.id}: ${error.message}`,
