@@ -11,7 +11,7 @@ const config = require('./config');
 const strategyManager = require('./strategyManager');
 const StrategyExecutor = require('./strategyExecutor');
 const { MCRError, ErrorCodes } = require('./errors');
-const InputRouter = require('./evolution/inputRouter');
+const KeywordInputRouter = require('./evolution/keywordInputRouter.js');
 const db = require('./database');
 
 // Instantiate the session store based on configuration
@@ -40,7 +40,7 @@ sessionStore.initialize().catch(error => {
 
 let inputRouterInstance;
 try {
-  inputRouterInstance = new InputRouter(db);
+  inputRouterInstance = new KeywordInputRouter(db);
   logger.info('[McrService] InputRouter initialized.');
 } catch (error) {
   logger.error(
