@@ -13,7 +13,12 @@ const {
 const SCRIPT_NAME = 'generate_example.js';
 const evalCasesDir = path.join(__dirname, '..', 'src', 'evalCases');
 
-async function createEvaluationExamples(domain, instructions, llmProviderName, modelName) {
+async function createEvaluationExamples(
+  domain,
+  instructions,
+  llmProviderName,
+  modelName
+) {
   logger.info(
     `[${SCRIPT_NAME}] Creating evaluation examples for domain: "${domain}" with instructions: "${instructions}" using ${llmProviderName}`
   );
@@ -56,17 +61,29 @@ async function createEvaluationExamples(domain, instructions, llmProviderName, m
 
   const validCases = [];
   for (const ec of evalCases) {
-    if (!ec.id) ec.id = `${domain.replace(/\s+/g, '_').toLowerCase()}_${uuidv4().substring(0, 8)}`;
-    if (!ec.description || !ec.naturalLanguageInput || !ec.inputType || !ec.expectedProlog) {
-      logger.warn(`Skipping invalid case due to missing required fields: ${JSON.stringify(ec)}`);
+    if (!ec.id)
+      ec.id = `${domain.replace(/\s+/g, '_').toLowerCase()}_${uuidv4().substring(0, 8)}`;
+    if (
+      !ec.description ||
+      !ec.naturalLanguageInput ||
+      !ec.inputType ||
+      !ec.expectedProlog
+    ) {
+      logger.warn(
+        `Skipping invalid case due to missing required fields: ${JSON.stringify(ec)}`
+      );
       continue;
     }
     if (!['assert', 'query'].includes(ec.inputType)) {
-      logger.warn(`Skipping invalid case due to invalid inputType: ${ec.inputType}. Case: ${ec.id}`);
+      logger.warn(
+        `Skipping invalid case due to invalid inputType: ${ec.inputType}. Case: ${ec.id}`
+      );
       continue;
     }
     if (ec.inputType === 'query' && ec.expectedAnswer === undefined) {
-      logger.warn(`Query case ${ec.id} is missing 'expectedAnswer'. It will be hard to verify.`);
+      logger.warn(
+        `Query case ${ec.id} is missing 'expectedAnswer'. It will be hard to verify.`
+      );
     }
     ec.tags = ec.tags || [domain.toLowerCase()];
     if (!ec.tags.includes(domain.toLowerCase())) {
@@ -103,21 +120,27 @@ if (require.main === module) {
     domain: {
       alias: 'd',
       type: 'string',
-      description: 'The domain for which to generate examples (e.g., "chemistry", "history")',
+      description:
+        'The domain for which to generate examples (e.g., "chemistry", "history")',
       demandOption: true,
     },
     instructions: {
       alias: 'i',
       type: 'string',
-      description: 'Specific instructions for the types of examples to generate',
+      description:
+        'Specific instructions for the types of examples to generate',
       demandOption: true,
     },
   };
   const argv = setupGeneratorScript(scriptSpecificOptions, SCRIPT_NAME);
 
-  createEvaluationExamples(argv.domain, argv.instructions, argv.provider, argv.model)
-    .catch((error) => {
-      logger.error(`An error occurred in ${SCRIPT_NAME}: ${error.message}`);
-      process.exit(1);
-    });
+  createEvaluationExamples(
+    argv.domain,
+    argv.instructions,
+    argv.provider,
+    argv.model
+  ).catch((error) => {
+    logger.error(`An error occurred in ${SCRIPT_NAME}: ${error.message}`);
+    process.exit(1);
+  });
 }

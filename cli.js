@@ -58,7 +58,8 @@ registerSandboxCommand(program);
 program
   .command('perf-dashboard')
   .description('Launch the Performance Dashboard and Database Explorer TUI.')
-  .action(async () => { // Changed to async to support dynamic import
+  .action(async () => {
+    // Changed to async to support dynamic import
     logger.info('Launching Performance Dashboard TUI...');
     try {
       // Dynamically import runEvaluatorTui when the command is actually run

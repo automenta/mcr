@@ -202,13 +202,13 @@ class StrategyExecutor {
     const queue = [this._findStartNode().id]; // Start with the ID of the start node
 
     let finalOutput; // To store the output of the designated final node if one exists
-    const accumulatedCost = {
-      // Initialize accumulated cost
-      prompt_tokens: 0,
-      completion_tokens: 0,
-      total_tokens: 0,
-      details: [], // To store costData from each LLM call if needed
-    };
+    // const accumulatedCost = { // This variable is unused
+    //   // Initialize accumulated cost
+    //   prompt_tokens: 0,
+    //   completion_tokens: 0,
+    //   total_tokens: 0,
+    //   details: [], // To store costData from each LLM call if needed
+    // };
 
     while (queue.length > 0) {
       const currentNodeId = queue.shift();
@@ -239,32 +239,51 @@ class StrategyExecutor {
       let output;
       try {
         switch (node.type) {
-      case 'LLM_Call': {
-        let systemPrompt, userPrompt;
-        const templateContext = { ...executionState, llm_model_id: node.model || initialContext.llm_model_id || 'default_model' };
+          case 'LLM_Call': {
+            let systemPrompt, userPrompt;
+            const templateContext = {
+              ...executionState,
+              llm_model_id:
+                node.model || initialContext.llm_model_id || 'default_model',
+            };
 
-        if (node.prompt_text && node.prompt_text.user) {
-          systemPrompt = node.prompt_text.system || ''; // Default to empty string if system prompt not provided
-          userPrompt = fillTemplate(node.prompt_text.user, templateContext);
-          logger.debug(`[StrategyExecutor] Node ${node.id}: Using embedded prompt text.`);
-        } else if (node.prompt_template_name) {
-          const promptTemplate = prompts[node.prompt_template_name];
-          if (!promptTemplate) {
-            throw new MCRError(ErrorCodes.PROMPT_TEMPLATE_NOT_FOUND, `Prompt template "${node.prompt_template_name}" not found for node ${node.id}.`);
+            if (node.prompt_text && node.prompt_text.user) {
+              systemPrompt = node.prompt_text.system || ''; // Default to empty string if system prompt not provided
+              userPrompt = fillTemplate(node.prompt_text.user, templateContext);
+              logger.debug(
+                `[StrategyExecutor] Node ${node.id}: Using embedded prompt text.`
+              );
+            } else if (node.prompt_template_name) {
+              const promptTemplate = prompts[node.prompt_template_name];
+              if (!promptTemplate) {
+                throw new MCRError(
+                  ErrorCodes.PROMPT_TEMPLATE_NOT_FOUND,
+                  `Prompt template "${node.prompt_template_name}" not found for node ${node.id}.`
+                );
+              }
+              systemPrompt = promptTemplate.system;
+              userPrompt = fillTemplate(promptTemplate.user, templateContext);
+              logger.debug(
+                `[StrategyExecutor] Node ${node.id}: Using named prompt template '${node.prompt_template_name}'. Context keys: ${Object.keys(templateContext).join(', ')}`
+              );
+            } else {
+              throw new MCRError(
+                ErrorCodes.INVALID_STRATEGY_NODE,
+                `LLM_Call node ${node.id} missing required 'prompt_template_name' or 'prompt_text' property.`
+              );
+            }
+
+            const llmResult = await llmProvider.generate(
+              systemPrompt,
+              userPrompt
+            );
+            output = llmResult.text;
+            // TODO: Accumulate llmResult.costData into totalCost for the execution
+            logger.debug(
+              `[StrategyExecutor] Node ${node.id}: LLM call completed. Output length: ${output?.length}`
+            );
+            break;
           }
-          systemPrompt = promptTemplate.system;
-          userPrompt = fillTemplate(promptTemplate.user, templateContext);
-          logger.debug(`[StrategyExecutor] Node ${node.id}: Using named prompt template '${node.prompt_template_name}'. Context keys: ${Object.keys(templateContext).join(', ')}`);
-        } else {
-          throw new MCRError(ErrorCodes.INVALID_STRATEGY_NODE, `LLM_Call node ${node.id} missing required 'prompt_template_name' or 'prompt_text' property.`);
-        }
-
-        const llmResult = await llmProvider.generate(systemPrompt, userPrompt);
-        output = llmResult.text;
-        // TODO: Accumulate llmResult.costData into totalCost for the execution
-        logger.debug(`[StrategyExecutor] Node ${node.id}: LLM call completed. Output length: ${output?.length}`);
-        break;
-      }
           case 'Parse_JSON':
             if (!node.input_variable) {
               throw new MCRError(
@@ -400,11 +419,17 @@ class StrategyExecutor {
 
           case 'Reasoner_Call':
             if (!node.input_variable) {
-              throw new MCRError(ErrorCodes.INVALID_STRATEGY_NODE, `Reasoner_Call node ${node.id} missing 'input_variable'.`);
+              throw new MCRError(
+                ErrorCodes.INVALID_STRATEGY_NODE,
+                `Reasoner_Call node ${node.id} missing 'input_variable'.`
+              );
             }
             const queryToRun = executionState[node.input_variable];
             if (typeof queryToRun !== 'string') {
-              throw new MCRError(ErrorCodes.INVALID_NODE_INPUT, `Input for Reasoner_Call node ${node.id} (variable '${node.input_variable}') is not a string. Found: ${typeof queryToRun}`);
+              throw new MCRError(
+                ErrorCodes.INVALID_NODE_INPUT,
+                `Input for Reasoner_Call node ${node.id} (variable '${node.input_variable}') is not a string. Found: ${typeof queryToRun}`
+              );
             }
             // Use the session's knowledge base from the execution state.
             // This assumes 'existingFacts' is consistently populated in the initial context.
@@ -413,7 +438,10 @@ class StrategyExecutor {
             const ontologyForReasonerCall = executionState.ontologyRules || '';
             const fullKbForCall = `${kbForReasonerCall}\n${ontologyForReasonerCall}`;
 
-            output = await reasonerService.executeQuery(fullKbForCall, queryToRun);
+            output = await reasonerService.executeQuery(
+              fullKbForCall,
+              queryToRun
+            );
             logger.debug(
               `[StrategyExecutor] Node ${node.id}: Reasoner_Call completed. Results: ${JSON.stringify(output)}`
             );
@@ -479,7 +507,10 @@ class StrategyExecutor {
     let result;
     if (
       this.strategy.result_variable &&
-      executionState.hasOwnProperty(this.strategy.result_variable)
+      Object.prototype.hasOwnProperty.call(
+        executionState,
+        this.strategy.result_variable
+      ) // Fixed: Use Object.prototype.hasOwnProperty.call
     ) {
       result = executionState[this.strategy.result_variable];
       logger.info(

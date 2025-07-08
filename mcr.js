@@ -32,7 +32,9 @@ function startServer() {
     logger.info(`  Reasoner Provider: ${config.reasoner.provider}`);
     // Add reasoner specifics if any in the future
     logger.info(`  Ontology Directory: ${config.ontology.directory}`);
-    logger.info(`  Default Translation Strategy: ${config.translationStrategy}`);
+    logger.info(
+      `  Default Translation Strategy: ${config.translationStrategy}`
+    );
     logger.info('---------------------');
   });
 

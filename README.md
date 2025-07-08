@@ -1,4 +1,3 @@
-
 # 🧠 Model Context Reasoner (MCR) ✨
 
 **For a high-level, marketing-oriented overview of MCR, its applications, and benefits, please see our [OVERVIEW.md](OVERVIEW.md).**
@@ -243,19 +242,26 @@ async function useMcrDirectly() {
   }
   logger.info(`Directly created session: ${sessionId.id}`);
 
-  const assertResult = await mcrService.assertNLToSession(sessionId.id, 'The sun is bright.');
+  const assertResult = await mcrService.assertNLToSession(
+    sessionId.id,
+    'The sun is bright.'
+  );
   logger.info('Direct assert result:', assertResult);
 
   if (assertResult.success) {
-    const queryResult = await mcrService.querySessionWithNL(sessionId.id, 'Is the sun bright?');
+    const queryResult = await mcrService.querySessionWithNL(
+      sessionId.id,
+      'Is the sun bright?'
+    );
     logger.info('Direct query result:', queryResult);
   }
 }
 
-useMcrDirectly().catch(error => {
+useMcrDirectly().catch((error) => {
   logger.error('Error in direct MCR usage:', error);
 });
 ```
+
 **Note:** Direct library usage requires careful setup of MCR's dependencies and configurations (like LLM providers, environment variables) within your host application. For most users, interacting with the MCR server via its API is the recommended and more robust approach.
 
 ## 🛠️ Development Setup and Installation
@@ -324,28 +330,34 @@ MCR offers direct Command Line Interface (CLI) commands via `./cli.js` (or `mcr-
 ### Basic Usage Examples
 
 1.  **Start the MCR Server:**
+
     ```bash
     ./cli.js start-server
     ```
+
     (Ensure your `.env` file is configured, especially for LLM provider API keys.)
 
 2.  **Check Server Status (in another terminal):**
+
     ```bash
     ./cli.js status
     ```
 
 3.  **Create a new session:**
+
     ```bash
     ./cli.js create-session
     # Output will be something like: Session created: { id: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' }
     ```
 
 4.  **Assert a fact to the session (replace `<sessionId>` with actual ID):**
+
     ```bash
     ./cli.js assert <sessionId> "The sky is blue."
     ```
 
 5.  **Query the session:**
+
     ```bash
     ./cli.js query <sessionId> "What color is the sky?"
     ```

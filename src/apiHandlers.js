@@ -50,13 +50,11 @@ async function assertToSessionHandler(req, res, next) {
       logger.info(
         `[API][${correlationId}] Successfully asserted to session ${sessionId}. Facts added: ${result.addedFacts?.length}`
       );
-      res
-        .status(200)
-        .json({
-          message: result.message,
-          addedFacts: result.addedFacts,
-          cost: result.cost,
-        }); // Added cost
+      res.status(200).json({
+        message: result.message,
+        addedFacts: result.addedFacts,
+        cost: result.cost,
+      }); // Added cost
     } else {
       logger.warn(
         `[API][${correlationId}] Failed to assert to session ${sessionId}. Message: ${result.message}, Error: ${result.error}`
@@ -373,12 +371,10 @@ async function setStrategyHandler(req, res, next) {
       logger.info(
         `[API][${correlationId}] Translation strategy successfully set to: ${currentStrategy}`
       );
-      res
-        .status(200)
-        .json({
-          message: `Translation strategy set to ${currentStrategy}`,
-          activeStrategy: currentStrategy,
-        });
+      res.status(200).json({
+        message: `Translation strategy set to ${currentStrategy}`,
+        activeStrategy: currentStrategy,
+      });
     } else {
       logger.warn(
         `[API][${correlationId}] Failed to set translation strategy to: ${strategyName}. It might be invalid or already active.`
@@ -593,13 +589,11 @@ async function nlToRulesDirectHandler(req, res, next) {
       logger.info(
         `[API][${correlationId}] Successfully translated NL to Rules (Direct). Rules count: ${result.rules?.length}`
       );
-      res
-        .status(200)
-        .json({
-          rules: result.rules,
-          rawOutput: result.rawOutput,
-          cost: result.cost,
-        }); // Added cost
+      res.status(200).json({
+        rules: result.rules,
+        rawOutput: result.rawOutput,
+        cost: result.cost,
+      }); // Added cost
     } else {
       logger.warn(
         `[API][${correlationId}] Failed to translate NL to Rules (Direct). Message: ${result.message}, Error: ${result.error}`

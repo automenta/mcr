@@ -1,6 +1,6 @@
 const React = require('react');
 const { Box, Text, render, useApp, useInput } = require('ink');
-const { useEffect, useState, useCallback } = require('react');
+const { useEffect, useState } = require('react'); // useCallback removed
 const dbModule = require('../database'); // To interact with the database
 const logger = require('../logger'); // For logging errors
 const SelectInput = require('ink-select-input').default;
@@ -16,8 +16,8 @@ const App = () => {
   const [strategyRuns, setStrategyRuns] = useState([]);
   const [selectedRun, setSelectedRun] = useState(null); // For detailed view
 
-  const [view, setView] = useState('main'); // main, listStrategies, viewStrategyRuns, viewRunDetails, dashboard
-  const [dashboardData, setDashboardData] = useState(null);
+  const [view, setView] = useState('listStrategies'); // main, listStrategies, viewStrategyRuns, viewRunDetails, dashboard // Default to listStrategies
+  // const [dashboardData, setDashboardData] = useState(null); // Removed as dashboard view is not implemented
 
   // Initial data fetch (strategies and dashboard stats)
   useEffect(() => {
@@ -147,9 +147,9 @@ const App = () => {
   return (
     <Box flexDirection="column" padding={1} width="100%">
       <Box borderStyle="round" paddingX={1} marginBottom={1} width="100%">
-        <Text bold>MCR Performance Dashboard & Database Explorer</Text>
+        <Text bold>MCR Performance Dashboard &amp; Database Explorer</Text>
         <Box flexGrow={1} />
-        <Text>(Press 'Esc' to go back, Ctrl+C to exit)</Text>
+        <Text>(Press &apos;Esc&apos; to go back, Ctrl+C to exit)</Text>
       </Box>
 
       {view === 'listStrategies' && (
@@ -238,7 +238,7 @@ const App = () => {
 };
 
 const runEvaluatorTui = () => {
-  const { unmount } = render(React.createElement(App));
+  render(React.createElement(App)); // unmount removed
   // Ink handles Ctrl+C for unmounting by default.
   // We need to ensure the DB connection is closed on exit.
   // The App component's useEffect cleanup handles this.

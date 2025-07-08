@@ -76,7 +76,9 @@ function addFacts(sessionId, newFacts) {
     .filter((f) => f.length > 0 && f.endsWith('.'));
 
   if (validatedFacts.length !== newFacts.length) {
-      logger.warn(`[SessionManager] Some facts were invalid (empty or not ending with '.') and were not added to session ${sessionId}.`);
+    logger.warn(
+      `[SessionManager] Some facts were invalid (empty or not ending with '.') and were not added to session ${sessionId}.`
+    );
   }
 
   // Update lexicon before adding facts
