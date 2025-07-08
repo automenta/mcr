@@ -179,8 +179,8 @@ describe('ReasonerService (Prolog Provider)', () => {
       expect(mockPrologReasonerExecuteQuery).toHaveBeenCalledWith(
         kb,
         query,
-        10
-      ); // Default limit is 10
+        {}
+      ); // Default options is {}
       expect(results).toEqual(mockResult);
     });
 

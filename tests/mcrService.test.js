@@ -438,7 +438,10 @@ describe('MCR Service (mcrService.js)', () => {
           );
         }
       );
-      reasonerService.executeQuery.mockResolvedValue(reasonerResults);
+      reasonerService.executeQuery.mockResolvedValue({
+        results: reasonerResults,
+        trace: null,
+      });
     });
 
     it('should successfully query a session with NL using SIR-R1-Query strategy', async () => {
@@ -501,6 +504,45 @@ describe('MCR Service (mcrService.js)', () => {
       );
       expect(result.success).toBe(true);
       expect(result.answer).toBe(nlAnswer);
+    });
+
+    it('should successfully query with trace enabled and return an explanation', async () => {
+      const traceMock = {
+        goal: 'color(sky, Color).',
+        children: [{ goal: 'is_blue(sky).', children: [] }],
+      };
+      const explanationMock = 'The sky is blue because it was found to be blue.';
+      reasonerService.executeQuery.mockResolvedValue({
+        results: reasonerResults,
+        trace: traceMock,
+      });
+
+      llmService.generate.mockImplementation(
+        async (systemPrompt, userPrompt) => {
+          if (systemPrompt === prompts.NL_TO_QUERY.system) {
+            return { text: prologQuery, costData: null };
+          }
+          if (systemPrompt === prompts.LOGIC_TO_NL_ANSWER.system) {
+            return { text: nlAnswer, costData: null };
+          }
+          if (systemPrompt === prompts.LOGIC_TRACE_TO_NL.system) {
+            return { text: explanationMock, costData: null };
+          }
+          return Promise.reject(new Error('Unexpected LLM call in trace test'));
+        }
+      );
+
+      const result = await mcrService.querySessionWithNL(sessionId, nlQuestion, {
+        trace: true,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.answer).toBe(nlAnswer);
+      expect(result.explanation).toBe(explanationMock);
+      expect(llmService.generate).toHaveBeenCalledWith(
+        prompts.LOGIC_TRACE_TO_NL.system,
+        expect.stringContaining(JSON.stringify(traceMock, null, 2))
+      );
     });
 
     it('should return error if LLM generates null for Prolog query', async () => {

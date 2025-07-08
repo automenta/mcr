@@ -358,17 +358,17 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
 
 /**
  * Queries a session with a natural language question.
- * It translates the NL question to a Prolog query using the active query strategy,
- * executes the query against the session's knowledge base (including global and dynamic ontologies),
- * and then translates the Prolog results back into a natural language answer.
+ * It translates the NL question to a Prolog query, executes it, and translates the results back to a natural language answer.
+ * Optionally, it can also trace the proof and provide a natural language explanation of the reasoning steps.
  * @param {string} sessionId - The ID of the session to query.
  * @param {string} naturalLanguageQuestion - The natural language question.
  * @param {object} [queryOptions={}] - Optional. Options for the query.
  * @param {string} [queryOptions.dynamicOntology] - Optional. A string of Prolog rules to dynamically add to the KB for this query.
- * @param {string} [queryOptions.style="conversational"] - Optional. The desired style for the NL answer (e.g., "conversational", "technical").
- * @returns {Promise<object>} An object containing the NL answer, or an error.
- *                            Successful structure: `{ success: true, answer: string, debugInfo: object }`
- *                            Error structure: `{ success: false, message: string, debugInfo: object, error: string, details?: string, strategyId: string }`
+ * @param {string} [queryOptions.style="conversational"] - Optional. The desired style for the NL answer.
+ * @param {boolean} [queryOptions.trace=false] - Optional. Whether to generate and return a proof trace explanation.
+ * @returns {Promise<object>} An object containing the NL answer and optionally an explanation, or an error.
+ *                            Successful structure: `{ success: true, answer: string, explanation?: string, debugInfo: object }`
+ *                            Error structure: `{ success: false, message: string, debugInfo: object, error: string, ... }`
  */
 async function querySessionWithNL(
   sessionId,
@@ -380,14 +380,17 @@ async function querySessionWithNL(
     naturalLanguageQuestion
   );
   const currentStrategyId = activeStrategyJson.id;
-  const { dynamicOntology, style = 'conversational' } = queryOptions;
+  const {
+    dynamicOntology,
+    style = 'conversational',
+    trace = false,
+  } = queryOptions;
   logger.info(
     `[McrService] Enter querySessionWithNL for session ${sessionId} using strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}). NL Question: "${naturalLanguageQuestion}"`,
     { queryOptions }
   );
   const operationId = `query-${Date.now()}`;
 
-  // Use sessionStore and await the async call
   const sessionExists = await sessionStore.getSession(sessionId);
   if (!sessionExists) {
     logger.warn(
@@ -405,10 +408,10 @@ async function querySessionWithNL(
     strategyId: currentStrategyId,
     operationId,
     level: config.debugLevel,
+    traceRequested: trace,
   };
 
   try {
-    // Use sessionStore and await the async calls
     const existingFacts =
       (await sessionStore.getKnowledgeBase(sessionId)) || '';
     let ontologyRules = '';
@@ -437,13 +440,11 @@ async function querySessionWithNL(
       `[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for query translation. OpID: ${operationId}.`
     );
     const executor = new StrategyExecutor(activeStrategyJson);
-    const strategyExecutionResult = await executor.execute(
+    const prologQuery = await executor.execute(
       llmService,
       reasonerService,
       initialContext
     );
-    const prologQuery = strategyExecutionResult; // Corrected: strategyExecutionResult is the prolog query string
-    // TODO: Accumulate/return strategyExecutionResult.totalCost; if execute returns an object with cost
 
     if (typeof prologQuery !== 'string' || !prologQuery.endsWith('.')) {
       logger.error(
@@ -459,20 +460,12 @@ async function querySessionWithNL(
     );
     debugInfo.prologQuery = prologQuery;
 
-    // Use sessionStore and await the async call
     let knowledgeBase = await sessionStore.getKnowledgeBase(sessionId);
     if (knowledgeBase === null) {
-      logger.error(
-        `[McrService] Knowledge base is null for existing session ${sessionId}. OpID: ${operationId}. This indicates an unexpected state.`
+      throw new MCRError(
+        ErrorCodes.INTERNAL_KB_NOT_FOUND,
+        'Internal error: Knowledge base not found for an existing session.'
       );
-      return {
-        success: false,
-        message:
-          'Internal error: Knowledge base not found for an existing session.',
-        debugInfo,
-        error: ErrorCodes.INTERNAL_KB_NOT_FOUND,
-        strategyId: currentStrategyId,
-      };
     }
 
     try {
@@ -487,31 +480,27 @@ async function querySessionWithNL(
       debugInfo.ontologyErrorForReasoner = `Failed to load global ontologies for reasoner: ${ontError.message}`;
     }
 
-    if (
-      dynamicOntology &&
-      typeof dynamicOntology === 'string' &&
-      dynamicOntology.trim() !== ''
-    ) {
+    if (dynamicOntology && typeof dynamicOntology === 'string' && dynamicOntology.trim() !== '') {
       knowledgeBase += `\n% --- Dynamic RAG Ontology (Query-Specific) ---\n${dynamicOntology.trim()}`;
       debugInfo.dynamicOntologyProvided = true;
     }
 
-    if (config.debugLevel === 'verbose')
+    if (config.debugLevel === 'verbose') {
       debugInfo.knowledgeBaseSnapshot = knowledgeBase;
-    else if (config.debugLevel === 'basic')
-      debugInfo.knowledgeBaseSummary = `KB length: ${knowledgeBase.length}, Dynamic RAG: ${!!debugInfo.dynamicOntologyProvided}`;
+    }
 
-    const prologResults = await reasonerService.executeQuery(
+    const reasonerResult = await reasonerService.executeQuery(
       knowledgeBase,
-      prologQuery
+      prologQuery,
+      { trace } // Pass trace option to reasoner
     );
 
-    if (config.debugLevel === 'verbose')
+    const { results: prologResults, trace: proofTrace } = reasonerResult;
+
+    if (config.debugLevel === 'verbose') {
       debugInfo.prologResultsJSON = JSON.stringify(prologResults);
-    else if (config.debugLevel === 'basic')
-      debugInfo.prologResultsSummary = Array.isArray(prologResults)
-        ? `${prologResults.length} solution(s) found.`
-        : `Result: ${prologResults}`;
+      debugInfo.proofTrace = proofTrace;
+    }
 
     const logicToNlPromptContext = {
       naturalLanguageQuestion,
@@ -522,34 +511,54 @@ async function querySessionWithNL(
       prompts.LOGIC_TO_NL_ANSWER.system,
       fillTemplate(prompts.LOGIC_TO_NL_ANSWER.user, logicToNlPromptContext)
     );
-    const naturalLanguageAnswerText =
-      llmAnswerResult && typeof llmAnswerResult.text === 'string'
-        ? llmAnswerResult.text
-        : null;
-    // TODO: Accumulate/return llmAnswerResult.costData
-
-    if (config.debugLevel === 'verbose')
-      debugInfo.llmTranslationResultToNL = naturalLanguageAnswerText;
+    const naturalLanguageAnswerText = llmAnswerResult?.text;
 
     if (!naturalLanguageAnswerText) {
-      // Check if LLM failed to provide an answer text
       logger.warn(
         `[McrService] LLM returned no text for LOGIC_TO_NL_ANSWER. OpID: ${operationId}`
       );
       return {
         success: false,
-        message:
-          'Failed to generate a natural language answer from query results.',
+        message: 'Failed to generate a natural language answer from query results.',
         debugInfo,
         error: ErrorCodes.LLM_EMPTY_RESPONSE,
         strategyId: currentStrategyId,
       };
     }
 
+    let explanation = null;
+    if (trace && proofTrace) {
+      logger.info(
+        `[McrService] Generating proof explanation from trace. OpID: ${operationId}`
+      );
+      const tracePrompt = getPromptTemplateByName('LOGIC_TRACE_TO_NL');
+      if (tracePrompt) {
+        const traceContext = { trace: JSON.stringify(proofTrace, null, 2) };
+        const llmTraceResult = await llmService.generate(
+          tracePrompt.system,
+          fillTemplate(tracePrompt.user, traceContext)
+        );
+        explanation = llmTraceResult?.text;
+        if (config.debugLevel === 'verbose') {
+          debugInfo.traceExplanation = explanation;
+        }
+      } else {
+        logger.warn(
+          `[McrService] LOGIC_TRACE_TO_NL prompt template not found. Cannot generate explanation. OpID: ${operationId}`
+        );
+        debugInfo.traceExplanationError = 'LOGIC_TRACE_TO_NL prompt not found.';
+      }
+    }
+
     logger.info(
       `[McrService] NL answer generated (OpID: ${operationId}): "${naturalLanguageAnswerText}"`
     );
-    return { success: true, answer: naturalLanguageAnswerText, debugInfo };
+    return {
+      success: true,
+      answer: naturalLanguageAnswerText,
+      explanation,
+      debugInfo,
+    };
   } catch (error) {
     logger.error(
       `[McrService] Error querying session ${sessionId} with NL (OpID: ${operationId}, Strategy ID: ${currentStrategyId}): ${error.message}`,

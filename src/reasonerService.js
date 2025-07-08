@@ -31,11 +31,12 @@ function getProvider() {
  * Executes a query against a given knowledge base using the configured reasoner.
  * @param {string} knowledgeBase - A string containing all facts and rules for the reasoner.
  * @param {string} query - The query string for the reasoner.
- * @param {number} [limit=10] - Maximum number of answers to retrieve.
- * @returns {Promise<Array<object|string|boolean>>} A promise that resolves to an array of formatted answers.
+ * @param {object} [options={}] - Options for execution (e.g., { limit: 10, trace: true }).
+ * @returns {Promise<{results: Array<object|string|boolean>, trace: object|null}>} A promise that resolves to an object
+ *          containing formatted answers and the proof trace if requested.
  * @throws {Error} If the reasoner provider is not configured or query execution fails.
  */
-async function executeQuery(knowledgeBase, query, limit = 10) {
+async function executeQuery(knowledgeBase, query, options = {}) {
   const provider = getProvider();
   if (!provider || typeof provider.executeQuery !== 'function') {
     logger.error(
@@ -47,9 +48,9 @@ async function executeQuery(knowledgeBase, query, limit = 10) {
   try {
     logger.debug(
       `ReasonerService:executeQuery called with provider ${provider.name}`,
-      { knowledgeBaseLen: knowledgeBase.length, query, limit }
+      { knowledgeBaseLen: knowledgeBase.length, query, options }
     );
-    return await provider.executeQuery(knowledgeBase, query, limit);
+    return await provider.executeQuery(knowledgeBase, query, options);
   } catch (error) {
     logger.error(
       `Error during reasoner execution with ${provider.name}: ${error.message}`,
