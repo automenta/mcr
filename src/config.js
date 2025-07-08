@@ -11,6 +11,8 @@ const config = {
     provider: process.env.MCR_LLM_PROVIDER || 'ollama', // Default to ollama
     ollama: {
       model: process.env.MCR_LLM_MODEL_OLLAMA || 'llama3',
+      embeddingModel:
+        process.env.MCR_LLM_EMBEDDING_MODEL_OLLAMA || 'nomic-embed-text',
       baseURL: process.env.MCR_LLM_OLLAMA_BASE_URL || 'http://localhost:11434',
     },
     gemini: {
