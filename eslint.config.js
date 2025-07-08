@@ -46,7 +46,10 @@ module.exports = [
     rules: {
       ...eslintPluginReact.configs.recommended.rules,
       // Add or override rules here
-      'no-unused-vars': 'warn',
+      'no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       'no-console': 'off',
       'no-case-declarations': 'off', // Turning this off for now, will address later if necessary
       'react/react-in-jsx-scope': 'off', // Not needed with new JSX transform

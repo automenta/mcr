@@ -1,6 +1,6 @@
 // src/evaluation/metrics.js
 const logger = require('../logger'); // Assuming logger is accessible via ../
-const { prompts, fillTemplate, getPromptTemplateByName } = require('../prompts'); // Assuming prompts is accessible
+const { fillTemplate, getPromptTemplateByName } = require('../prompts'); // Assuming prompts is accessible
 
 // Helper for normalizeProlog, kept internal to this module
 const normalizeSingleProlog = (code) => {
@@ -61,9 +61,13 @@ const metrics = {
     }
     if (actualAnswer.trim() === expectedAnswer.trim()) return true;
 
-    const similarityPromptTemplate = getPromptTemplateByName('SEMANTIC_SIMILARITY_CHECK');
+    const similarityPromptTemplate = getPromptTemplateByName(
+      'SEMANTIC_SIMILARITY_CHECK'
+    );
     if (!similarityPromptTemplate) {
-      logger.error('[Metrics] SEMANTIC_SIMILARITY_CHECK prompt template not found!');
+      logger.error(
+        '[Metrics] SEMANTIC_SIMILARITY_CHECK prompt template not found!'
+      );
       return false;
     }
 
@@ -78,11 +82,18 @@ const metrics = {
 
     try {
       const response = await llmGenerateFunc(systemPrompt, userPrompt);
-      logger.debug(`[Metrics] Semantic similarity LLM response: ${response.text || response}`); // response might be an object or string
-      const responseText = (typeof response === 'object' && response.text) ? response.text : String(response);
+      logger.debug(
+        `[Metrics] Semantic similarity LLM response: ${response.text || response}`
+      ); // response might be an object or string
+      const responseText =
+        typeof response === 'object' && response.text
+          ? response.text
+          : String(response);
       return responseText.trim().toLowerCase().startsWith('similar');
     } catch (error) {
-      logger.error(`[Metrics] Error during semantic similarity check: ${error.message}`);
+      logger.error(
+        `[Metrics] Error during semantic similarity check: ${error.message}`
+      );
       return false;
     }
   },

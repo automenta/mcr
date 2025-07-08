@@ -32,7 +32,10 @@ function setupRoutes(app) {
     '/sessions/:sessionId/assert',
     sessionHandlers.assertToSessionHandler
   );
-  router.post('/sessions/:sessionId/query', sessionHandlers.querySessionHandler);
+  router.post(
+    '/sessions/:sessionId/query',
+    sessionHandlers.querySessionHandler
+  );
   router.post(
     '/sessions/:sessionId/explain-query',
     translationHandlers.explainQueryHandler // Moved to translationHandlers
@@ -46,8 +49,14 @@ function setupRoutes(app) {
   router.delete('/ontologies/:name', ontologyHandlers.deleteOntologyHandler);
 
   // Direct translation
-  router.post('/translate/nl-to-rules', translationHandlers.nlToRulesDirectHandler);
-  router.post('/translate/rules-to-nl', translationHandlers.rulesToNlDirectHandler);
+  router.post(
+    '/translate/nl-to-rules',
+    translationHandlers.nlToRulesDirectHandler
+  );
+  router.post(
+    '/translate/rules-to-nl',
+    translationHandlers.rulesToNlDirectHandler
+  );
 
   // Strategy Management Endpoints
   router.get('/strategies', strategyHandlers.listStrategiesHandler);

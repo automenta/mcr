@@ -24,7 +24,7 @@ const DEFAULT_QUERY_CLASS = 'general_query';
 //     return evalCaseMapCache;
 // }
 
-class InputRouter {
+class KeywordInputRouter {
   constructor(db) {
     if (!db) {
       throw new MCRError(
@@ -284,4 +284,4 @@ class InputRouter {
   }
 }
 
-module.exports = InputRouter;
+module.exports = KeywordInputRouter;

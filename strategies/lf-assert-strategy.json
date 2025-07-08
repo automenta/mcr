@@ -1,0 +1,40 @@
+{
+  "id": "LF-R1-Assert",
+  "name": "Logical Form R1 Assertion Strategy",
+  "description": "A strategy that uses a Logical Form (LF) as the intermediate representation. Converts Natural Language directly to LF JSON by an LLM, then LF to Prolog.",
+  "result_variable": "prolog_clauses",
+  "nodes": [
+    {
+      "id": "step1_nl_to_lf_llm",
+      "type": "LLM_Call",
+      "prompt_text": {
+        "system": "You are an expert in formal logic. Convert the given natural language statement into a structured JSON Logical Form (LF). The LF should represent facts or rules. Example NL: 'All humans are mortal.' Example LF: {\"type\": \"rule\", \"head\": {\"predicate\": \"mortal\", \"args\": [{\"type\": \"variable\", \"name\": \"X\"}]}, \"body\": [{\"predicate\": \"is_a\", \"args\": [{\"type\": \"variable\", \"name\": \"X\"}, {\"type\": \"atom\", \"value\": \"human\"}]}]}. Output only the JSON object in a ```json ... ``` block.",
+        "user": "Natural Language: {{naturalLanguageText}}"
+      },
+      "model": "{{llm_model_id}}",
+      "output_variable": "lf_json_string"
+    },
+    {
+      "id": "step2_parse_lf_json",
+      "type": "Parse_JSON",
+      "input_variable": "lf_json_string",
+      "output_variable": "lf_json_object"
+    },
+    {
+      "id": "step3_lf_to_prolog",
+      "type": "LF_To_Prolog",
+      "input_variable": "lf_json_object",
+      "output_variable": "prolog_clauses"
+    }
+  ],
+  "edges": [
+    {
+      "from": "step1_nl_to_lf_llm",
+      "to": "step2_parse_lf_json"
+    },
+    {
+      "from": "step2_parse_lf_json",
+      "to": "step3_lf_to_prolog"
+    }
+  ]
+}

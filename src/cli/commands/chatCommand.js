@@ -64,9 +64,9 @@ const McrApp = ({
         // new apiHandlers.js getRoot just returns { status: 'ok', message: 'MCR API is running.' }
         // This needs to be enhanced or use config directly for LLM info for status bar.
         // For now, use config directly for LLM info, and API for server liveness.
-        setLlmInfoDisplay(
-          `LLM: ${config.llm.provider} (${config.llm.modelName[config.llm.provider] || 'default'})`
-        );
+        const llmProvider = config.llm.provider;
+        const llmModel = config.llm[llmProvider]?.model || 'default';
+        setLlmInfoDisplay(`LLM: ${llmProvider} (${llmModel})`);
       } else {
         setServerStatusDisplay(status.status || 'Offline'); // 'offline', 'error_response'
         setLlmInfoDisplay('LLM: N/A');
