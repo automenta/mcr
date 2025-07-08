@@ -24,15 +24,20 @@ if (storeType === 'file') {
 } else {
   // Default to InMemorySessionStore if type is 'memory', undefined, or invalid
   if (storeType !== 'memory' && storeType !== undefined) {
-    logger.warn(`[McrService] Invalid MCR_SESSION_STORE_TYPE "${config.sessionStore.type}". Defaulting to "memory".`);
+    logger.warn(
+      `[McrService] Invalid MCR_SESSION_STORE_TYPE "${config.sessionStore.type}". Defaulting to "memory".`
+    );
   }
   sessionStore = new InMemorySessionStore();
   logger.info('[McrService] Using InMemorySessionStore.');
 }
 
 // Initialize the selected session store
-sessionStore.initialize().catch(error => {
-  logger.error('[McrService] Critical error: Failed to initialize session store. Further operations may fail.', error);
+sessionStore.initialize().catch((error) => {
+  logger.error(
+    '[McrService] Critical error: Failed to initialize session store. Further operations may fail.',
+    error
+  );
   // Consider if the application should exit or operate in a degraded mode.
   // For now, it will continue, but session operations will likely fail.
   // process.exit(1); // Or throw a more specific error to be caught by a global error handler
@@ -191,7 +196,8 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
 
   try {
     // Use sessionStore and await the async calls
-    const existingFacts = (await sessionStore.getKnowledgeBase(sessionId)) || '';
+    const existingFacts =
+      (await sessionStore.getKnowledgeBase(sessionId)) || '';
     let ontologyRules = '';
     try {
       const globalOntologies = await ontologyService.listOntologies(true);
@@ -367,7 +373,8 @@ async function querySessionWithNL(
 
   try {
     // Use sessionStore and await the async calls
-    const existingFacts = (await sessionStore.getKnowledgeBase(sessionId)) || '';
+    const existingFacts =
+      (await sessionStore.getKnowledgeBase(sessionId)) || '';
     let ontologyRules = '';
     try {
       const globalOntologies = await ontologyService.listOntologies(true);
@@ -538,7 +545,6 @@ async function translateNLToRulesDirect(naturalLanguageText, strategyIdToUse) {
       (await getOperationalStrategyJson('Assert', naturalLanguageText)) // Fallback to mcrService's logic
     : await getOperationalStrategyJson('Assert', naturalLanguageText);
 
-
   if (!strategyJsonToUse) {
     logger.error(
       `[McrService] No valid strategy found for direct NL to Rules. Base ID: "${effectiveBaseId}".`
@@ -652,11 +658,11 @@ async function translateRulesToNLDirect(prologRules, style = 'conversational') {
 
   const directRulesToNlPrompt = getPromptTemplateByName('RULES_TO_NL_DIRECT');
   if (!directRulesToNlPrompt) {
-    logger.error("[McrService] RULES_TO_NL_DIRECT prompt template not found.");
+    logger.error('[McrService] RULES_TO_NL_DIRECT prompt template not found.');
     return {
-        success: false,
-        message: "Internal error: RULES_TO_NL_DIRECT prompt template not found.",
-        error: ErrorCodes.PROMPT_TEMPLATE_NOT_FOUND,
+      success: false,
+      message: 'Internal error: RULES_TO_NL_DIRECT prompt template not found.',
+      error: ErrorCodes.PROMPT_TEMPLATE_NOT_FOUND,
     };
   }
 
@@ -722,7 +728,10 @@ async function translateRulesToNLDirect(prologRules, style = 'conversational') {
 
 async function explainQuery(sessionId, naturalLanguageQuestion) {
   // Use getOperationalStrategyJson from mcrService
-  const activeStrategyJson = await getOperationalStrategyJson('Query', naturalLanguageQuestion);
+  const activeStrategyJson = await getOperationalStrategyJson(
+    'Query',
+    naturalLanguageQuestion
+  );
   const currentStrategyId = activeStrategyJson.id;
   const operationId = `explain-${Date.now()}`;
 
@@ -748,20 +757,26 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
     level: config.debugLevel,
   };
 
-  const explainPrologQueryPrompt = getPromptTemplateByName('EXPLAIN_PROLOG_QUERY');
+  const explainPrologQueryPrompt = getPromptTemplateByName(
+    'EXPLAIN_PROLOG_QUERY'
+  );
   if (!explainPrologQueryPrompt) {
-     logger.error("[McrService] EXPLAIN_PROLOG_QUERY prompt template not found.");
-     return {
-        success: false,
-        message: "Internal error: EXPLAIN_PROLOG_QUERY prompt template not found.",
-        error: ErrorCodes.PROMPT_TEMPLATE_NOT_FOUND,
-        debugInfo,
-     };
+    logger.error(
+      '[McrService] EXPLAIN_PROLOG_QUERY prompt template not found.'
+    );
+    return {
+      success: false,
+      message:
+        'Internal error: EXPLAIN_PROLOG_QUERY prompt template not found.',
+      error: ErrorCodes.PROMPT_TEMPLATE_NOT_FOUND,
+      debugInfo,
+    };
   }
 
   try {
     // Use sessionStore and await the async calls
-    const existingFacts = (await sessionStore.getKnowledgeBase(sessionId)) || '';
+    const existingFacts =
+      (await sessionStore.getKnowledgeBase(sessionId)) || '';
     let contextOntologyRulesForQueryTranslation = '';
     try {
       const globalOntologies = await ontologyService.listOntologies(true);
@@ -881,7 +896,6 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
 
 // END: Functions moved from translationService.js
 
-
 async function getPrompts() {
   const operationId = `getPrompts-${Date.now()}`;
   logger.info(`[McrService] Enter getPrompts (OpID: ${operationId})`);
@@ -991,21 +1005,25 @@ module.exports = {
   setTranslationStrategy,
   getActiveStrategyId,
   // Updated session management functions to use sessionStore and be async
-  createSession: async (sessionId) => { // Ensure it's async and can take an optional sessionId
+  createSession: async (sessionId) => {
+    // Ensure it's async and can take an optional sessionId
     return sessionStore.createSession(sessionId);
   },
-  getSession: async (sessionId) => { // Ensure it's async
+  getSession: async (sessionId) => {
+    // Ensure it's async
     return sessionStore.getSession(sessionId);
   },
-  deleteSession: async (sessionId) => { // Ensure it's async
+  deleteSession: async (sessionId) => {
+    // Ensure it's async
     return sessionStore.deleteSession(sessionId);
   },
-  getLexiconSummary: async (sessionId) => { // Ensure it's async
+  getLexiconSummary: async (sessionId) => {
+    // Ensure it's async
     return sessionStore.getLexiconSummary(sessionId);
   },
   translateNLToRulesDirect, // Now directly in mcrService
   translateRulesToNLDirect, // Now directly in mcrService
-  explainQuery,             // Now directly in mcrService
+  explainQuery, // Now directly in mcrService
   getPrompts,
   debugFormatPrompt,
   getAvailableStrategies: strategyManager.getAvailableStrategies,

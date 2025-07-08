@@ -27,6 +27,11 @@ const config = {
       apiKey: process.env.ANTHROPIC_API_KEY,
       model: process.env.MCR_LLM_MODEL_ANTHROPIC || 'claude-3-opus-20240229', // Example default
     },
+    generic_openai: {
+      model: process.env.MCR_LLM_MODEL_GENERIC_OPENAI,
+      baseURL: process.env.MCR_LLM_GENERIC_OPENAI_BASE_URL,
+      apiKey: process.env.MCR_LLM_GENERIC_OPENAI_API_KEY, // Optional
+    },
     // Future providers can be added here by defining their config structure
   },
   reasoner: {
@@ -50,13 +55,15 @@ const config = {
   debugLevel: process.env.MCR_DEBUG_LEVEL || 'none',
   sessionStore: {
     type: process.env.MCR_SESSION_STORE_TYPE || 'memory', // 'memory' or 'file'
-    filePath: process.env.MCR_SESSION_STORE_FILE_PATH || path.resolve(process.cwd(), './.sessions'), // Default path for file store
+    filePath:
+      process.env.MCR_SESSION_STORE_FILE_PATH ||
+      path.resolve(process.cwd(), './.sessions'), // Default path for file store
   },
 };
 
 // Validation for required keys based on provider
 function validateConfig() {
-  const { provider, gemini, openai, anthropic } = config.llm; // Include new provider configs
+  const { provider, gemini, openai, anthropic, generic_openai } = config.llm; // Include new provider configs
 
   const selectedProvider = provider.toLowerCase(); // Normalize for comparison
 
@@ -80,13 +87,20 @@ function validateConfig() {
         'Configuration Error: MCR_LLM_PROVIDER is "anthropic" but ANTHROPIC_API_KEY is not set.'
       );
     }
+  // Ollama is the default and doesn't require an API key.
+  } else if (selectedProvider === 'generic_openai') {
+    if (!config.llm.generic_openai?.model) {
+      throw new Error(
+        'Configuration Error: MCR_LLM_PROVIDER is "generic_openai" but MCR_LLM_MODEL_GENERIC_OPENAI is not set.'
+      );
+    }
+    if (!config.llm.generic_openai?.baseURL) { // Kept original config.llm path for baseURL check
+      throw new Error(
+        'Configuration Error: MCR_LLM_PROVIDER is "generic_openai" but MCR_LLM_GENERIC_OPENAI_BASE_URL is not set.'
+      );
+    }
   }
-  // Ollama is the default and doesn't require an API key, so no specific check here unless other params become mandatory.
   // Add more validation for other providers or specific settings as needed.
-  // For example, if a provider requires a model to be specified:
-  // if (selectedProvider === 'some_other_provider' && !config.llm.some_other_provider.model) {
-  //   throw new Error('Configuration Error: Model for some_other_provider is not set.');
-  // }
 
   // Validate debugLevel
   const validDebugLevels = ['none', 'basic', 'verbose'];

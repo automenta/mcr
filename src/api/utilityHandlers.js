@@ -5,7 +5,6 @@ const logger = require('../logger');
 const { name, version, description } = require('../../package.json'); // Adjusted path
 const config = require('../config');
 
-
 async function getStatusHandler(req, res, next) {
   const correlationId = req.correlationId;
   logger.info(`[API][${correlationId}] Enter getStatusHandler`);

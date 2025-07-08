@@ -46,7 +46,9 @@ class ISessionStore {
    * @returns {Promise<boolean>} True if facts were added, false if session not found or facts invalid.
    */
   async addFacts(sessionId, newFacts) {
-    throw new Error('Method "addFacts(sessionId, newFacts)" must be implemented.');
+    throw new Error(
+      'Method "addFacts(sessionId, newFacts)" must be implemented.'
+    );
   }
 
   /**
@@ -55,7 +57,9 @@ class ISessionStore {
    * @returns {Promise<string|null>} A string containing all Prolog facts or null if session not found.
    */
   async getKnowledgeBase(sessionId) {
-    throw new Error('Method "getKnowledgeBase(sessionId)" must be implemented.');
+    throw new Error(
+      'Method "getKnowledgeBase(sessionId)" must be implemented.'
+    );
   }
 
   /**
@@ -73,7 +77,9 @@ class ISessionStore {
    * @returns {Promise<string|null>} A string representing the lexicon summary (e.g., "Known Predicates (name/arity):\n- is_a/2\n- mortal/1") or null if session not found.
    */
   async getLexiconSummary(sessionId) {
-    throw new Error('Method "getLexiconSummary(sessionId)" must be implemented.');
+    throw new Error(
+      'Method "getLexiconSummary(sessionId)" must be implemented.'
+    );
   }
 
   /**

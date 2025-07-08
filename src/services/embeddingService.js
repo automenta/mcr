@@ -52,12 +52,15 @@ class EmbeddingService {
     const vector = new Array(this.embeddingDimension).fill(0);
     for (let i = 0; i < text.length; i++) {
       vector[i % this.embeddingDimension] =
-        (vector[i % this.embeddingDimension] + text.charCodeAt(i)) % 256 / 255; // Normalize
+        ((vector[i % this.embeddingDimension] + text.charCodeAt(i)) % 256) /
+        255; // Normalize
     }
     // Ensure all values are numbers and finite, otherwise return a default vector.
-    if (vector.some(isNaN) || vector.some(v => !isFinite(v))) {
-        logger.warn(`[EmbeddingService] Could not generate a valid mock embedding for text: "${text}". Returning zero vector.`);
-        return new Array(this.embeddingDimension).fill(0);
+    if (vector.some(isNaN) || vector.some((v) => !isFinite(v))) {
+      logger.warn(
+        `[EmbeddingService] Could not generate a valid mock embedding for text: "${text}". Returning zero vector.`
+      );
+      return new Array(this.embeddingDimension).fill(0);
     }
     return vector;
   }
@@ -68,12 +71,12 @@ class EmbeddingService {
    * @returns {Promise<EmbeddingVector[]>} The mock embedding vectors.
    */
   async getEmbeddings(texts) {
-    if (!Array.isArray(texts) || !texts.every(t => typeof t === 'string')) {
+    if (!Array.isArray(texts) || !texts.every((t) => typeof t === 'string')) {
       throw new Error('Invalid input: texts must be an array of strings.');
     }
     // For the mock, we can just call getEmbedding for each text.
     // In a real implementation, batching might be more efficient.
-    return Promise.all(texts.map(text => this.getEmbedding(text)));
+    return Promise.all(texts.map((text) => this.getEmbedding(text)));
   }
 }
 

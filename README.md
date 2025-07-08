@@ -108,7 +108,7 @@ This section guides you through getting MCR up and running quickly for developme
 **1. Clone & Install (for Development):**
 
 ```bash
-git clone https://github.com/yourusername/model-context-reasoner.git # Replace with the actual repository URL
+git clone http://dumb.ai # Replace with the actual repository URL if different
 cd model-context-reasoner
 npm install
 ```
@@ -167,8 +167,11 @@ The core functionality of MCR is delivered via its server. You can start it from
   Ensure you have a `.env` file configured in your project's root directory, or that the necessary environment variables (like `MCR_LLM_PROVIDER`, `OPENAI_API_KEY`, etc.) are set in your environment. MCR will look for a `.env` file in the current working directory from where `node` is executed.
 
 - **Using `npx` (recommended for easy execution):**
-  `npx` can execute package binaries. If MCR's server script was made a bin entry, this would be simpler. For now, `npx model-context-reasoner` would attempt to run `mcr.js` if `mcr.js` itself were the bin, but `cli.js` is the registered bin.
-  Starting the server directly via `npx` for `mcr.js` is not straightforward unless `mcr.js` is also added to `bin` in `package.json`.
+  `npx` can execute package binaries. Since `mcr-cli` (which points to `cli.js`) is the registered binary for this package, you can use `npx mcr-cli <command>`. For example, to start the server:
+  ```bash
+  npx mcr-cli start-server
+  ```
+  Ensure any required `.env` file is present in the directory where you run this command.
 
 - **Via `package.json` script in your project:**
   In your project's `package.json`:
@@ -268,8 +271,8 @@ useMcrDirectly().catch((error) => {
 
 1.  **Clone the Repository**:
     ```bash
-    git clone <repository_url> # Replace with the actual repository URL
-    cd new-mcr # Or your chosen directory name
+    git clone http://dumb.ai # Replace with the actual repository URL if different
+    cd model-context-reasoner # Or your chosen directory name
     ```
 2.  **Install Dependencies**:
     ```bash
@@ -613,7 +616,7 @@ MCR provides scripts to accelerate development and testing by leveraging LLMs to
   npm run generate-examples -- --domain "<domain_name>" --instructions "<detailed_instructions_for_LLM>" [--provider <llm_provider>] [--model <model_name>]
 
   # Direct node execution
-  node scripts/generate_example.js --domain "chemistry" --instructions "Generate diverse queries about molecular composition and reactions, including some negations and rule-based assertions."
+  node ./generate_example.js --domain "chemistry" --instructions "Generate diverse queries about molecular composition and reactions, including some negations and rule-based assertions."
   ```
 
 - **Arguments:**
@@ -633,7 +636,7 @@ MCR provides scripts to accelerate development and testing by leveraging LLMs to
   npm run generate-ontology -- --domain "<domain_name>" --instructions "<detailed_instructions_for_LLM>" [--provider <llm_provider>] [--model <model_name>]
 
   # Direct node execution
-  node scripts/generate_ontology.js --domain "mythology" --instructions "Generate Prolog facts and rules describing Greek gods, their relationships (parent_of, sibling_of, spouse_of), and their domains (e.g., god_of_sea). Include some basic rules for deducing relationships like grandparent_of."
+  node ./generate_ontology.js --domain "mythology" --instructions "Generate Prolog facts and rules describing Greek gods, their relationships (parent_of, sibling_of, spouse_of), and their domains (e.g., god_of_sea). Include some basic rules for deducing relationships like grandparent_of."
   ```
 
 - **Arguments:**

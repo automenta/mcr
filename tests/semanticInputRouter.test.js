@@ -70,23 +70,41 @@ describe('SemanticInputRouter', () => {
 
   describe('cosineSimilarity', () => {
     it('should calculate cosine similarity correctly for valid vectors', () => {
-      expect(semanticInputRouter.cosineSimilarity([1, 0, 0], [1, 0, 0])).toBeCloseTo(1);
-      expect(semanticInputRouter.cosineSimilarity([1, 0, 0], [0, 1, 0])).toBeCloseTo(0);
-      expect(semanticInputRouter.cosineSimilarity([1, 0, 0], [-1, 0, 0])).toBeCloseTo(-1);
-      expect(semanticInputRouter.cosineSimilarity([1, 2, 3], [1, 2, 3])).toBeCloseTo(1);
-      expect(semanticInputRouter.cosineSimilarity([1, 2, 3], [2, 4, 6])).toBeCloseTo(1); // Parallel vectors
-      expect(semanticInputRouter.cosineSimilarity([1, 1], [1, -1])).toBeCloseTo(0);
+      expect(
+        semanticInputRouter.cosineSimilarity([1, 0, 0], [1, 0, 0])
+      ).toBeCloseTo(1);
+      expect(
+        semanticInputRouter.cosineSimilarity([1, 0, 0], [0, 1, 0])
+      ).toBeCloseTo(0);
+      expect(
+        semanticInputRouter.cosineSimilarity([1, 0, 0], [-1, 0, 0])
+      ).toBeCloseTo(-1);
+      expect(
+        semanticInputRouter.cosineSimilarity([1, 2, 3], [1, 2, 3])
+      ).toBeCloseTo(1);
+      expect(
+        semanticInputRouter.cosineSimilarity([1, 2, 3], [2, 4, 6])
+      ).toBeCloseTo(1); // Parallel vectors
+      expect(semanticInputRouter.cosineSimilarity([1, 1], [1, -1])).toBeCloseTo(
+        0
+      );
     });
 
     it('should return 0 for zero magnitude vectors', () => {
-      expect(semanticInputRouter.cosineSimilarity([0, 0, 0], [1, 2, 3])).toBe(0);
-      expect(semanticInputRouter.cosineSimilarity([1, 2, 3], [0, 0, 0])).toBe(0);
+      expect(semanticInputRouter.cosineSimilarity([0, 0, 0], [1, 2, 3])).toBe(
+        0
+      );
+      expect(semanticInputRouter.cosineSimilarity([1, 2, 3], [0, 0, 0])).toBe(
+        0
+      );
     });
 
     it('should return 0 for mismatched length vectors or invalid input', () => {
       expect(semanticInputRouter.cosineSimilarity([1, 0], [1, 0, 0])).toBe(0);
       expect(semanticInputRouter.cosineSimilarity(null, [1, 0, 0])).toBe(0);
-      expect(semanticInputRouter.cosineSimilarity([1, 0, 0], undefined)).toBe(0);
+      expect(semanticInputRouter.cosineSimilarity([1, 0, 0], undefined)).toBe(
+        0
+      );
       expect(semanticInputRouter.cosineSimilarity([], [])).toBe(0);
     });
   });
@@ -105,13 +123,13 @@ describe('SemanticInputRouter', () => {
       await semanticInputRouter._initializeArchetypeEmbeddings();
 
       expect(mockEmbeddingService.getEmbeddings).toHaveBeenCalledWith(
-        inputArchetypes.map(arch => arch.description)
+        inputArchetypes.map((arch) => arch.description)
       );
       expect(semanticInputRouter.archetypeEmbeddingsCache).not.toBeNull();
       inputArchetypes.forEach((arch, i) => {
-        expect(semanticInputRouter.archetypeEmbeddingsCache.get(arch.id)).toEqual(
-          mockArchetypeEmbeddings[i]
-        );
+        expect(
+          semanticInputRouter.archetypeEmbeddingsCache.get(arch.id)
+        ).toEqual(mockArchetypeEmbeddings[i]);
       });
       expect(logger.info).toHaveBeenCalledWith(
         '[SemanticInputRouter] Archetype embeddings initialized and cached.'
@@ -145,18 +163,36 @@ describe('SemanticInputRouter', () => {
       // This setup makes classifyInput tests more predictable by controlling archetype embeddings
       semanticInputRouter.archetypeEmbeddingsCache = new Map();
 
-      const definitionArchetype = inputArchetypes.find(a => a.id === 'definition_request');
-      const causalArchetype = inputArchetypes.find(a => a.id === 'causal_assertion');
-      const factualArchetype = inputArchetypes.find(a => a.id === 'factual_assertion');
+      const definitionArchetype = inputArchetypes.find(
+        (a) => a.id === 'definition_request'
+      );
+      const causalArchetype = inputArchetypes.find(
+        (a) => a.id === 'causal_assertion'
+      );
+      const factualArchetype = inputArchetypes.find(
+        (a) => a.id === 'factual_assertion'
+      );
 
-      if (definitionArchetype) semanticInputRouter.archetypeEmbeddingsCache.set(definitionArchetype.id, mockDefinitionEmbedding);
-      if (causalArchetype) semanticInputRouter.archetypeEmbeddingsCache.set(causalArchetype.id, mockCausalEmbedding);
-      if (factualArchetype) semanticInputRouter.archetypeEmbeddingsCache.set(factualArchetype.id, mockFactualEmbedding);
+      if (definitionArchetype)
+        semanticInputRouter.archetypeEmbeddingsCache.set(
+          definitionArchetype.id,
+          mockDefinitionEmbedding
+        );
+      if (causalArchetype)
+        semanticInputRouter.archetypeEmbeddingsCache.set(
+          causalArchetype.id,
+          mockCausalEmbedding
+        );
+      if (factualArchetype)
+        semanticInputRouter.archetypeEmbeddingsCache.set(
+          factualArchetype.id,
+          mockFactualEmbedding
+        );
 
       // Mock getEmbeddings for any _initializeArchetypeEmbeddings call not to interfere
       // This ensures that if _initializeArchetypeEmbeddings is called unexpectedly, it doesn't error out
       // or overwrite our specific mocks if we only set a few.
-      const fullMockEmbeddings = inputArchetypes.map(arch => {
+      const fullMockEmbeddings = inputArchetypes.map((arch) => {
         if (arch.id === 'definition_request') return mockDefinitionEmbedding;
         if (arch.id === 'causal_assertion') return mockCausalEmbedding;
         if (arch.id === 'factual_assertion') return mockFactualEmbedding;
@@ -166,7 +202,7 @@ describe('SemanticInputRouter', () => {
     });
 
     it('should return the archetype ID with the highest cosine similarity', async () => {
-      const inputText = "What is love?";
+      const inputText = 'What is love?';
       // Mock input text embedding to be very similar to definition_request
       const inputEmbedding = [0.9, 0.1, 0.05];
       mockEmbeddingService.getEmbedding.mockResolvedValue(inputEmbedding);
@@ -175,65 +211,78 @@ describe('SemanticInputRouter', () => {
       // For this test, we've manually set the relevant ones.
       // If it wasn't manually set, this would call the getEmbeddings mock.
       if (!semanticInputRouter.archetypeEmbeddingsCache.size) {
-          await semanticInputRouter._initializeArchetypeEmbeddings();
+        await semanticInputRouter._initializeArchetypeEmbeddings();
       }
 
       const classification = await semanticInputRouter.classifyInput(inputText);
       expect(mockEmbeddingService.getEmbedding).toHaveBeenCalledWith(inputText);
       expect(classification).toBe('definition_request');
-       expect(logger.info).toHaveBeenCalledWith(expect.stringContaining(`Classified input as 'definition_request'`));
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining(`Classified input as 'definition_request'`)
+      );
     });
 
     it('should classify another input correctly based on similarity', async () => {
-        const inputText = "Rain causes puddles.";
-        // Mock input text embedding to be very similar to causal_assertion
-        const inputEmbedding = [0.1, 0.9, 0.05];
-        mockEmbeddingService.getEmbedding.mockResolvedValue(inputEmbedding);
+      const inputText = 'Rain causes puddles.';
+      // Mock input text embedding to be very similar to causal_assertion
+      const inputEmbedding = [0.1, 0.9, 0.05];
+      mockEmbeddingService.getEmbedding.mockResolvedValue(inputEmbedding);
 
-        if (!semanticInputRouter.archetypeEmbeddingsCache.size) {
-            await semanticInputRouter._initializeArchetypeEmbeddings();
-        }
+      if (!semanticInputRouter.archetypeEmbeddingsCache.size) {
+        await semanticInputRouter._initializeArchetypeEmbeddings();
+      }
 
-        const classification = await semanticInputRouter.classifyInput(inputText);
-        expect(classification).toBe('causal_assertion');
-        expect(logger.info).toHaveBeenCalledWith(expect.stringContaining(`Classified input as 'causal_assertion'`));
+      const classification = await semanticInputRouter.classifyInput(inputText);
+      expect(classification).toBe('causal_assertion');
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining(`Classified input as 'causal_assertion'`)
+      );
     });
-
 
     it('should fallback if archetype embeddings are not initialized', async () => {
       semanticInputRouter.archetypeEmbeddingsCache = null; // Force uninitialized state
-       // Simulate getEmbeddings failing during initialization
-      mockEmbeddingService.getEmbeddings.mockRejectedValue(new Error("Failed to init"));
-
-      const text = "This is a test query?";
-      const classification = await semanticInputRouter.classifyInput(text);
-
-      // It will try to initialize, fail, and then fallback.
-      expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to initialize archetype embeddings')
+      // Simulate getEmbeddings failing during initialization
+      mockEmbeddingService.getEmbeddings.mockRejectedValue(
+        new Error('Failed to init')
       );
-      expect(logger.error).toHaveBeenCalledWith(
-        '[SemanticInputRouter] Archetype embeddings not available for classification. Falling back.'
+
+      const text = 'This is a test query?';
+      // classifyInput should throw if _initializeArchetypeEmbeddings throws
+      await expect(semanticInputRouter.classifyInput(text)).rejects.toThrow(
+        new MCRError(
+          ErrorCodes.EMBEDDING_SERVICE_ERROR,
+          'Failed to generate embeddings for semantic archetypes.'
+        )
       );
-      expect(classification).toBe('general_query'); // Default fallback for query-like text
+      // Check that the logger was called about the init failure from _initializeArchetypeEmbeddings
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to initialize archetype embeddings: Failed to init'),
+        expect.anything() // For the { stack: ... } object
+      );
     });
 
     it('should fallback if input embedding generation fails', async () => {
       await semanticInputRouter._initializeArchetypeEmbeddings(); // Ensure archetypes are loaded
-      mockEmbeddingService.getEmbedding.mockRejectedValue(new Error("Embedding failed for input"));
+      mockEmbeddingService.getEmbedding.mockRejectedValue(
+        new Error('Embedding failed for input')
+      );
 
-      const text = "This is a statement.";
+      const text = 'This is a statement.';
       const classification = await semanticInputRouter.classifyInput(text);
       expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Error during semantic classification: Embedding failed for input')
+        expect.stringContaining(
+          'Error during semantic classification: Embedding failed for input'
+        )
       );
       expect(classification).toBe('general_assert'); // Default fallback for assertion-like text
     });
 
     it('should return general_assert for empty text', async () => {
-        const classification = await semanticInputRouter.classifyInput("");
-        expect(classification).toBe('general_assert');
-        expect(logger.warn).toHaveBeenCalledWith('[SemanticInputRouter] classifyInput called with empty text.');
+      const classification = await semanticInputRouter.classifyInput('');
+      expect(classification).toBe('general_assert');
+      expect(logger.warn).toHaveBeenCalledWith(
+        '[SemanticInputRouter] classifyInput called with empty text.'
+      );
     });
   });
 
@@ -253,9 +302,24 @@ describe('SemanticInputRouter', () => {
 
     it('should return the best strategy_hash based on scoring logic', async () => {
       const results = [
-        { strategy_hash: 'hash1', metrics: JSON.stringify({ exactMatchProlog: 1 }), latency_ms: 100, cost: JSON.stringify({total_tokens:10}) }, // Score: 1*100 + 1000/101*10 + 1000/11*1 ~ 100 + 99 + 90 = 289
-        { strategy_hash: 'hash2', metrics: JSON.stringify({ exactMatchAnswer: 1 }), latency_ms: 50, cost: JSON.stringify({total_tokens:5}) }, // Score: 1*100 + 1000/51*10 + 1000/6*1 ~ 100 + 196 + 166 = 462 <--- BEST
-        { strategy_hash: 'hash1', metrics: JSON.stringify({ prologStructureMatch: 1 }), latency_ms: 120, cost: JSON.stringify({total_tokens:12}) }, // Score for hash1: 0.5*100 + 1000/121*10 + 1000/13*1 ~ 50 + 82 + 76 = 208
+        {
+          strategy_hash: 'hash1',
+          metrics: JSON.stringify({ exactMatchProlog: 1 }),
+          latency_ms: 100,
+          cost: JSON.stringify({ total_tokens: 10 }),
+        }, // Score: 1*100 + 1000/101*10 + 1000/11*1 ~ 100 + 99 + 90 = 289
+        {
+          strategy_hash: 'hash2',
+          metrics: JSON.stringify({ exactMatchAnswer: 1 }),
+          latency_ms: 50,
+          cost: JSON.stringify({ total_tokens: 5 }),
+        }, // Score: 1*100 + 1000/51*10 + 1000/6*1 ~ 100 + 196 + 166 = 462 <--- BEST
+        {
+          strategy_hash: 'hash1',
+          metrics: JSON.stringify({ prologStructureMatch: 1 }),
+          latency_ms: 120,
+          cost: JSON.stringify({ total_tokens: 12 }),
+        }, // Score for hash1: 0.5*100 + 1000/121*10 + 1000/13*1 ~ 50 + 82 + 76 = 208
       ];
       mockDb.queryPerformanceResults.mockResolvedValue(results);
       const bestStrategy = await semanticInputRouter.getBestStrategy(
@@ -263,7 +327,9 @@ describe('SemanticInputRouter', () => {
         llmModelId
       );
       expect(bestStrategy).toBe('hash2');
-       expect(logger.info).toHaveBeenCalledWith(expect.stringContaining(`Best strategy selected: hash2`));
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.stringContaining(`Best strategy selected: hash2`)
+      );
     });
 
     it('should return null if no performance results found', async () => {
@@ -278,12 +344,17 @@ describe('SemanticInputRouter', () => {
       );
     });
 
-     it('should return null if database query fails', async () => {
+    it('should return null if database query fails', async () => {
       mockDb.queryPerformanceResults.mockRejectedValue(new Error('DB Error'));
-      const bestStrategy = await semanticInputRouter.getBestStrategy(inputClass, llmModelId);
+      const bestStrategy = await semanticInputRouter.getBestStrategy(
+        inputClass,
+        llmModelId
+      );
       expect(bestStrategy).toBeNull();
       expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('[SemanticInputRouter] Error getting best strategy: DB Error')
+        expect.stringContaining(
+          '[SemanticInputRouter] Error getting best strategy: DB Error'
+        )
       );
     });
   });
@@ -297,14 +368,22 @@ describe('SemanticInputRouter', () => {
       // semanticInputRouter is already an instance, so we spy on its methods directly
       jest.spyOn(semanticInputRouter, 'classifyInput');
       jest.spyOn(semanticInputRouter, 'getBestStrategy');
-       // Ensure archetype embeddings are ready for classifyInput
-      const mockArchetypeEmbeddings = inputArchetypes.map((arch, i) => [0.1 * i, 0.2 * i, 0.3 * i]);
-      mockEmbeddingService.getEmbeddings.mockResolvedValue(mockArchetypeEmbeddings);
+      // Ensure archetype embeddings are ready for classifyInput
+      const mockArchetypeEmbeddings = inputArchetypes.map((arch, i) => [
+        0.1 * i,
+        0.2 * i,
+        0.3 * i,
+      ]);
+      mockEmbeddingService.getEmbeddings.mockResolvedValue(
+        mockArchetypeEmbeddings
+      );
     });
 
     it('should call classifyInput and getBestStrategy', async () => {
       semanticInputRouter.classifyInput.mockResolvedValue('definition_request'); // Mock return of classifyInput
-      semanticInputRouter.getBestStrategy.mockResolvedValue('best_strategy_hash'); // Mock return of getBestStrategy
+      semanticInputRouter.getBestStrategy.mockResolvedValue(
+        'best_strategy_hash'
+      ); // Mock return of getBestStrategy
 
       await semanticInputRouter.route(text, llmModelId);
 
@@ -318,34 +397,41 @@ describe('SemanticInputRouter', () => {
     it('should return strategy hash if recommended', async () => {
       const expectedHash = 'strategy123_semantic';
       // Let classifyInput run, but mock its underlying embedding calls if needed
-      mockEmbeddingService.getEmbedding.mockResolvedValue([0.1,0.2,0.3]); // For the input text
+      mockEmbeddingService.getEmbedding.mockResolvedValue([0.1, 0.2, 0.3]); // For the input text
       // getBestStrategy will be called with the result of classifyInput
       semanticInputRouter.getBestStrategy.mockResolvedValue(expectedHash);
-
 
       const result = await semanticInputRouter.route(text, llmModelId);
       // The actual classification depends on mock embeddings, ensure it's called
       expect(semanticInputRouter.classifyInput).toHaveBeenCalledWith(text);
-      const classificationResult = await semanticInputRouter.classifyInput.mock.results[0].value;
+      const classificationResult =
+        await semanticInputRouter.classifyInput.mock.results[0].value;
 
-
-      expect(semanticInputRouter.getBestStrategy).toHaveBeenCalledWith(classificationResult, llmModelId);
+      expect(semanticInputRouter.getBestStrategy).toHaveBeenCalledWith(
+        classificationResult,
+        llmModelId
+      );
       expect(result).toBe(expectedHash);
       expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining(`Recommended strategy HASH: ${expectedHash.substring(0,12)}... for semantic input class "${classificationResult}"`)
+        expect.stringContaining(
+          `Recommended strategy HASH: ${expectedHash.substring(0, 12)}... for semantic input class "${classificationResult}"`
+        )
       );
     });
 
     it('should return null if no strategy is recommended', async () => {
-      mockEmbeddingService.getEmbedding.mockResolvedValue([0.1,0.2,0.3]);
+      mockEmbeddingService.getEmbedding.mockResolvedValue([0.1, 0.2, 0.3]);
       semanticInputRouter.getBestStrategy.mockResolvedValue(null); // No strategy found
 
       const result = await semanticInputRouter.route(text, llmModelId);
-      const classificationResult = await semanticInputRouter.classifyInput.mock.results[0].value;
+      const classificationResult =
+        await semanticInputRouter.classifyInput.mock.results[0].value;
 
       expect(result).toBeNull();
       expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining(`No specific strategy recommendation for semantic class "${classificationResult}"`)
+        expect.stringContaining(
+          `No specific strategy recommendation for semantic class "${classificationResult}"`
+        )
       );
     });
 
@@ -358,7 +444,7 @@ describe('SemanticInputRouter', () => {
       expect(semanticInputRouter.classifyInput).not.toHaveBeenCalled();
     });
 
-     it('should return null and log warning if llmModelId is missing', async () => {
+    it('should return null and log warning if llmModelId is missing', async () => {
       const result = await semanticInputRouter.route(text, null);
       expect(result).toBeNull();
       expect(logger.warn).toHaveBeenCalledWith(

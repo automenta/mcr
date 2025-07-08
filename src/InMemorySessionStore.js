@@ -130,7 +130,8 @@ class InMemorySessionStore extends ISessionStore {
    * @param {string} sessionId - The ID of the session.
    * @param {string[]} facts - An array of Prolog fact strings.
    */
-  _updateLexiconWithFacts(sessionId, facts) { // Made this a private-like method
+  _updateLexiconWithFacts(sessionId, facts) {
+    // Made this a private-like method
     if (!sessions[sessionId]) return;
 
     facts.forEach((fact) => {
@@ -154,7 +155,9 @@ class InMemorySessionStore extends ISessionStore {
         const argsString = structuredTermMatch[2];
         let arity = 0;
         if (argsString.trim() !== '') {
-          const potentialArgs = argsString.match(/(?:[^,(]|\([^)]*\)|'[^']*')+/g);
+          const potentialArgs = argsString.match(
+            /(?:[^,(]|\([^)]*\)|'[^']*')+/g
+          );
           arity = potentialArgs ? potentialArgs.length : 0;
         }
         sessions[sessionId].lexicon.add(`${predicate}/${arity}`);
@@ -164,7 +167,8 @@ class InMemorySessionStore extends ISessionStore {
           const predicate = simpleAtomMatch[1];
           sessions[sessionId].lexicon.add(`${predicate}/0`);
         } else {
-          logger.debug( // Keep this log less verbose for general use
+          logger.debug(
+            // Keep this log less verbose for general use
             `[InMemorySessionStore] Could not parse predicate/arity from term: ${termToParse} in session ${sessionId}`
           );
         }

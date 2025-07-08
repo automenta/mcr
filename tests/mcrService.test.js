@@ -3,7 +3,8 @@ jest.mock('../src/llmService', () => ({
   generate: jest.fn(),
 }));
 jest.mock('../src/config', () => ({
-  llm: { // Corrected: llmProvider to llm
+  llm: {
+    // Corrected: llmProvider to llm
     provider: 'ollama',
     model: 'test-model',
     anthropic: { apiKey: 'test-key', defaultModel: 'test-model-anthropic' },
@@ -71,26 +72,27 @@ const { prompts } = require('../src/prompts');
 // which returns our mockInstance.
 let mockSessionStoreInstance;
 if (InMemorySessionStore.mock && InMemorySessionStore.mock.results[0]) {
-    mockSessionStoreInstance = InMemorySessionStore.mock.results[0].value;
+  mockSessionStoreInstance = InMemorySessionStore.mock.results[0].value;
 } else {
-    // Fallback or error if the mock setup is not as expected.
-    // This can happen if mcrService is imported before the mock is fully effective,
-    // or if the mock structure changes. For this setup, we assume it works.
-    // If tests fail here, it's likely due to mock setup/ordering.
-    console.error("Warning: Could not retrieve the mock instance of InMemorySessionStore. Tests may not behave as expected.");
-    // Create a similar structured mock manually for safety, though it won't be the one mcrService uses.
-    mockSessionStoreInstance = {
-        initialize: jest.fn().mockResolvedValue(undefined),
-        createSession: jest.fn(),
-        getSession: jest.fn(),
-        addFacts: jest.fn(),
-        getKnowledgeBase: jest.fn(),
-        deleteSession: jest.fn(),
-        getLexiconSummary: jest.fn().mockResolvedValue('lexicon_entry/1'),
-        close: jest.fn().mockResolvedValue(undefined),
-    };
+  // Fallback or error if the mock setup is not as expected.
+  // This can happen if mcrService is imported before the mock is fully effective,
+  // or if the mock structure changes. For this setup, we assume it works.
+  // If tests fail here, it's likely due to mock setup/ordering.
+  console.error(
+    'Warning: Could not retrieve the mock instance of InMemorySessionStore. Tests may not behave as expected.'
+  );
+  // Create a similar structured mock manually for safety, though it won't be the one mcrService uses.
+  mockSessionStoreInstance = {
+    initialize: jest.fn().mockResolvedValue(undefined),
+    createSession: jest.fn(),
+    getSession: jest.fn(),
+    addFacts: jest.fn(),
+    getKnowledgeBase: jest.fn(),
+    deleteSession: jest.fn(),
+    getLexiconSummary: jest.fn().mockResolvedValue('lexicon_entry/1'),
+    close: jest.fn().mockResolvedValue(undefined),
+  };
 }
-
 
 describe('MCR Service (mcrService.js)', () => {
   beforeEach(() => {
@@ -100,16 +102,22 @@ describe('MCR Service (mcrService.js)', () => {
 
     // Reset and provide default resolved values for the session store mock methods
     if (mockSessionStoreInstance) {
-        mockSessionStoreInstance.getSession.mockReset();
-        mockSessionStoreInstance.getKnowledgeBase.mockReset();
-        mockSessionStoreInstance.addFacts.mockReset();
-        mockSessionStoreInstance.getLexiconSummary.mockReset();
+      mockSessionStoreInstance.getSession.mockReset();
+      mockSessionStoreInstance.getKnowledgeBase.mockReset();
+      mockSessionStoreInstance.addFacts.mockReset();
+      mockSessionStoreInstance.getLexiconSummary.mockReset();
 
-        // Default successful async mocks
-        mockSessionStoreInstance.getSession.mockResolvedValue({ id: 'default-session-id', facts: [], lexicon: new Set() });
-        mockSessionStoreInstance.getKnowledgeBase.mockResolvedValue('');
-        mockSessionStoreInstance.addFacts.mockResolvedValue(true);
-        mockSessionStoreInstance.getLexiconSummary.mockResolvedValue('lexicon_entry/1');
+      // Default successful async mocks
+      mockSessionStoreInstance.getSession.mockResolvedValue({
+        id: 'default-session-id',
+        facts: [],
+        lexicon: new Set(),
+      });
+      mockSessionStoreInstance.getKnowledgeBase.mockResolvedValue('');
+      mockSessionStoreInstance.addFacts.mockResolvedValue(true);
+      mockSessionStoreInstance.getLexiconSummary.mockResolvedValue(
+        'lexicon_entry/1'
+      );
     }
   });
 
@@ -121,7 +129,11 @@ describe('MCR Service (mcrService.js)', () => {
     beforeEach(async () => {
       await mcrService.setTranslationStrategy('SIR-R1');
       // Ensure mockSessionStoreInstance is used for setting up test conditions
-      mockSessionStoreInstance.getSession.mockResolvedValue({ id: sessionId, facts: [], lexicon: new Set() });
+      mockSessionStoreInstance.getSession.mockResolvedValue({
+        id: sessionId,
+        facts: [],
+        lexicon: new Set(),
+      });
       ontologyService.listOntologies.mockResolvedValue([
         { name: 'global', rules: 'universal_rule.' },
       ]);
@@ -161,7 +173,8 @@ describe('MCR Service (mcrService.js)', () => {
           }
           return {
             text: JSON.stringify({
-              error: "Unexpected prompt in 'successfully assert' test specific mock",
+              error:
+                "Unexpected prompt in 'successfully assert' test specific mock",
             }),
             costData: null,
           };
@@ -388,12 +401,15 @@ describe('MCR Service (mcrService.js)', () => {
 
     beforeEach(async () => {
       await mcrService.setTranslationStrategy('SIR-R1');
-      mockSessionStoreInstance.getSession.mockResolvedValue({ // Use mockResolvedValue
+      mockSessionStoreInstance.getSession.mockResolvedValue({
+        // Use mockResolvedValue
         id: sessionId,
         facts: ['is_blue(sky).'],
         lexicon: new Set(),
       });
-      mockSessionStoreInstance.getKnowledgeBase.mockResolvedValue('is_blue(sky).'); // Use mockResolvedValue
+      mockSessionStoreInstance.getKnowledgeBase.mockResolvedValue(
+        'is_blue(sky).'
+      ); // Use mockResolvedValue
       ontologyService.listOntologies.mockResolvedValue([
         { name: 'global', rules: 'universal_rule.' },
       ]);
@@ -615,12 +631,15 @@ describe('MCR Service (mcrService.js)', () => {
 
     beforeEach(async () => {
       await mcrService.setTranslationStrategy('SIR-R1'); // Ensures SIR-R1-Query is used for the first part
-      mockSessionStoreInstance.getSession.mockResolvedValue({ // Use mockResolvedValue
+      mockSessionStoreInstance.getSession.mockResolvedValue({
+        // Use mockResolvedValue
         id: sessionId,
         facts: ['is_blue(sky).'],
         lexicon: new Set(),
       });
-      mockSessionStoreInstance.getKnowledgeBase.mockResolvedValue('is_blue(sky).'); // Use mockResolvedValue
+      mockSessionStoreInstance.getKnowledgeBase.mockResolvedValue(
+        'is_blue(sky).'
+      ); // Use mockResolvedValue
       // Default successful ontology listing
       ontologyService.listOntologies.mockResolvedValue([
         { name: 'global', rules: 'universal_rule.' },

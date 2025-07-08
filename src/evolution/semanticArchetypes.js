@@ -29,32 +29,48 @@ const inputArchetypes = [
   },
   {
     id: 'spatial_query',
-    description: 'Question about the location or spatial relationship of entities.',
+    description:
+      'Question about the location or spatial relationship of entities.',
     examples: ['Where is X?', 'What is near Y?', 'Is Z inside A?'],
   },
   {
     id: 'temporal_query',
     description: 'Question about time, duration, or sequence of events.',
-    examples: ['When did X happen?', 'How long does Y last?', 'What comes after Z?'],
+    examples: [
+      'When did X happen?',
+      'How long does Y last?',
+      'What comes after Z?',
+    ],
   },
   {
     id: 'procedural_query',
     description: 'Question about how to perform an action or achieve a goal.',
-    examples: ['How to do X?', 'What are the steps for Y?', 'Show me how to Z.'],
+    examples: [
+      'How to do X?',
+      'What are the steps for Y?',
+      'Show me how to Z.',
+    ],
   },
   {
     id: 'comparative_query',
-    description: 'Question that involves comparing two or more entities or concepts.',
-    examples: ['Is X better than Y?', 'Compare A and B.', 'Which is faster, C or D?'],
+    description:
+      'Question that involves comparing two or more entities or concepts.',
+    examples: [
+      'Is X better than Y?',
+      'Compare A and B.',
+      'Which is faster, C or D?',
+    ],
   },
   {
     id: 'general_query',
-    description: 'A general question that does not neatly fit other specific query archetypes.',
+    description:
+      'A general question that does not neatly fit other specific query archetypes.',
     examples: ['Tell me more about X.', 'Can you help with Y?'],
   },
   {
     id: 'general_assert',
-    description: 'A general assertion or statement that does not neatly fit other specific assertion archetypes.',
+    description:
+      'A general assertion or statement that does not neatly fit other specific assertion archetypes.',
     examples: ['I think X is interesting.', 'This is a statement about Y.'],
   },
   // Add more archetypes as needed

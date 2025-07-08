@@ -15,8 +15,8 @@
     "test:coverage": "jest --coverage",
     "format": "prettier --write .",
     "lint": "eslint . --fix",
-    "generate-examples": "node ./scripts/generate_example.js",
-    "generate-ontology": "node ./scripts/generate_ontology.js"
+    "generate-examples": "node ./generate_example.js",
+    "generate-ontology": "node ./generate_ontology.js"
   },
   "keywords": [
     "llm",
@@ -27,7 +27,7 @@
     "nlp",
     "logic programming"
   ],
-  "author": "Your Name or Organization",
+  "author": "Unknown",
   "license": "MIT",
   "type": "commonjs",
   "files": [
@@ -40,16 +40,19 @@
     "strategies/",
     "README.md",
     ".env.example",
-    "LICENSE"
+    "LICENSE",
+    "generate_example.js",
+    "generate_ontology.js",
+    "_generatorUtils.js"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/model-context-reasoner.git"
+    "url": "http://dumb.ai"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/model-context-reasoner/issues"
+    "url": "http://dumb.ai/issues"
   },
-  "homepage": "https://github.com/yourusername/model-context-reasoner#readme",
+  "homepage": "http://dumb.ai#readme",
   "dependencies": {
     "@langchain/anthropic": "^0.3.24",
     "@langchain/community": "^0.3.48",
@@ -98,7 +101,10 @@
     ],
     "transformIgnorePatterns": [
       "/node_modules/(?!yargs|uuid|chalk)/"
-    ]
+    ],
+    "transform": {
+      "^.+\\.jsx?$": "babel-jest"
+    }
   },
   "engines": {
     "node": ">=18.0.0"

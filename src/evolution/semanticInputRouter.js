@@ -40,12 +40,7 @@ class SemanticInputRouter {
    * @returns {number} The cosine similarity, or 0 if input is invalid.
    */
   cosineSimilarity(vecA, vecB) {
-    if (
-      !vecA ||
-      !vecB ||
-      vecA.length !== vecB.length ||
-      vecA.length === 0
-    ) {
+    if (!vecA || !vecB || vecA.length !== vecB.length || vecA.length === 0) {
       logger.warn('[SemanticInputRouter] Invalid input for cosineSimilarity.');
       return 0;
     }
@@ -80,13 +75,12 @@ class SemanticInputRouter {
     if (this.archetypeEmbeddingsCache) {
       return;
     }
-    logger.info(
-      '[SemanticInputRouter] Initializing archetype embeddings...'
-    );
+    logger.info('[SemanticInputRouter] Initializing archetype embeddings...');
     this.archetypeEmbeddingsCache = new Map();
     try {
-      const descriptions = inputArchetypes.map(arch => arch.description);
-      const embeddings = await this.embeddingService.getEmbeddings(descriptions);
+      const descriptions = inputArchetypes.map((arch) => arch.description);
+      const embeddings =
+        await this.embeddingService.getEmbeddings(descriptions);
 
       for (let i = 0; i < inputArchetypes.length; i++) {
         this.archetypeEmbeddingsCache.set(inputArchetypes[i].id, embeddings[i]);
@@ -115,10 +109,12 @@ class SemanticInputRouter {
    */
   async classifyInput(naturalLanguageText) {
     if (!naturalLanguageText || naturalLanguageText.trim() === '') {
-        logger.warn('[SemanticInputRouter] classifyInput called with empty text.');
-        // Decide on a sensible default, perhaps based on a simple heuristic like KeywordInputRouter
-        // For now, returning a general assertion as a fallback.
-        return DEFAULT_SEMANTIC_ASSERT_CLASS;
+      logger.warn(
+        '[SemanticInputRouter] classifyInput called with empty text.'
+      );
+      // Decide on a sensible default, perhaps based on a simple heuristic like KeywordInputRouter
+      // For now, returning a general assertion as a fallback.
+      return DEFAULT_SEMANTIC_ASSERT_CLASS;
     }
 
     await this._initializeArchetypeEmbeddings();
@@ -128,26 +124,36 @@ class SemanticInputRouter {
       );
       // Fallback to a keyword-based classification or a default
       // This simplistic fallback mirrors KeywordInputRouter's basic logic
-      return naturalLanguageText.includes('?') ? DEFAULT_SEMANTIC_QUERY_CLASS : DEFAULT_SEMANTIC_ASSERT_CLASS;
+      return naturalLanguageText.includes('?')
+        ? DEFAULT_SEMANTIC_QUERY_CLASS
+        : DEFAULT_SEMANTIC_ASSERT_CLASS;
     }
 
     try {
-      const inputEmbedding = await this.embeddingService.getEmbedding(
-        naturalLanguageText
-      );
+      const inputEmbedding =
+        await this.embeddingService.getEmbedding(naturalLanguageText);
 
       let bestMatchArchetypeId = null;
       let maxSimilarity = -Infinity; // Cosine similarity is between -1 and 1
 
       for (const archetype of inputArchetypes) {
-        const archetypeEmbedding = this.archetypeEmbeddingsCache.get(archetype.id);
+        const archetypeEmbedding = this.archetypeEmbeddingsCache.get(
+          archetype.id
+        );
         if (!archetypeEmbedding) {
-          logger.warn(`[SemanticInputRouter] Missing embedding for archetype: ${archetype.id}. Skipping.`);
+          logger.warn(
+            `[SemanticInputRouter] Missing embedding for archetype: ${archetype.id}. Skipping.`
+          );
           continue;
         }
 
-        const similarity = this.cosineSimilarity(inputEmbedding, archetypeEmbedding);
-        logger.debug(`[SemanticInputRouter] Similarity with ${archetype.id}: ${similarity.toFixed(4)} for text: "${naturalLanguageText.substring(0,30)}..."`);
+        const similarity = this.cosineSimilarity(
+          inputEmbedding,
+          archetypeEmbedding
+        );
+        logger.debug(
+          `[SemanticInputRouter] Similarity with ${archetype.id}: ${similarity.toFixed(4)} for text: "${naturalLanguageText.substring(0, 30)}..."`
+        );
 
         if (similarity > maxSimilarity) {
           maxSimilarity = similarity;
@@ -159,15 +165,17 @@ class SemanticInputRouter {
       // For now, always return the best match.
       if (bestMatchArchetypeId) {
         logger.info(
-          `[SemanticInputRouter] Classified input as '${bestMatchArchetypeId}' with similarity ${maxSimilarity.toFixed(4)} for text: "${naturalLanguageText.substring(0,50)}..."`
+          `[SemanticInputRouter] Classified input as '${bestMatchArchetypeId}' with similarity ${maxSimilarity.toFixed(4)} for text: "${naturalLanguageText.substring(0, 50)}..."`
         );
         return bestMatchArchetypeId;
       } else {
         logger.warn(
-          `[SemanticInputRouter] No archetype found for input: "${naturalLanguageText.substring(0,50)}...". Falling back.`
+          `[SemanticInputRouter] No archetype found for input: "${naturalLanguageText.substring(0, 50)}...". Falling back.`
         );
         // Fallback logic if no match (should ideally not happen if archetypes are comprehensive)
-        return naturalLanguageText.includes('?') ? DEFAULT_SEMANTIC_QUERY_CLASS : DEFAULT_SEMANTIC_ASSERT_CLASS;
+        return naturalLanguageText.includes('?')
+          ? DEFAULT_SEMANTIC_QUERY_CLASS
+          : DEFAULT_SEMANTIC_ASSERT_CLASS;
       }
     } catch (error) {
       logger.error(
@@ -175,7 +183,9 @@ class SemanticInputRouter {
         { stack: error.stack }
       );
       // Fallback in case of error during embedding generation for the input text
-      return naturalLanguageText.includes('?') ? DEFAULT_SEMANTIC_QUERY_CLASS : DEFAULT_SEMANTIC_ASSERT_CLASS;
+      return naturalLanguageText.includes('?')
+        ? DEFAULT_SEMANTIC_QUERY_CLASS
+        : DEFAULT_SEMANTIC_ASSERT_CLASS;
     }
   }
 
@@ -224,18 +234,34 @@ class SemanticInputRouter {
           const cost = JSON.parse(row.cost || '{}');
 
           let successScore = 0;
-          if (metrics.exactMatchProlog === 1 || metrics.exactMatchProlog === true) successScore += 1;
-          if (metrics.exactMatchAnswer === 1 || metrics.exactMatchAnswer === true) successScore += 1;
-          if (metrics.prologStructureMatch === 1 || metrics.prologStructureMatch === true) successScore += 0.5;
+          if (
+            metrics.exactMatchProlog === 1 ||
+            metrics.exactMatchProlog === true
+          )
+            successScore += 1;
+          if (
+            metrics.exactMatchAnswer === 1 ||
+            metrics.exactMatchAnswer === true
+          )
+            successScore += 1;
+          if (
+            metrics.prologStructureMatch === 1 ||
+            metrics.prologStructureMatch === true
+          )
+            successScore += 0.5;
 
-          const latencyScore = row.latency_ms > 0 ? 1000 / (row.latency_ms + 1) : 1;
+          const latencyScore =
+            row.latency_ms > 0 ? 1000 / (row.latency_ms + 1) : 1;
           const costValue = cost.input_tokens || cost.total_tokens || 0;
           const costScore = costValue > 0 ? 1000 / (costValue + 1) : 1;
 
           const W_SUCCESS = 100;
           const W_LATENCY = 10;
           const W_COST = 1;
-          const currentScore = successScore * W_SUCCESS + latencyScore * W_LATENCY + costScore * W_COST;
+          const currentScore =
+            successScore * W_SUCCESS +
+            latencyScore * W_LATENCY +
+            costScore * W_COST;
 
           if (!strategyScores.has(row.strategy_hash)) {
             strategyScores.set(row.strategy_hash, {
@@ -286,12 +312,14 @@ class SemanticInputRouter {
             bestStrategyHash = hash;
           } else if (agg.successCount === currentBestAgg.successCount) {
             const avgLatency = agg.totalLatency / agg.count;
-            const currentBestAvgLatency = currentBestAgg.totalLatency / currentBestAgg.count;
+            const currentBestAvgLatency =
+              currentBestAgg.totalLatency / currentBestAgg.count;
             if (avgLatency < currentBestAvgLatency) {
               bestStrategyHash = hash;
             } else if (avgLatency === currentBestAvgLatency) {
               const avgCost = agg.totalCostTokens / agg.count;
-              const currentBestAvgCost = currentBestAgg.totalCostTokens / currentBestAgg.count;
+              const currentBestAvgCost =
+                currentBestAgg.totalCostTokens / currentBestAgg.count;
               if (avgCost < currentBestAvgCost) {
                 bestStrategyHash = hash;
               }
@@ -326,22 +354,23 @@ class SemanticInputRouter {
    * @returns {Promise<string|null>} The strategy_hash of the recommended strategy, or null.
    */
   async route(naturalLanguageText, llmModelId) {
-    logger.info(
-      `[SemanticInputRouter] Routing input: "${naturalLanguageText.substring(0, 50)}...", Model: "${llmModelId}"`
-    );
     if (!naturalLanguageText || !llmModelId) {
       logger.warn(
         '[SemanticInputRouter] Route called with missing naturalLanguageText or llmModelId.'
       );
       return null;
     }
+    logger.info(
+      `[SemanticInputRouter] Routing input: "${naturalLanguageText.substring(0, 50)}...", Model: "${llmModelId}"`
+    );
+    // Removed erroneous return null; here
 
     const inputClass = await this.classifyInput(naturalLanguageText); // This is now an archetype ID
     const strategyHash = await this.getBestStrategy(inputClass, llmModelId);
 
     if (strategyHash) {
       logger.info(
-        `[SemanticInputRouter] Recommended strategy HASH: ${strategyHash.substring(0,12)}... for semantic input class "${inputClass}"`
+        `[SemanticInputRouter] Recommended strategy HASH: ${strategyHash.substring(0, 12)}... for semantic input class "${inputClass}"`
       );
     } else {
       logger.info(

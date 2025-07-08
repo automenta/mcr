@@ -96,7 +96,10 @@ describe('KeywordInputRouter', () => {
       // const result = await keywordInputRouter.getBestStrategy(inputClass, llmModelId);
       // expect(result).toBeNull();
       expect(mockDb.queryPerformanceResults).toHaveBeenCalled();
-      const result = await keywordInputRouter.getBestStrategy(inputClass, llmModelId);
+      const result = await keywordInputRouter.getBestStrategy(
+        inputClass,
+        llmModelId
+      );
       expect(result).toBeNull(); // Expect null when no results are returned
     });
 
@@ -106,7 +109,10 @@ describe('KeywordInputRouter', () => {
 
     it('should return null when DB querying returns no results', async () => {
       mockDb.queryPerformanceResults.mockResolvedValue([]); // Ensure no results
-      const result = await keywordInputRouter.getBestStrategy(inputClass, llmModelId);
+      const result = await keywordInputRouter.getBestStrategy(
+        inputClass,
+        llmModelId
+      );
       // expect(logger.warn).toHaveBeenCalledWith(
       //   '[InputRouter] getBestStrategy: DB querying not yet implemented. Returning null.'
       // );
@@ -133,7 +139,9 @@ describe('KeywordInputRouter', () => {
     it('should call classifyInput and getBestStrategy', async () => {
       const text = 'Test input';
       keywordInputRouter.classifyInput.mockReturnValue('classified_class');
-      keywordInputRouter.getBestStrategy.mockResolvedValue('best_strategy_hash');
+      keywordInputRouter.getBestStrategy.mockResolvedValue(
+        'best_strategy_hash'
+      );
 
       await keywordInputRouter.route(text, llmModelId);
 

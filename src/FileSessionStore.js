@@ -10,7 +10,9 @@ class FileSessionStore extends ISessionStore {
   constructor() {
     super();
     this.sessionsDir = config.sessionStore?.filePath || './.sessions';
-    logger.info(`[FileSessionStore] Initialized. Sessions directory: ${this.sessionsDir}`);
+    logger.info(
+      `[FileSessionStore] Initialized. Sessions directory: ${this.sessionsDir}`
+    );
   }
 
   /**
@@ -20,7 +22,9 @@ class FileSessionStore extends ISessionStore {
   async initialize() {
     try {
       await fs.mkdir(this.sessionsDir, { recursive: true });
-      logger.info(`[FileSessionStore] Sessions directory ensured: ${this.sessionsDir}`);
+      logger.info(
+        `[FileSessionStore] Sessions directory ensured: ${this.sessionsDir}`
+      );
     } catch (error) {
       logger.error(
         `[FileSessionStore] Failed to create sessions directory ${this.sessionsDir}:`,
@@ -54,7 +58,10 @@ class FileSessionStore extends ISessionStore {
       if (error.code === 'ENOENT') {
         return null; // File not found, so session doesn't exist
       }
-      logger.error(`[FileSessionStore] Error reading session file for ${sessionId}:`, error);
+      logger.error(
+        `[FileSessionStore] Error reading session file for ${sessionId}:`,
+        error
+      );
       throw error;
     }
   }
@@ -71,9 +78,16 @@ class FileSessionStore extends ISessionStore {
       if (dataToStore.createdAt instanceof Date) {
         dataToStore.createdAt = dataToStore.createdAt.toISOString();
       }
-      await fs.writeFile(filePath, JSON.stringify(dataToStore, null, 2), 'utf8');
+      await fs.writeFile(
+        filePath,
+        JSON.stringify(dataToStore, null, 2),
+        'utf8'
+      );
     } catch (error) {
-      logger.error(`[FileSessionStore] Error writing session file for ${sessionId}:`, error);
+      logger.error(
+        `[FileSessionStore] Error writing session file for ${sessionId}:`,
+        error
+      );
       throw error;
     }
   }
@@ -91,7 +105,9 @@ class FileSessionStore extends ISessionStore {
       // Check if session file already exists to prevent overwriting
       await fs.access(filePath);
       // If access doesn't throw, file exists. This might be an issue if sessionIdInput is reused.
-      logger.warn(`[FileSessionStore] Session file ${filePath} already exists for ID: ${sessionId}. Reading existing session.`);
+      logger.warn(
+        `[FileSessionStore] Session file ${filePath} already exists for ID: ${sessionId}. Reading existing session.`
+      );
       const existingSession = await this._readSessionFile(sessionId);
       if (existingSession) return existingSession; // Should always return if file exists
       // This path should ideally not be reached if file exists and is readable
@@ -99,7 +115,10 @@ class FileSessionStore extends ISessionStore {
     } catch (error) {
       // If error is ENOENT, file does not exist, which is good for creation
       if (error.code !== 'ENOENT') {
-        logger.error(`[FileSessionStore] Error checking existence of session file ${filePath}:`, error);
+        logger.error(
+          `[FileSessionStore] Error checking existence of session file ${filePath}:`,
+          error
+        );
         throw error; // Other error during access check
       }
     }
@@ -111,11 +130,13 @@ class FileSessionStore extends ISessionStore {
       lexicon: new Set(),
     };
     await this._writeSessionFile(sessionId, session);
-    logger.info(`[FileSessionStore] Session created and file written: ${filePath}`);
+    logger.info(
+      `[FileSessionStore] Session created and file written: ${filePath}`
+    );
     // Return a deep copy with lexicon as a Set for consistency with interface
     return {
-        ...session,
-        lexicon: new Set(session.lexicon) // Ensure it's a new Set instance
+      ...session,
+      lexicon: new Set(session.lexicon), // Ensure it's a new Set instance
     };
   }
 
@@ -143,11 +164,18 @@ class FileSessionStore extends ISessionStore {
   async addFacts(sessionId, newFacts) {
     const sessionData = await this._readSessionFile(sessionId);
     if (!sessionData) {
-      logger.warn(`[FileSessionStore] Cannot add facts: Session not found: ${sessionId}`);
+      logger.warn(
+        `[FileSessionStore] Cannot add facts: Session not found: ${sessionId}`
+      );
       return false;
     }
-    if (!Array.isArray(newFacts) || !newFacts.every((f) => typeof f === 'string')) {
-      logger.warn(`[FileSessionStore] Cannot add facts: newFacts must be an array of strings. Session: ${sessionId}`);
+    if (
+      !Array.isArray(newFacts) ||
+      !newFacts.every((f) => typeof f === 'string')
+    ) {
+      logger.warn(
+        `[FileSessionStore] Cannot add facts: newFacts must be an array of strings. Session: ${sessionId}`
+      );
       return false;
     }
 
@@ -156,14 +184,18 @@ class FileSessionStore extends ISessionStore {
       .filter((f) => f.length > 0 && f.endsWith('.'));
 
     if (validatedFacts.length !== newFacts.length) {
-      logger.warn(`[FileSessionStore] Some facts were invalid and were not added to session ${sessionId}.`);
+      logger.warn(
+        `[FileSessionStore] Some facts were invalid and were not added to session ${sessionId}.`
+      );
     }
 
     sessionData.facts.push(...validatedFacts);
     this._updateLexiconWithFacts(sessionData, validatedFacts); // Pass sessionData object to update its lexicon
 
     await this._writeSessionFile(sessionId, sessionData);
-    logger.info(`[FileSessionStore] ${validatedFacts.length} facts added to session: ${sessionId}. Total facts: ${sessionData.facts.length}. Lexicon size: ${sessionData.lexicon.size}`);
+    logger.info(
+      `[FileSessionStore] ${validatedFacts.length} facts added to session: ${sessionId}. Total facts: ${sessionData.facts.length}. Lexicon size: ${sessionData.lexicon.size}`
+    );
     return true;
   }
 
@@ -179,13 +211,17 @@ class FileSessionStore extends ISessionStore {
       } else {
         termToParse = cleanFact.slice(0, -1).trim();
       }
-      const structuredTermMatch = termToParse.match(/^([a-z_][a-zA-Z0-9_]*)\((.*)\)$/);
+      const structuredTermMatch = termToParse.match(
+        /^([a-z_][a-zA-Z0-9_]*)\((.*)\)$/
+      );
       if (structuredTermMatch) {
         const predicate = structuredTermMatch[1];
         const argsString = structuredTermMatch[2];
         let arity = 0;
         if (argsString.trim() !== '') {
-          const potentialArgs = argsString.match(/(?:[^,(]|\([^)]*\)|'[^']*')+/g);
+          const potentialArgs = argsString.match(
+            /(?:[^,(]|\([^)]*\)|'[^']*')+/g
+          );
           arity = potentialArgs ? potentialArgs.length : 0;
         }
         sessionData.lexicon.add(`${predicate}/${arity}`);
@@ -194,7 +230,9 @@ class FileSessionStore extends ISessionStore {
         if (simpleAtomMatch) {
           sessionData.lexicon.add(`${simpleAtomMatch[1]}/0`);
         } else {
-           logger.debug(`[FileSessionStore] Could not parse predicate/arity from term: ${termToParse} in session ${sessionData.id}`);
+          logger.debug(
+            `[FileSessionStore] Could not parse predicate/arity from term: ${termToParse} in session ${sessionData.id}`
+          );
         }
       }
     });
@@ -208,7 +246,9 @@ class FileSessionStore extends ISessionStore {
   async getKnowledgeBase(sessionId) {
     const sessionData = await this._readSessionFile(sessionId);
     if (!sessionData) {
-      logger.warn(`[FileSessionStore] Cannot get knowledge base: Session not found: ${sessionId}`);
+      logger.warn(
+        `[FileSessionStore] Cannot get knowledge base: Session not found: ${sessionId}`
+      );
       return null;
     }
     return sessionData.facts.join('\n');
@@ -227,10 +267,15 @@ class FileSessionStore extends ISessionStore {
       return true;
     } catch (error) {
       if (error.code === 'ENOENT') {
-        logger.warn(`[FileSessionStore] Cannot delete session: File not found: ${filePath}`);
+        logger.warn(
+          `[FileSessionStore] Cannot delete session: File not found: ${filePath}`
+        );
         return false;
       }
-      logger.error(`[FileSessionStore] Error deleting session file ${filePath}:`, error);
+      logger.error(
+        `[FileSessionStore] Error deleting session file ${filePath}:`,
+        error
+      );
       throw error;
     }
   }
@@ -243,7 +288,9 @@ class FileSessionStore extends ISessionStore {
   async getLexiconSummary(sessionId) {
     const sessionData = await this._readSessionFile(sessionId);
     if (!sessionData) {
-      logger.warn(`[FileSessionStore] Cannot get lexicon summary: Session not found: ${sessionId}`);
+      logger.warn(
+        `[FileSessionStore] Cannot get lexicon summary: Session not found: ${sessionId}`
+      );
       return null;
     }
     if (sessionData.lexicon.size === 0) {
