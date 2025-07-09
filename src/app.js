@@ -45,13 +45,12 @@ app.use(express.static(uiBuildPath));
 // This needs to be after API-specific routes (if any) and static files.
 // Since we removed dedicated API routes, this is simpler.
 app.get('*', (req, res, next) => {
-  // If the request is not for an asset or a known file, serve index.html
-  // This helps with client-side routing in the React app.
-  if (req.path.startsWith('/ws') || req.path.includes('.')) { // Crude check for assets or WS
-    return next(); // Let other handlers or 404 take it
-  }
+  // If express.static has not served an asset, and no other GET route matched,
+  // this will serve index.html for SPA routing.
+  // The check for req.path.includes('.') might be too broad if assets are served by express.static.
+  // WebSocket requests (/ws) are typically handled by an upgrade mechanism, not a GET route.
   const indexPath = path.join(uiBuildPath, 'index.html');
-  logger.debug(`[App] SPA fallback: serving ${indexPath} for ${req.path}`);
+  logger.debug(`[App] SPA fallback: attempting to serve ${indexPath} for ${req.path}`);
   res.sendFile(indexPath, (err) => {
     if (err) {
         logger.error(`[App] Error serving index.html for SPA fallback: ${err.message}`);

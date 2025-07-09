@@ -37,17 +37,30 @@ const { spawn } = require('child_process');
  * @property {object} [debugInfo] - Debugging information, if applicable.
  */
 
+// --- Optimizer Process Management Variables and Helpers ---
+// Define these *before* mcrToolDefinitions if they are used by handlers within it.
+let optimizerProcess = null;
+const MAX_OPTIMIZER_LOGS = 500;
+const optimizerLogs = []; // Stores { timestamp, type: 'stdout'|'stderr'|'status', message }
+
+function addOptimizerLog(type, message) {
+  const logEntry = { timestamp: new Date().toISOString(), type, message: message.trim() };
+  optimizerLogs.push(logEntry);
+  if (optimizerLogs.length > MAX_OPTIMIZER_LOGS) {
+    optimizerLogs.shift();
+  }
+  logger.info(`[OptimizerRuntime:${type}] ${message.trim()}`);
+}
+// --- End Optimizer Process Management Variables and Helpers ---
+
 /**
  * All available MCR tools callable via the WebSocket API.
- * Each tool handler receives the `input` part of the `tool_invoke` message payload.
- * Handlers should aim to return a ToolResult-like object.
  */
 const mcrToolDefinitions = {
   // Session Management Tools
   'session.create': {
     description: 'Creates a new reasoning session.',
     handler: async (input) => {
-      // mcrService.createSession can take an optional sessionId
       const sessionId = input?.sessionId;
       const session = await mcrService.createSession(sessionId);
       return { success: true, data: session };
@@ -80,22 +93,20 @@ const mcrToolDefinitions = {
     },
   },
   'session.assert': {
-    description: 'Asserts NL facts into a session. Replaces assertNLToSession.',
+    description: 'Asserts NL facts into a session.',
     handler: async (input) => {
       if (!input?.sessionId || !input?.naturalLanguageText) {
         return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'sessionId and naturalLanguageText are required.' };
       }
-      // mcrService.assertNLToSession returns a rich object already matching ToolResult structure
       return mcrService.assertNLToSession(input.sessionId, input.naturalLanguageText);
     },
   },
   'session.query': {
-    description: 'Queries a session with an NL question. Replaces querySessionWithNL.',
+    description: 'Queries a session with an NL question.',
     handler: async (input) => {
       if (!input?.sessionId || !input?.naturalLanguageQuestion) {
         return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'sessionId and naturalLanguageQuestion are required.' };
       }
-      // mcrService.querySessionWithNL returns a rich object
       return mcrService.querySessionWithNL(input.sessionId, input.naturalLanguageQuestion, input.queryOptions);
     },
   },
@@ -105,7 +116,6 @@ const mcrToolDefinitions = {
       if (!input?.sessionId || !input?.naturalLanguageQuestion) {
         return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'sessionId and naturalLanguageQuestion are required.' };
       }
-      // mcrService.explainQuery returns a rich object
       return mcrService.explainQuery(input.sessionId, input.naturalLanguageQuestion);
     },
   },
@@ -113,10 +123,9 @@ const mcrToolDefinitions = {
     description: 'Asserts raw Prolog rules directly into a session.',
     handler: async (input) => {
       if (!input?.sessionId || !input?.rules) {
-        return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'sessionId and rules (string or array of strings) are required.' };
+        return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'sessionId and rules are required.' };
       }
-      // mcrService.assertRawPrologToSession returns a rich object with { success, message, addedFacts, fullKnowledgeBase, error?, details? }
-      return mcrService.assertRawPrologToSession(input.sessionId, input.rules, input.validate); // validate is optional, defaults to true in service
+      return mcrService.assertRawPrologToSession(input.sessionId, input.rules, input.validate);
     },
   },
 
@@ -125,7 +134,7 @@ const mcrToolDefinitions = {
     description: 'Creates a new global ontology.',
     handler: async (input) => {
       if (!input?.name || !input?.rules) {
-        return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'name and rules are required for ontology creation.' };
+        return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'name and rules are required.' };
       }
       try {
         const ontology = await ontologyService.createOntology(input.name, input.rules);
@@ -153,7 +162,7 @@ const mcrToolDefinitions = {
     description: 'Retrieves a specific global ontology by name.',
     handler: async (input) => {
       if (!input?.name) {
-        return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'name is required to get an ontology.' };
+        return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'name is required.' };
       }
       try {
         const ontology = await ontologyService.getOntology(input.name);
@@ -171,7 +180,7 @@ const mcrToolDefinitions = {
     description: 'Updates an existing global ontology.',
     handler: async (input) => {
       if (!input?.name || !input?.rules) {
-        return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'name and rules are required for ontology update.' };
+        return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'name and rules are required.' };
       }
       try {
         const updatedOntology = await ontologyService.updateOntology(input.name, input.rules);
@@ -186,7 +195,7 @@ const mcrToolDefinitions = {
     description: 'Deletes a global ontology.',
     handler: async (input) => {
       if (!input?.name) {
-        return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'name is required to delete an ontology.' };
+        return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'name is required.' };
       }
       try {
         await ontologyService.deleteOntology(input.name);
@@ -200,12 +209,11 @@ const mcrToolDefinitions = {
 
   // Direct Translation Tools
   'translate.nlToRules': {
-    description: 'Translates NL text directly to Prolog rules using an assertion strategy.',
+    description: 'Translates NL text directly to Prolog rules.',
     handler: async (input) => {
       if (!input?.naturalLanguageText) {
         return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'naturalLanguageText is required.' };
       }
-      // mcrService.translateNLToRulesDirect returns a rich object
       return mcrService.translateNLToRulesDirect(input.naturalLanguageText, input.strategyId);
     },
   },
@@ -215,7 +223,6 @@ const mcrToolDefinitions = {
       if (!input?.rules) {
         return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'rules are required.' };
       }
-      // mcrService.translateRulesToNLDirect returns a rich object
       return mcrService.translateRulesToNLDirect(input.rules, input.style);
     },
   },
@@ -223,29 +230,29 @@ const mcrToolDefinitions = {
   // Strategy Management Tools
   'strategy.list': {
     description: 'Lists all available translation strategies.',
-    handler: async () => { // No input needed
-      const strategies = strategyManager.getAvailableStrategies(); // Synchronous
+    handler: async () => {
+      const strategies = strategyManager.getAvailableStrategies();
       return { success: true, data: strategies };
     },
   },
   'strategy.setActive': {
-    description: 'Sets the active base translation strategy for the MCR service.',
+    description: 'Sets the active base translation strategy.',
     handler: async (input) => {
       if (!input?.strategyId) {
         return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'strategyId is required.' };
       }
       const success = await mcrService.setTranslationStrategy(input.strategyId);
       if (success) {
-        const activeStrategyId = mcrService.getActiveStrategyId(); // Get the potentially modified/actual ID
+        const activeStrategyId = mcrService.getActiveStrategyId();
         return { success: true, message: `Base translation strategy set to ${activeStrategyId}.`, data: { activeStrategyId } };
       }
-      return { success: false, error: ErrorCodes.STRATEGY_SET_FAILED, message: `Failed to set strategy to ${input.strategyId}. It might be invalid.` };
+      return { success: false, error: ErrorCodes.STRATEGY_SET_FAILED, message: `Failed to set strategy to ${input.strategyId}.` };
     },
   },
   'strategy.getActive': {
     description: 'Gets the currently active base translation strategy ID.',
-    handler: async () => { // No input needed
-      const activeStrategyId = mcrService.getActiveStrategyId(); // Synchronous
+    handler: async () => {
+      const activeStrategyId = mcrService.getActiveStrategyId();
       return { success: true, data: { activeStrategyId } };
     },
   },
@@ -253,13 +260,12 @@ const mcrToolDefinitions = {
   // Utility & Debugging Tools
   'utility.getPrompts': {
     description: 'Retrieves all available prompt templates.',
-    handler: async () => { // No input needed
-      // mcrService.getPrompts returns { success: true, prompts: object } or error object
+    handler: async () => {
       const result = await mcrService.getPrompts();
       if (result.success) {
         return { success: true, data: result.prompts };
       }
-      return result; // Pass error object as is
+      return result;
     },
   },
   'utility.debugFormatPrompt': {
@@ -268,151 +274,92 @@ const mcrToolDefinitions = {
       if (!input?.templateName || !input?.inputVariables) {
         return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'templateName and inputVariables are required.' };
       }
-      // mcrService.debugFormatPrompt returns a rich object
       return mcrService.debugFormatPrompt(input.templateName, input.inputVariables);
     },
   },
-  // 'utility.getStatus' can remain an HTTP endpoint or be added here if needed for WS clients.
-  // For now, the existing websocketHandler has a direct switch case for it,
-  // which calls utilityHandlers.getStatusHandler(req, res).
-  // To integrate fully, it would be:
-  // 'utility.getStatus': {
-  //   description: 'Gets the server status.',
-  //   handler: async () => {
-  //     // This would require refactoring getStatusHandler or duplicating logic
-  //     // For simplicity, let's assume it might be added later if WS clients need it.
-  //     // For now, it's likely used by load balancers/HTTP checks.
-  //     return { success: true, data: { status: "ok", message: "MCR WebSocket service is running." } };
-  //   }
-  // }
 
   // System Analysis Tools
   'analysis.get_strategy_leaderboard': {
-    description: 'Retrieves aggregated performance data for all strategies from performance_results.db.',
+    description: 'Retrieves aggregated performance data for strategies.',
     handler: async () => {
       try {
-        // 1. Create a mapping from strategy_hash to strategyId and strategyName
-        const strategyDefinitions = strategyManager.getAvailableStrategies(); // Gets {id, name}
+        const strategyDefinitions = strategyManager.getAvailableStrategies();
         const strategyDetailsMap = new Map();
         for (const stratInfo of strategyDefinitions) {
           const definition = strategyManager.getStrategy(stratInfo.id);
           if (definition) {
             const hash = crypto.createHash('sha256').update(JSON.stringify(definition)).digest('hex');
-            strategyDetailsMap.set(hash, { id: stratInfo.id, name: stratInfo.name, definition });
+            strategyDetailsMap.set(hash, { id: stratInfo.id, name: stratInfo.name });
           }
         }
-
-        // 2. Query the database for aggregated performance data
         const query = `
-          SELECT
-            strategy_hash,
-            COUNT(*) AS evaluations,
-            AVG(latency_ms) AS avgLatencyMs,
-            AVG(CASE WHEN json_extract(metrics, '$.exactMatchProlog') = 1 THEN 1 ELSE 0 END) AS successRate,
-            AVG(json_extract(cost, '$.cost_usd')) AS avgCostUsd
-          FROM performance_results
-          GROUP BY strategy_hash
-        `;
+          SELECT strategy_hash, COUNT(*) AS evaluations, AVG(latency_ms) AS avgLatencyMs,
+                 AVG(CASE WHEN json_extract(metrics, '$.exactMatchProlog') = 1 THEN 1 ELSE 0 END) AS successRate,
+                 AVG(json_extract(cost, '$.cost_usd')) AS avgCostUsd
+          FROM performance_results GROUP BY strategy_hash`;
         const rows = await queryPerformanceResults(query);
-
-        // 3. Combine DB results with strategy names/IDs
         const leaderboardData = rows.map(row => {
           const details = strategyDetailsMap.get(row.strategy_hash);
           return {
-            strategyId: details ? details.id : 'unknown_strategy_id', // Fallback if hash not found (should not happen for known strategies)
-            strategyName: details ? details.name : row.strategy_hash, // Fallback to hash if name not found
+            strategyId: details ? details.id : 'unknown_strategy_id',
+            strategyName: details ? details.name : row.strategy_hash,
             evaluations: row.evaluations,
             successRate: row.successRate !== null ? parseFloat(row.successRate.toFixed(3)) : null,
             avgLatencyMs: row.avgLatencyMs !== null ? parseFloat(row.avgLatencyMs.toFixed(0)) : null,
-            // The UI expects avgCost. Let's use avgCostUsd and the UI can format it.
             avgCost: row.avgCostUsd !== null ? parseFloat(row.avgCostUsd.toFixed(5)) : null,
           };
-        }).filter(entry => entry.strategyId !== 'unknown_strategy_id'); // Filter out entries where original strategy definition couldn't be found
-
+        }).filter(entry => entry.strategyId !== 'unknown_strategy_id');
         return { success: true, data: leaderboardData };
       } catch (error) {
-        logger.error(`[Tool:analysis.get_strategy_leaderboard] Database error or processing error: ${error.message}`, { stack: error.stack });
-        return { success: false, message: 'Failed to retrieve strategy leaderboard from database.', error: ErrorCodes.DATABASE_ERROR };
+        logger.error(`[Tool:analysis.get_strategy_leaderboard] Error: ${error.message}`, { stack: error.stack });
+        return { success: false, message: 'Failed to retrieve strategy leaderboard.', error: ErrorCodes.DATABASE_ERROR };
       }
     },
   },
   'analysis.get_strategy_details': {
-    description: 'Retrieves detailed performance data and definition for a specific strategy.',
+    description: 'Retrieves detailed performance data for a specific strategy.',
     handler: async (input) => {
       const { strategyId } = input;
       if (!strategyId) {
         return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'strategyId is required.' };
       }
-
       try {
         const strategyDefinition = strategyManager.getStrategy(strategyId);
         if (!strategyDefinition) {
-          return { success: false, error: ErrorCodes.STRATEGY_NOT_FOUND, message: `Strategy with ID '${strategyId}' not found.` };
+          return { success: false, error: ErrorCodes.STRATEGY_NOT_FOUND, message: `Strategy '${strategyId}' not found.` };
         }
-
         const strategyHash = crypto.createHash('sha256').update(JSON.stringify(strategyDefinition)).digest('hex');
-
-        // Fetch all performance results for this strategy hash
-        // The schema has strategy_hash, llm_model_id, example_id, metrics, cost, latency_ms, timestamp, raw_output
         const performanceRuns = await queryPerformanceResults(
           'SELECT * FROM performance_results WHERE strategy_hash = ? ORDER BY timestamp DESC',
           [strategyHash]
         );
-
-        // Parse JSON fields (metrics, cost) for easier consumption by client
         const processedRuns = performanceRuns.map(run => ({
           ...run,
           metrics: typeof run.metrics === 'string' ? JSON.parse(run.metrics) : run.metrics,
           cost: typeof run.cost === 'string' ? JSON.parse(run.cost) : run.cost,
         }));
-
-        // Calculate summary statistics (can be expanded)
-        let totalLatency = 0;
-        let successfulRuns = 0;
-        // Assuming metrics has a field like `is_success` or we infer from `exactMatchProlog` etc.
-        // For now, let's assume a metric `overall_success: 1 or 0` or similar exists or can be derived.
-        // This part needs alignment with actual metrics being stored.
-        // As a placeholder, let's count runs where metrics.exactMatchProlog === 1 (if it exists)
-        performanceRuns.forEach(run => {
+        let totalLatency = 0, successfulRuns = 0;
+        processedRuns.forEach(run => {
             totalLatency += run.latency_ms;
-            const metrics = typeof run.metrics === 'string' ? JSON.parse(run.metrics) : run.metrics;
-            if (metrics?.exactMatchProlog === 1) { // Example success condition
-                successfulRuns++;
-            }
+            if (run.metrics?.exactMatchProlog === 1) successfulRuns++;
         });
-        const avgLatency = performanceRuns.length > 0 ? totalLatency / performanceRuns.length : 0;
-        const successRate = performanceRuns.length > 0 ? successfulRuns / performanceRuns.length : 0;
-
         const summary = {
-            totalRuns: performanceRuns.length,
-            avgLatencyMs: parseFloat(avgLatency.toFixed(2)),
-            successRate: parseFloat(successRate.toFixed(3)),
-            // Add more summary stats as needed (e.g., avg cost)
+            totalRuns: processedRuns.length,
+            avgLatencyMs: processedRuns.length > 0 ? parseFloat((totalLatency / processedRuns.length).toFixed(2)) : 0,
+            successRate: processedRuns.length > 0 ? parseFloat((successfulRuns / processedRuns.length).toFixed(3)) : 0,
         };
-
-        return {
-          success: true,
-          data: {
-            strategyId: strategyId, // Echo back the ID used for lookup
-            definition: strategyDefinition, // The JSON content of the strategy
-            hash: strategyHash,
-            summary: summary,
-            runs: processedRuns,
-          },
-        };
+        return { success: true, data: { strategyId, definition: strategyDefinition, hash: strategyHash, summary, runs: processedRuns } };
       } catch (error) {
-        logger.error(`[Tool:analysis.get_strategy_details] Error for strategy ${strategyId}: ${error.message}`, { stack: error.stack, strategyId });
-        return { success: false, message: `Failed to retrieve details for strategy ${strategyId}.`, error: ErrorCodes.DATABASE_ERROR }; // Or a more specific error
+        logger.error(`[Tool:analysis.get_strategy_details] Error for ${strategyId}: ${error.message}`, { stack: error.stack });
+        return { success: false, message: `Failed to retrieve details for strategy ${strategyId}.`, error: ErrorCodes.DATABASE_ERROR };
       }
     },
   },
-  // 'analysis.list_eval_cases': {} // Implementing as list_eval_curricula
   'analysis.list_eval_curricula': {
-    description: 'Lists all available evaluation curricula (files of evaluation cases).',
+    description: 'Lists all available evaluation curricula.',
     handler: async () => {
       const evalCasesDir = path.join(__dirname, 'evalCases');
       const curricula = [];
-
       function findEvalFilesRecursively(currentDir, relativeBaseDir = '') {
         try {
           const entries = fs.readdirSync(currentDir, { withFileTypes: true });
@@ -421,241 +368,141 @@ const mcrToolDefinitions = {
             const relativePath = path.join(relativeBaseDir, entry.name);
             if (entry.isDirectory()) {
               findEvalFilesRecursively(fullPath, relativePath);
-            } else if (entry.isFile() && (entry.name.endsWith('.js') || entry.name.endsWith('.json')) && entry.name !== 'ExampleBase.js' && !entry.name.endsWith('Utils.js') && entry.name !== path.basename(__filename)) {
-              // Basic filtering for JS/JSON files, excluding known non-case files
+            } else if (entry.isFile() && (entry.name.endsWith('.js') || entry.name.endsWith('.json')) && !/ExampleBase\.js|Utils\.js/.test(entry.name) && entry.name !== path.basename(__filename)) {
               try {
-                // To get caseCount, we need to require the file.
-                // Note: require() caches, subsequent calls for the same file are fast.
-                const casesFromFile = require(fullPath);
-                const caseCount = Array.isArray(casesFromFile) ? casesFromFile.length : (typeof casesFromFile === 'object' && casesFromFile !== null && Array.isArray(casesFromFile.default) ? casesFromFile.default.length : 0);
-
-                curricula.push({
-                  id: relativePath.replace(/\\/g, '/'), // Normalize path separators for ID
-                  name: entry.name,
-                  path: relativePath.replace(/\\/g, '/'),
-                  caseCount: caseCount,
-                });
+                const casesFromFile = require(fullPath); // Potentially unsafe if files are user-supplied
+                const caseCount = Array.isArray(casesFromFile) ? casesFromFile.length : (casesFromFile?.default && Array.isArray(casesFromFile.default)) ? casesFromFile.default.length : 0;
+                curricula.push({ id: relativePath.replace(/\\/g, '/'), name: entry.name, path: relativePath.replace(/\\/g, '/'), caseCount });
               } catch (err) {
-                logger.warn(`[Tool:analysis.list_eval_curricula] Error requiring/processing file ${fullPath}: ${err.message}. Skipping.`);
+                logger.warn(`[Tool:list_eval_curricula] Error processing file ${fullPath}: ${err.message}.`);
               }
             }
           }
         } catch (error) {
-          logger.error(`[Tool:analysis.list_eval_curricula] Error reading directory ${currentDir}: ${error.message}`);
-          // Do not re-throw, try to list what's possible
+          logger.error(`[Tool:list_eval_curricula] Error reading dir ${currentDir}: ${error.message}`);
         }
       }
-
       findEvalFilesRecursively(evalCasesDir);
       if (curricula.length === 0 && !fs.existsSync(evalCasesDir)) {
-         logger.warn(`[Tool:analysis.list_eval_curricula] Evaluation cases directory not found: ${evalCasesDir}`);
          return { success: true, data: [], message: "Evaluation cases directory not found." };
       }
       return { success: true, data: curricula };
     },
   },
-  // 'analysis.get_eval_case_content': { casePath } // Implementing as get_curriculum_details
   'analysis.get_curriculum_details': {
-    description: 'Retrieves the detailed content (evaluation cases) of a specific curriculum file.',
+    description: 'Retrieves the content of a specific curriculum file.',
     handler: async (input) => {
       const { curriculumId } = input;
       if (!curriculumId) {
         return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'curriculumId is required.' };
       }
-
-      // curriculumId is expected to be the relative path from 'src/evalCases/'
       const curriculumPath = path.join(__dirname, 'evalCases', curriculumId);
-
       if (!fs.existsSync(curriculumPath) || !fs.statSync(curriculumPath).isFile()) {
-        logger.error(`[Tool:analysis.get_curriculum_details] Curriculum file not found or not a file: ${curriculumPath}`);
-        return { success: false, error: ErrorCodes.EVAL_CASE_FILE_NOT_FOUND, message: `Curriculum '${curriculumId}' not found.` }; // Need EVAL_CASE_FILE_NOT_FOUND error
+        return { success: false, error: ErrorCodes.EVAL_CASE_FILE_NOT_FOUND, message: `Curriculum '${curriculumId}' not found.` };
       }
-
       try {
-        // Clear cache for this specific file to ensure fresh read if file was edited
-        delete require.cache[require.resolve(curriculumPath)];
+        delete require.cache[require.resolve(curriculumPath)]; // Ensure fresh read
         const cases = require(curriculumPath);
-        // Handle if module exports an object with a 'default' array (common for ES modules transpiled)
-        const actualCases = Array.isArray(cases) ? cases : (cases && Array.isArray(cases.default)) ? cases.default : null;
-
+        const actualCases = Array.isArray(cases) ? cases : (cases?.default && Array.isArray(cases.default)) ? cases.default : null;
         if (!actualCases) {
-             logger.error(`[Tool:analysis.get_curriculum_details] Curriculum file ${curriculumPath} did not export an array of cases.`);
-             return { success: false, error: ErrorCodes.EVAL_CASE_INVALID_FORMAT, message: `Curriculum '${curriculumId}' has invalid format.`}; // Need EVAL_CASE_INVALID_FORMAT
+             return { success: false, error: ErrorCodes.EVAL_CASE_INVALID_FORMAT, message: `Curriculum '${curriculumId}' has invalid format.`};
         }
         return { success: true, data: { id: curriculumId, name: path.basename(curriculumId), cases: actualCases } };
       } catch (error) {
-        logger.error(`[Tool:analysis.get_curriculum_details] Error loading curriculum ${curriculumId}: ${error.message}`, { stack: error.stack });
-        return { success: false, message: `Error loading curriculum '${curriculumId}': ${error.message}`, error: ErrorCodes.EVAL_CASE_LOAD_FAILED }; // Need EVAL_CASE_LOAD_FAILED
+        logger.error(`[Tool:get_curriculum_details] Error loading ${curriculumId}: ${error.message}`, { stack: error.stack });
+        return { success: false, message: `Error loading curriculum '${curriculumId}': ${error.message}`, error: ErrorCodes.EVAL_CASE_LOAD_FAILED };
       }
     },
   },
-  // 'analysis.save_eval_case_content': { casePath, content }
-  // 'analysis.generate_eval_case_variations': { casePath }
-  // 'evolver.run_bootstrap': {} // These are covered by options in start_optimizer
-  // 'evolver.run_single_cycle': {} // Same as above
-  // 'evolver.start_continuous_evolution': {} // Same as above
-  // 'evolver.get_status': {} // Implementing below
-};
 
-// --- Optimizer Process Management ---
-let optimizerProcess = null;
-const MAX_OPTIMIZER_LOGS = 500; // Increased max log lines
-const optimizerLogs = []; // Stores { timestamp, type: 'stdout'|'stderr'|'status', message }
-
-function addOptimizerLog(type, message) {
-  const logEntry = { timestamp: new Date().toISOString(), type, message: message.trim() };
-  optimizerLogs.push(logEntry);
-  if (optimizerLogs.length > MAX_OPTIMIZER_LOGS) {
-    optimizerLogs.shift();
-  }
-  // For real-time UI updates, one might emit WebSocket events here to subscribed clients.
-  // For now, logs are pulled by get_optimizer_log.
-  logger.info(`[OptimizerRuntime:${type}] ${message.trim()}`);
-}
-// --- End Optimizer Process Management ---
-
-
-// Add evolution tools to mcrToolDefinitions
-mcrToolDefinitions['evolution.start_optimizer'] = {
-  description: 'Starts the strategy evolution optimizer script.',
-  handler: async (input) => {
-    if (optimizerProcess) {
-      return { success: false, message: 'Optimizer process is already running.', error: ErrorCodes.OPTIMIZER_RUNNING };
-    }
-
-    const options = input?.options || {};
-    const args = [];
-    if (options.iterations) args.push('-i', options.iterations.toString());
-    if (options.bootstrapOnly) args.push('--bootstrapOnly');
-    if (options.runBootstrap) args.push('--runBootstrap');
-    if (options.evalCasesPath) args.push('-p', options.evalCasesPath);
-
-    addOptimizerLog('status', `Starting optimizer with args: ${args.join(' ')}`);
-
-    // Ensure the script path is correct, relative to where mcr.js (main server) runs from.
-    // __dirname for tools.js is src/. So optimizer.js is at ./evolution/optimizer.js
-    const scriptPath = path.join(__dirname, 'evolution', 'optimizer.js');
-
-    optimizerProcess = spawn('node', [scriptPath, ...args], {
-      detached: false, // false: if MCR server dies, optimizer child process dies. True: optimizer could continue.
-      stdio: ['ignore', 'pipe', 'pipe'], // stdin, stdout, stderr
-    });
-
-    optimizerProcess.stdout.on('data', (data) => {
-      addOptimizerLog('stdout', data.toString());
-    });
-
-    optimizerProcess.stderr.on('data', (data) => {
-      addOptimizerLog('stderr', data.toString());
-    });
-
-    optimizerProcess.on('error', (err) => {
-      addOptimizerLog('error', `Optimizer process error: ${err.message}`);
-      logger.error(`[OptimizerRuntime] Optimizer process error: ${err.message}`, {stack: err.stack});
-      optimizerProcess = null;
-    });
-
-    optimizerProcess.on('exit', (code, signal) => {
-      addOptimizerLog('status', `Optimizer process exited with code ${code}, signal ${signal}.`);
-      logger.info(`[OptimizerRuntime] Optimizer process exited with code ${code}, signal ${signal}.`);
-      optimizerProcess = null;
-    });
-
-    // Add a small delay to allow process to potentially fail fast.
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    if (optimizerProcess && !optimizerProcess.killed && optimizerProcess.pid) {
-       addOptimizerLog('status', `Optimizer process started with PID: ${optimizerProcess.pid}.`);
-       return { success: true, message: `Optimizer started with PID ${optimizerProcess.pid}.`, data: { pid: optimizerProcess.pid } };
-    } else {
-       addOptimizerLog('error', 'Optimizer process failed to start or exited immediately.');
-       // optimizerProcess might be null here if 'error' or 'exit' fired quickly
-       return { success: false, message: 'Optimizer process failed to start or exited immediately. Check logs.', error: ErrorCodes.OPTIMIZER_START_FAILED };
-    }
-  },
-};
-
-mcrToolDefinitions['evolution.get_status'] = {
-  description: 'Gets the current status of the optimizer process.',
-  handler: async () => {
-    if (optimizerProcess && optimizerProcess.pid && !optimizerProcess.killed) {
-      return { success: true, data: { status: 'running', pid: optimizerProcess.pid } };
-    }
-    // Could check a status file here in the future
-    return { success: true, data: { status: 'idle', message: 'Optimizer not currently running.' } };
-  },
-};
-
-mcrToolDefinitions['evolution.stop_optimizer'] = {
-  description: 'Stops the running optimizer process.',
-  handler: async () => {
-    if (optimizerProcess && optimizerProcess.pid && !optimizerProcess.killed) {
-      addOptimizerLog('status', `Attempting to stop optimizer process PID: ${optimizerProcess.pid}.`);
-      const killed = optimizerProcess.kill('SIGTERM'); // Send SIGTERM first
-      if (killed) {
-        // optimizerProcess will be set to null on 'exit' event.
-        return { success: true, message: 'Optimizer process termination signal sent (SIGTERM).' };
-      } else {
-        // Fallback if SIGTERM fails (e.g. process already exited)
-        const killedForce = optimizerProcess.kill('SIGKILL');
-         if (killedForce) {
-            addOptimizerLog('status', `Optimizer process termination signal sent (SIGKILL).`);
-            return { success: true, message: 'Optimizer process termination signal sent (SIGKILL).' };
-         }
-        addOptimizerLog('error', 'Failed to send termination signal to optimizer process.');
-        return { success: false, message: 'Failed to send termination signal to optimizer process.', error: ErrorCodes.OPTIMIZER_STOP_FAILED };
+  // Evolution Tools
+  'evolution.start_optimizer': {
+    description: 'Starts the strategy evolution optimizer script.',
+    handler: async (input) => {
+      if (optimizerProcess) {
+        return { success: false, message: 'Optimizer process is already running.', error: ErrorCodes.OPTIMIZER_RUNNING };
       }
-    }
-    return { success: false, message: 'Optimizer process not running.', error: ErrorCodes.OPTIMIZER_NOT_RUNNING };
+      const options = input?.options || {};
+      const args = [];
+      if (options.iterations) args.push('-i', options.iterations.toString());
+      if (options.bootstrapOnly) args.push('--bootstrapOnly');
+      if (options.runBootstrap) args.push('--runBootstrap');
+      if (options.evalCasesPath) args.push('-p', options.evalCasesPath);
+      addOptimizerLog('status', `Starting optimizer with args: ${args.join(' ')}`);
+      const scriptPath = path.join(__dirname, 'evolution', 'optimizer.js');
+      optimizerProcess = spawn('node', [scriptPath, ...args], { stdio: ['ignore', 'pipe', 'pipe'] });
+      optimizerProcess.stdout.on('data', (data) => addOptimizerLog('stdout', data.toString()));
+      optimizerProcess.stderr.on('data', (data) => addOptimizerLog('stderr', data.toString()));
+      optimizerProcess.on('error', (err) => {
+        addOptimizerLog('error', `Optimizer process error: ${err.message}`);
+        logger.error(`[OptimizerRuntime] Error: ${err.message}`, {stack: err.stack});
+        optimizerProcess = null;
+      });
+      optimizerProcess.on('exit', (code, signal) => {
+        addOptimizerLog('status', `Optimizer process exited with code ${code}, signal ${signal}.`);
+        logger.info(`[OptimizerRuntime] Exited with code ${code}, signal ${signal}.`);
+        optimizerProcess = null;
+      });
+      await new Promise(resolve => setTimeout(resolve, 100)); // Allow fast fail
+      if (optimizerProcess?.pid) {
+         addOptimizerLog('status', `Optimizer process started with PID: ${optimizerProcess.pid}.`);
+         return { success: true, message: `Optimizer started with PID ${optimizerProcess.pid}.`, data: { pid: optimizerProcess.pid } };
+      } else {
+         addOptimizerLog('error', 'Optimizer process failed to start or exited immediately.');
+         return { success: false, message: 'Optimizer process failed to start. Check logs.', error: ErrorCodes.OPTIMIZER_START_FAILED };
+      }
+    },
   },
-};
-
-mcrToolDefinitions['evolution.get_optimizer_log'] = {
-  description: 'Retrieves recent logs from the optimizer process.',
-  handler: async () => {
-    // Could enhance to read from a file if optimizer logs there
-    return { success: true, data: { logs: optimizerLogs } };
+  'evolution.get_status': {
+    description: 'Gets the current status of the optimizer process.',
+    handler: async () => {
+      if (optimizerProcess?.pid && !optimizerProcess.killed) {
+        return { success: true, data: { status: 'running', pid: optimizerProcess.pid } };
+      }
+      return { success: true, data: { status: 'idle', message: 'Optimizer not currently running.' } };
+    },
   },
-};
+  'evolution.stop_optimizer': {
+    description: 'Stops the running optimizer process.',
+    handler: async () => {
+      if (optimizerProcess?.pid && !optimizerProcess.killed) {
+        addOptimizerLog('status', `Attempting to stop optimizer PID: ${optimizerProcess.pid}.`);
+        const killed = optimizerProcess.kill('SIGTERM') || optimizerProcess.kill('SIGKILL');
+        if (killed) {
+          addOptimizerLog('status', `Optimizer termination signal sent.`);
+          return { success: true, message: 'Optimizer termination signal sent.' };
+        }
+        addOptimizerLog('error', 'Failed to send termination signal to optimizer.');
+        return { success: false, message: 'Failed to send termination signal.', error: ErrorCodes.OPTIMIZER_STOP_FAILED };
+      }
+      return { success: false, message: 'Optimizer process not running.', error: ErrorCodes.OPTIMIZER_NOT_RUNNING };
+    },
+  },
+  'evolution.get_optimizer_log': {
+    description: 'Retrieves recent logs from the optimizer process.',
+    handler: async () => {
+      return { success: true, data: { logs: optimizerLogs } };
+    },
+  },
 
-// Demo Tools
-mcrToolDefinitions['demo.list'] = {
-  description: 'Lists all available demos.',
+  // Demo Tools
+  'demo.list': {
+    description: 'Lists all available demos.',
     handler: async () => {
       const demoDir = path.join(__dirname, 'demo');
       const demos = [];
       try {
         const files = fs.readdirSync(demoDir);
         for (const file of files) {
-          if (file.endsWith('Demo.js') && file !== 'ExampleBase.js') { // Assuming demo files end with Demo.js and ignore base
+          if (file.endsWith('Demo.js') && !/ExampleBase\.js/.test(file)) {
             const demoId = file.replace(/\.js$/, '');
             try {
               const DemoClass = require(path.join(demoDir, file));
-              // Instantiate with dummy session/collector just to get name/description
-              // This is a bit of a hack; ideally, name/description could be static or metadata
-              const tempLogCollector = () => {}; // No-op
-              const tempSessionId = 'temp_demo_list_session'; // Dummy session ID
-
-              // Check if it's a class and has getName/getDescription methods
               if (typeof DemoClass === 'function' && DemoClass.prototype?.getName && DemoClass.prototype?.getDescription) {
-                  // For class-based demos, we might need to instantiate them to get name/desc.
-                  // This is problematic if constructor does real work or needs valid session.
-                  // For now, assuming constructor is light or we make getName/Desc static.
-                  // Let's assume for now they are instance methods and constructor is simple.
-                  // This part needs careful review based on ExampleBase.
-                  // If ExampleBase constructor throws without valid session, this will fail.
-                  // Quick fix: only instantiate if it's NOT ExampleBase itself.
-
-                  // The refactored ExampleBase constructor *does* require sessionId and logCollector.
-                  // So, we must provide them.
-                  const instance = new DemoClass(tempSessionId, tempLogCollector);
-                  demos.push({
-                    id: demoId,
-                    name: instance.getName(),
-                    description: instance.getDescription(),
-                  });
+                const instance = new DemoClass('temp_demo_list_session', () => {}); // Dummy session/logger
+                demos.push({ id: demoId, name: instance.getName(), description: instance.getDescription() });
               } else {
-                 logger.warn(`[Tool:demo.list] File ${file} does not appear to be a valid Demo class with getName/getDescription.`);
+                 logger.warn(`[Tool:demo.list] File ${file} is not a valid Demo class.`);
               }
             } catch (err) {
               logger.error(`[Tool:demo.list] Error loading demo ${file}: ${err.message}`, { stack: err.stack });
@@ -676,37 +523,29 @@ mcrToolDefinitions['demo.list'] = {
       if (!demoId || !sessionId) {
         return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'demoId and sessionId are required.' };
       }
-
       const demoFilePath = path.join(__dirname, 'demo', `${demoId}.js`);
       if (!fs.existsSync(demoFilePath)) {
         return { success: false, error: ErrorCodes.DEMO_NOT_FOUND, message: `Demo '${demoId}' not found.` };
       }
-
       const capturedLogs = [];
-      const logCollector = (logEntry) => {
-        capturedLogs.push(logEntry);
-      };
-
+      const logCollector = (logEntry) => capturedLogs.push(logEntry);
       try {
         const DemoClass = require(demoFilePath);
         if (typeof DemoClass !== 'function' || !DemoClass.prototype?.run) {
-            logger.error(`[Tool:demo.run] ${demoId} is not a valid Demo class with a run method.`);
-            return { success: false, error: ErrorCodes.DEMO_INVALID, message: `Demo '${demoId}' is not a valid demo class.` };
+            return { success: false, error: ErrorCodes.DEMO_INVALID, message: `Demo '${demoId}' is not valid.` };
         }
         const demoInstance = new DemoClass(sessionId, logCollector);
-
         logCollector({type: 'log', level: 'info', message: `Starting demo: ${demoInstance.getName()}`});
         await demoInstance.run();
         logCollector({type: 'log', level: 'info', message: `Finished demo: ${demoInstance.getName()}`});
-
         return { success: true, data: { demoId, messages: capturedLogs } };
       } catch (error) {
         logger.error(`[Tool:demo.run] Error running demo ${demoId}: ${error.message}`, { stack: error.stack });
-        logCollector({type: 'log', level: 'error', message: `Critical error running demo ${demoId}: ${error.message}`});
-        return { success: false, message: `Error running demo '${demoId}': ${error.message}`, error: ErrorCodes.DEMO_RUN_FAILED, data: { demoId, messages: capturedLogs } };
+        logCollector({type: 'log', level: 'error', message: `Critical error in demo ${demoId}: ${error.message}`});
+        return { success: false, message: `Error in demo '${demoId}': ${error.message}`, error: ErrorCodes.DEMO_RUN_FAILED, data: { demoId, messages: capturedLogs } };
       }
     },
   },
-};
+}; // End of mcrToolDefinitions
 
 module.exports = mcrToolDefinitions;
