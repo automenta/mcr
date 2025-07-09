@@ -1,6 +1,10 @@
-const { Example } = require('../../demo'); // Adjust path as necessary
+const ExampleBase = require('./ExampleBase'); // Use the new base class
 
-class ErrorHandlingDemo extends Example {
+class ErrorHandlingDemo extends ExampleBase {
+  // constructor(sessionId, logCollector) { // No constructor needed if just calling super
+  //   super(sessionId, logCollector);
+  // }
+
   getName() {
     return 'Error Handling';
   }

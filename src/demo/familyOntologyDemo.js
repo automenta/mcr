@@ -1,8 +1,12 @@
-const { Example } = require('../../demo'); // Adjust path as necessary
+const ExampleBase = require('./ExampleBase'); // Use the new base class
 const { readFileContentSafe } = require('./demoUtils'); // Import the utility
 const path = require('path');
 
-class FamilyOntologyDemo extends Example {
+class FamilyOntologyDemo extends ExampleBase {
+  // constructor(sessionId, logCollector) { // No constructor needed if just calling super
+  //   super(sessionId, logCollector);
+  // }
+
   getName() {
     return 'Family Ontology';
   }

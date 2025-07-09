@@ -1,6 +1,10 @@
-const { Example } = require('../../demo'); // Adjust path as necessary
+const ExampleBase = require('./ExampleBase'); // Use the new base class
 
-class ScientificKBDemo extends Example {
+class ScientificKBDemo extends ExampleBase {
+  // constructor(sessionId, logCollector) { // No constructor needed if just calling super
+  //   super(sessionId, logCollector);
+  // }
+
   getName() {
     return 'Scientific KB';
   }

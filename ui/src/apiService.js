@@ -24,7 +24,7 @@ class ApiService {
     return `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   }
 
-  connect(url = 'ws://localhost:3000/ws') { // Assuming /ws is the server endpoint from design
+  connect(url = 'ws://localhost:8080/ws') { // Default MCR server URL
     this.serverUrl = url;
     this.explicitlyClosed = false;
 
