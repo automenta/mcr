@@ -50,15 +50,6 @@ const toolDefinitions = {
     description: "Lists all active sessions.",
     handler: async (payload) => toolHandlerWrapper('list_sessions', mcrService.listSessions, payload),
   },
-  get_session_kb: {
-    description: "Retrieves the knowledge base for a given session.",
-    // mcrService doesn't have a direct getKnowledgeBase, it's part of sessionStore.
-    // For now, we'll skip this or assume mcrService might be augmented.
-    // This highlights a potential need for mcrService to expose more session store interactions.
-    // Let's assume we add a wrapper in mcrService or access sessionStore if appropriate architecture-wise.
-    // For now, placeholder:
-    handler: async (payload) => ({ success: false, error: { message: "Tool 'get_session_kb' not fully implemented yet."}}),
-  },
 
   // Fact Assertion & Querying
   assert_nl_to_session: {
@@ -224,22 +215,23 @@ const toolDefinitions = {
         if (!sessionId) {
             return { success: false, error: { code: 'MISSING_PARAM', message: 'sessionId is required.' } };
         }
-        // This needs to be implemented in mcrService or sessionStore and exposed.
-        // Assuming sessionStore.getKnowledgeBase(sessionId) exists and returns the full KB string.
-        // And mcrService is augmented or we call sessionStore directly if architecturally sound.
-        // For now, directly accessing sessionStore for demonstration (requires sessionStore to be exported or passed)
-        // This is a placeholder for proper implementation via mcrService.
+        // mcrService.getKnowledgeBaseForSession(sessionId) is implemented and calls the session store.
+        // It returns an object like { success: true, data: kbString } or { success: false, error: {...} }.
         try {
-            // const kb = await sessionStore.getKnowledgeBase(sessionId); // Ideal if sessionStore is accessible
-            // Let's assume mcrService gets a method for this:
-            const kb = await mcrService.getKnowledgeBaseForSession(sessionId); // Hypothetical method
-            if (kb === null) { // Session might exist but KB is null if not initialized or error
-                 return { success: false, error: { code: 'KB_NOT_FOUND', message: `Knowledge base not found for session ${sessionId}.` } };
+            const serviceCallResult = await mcrService.getKnowledgeBaseForSession(sessionId);
+
+            if (serviceCallResult && serviceCallResult.success) {
+                return { success: true, data: { knowledgeBase: serviceCallResult.data } };
+            } else {
+                 // Handle cases where serviceCallResult might be null or not have expected error structure
+                 const errorDetails = (serviceCallResult && serviceCallResult.error) ? serviceCallResult.error.message : `Knowledge base not found or error retrieving for session ${sessionId}.`;
+                 const errorCode = (serviceCallResult && serviceCallResult.error) ? serviceCallResult.error.code : 'KB_RETRIEVAL_ERROR';
+                 logger.warn(`[Tool:get_full_kb_for_session] Failed to get KB for session ${sessionId}. Code: ${errorCode}, Message: ${errorDetails}`);
+                 return { success: false, error: { code: errorCode, message: errorDetails } };
             }
-            return { success: true, data: { knowledgeBase: kb } };
         } catch (e) {
-             logger.error(`[Tool:get_full_kb_for_session] Error getting KB for session ${sessionId}: ${e.message}`);
-             return { success: false, error: {code: 'KB_RETRIEVAL_ERROR', message: e.message }};
+             logger.error(`[Tool:get_full_kb_for_session] Exception while getting KB for session ${sessionId}: ${e.message}`, { stack: e.stack });
+             return { success: false, error: {code: 'KB_UNHANDLED_EXCEPTION', message: e.message }};
         }
     }
   },
@@ -247,16 +239,13 @@ const toolDefinitions = {
 
 module.exports = toolDefinitions;
 
-// Helper to add getKnowledgeBaseForSession to mcrService for the new tool
-// Ensure logger is available if this module is loaded early
-// Note: The previous patch for mcrService.getKnowledgeBaseForSession was removed.
-// It's assumed that mcrService.js has been updated with this method directly.
-// The get_full_kb_for_session handler below relies on this.
+// Ensure logger is available if this module is loaded early.
+// The mcrService.getKnowledgeBaseForSession method is expected to be available in mcrService.js.
 
 if (!logger) {
     console.error("[tools.js] Logger not available at load time. Some tool operations might not be fully logged until logger is properly initialized.");
     // Basic fallback logger
-    global.logger = {
+    global.logger = { // Use global.logger or ensure logger is correctly scoped if this file is a module.
         debug: (...args) => console.debug('[tools.js-fallback]', ...args),
         info: (...args) => console.info('[tools.js-fallback]', ...args),
         warn: (...args) => console.warn('[tools.js-fallback]', ...args),
