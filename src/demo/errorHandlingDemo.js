@@ -53,7 +53,9 @@ class ErrorHandlingDemo extends ExampleBase {
     }
 
     // Create a session for subsequent tests
-    await this.createSession();
+    // Session is now passed in constructor and available as this.sessionId
+    // The initial tests for invalid session ID are done using raw axios.
+    // For subsequent tests requiring a valid session, this.sessionId (if provided) will be used.
     if (!this.sessionId) {
       this.dLog.error(
         'Demo cannot continue without a session for further tests.'
