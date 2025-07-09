@@ -314,6 +314,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
     // Use sessionStore and await the async call
     const addSuccess = await sessionStore.addFacts(sessionId, addedFacts);
     if (addSuccess) {
+        const fullKnowledgeBase = await sessionStore.getKnowledgeBase(sessionId);
       logger.info(
         `[McrService] Facts successfully added to session ${sessionId}. OpID: ${operationId}. Facts:`,
         { addedFacts, costOfExecution }
@@ -322,6 +323,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
         success: true,
         message: 'Facts asserted successfully.',
         addedFacts,
+          fullKnowledgeBase, // Include the full KB in the response
         strategyId: currentStrategyId,
         cost: costOfExecution,
       };
@@ -1140,4 +1142,80 @@ module.exports = {
   getPrompts,
   debugFormatPrompt,
   getAvailableStrategies: strategyManager.getAvailableStrategies,
+
+  /**
+   * Asserts raw Prolog facts/rules directly to a specific session's knowledge base.
+   * Optionally validates the Prolog before adding.
+   * @param {string} sessionId - The ID of the session.
+   * @param {string | string[]} rules - A string containing Prolog rules, or an array of rule strings.
+   * @param {boolean} [validate=true] - Whether to validate the Prolog syntax before asserting.
+   * @returns {Promise<object>} An object indicating success or failure, including added facts and full KB.
+   *                            Structure: `{ success: true, message: string, addedFacts: string[], fullKnowledgeBase: string }`
+   *                            or `{ success: false, message: string, error: string, details?: string }`
+   */
+  assertRawPrologToSession: async (sessionId, rules, validate = true) => {
+    const operationId = `assertRawProlog-${Date.now()}`;
+    logger.info(
+      `[McrService] Enter assertRawPrologToSession for session ${sessionId}. OpID: ${operationId}. Rules count/length: ${Array.isArray(rules) ? rules.length : rules.length}`
+    );
+
+    const sessionExists = await sessionStore.getSession(sessionId);
+    if (!sessionExists) {
+      logger.warn(`[McrService] Session ${sessionId} not found for raw Prolog assertion. OpID: ${operationId}`);
+      return { success: false, message: 'Session not found.', error: ErrorCodes.SESSION_NOT_FOUND };
+    }
+
+    const factsToAssert = Array.isArray(rules) ? rules : rules.split(/(?<=\.)\s*/).map(r => r.trim()).filter(r => r.length > 0);
+    if (factsToAssert.length === 0) {
+      logger.warn(`[McrService] No valid Prolog facts/rules provided to assert. OpID: ${operationId}`);
+      return { success: false, message: 'No valid Prolog facts/rules provided.', error: ErrorCodes.NO_FACTS_TO_ASSERT };
+    }
+
+    if (validate) {
+      for (const factString of factsToAssert) {
+        const validationResult = await reasonerService.validateKnowledgeBase(factString);
+        if (!validationResult.isValid) {
+          const validationErrorMsg = `Provided Prolog is invalid: "${factString}". Error: ${validationResult.error}`;
+          logger.error(`[McrService] Validation failed for provided Prolog. OpID: ${operationId}. Details: ${validationErrorMsg}`);
+          return {
+            success: false,
+            message: 'Failed to assert rules: Provided Prolog is invalid.',
+            error: ErrorCodes.INVALID_PROVIDED_PROLOG,
+            details: validationErrorMsg,
+          };
+        }
+      }
+      logger.info(`[McrService] All ${factsToAssert.length} provided Prolog snippets validated successfully. OpID: ${operationId}`);
+    }
+
+    try {
+      const addSuccess = await sessionStore.addFacts(sessionId, factsToAssert);
+      if (addSuccess) {
+        const fullKnowledgeBase = await sessionStore.getKnowledgeBase(sessionId);
+        logger.info(
+          `[McrService] Raw Prolog facts/rules successfully added to session ${sessionId}. OpID: ${operationId}. Count: ${factsToAssert.length}`
+        );
+        return {
+          success: true,
+          message: 'Raw Prolog facts/rules asserted successfully.',
+          addedFacts: factsToAssert, // Return the processed list of facts
+          fullKnowledgeBase,
+        };
+      } else {
+        logger.error(`[McrService] Failed to add raw Prolog to session ${sessionId} after validation/processing. OpID: ${operationId}`);
+        return { success: false, message: 'Failed to add raw Prolog to session store.', error: ErrorCodes.SESSION_ADD_FACTS_FAILED };
+      }
+    } catch (error) {
+      logger.error(
+        `[McrService] Error asserting raw Prolog to session ${sessionId} (OpID: ${operationId}): ${error.message}`,
+        { stack: error.stack, details: error.details, errorCode: error.code }
+      );
+      return {
+        success: false,
+        message: `Error during raw Prolog assertion: ${error.message}`,
+        error: error.code || ErrorCodes.ASSERT_RAW_PROLOG_FAILED,
+        details: error.message,
+      };
+    }
+  },
 };

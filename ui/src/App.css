@@ -1,0 +1,286 @@
+/* Basic Reset */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: sans-serif;
+  line-height: 1.6;
+  background-color: #f4f4f4;
+  color: #333;
+}
+
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden; /* Prevent body scrollbars */
+}
+
+.sidebar {
+  padding: 1rem;
+  background-color: #e9ecef;
+  overflow-y: auto; /* Allow sidebar content to scroll */
+  border-right: 1px solid #ccc;
+}
+
+.left-sidebar {
+  width: 25%; /* Adjust as needed */
+  min-width: 300px;
+}
+
+.right-sidebar {
+  width: 25%; /* Adjust as needed */
+  min-width: 300px;
+  border-left: 1px solid #ccc;
+  border-right: none;
+}
+
+.main-interaction-wrapper {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column; /* Stack MainInteraction and ChatHistoryPane */
+  overflow: hidden; /* Prevent wrapper from causing scrollbars, children will scroll */
+}
+
+.main-content { /* This is Pane 2: Interaction (Chat REPL) */
+  padding: 1rem;
+  background-color: #fff;
+  /* This part does not scroll itself, its children might */
+}
+
+.chat-history-pane {
+  flex-grow: 1; /* Takes remaining space in the wrapper */
+  padding: 1rem;
+  background-color: #fdfdfd;
+  overflow-y: auto; /* This is where chat history scrolls */
+  border-top: 1px solid #eee;
+}
+
+
+/* Chat REPL specific styles */
+.chat-input-area {
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+  display: flex;
+  flex-direction: column; /* Stack textarea and controls */
+}
+
+.chat-input-area textarea {
+  width: 100%;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+.chat-input-area div { /* Container for select and button */
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.chat-input-area select {
+  padding: 0.5rem;
+  margin-right: 0.5rem;
+  border-radius: 4px;
+}
+
+.chat-input-area button {
+  padding: 0.5rem 1rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.chat-input-area button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* Chat History Messages */
+.chat-message {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+
+.chat-message.user {
+  background-color: #e0f7fa; /* Light blue for user messages */
+  text-align: right;
+}
+.chat-message.user strong {
+  display: block;
+}
+
+.chat-message.mcr {
+  background-color: #f1f8e9; /* Light green for MCR messages */
+}
+.chat-message.mcr strong {
+  display: block;
+}
+.chat-message.mcr details {
+  margin-top: 0.5rem;
+  font-size: 0.9em;
+}
+.chat-message.mcr pre {
+  background-color: #eee;
+  padding: 0.5rem;
+  border-radius: 3px;
+  overflow-x: auto; /* Allow scrolling for long pre content */
+  white-space: pre-wrap; /* Wrap long lines within pre */
+  word-break: break-all; /* Break long words/strings */
+}
+
+
+.chat-message.system {
+  background-color: #fff9c4; /* Light yellow for system messages */
+  font-style: italic;
+  font-size: 0.9em;
+  text-align: center;
+}
+
+
+/* Generic UI elements in sidebars */
+.left-sidebar h4, .left-sidebar hr {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+.left-sidebar ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+.left-sidebar li {
+  margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.left-sidebar input[type="text"] {
+  width: calc(100% - 110px); /* Adjust based on button width */
+  padding: 0.5rem;
+  margin-right: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.left-sidebar button {
+  padding: 0.5rem;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+.left-sidebar button:disabled {
+  background-color: #aaa;
+  cursor: not-allowed;
+}
+.left-sidebar li button { /* Buttons next to list items */
+    background-color: #17a2b8;
+}
+
+
+.right-sidebar pre {
+  white-space: pre-wrap; /* Wrap long lines */
+  word-break: break-all; /* Break long words/strings */
+  background-color: #fff;
+  padding: 0.5rem;
+  border-radius: 4px;
+  max-height: 80vh; /* Example max height */
+  overflow-y: auto;
+}
+
+/* App Mode Switcher */
+.app-mode-switcher {
+  padding: 0.5rem 1rem;
+  background-color: #343a40;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.app-mode-switcher button {
+  padding: 0.5rem 1rem;
+  font-size: 1em;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.app-mode-switcher button:disabled {
+  background-color: #007bff;
+  cursor: default;
+}
+
+/* System Analysis Mode */
+.system-analysis-mode {
+  padding: 1rem;
+  width: 100%;
+  height: calc(100vh - 50px); /* Adjust based on switcher height */
+  overflow-y: auto;
+  background-color: #fff;
+}
+
+.system-analysis-mode h2 {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.analysis-nav {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.analysis-nav button {
+  padding: 0.5rem 1rem;
+  font-size: 0.9em;
+  background-color: #f8f9fa;
+  color: #007bff;
+  border: 1px solid #007bff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.analysis-nav button:disabled {
+  background-color: #007bff;
+  color: white;
+  cursor: default;
+}
+
+.analysis-view-content {
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #fdfdfd;
+}
+
+.analysis-view-content h4 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+.analysis-view-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+.analysis-view-content th, .analysis-view-content td {
+  border: 1px solid #ddd;
+  padding: 0.5rem;
+  text-align: left;
+}
+.analysis-view-content th {
+  background-color: #f0f0f0;
+}
