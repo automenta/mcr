@@ -225,111 +225,96 @@ function sendSseEvent(
   );
 }
 
-async function handleSse(req, res) {
-  const correlationId = req.correlationId || `sse-conn-${uuidv4()}`; // Use existing or generate one for the connection
-  const clientId =
-    req.headers['x-mcp-client-id'] || `client-${uuidv4().substring(0, 8)}`;
-  logger.info(
-    `[MCP SSE][${clientId}][${correlationId}] Client connected. IP: ${req.ip}`
+// Function to send data over WebSocket
+function sendWebSocketMessage(ws, type, data, messageId, correlationId, invocation_id = 'N/A') {
+  const payload = {
+    type, // e.g., 'mcp.tools_updated', 'mcp.tool_result', 'mcp.tool_error'
+    messageId, // Original messageId from client, or new one for server-initiated messages
+    invocation_id, // Relevant for tool_result/tool_error
+    payload: data,
+  };
+  ws.send(JSON.stringify(payload));
+  logger.http(
+    `[MCP WS][${ws.clientId}][${correlationId}] Sent WS message. Type: ${type}, MessageID: ${messageId}, InvocationID: ${invocation_id}`,
+    { type, messageId, invocation_id, data } // Consider summarizing data for logging if large
   );
-
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    Connection: 'keep-alive',
-    // CORS headers might be needed if client is on a different origin
-    'Access-Control-Allow-Origin': '*',
-  });
-
-  // Send initial tools_updated event
-  logger.info(
-    `[MCP SSE][${clientId}][${correlationId}] Sending initial 'tools_updated' event.`
-  );
-  sendSseEvent(
-    res,
-    'tools_updated',
-    { tools: mcrTools },
-    clientId,
-    'initial_setup'
-  );
-
-  req.on('data', async (chunk) => {
-    const message = chunk.toString();
-    logger.http(
-      `[MCP SSE][${clientId}][${correlationId}] Received raw data chunk. Length: ${message.length}. Data: ${message.substring(0, 200)}${message.length > 200 ? '...' : ''}`
-    );
-    // MCP messages are expected to be newline-separated JSON strings for invoke_tool
-    try {
-      const lines = message.trim().split('\n');
-      for (const line of lines) {
-        if (line.startsWith('data:')) {
-          // Assuming messages are always prefixed with 'data:' as per SSE
-          const jsonData = line.substring('data:'.length).trim();
-          if (!jsonData) {
-            logger.debug(
-              `[MCP SSE][${clientId}][${correlationId}] Received empty data line, skipping.`
-            );
-            continue;
-          }
-          const mcpMessage = JSON.parse(jsonData);
-          logger.debug(
-            `[MCP SSE][${clientId}][${correlationId}] Parsed MCP message:`,
-            {
-              type: mcpMessage.type,
-              tool_name: mcpMessage.tool_name,
-              invocation_id: mcpMessage.invocation_id,
-            }
-          );
-
-          if (mcpMessage.type === 'invoke_tool') {
-            // Input logging is deferred to handleToolInvocation for more context
-            await handleToolInvocation(
-              res,
-              mcpMessage,
-              clientId,
-              correlationId
-            );
-          } else {
-            logger.warn(
-              `[MCP SSE][${clientId}][${correlationId}] Received unknown MCP message type: ${mcpMessage.type}`,
-              { mcpMessage }
-            );
-          }
-        } else if (line.trim()) {
-          // Non-empty line that doesn't start with 'data:'
-          logger.warn(
-            `[MCP SSE][${clientId}][${correlationId}] Received non-data SSE line, ignoring: "${line}"`
-          );
-        }
-      }
-    } catch (error) {
-      logger.error(
-        `[MCP SSE][${clientId}][${correlationId}] Error processing message: ${error.message}`,
-        { rawMessage: message, error: error.stack }
-      );
-      // Optionally send an error back to the client if the protocol supports it for malformed requests
-      // For example: sendSseEvent(res, 'protocol_error', { message: 'Failed to parse incoming message' }, clientId);
-    }
-  });
-
-  req.on('close', () => {
-    logger.info(
-      `[MCP SSE][${clientId}][${correlationId}] Client disconnected.`
-    );
-    res.end();
-  });
 }
 
+// This function will be called from websocketHandlers.js
+async function handleMcpSocketMessage(ws, parsedMessage) {
+  const { action, payload, messageId, headers } = parsedMessage; // 'action' is the MCP message type like 'mcp.invoke_tool' or 'mcp.request_tools'
+  ws.correlationId = (headers && headers['x-correlation-id']) || ws.correlationId || `ws-mcp-${uuidv4()}`;
+  ws.clientId = (headers && headers['x-mcp-client-id']) || ws.clientId || `ws-client-${uuidv4().substring(0,8)}`;
+
+  logger.info(
+    `[MCP WS][${ws.clientId}][${ws.correlationId}] Received MCP message. Action: ${action}, MessageID: ${messageId}`,
+    { action, payload }
+  );
+
+  switch (action) {
+    case 'mcp.request_tools':
+      logger.info(
+        `[MCP WS][${ws.clientId}][${ws.correlationId}] Sending 'mcp.tools_updated' event in response to request_tools. MessageID: ${messageId}`
+      );
+      sendWebSocketMessage(
+        ws,
+        'mcp.tools_updated',
+        { tools: mcrTools },
+        messageId, // Respond with the same messageId
+        ws.correlationId,
+        'initial_setup'
+      );
+      break;
+    case 'mcp.invoke_tool':
+      // The payload of 'mcp.invoke_tool' should be invokeMsg format: { tool_name, input, invocation_id }
+      if (!payload || !payload.tool_name || !payload.invocation_id) {
+        logger.warn(
+            `[MCP WS][${ws.clientId}][${ws.correlationId}] Invalid 'mcp.invoke_tool' message: missing tool_name or invocation_id. MessageID: ${messageId}`
+        );
+        sendWebSocketMessage(
+            ws,
+            'mcp.protocol_error',
+            { error: "Invalid 'mcp.invoke_tool' message: missing tool_name or invocation_id." },
+            messageId,
+            ws.correlationId,
+            payload.invocation_id || 'unknown_invocation'
+        );
+        return;
+      }
+      await handleToolInvocation(
+        ws, // Pass WebSocket connection
+        payload, // This is the invokeMsg: { tool_name, input, invocation_id }
+        messageId, // Pass messageId for responding
+        ws.clientId,
+        ws.correlationId
+      );
+      break;
+    default:
+      logger.warn(
+        `[MCP WS][${ws.clientId}][${ws.correlationId}] Received unknown MCP WebSocket action: ${action}. MessageID: ${messageId}`
+      );
+      sendWebSocketMessage(
+        ws,
+        'mcp.protocol_error',
+        { error: 'Unknown MCP action', receivedAction: action },
+        messageId,
+        ws.correlationId
+      );
+  }
+}
+
+
 async function handleToolInvocation(
-  res,
+  ws, // Changed from res
   invokeMsg,
+  originalMessageId, // To send back in response
   clientId,
   parentCorrelationId
 ) {
   const { tool_name, input, invocation_id } = invokeMsg;
-  const toolCorrelationId = `${parentCorrelationId}-tool-${invocation_id.substring(0, 8)}`;
+  const toolCorrelationId = `${parentCorrelationId}-tool-${invocation_id ? invocation_id.substring(0, 8) : 'noinv'}`;
   logger.info(
-    `[MCP Tool][${clientId}][${toolCorrelationId}] Enter handleToolInvocation. Tool: ${tool_name}, InvocationID: ${invocation_id}`,
+    `[MCP Tool][${clientId}][${toolCorrelationId}] Enter handleToolInvocation. Tool: ${tool_name}, InvocationID: ${invocation_id}, OriginalMsgID: ${originalMessageId}`,
     { tool_name, input, invocation_id } // Log full input here as it's specific to this invocation
   );
   let resultData;
@@ -509,45 +494,44 @@ async function handleToolInvocation(
     // The sendSseEvent function already has logic to summarize 'output' for general logging.
     // For more detailed logging of specific tool outputs, one could add it here conditionally.
     logger.info(
-      `[MCP Tool][${clientId}][${toolCorrelationId}] Successfully invoked ${tool_name}.`
-      // Specific output details logged by sendSseEvent to avoid duplication and manage verbosity.
+      `[MCP Tool][${clientId}][${toolCorrelationId}] Successfully invoked ${tool_name}. OriginalMsgID: ${originalMessageId}`
     );
-    sendSseEvent(
-      res,
-      'tool_result',
+    sendWebSocketMessage(
+      ws,
+      'mcp.tool_result',
       {
-        invocation_id,
-        tool_name,
+        tool_name, // No longer sending invocation_id inside payload if it's top-level
         output: resultData,
       },
-      clientId,
-      invocation_id
+      originalMessageId, // Respond with the original messageId
+      toolCorrelationId, // Use the specific tool correlation ID
+      invocation_id // Pass invocation_id for the top-level field
     );
   } catch (error) {
     logger.error(
-      `[MCP Tool][${clientId}][${toolCorrelationId}] Error invoking tool ${tool_name}: ${error.message}`,
+      `[MCP Tool][${clientId}][${toolCorrelationId}] Error invoking tool ${tool_name}: ${error.message}. OriginalMsgID: ${originalMessageId}`,
       { error: error.stack } // Log stack for all errors from tools
     );
     const isApiError = error instanceof ApiError;
-    sendSseEvent(
-      res,
-      'tool_error',
+    sendWebSocketMessage(
+      ws,
+      'mcp.tool_error',
       {
-        invocation_id,
-        tool_name,
+        tool_name, // No longer sending invocation_id inside payload if it's top-level
         error: {
           message: error.message,
           code: isApiError ? error.errorCode : 'TOOL_EXECUTION_ERROR',
-          details: isApiError ? error.details : undefined, // Only include details if it's a structured ApiError
+          details: isApiError ? error.details : undefined,
         },
       },
-      clientId,
-      invocation_id
+      originalMessageId, // Respond with the original messageId
+      toolCorrelationId, // Use the specific tool correlation ID
+      invocation_id // Pass invocation_id for the top-level field
     );
   }
 }
 
 module.exports = {
-  handleSse,
-  // mcrTools // if needed externally, e.g. for documentation
+  handleMcpSocketMessage, // Export the new handler
+  mcrTools, // Export mcrTools if needed by websocketHandlers for an initial "tools_updated" on generic MCP connect
 };

@@ -5,7 +5,8 @@ const strategyHandlers = require('./api/strategyHandlers');
 const ontologyHandlers = require('./api/ontologyHandlers');
 const translationHandlers = require('./api/translationHandlers');
 const utilityHandlers = require('./api/utilityHandlers');
-const mcpHandler = require('./mcpHandler'); // For /mcp/sse, though SSE might remain HTTP
+// Import specific functions from mcpHandler
+const { handleMcpSocketMessage, mcrTools } = require('./mcpHandler');
 
 // Mock request and response objects for adapting Express handlers
 function mockRequest(ws, message) {
@@ -166,9 +167,18 @@ async function routeMessage(ws, parsedMessage) {
       case 'utility.debugFormatPrompt': // Renamed for consistency
         await utilityHandlers.debugFormatPromptHandler(req, res);
         break;
-      // Note: /health, /status, /mcp/sse are likely to remain HTTP or require special handling
-      // For example, status could be a WebSocket message, but health is typically HTTP.
-      // SSE over WebSockets is possible but mcpHandler would need significant changes.
+      case 'utility.getStatus': // New action for getStatus
+        await utilityHandlers.getStatusHandler(req, res);
+        break;
+
+      // MCP Actions - these are handled differently as they don't use mockReq/Res
+      case 'mcp.request_tools':
+      case 'mcp.invoke_tool':
+        // Pass the full parsedMessage because handleMcpSocketMessage expects it
+        // and will destructure action, payload, messageId, headers itself.
+        await handleMcpSocketMessage(ws, parsedMessage);
+        break;
+      // Note: /health will remain HTTP.
 
       default:
         logger.warn(`Unknown WebSocket action: ${action}`, {
