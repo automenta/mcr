@@ -74,6 +74,7 @@
     "tau-prolog": "^0.3.4",
     "uuid": "^11.1.0",
     "winston": "^3.0.0",
+    "ws": "^8.18.0",
     "yargs": "^18.0.0"
   },
   "devDependencies": {

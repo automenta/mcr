@@ -24,7 +24,7 @@ This combination unlocks possibilities for more robust, explainable, and sophist
 
 ## 🔑 Core Concepts
 
-1.  **MCR as a Service ⚙️**: MCR runs as a background HTTP server, exposing its functionality via a RESTful API. Any application can integrate with it.
+1.  **MCR as a Service ⚙️**: MCR runs as a background server, exposing its functionality primarily via WebSockets for core API interactions, with some essential HTTP endpoints (e.g., health checks). Any application can integrate with it.
 2.  **Stateful Sessions 💾**: Clients create a `sessionId` to establish a persistent reasoning context. Each session contains:
     *   **Knowledge Base (KB) 📚**: A collection of symbolic logic clauses (facts and rules, typically in Prolog) representing the state of knowledge within that session.
 3.  **LLM-Powered Translation 🗣️<->🧠**: MCR utilizes LLMs, guided by Translation Strategies, to translate between human language and formal logic.
@@ -41,7 +41,7 @@ This combination unlocks possibilities for more robust, explainable, and sophist
 - **📦 Dependency Management**: Uses `package.json` for Node.js dependencies.
 - **💬 Interactive TUI**: An Ink-based Terminal User Interface for chat, session management, and more.
 - **⚙️ CLI**: A command-line interface for server control, direct API interaction, demos, and a sandbox mode.
-- **📃 API**: A comprehensive RESTful API for programmatic integration.
+- **📃 API**: A comprehensive API for programmatic integration, primarily using WebSockets for core functionalities and RESTful HTTP for status and health checks.
 
 ## 🏛️ System Architecture Diagram
 
@@ -213,128 +213,140 @@ mcr-cli create-session
 The `mcr-cli` will also respect the `.env` file in the directory from which it's run.
 
 **3. Programmatic API Interaction:**
-Once the MCR server is running (either started from a cloned MCR repository or from an installed package as described above), your application can interact with it programmatically by making HTTP requests to its REST API.
+Once the MCR server is running, your application interacts with it primarily via WebSockets for most API functionalities. Essential services like health checks remain available via HTTP.
 
-Refer to the **🔌 API Reference** section below for details on available endpoints, request formats, and response structures. You can use any HTTP client library in your language of choice (e.g., `axios` or `node-fetch` for Node.js, `requests` for Python).
+Refer to the **🔌 API Reference** section below for details on WebSocket message formats and available HTTP endpoints. You will need a WebSocket client library for your language of choice (e.g., `ws` for Node.js, `websockets` for Python).
 
 ## 🔌 API Reference
 
-The MCR service exposes a RESTful API for interaction.
+The MCR service has transitioned its core API to WebSockets. HTTP is used for specific utility endpoints.
 
-- **`POST /api/v1/sessions`**
-  - **Description:** Creates a new reasoning session.
-  - **Response Body:** `{ "id": "string" }` (Note: `sessionId` is often used in docs, but API returns `id`)
+### WebSocket API
 
-- **`POST /api/v1/sessions/{sessionId}/assert`**
-  - **Description:** Asserts new knowledge into the session's KB using the currently configured Translation Strategy.
-  - **Request Body:** `{ "text": "string" }`
-  - **Response Body (Success):** `{ "success": true, "message": "string", "addedFacts": ["string"], "strategyId": "string", "cost": { ... } }`
-  - **Response Body (Error):** `{ "success": false, "message": "string", "error": "string", "details": "string", "strategyId": "string", "cost": { ... } }`
+Connect to the WebSocket server at `ws://localhost:8080` (or your configured host/port). All messages are JSON strings.
 
-- **`POST /api/v1/sessions/{sessionId}/query`**
-  - **Description:** Poses a natural language query to the session's KB.
-  - **Request Body:** `{ "query": "string", "options": { "debug": boolean, "dynamicOntology": "string", "style": "string" } }`
-  - **Response Body (Success):** `{ "success": true, "answer": "string", "debugInfo": { ... } }`
-  - **Response Body (Error):** `{ "success": false, "message": "string", "debugInfo": { ... }, "error": "string", "details": "string", "strategyId": "string" }`
+**General Message Format (Client to Server):**
 
-- **`PUT /api/v1/sessions/{sessionId}/kb`**
-  - **Description:** Directly overwrites the entire KB of a session. The new KB is validated before being saved.
-  - **Request Body:** `{ "knowledgeBase": "string" }`
-  - **Response Body:** `200 OK` or error object.
+```json
+{
+  "messageId": "unique-client-generated-id", // For tracking responses
+  "action": "namespace.verb", // e.g., "sessions.create", "ontologies.list"
+  "payload": { ... }, // Data for the action (varies by action)
+  "params": { ... }, // Parameters for actions that used URL params (e.g., sessionId)
+  "query": { ... } // Parameters for actions that used URL query strings
+}
+```
 
-- **`GET /api/v1/sessions/{sessionId}`**
-  - **Description:** Retrieves details for a specific session, including its KB and lexicon summary.
-  - **Response Body:** `{ "id": "string", "knowledgeBase": "string", "lexiconSummary": "string", "createdAt": "timestamp" }`
+**General Message Format (Server to Client):**
 
-- **`DELETE /api/v1/sessions/{sessionId}`**
-  - **Description:** Deletes a specific session.
-  - **Response Body:** `204 No Content` or error object.
+```json
+{
+  "messageId": "echoed-client-generated-id", // Matches the request's messageId
+  "status": 200, // HTTP-like status code
+  "body": { ... } // Response data or error object
+}
+```
+A connection acknowledgment message is sent upon successful WebSocket connection:
+`{ "type": "connection_ack", "message": "WebSocket connection established." }`
 
-- **`GET /api/v1/config/translation-strategy`**
-  - **Description:** Gets the currently active base translation strategy ID.
-  - **Response Body:** `{ "strategyId": "string" }`
+---
 
-- **`PUT /api/v1/config/translation-strategy`**
-  - **Description:** Sets the active base Translation Strategy for the system.
-  - **Request Body:** `{ "strategyId": "string" }`
-  - **Response Body:** `{ "success": true, "message": "string", "strategyId": "string" }` or error object.
+**WebSocket Actions (replaces former REST endpoints):**
 
-- **`GET /api/v1/strategies`**
-  - **Description:** Lists all available translation strategies.
-  - **Response Body:** `{ "strategies": [{ "id": "string", "name": "string", "description": "string" }, ...] }`
+The `action` field in WebSocket messages corresponds to the previous HTTP endpoints. Examples:
 
-- **`POST /api/v1/translate/nl-to-rules`**
-  - **Description:** Translates natural language text directly into Prolog rules.
-  - **Request Body:** `{ "text": "string", "strategyId": "string" (optional) }`
-  - **Response Body (Success):** `{ "success": true, "rules": ["string"], "strategyId": "string" }`
+*   **Session Management:**
+    *   `sessions.create`: (Payload: `{}`) -> Responds with `{ "id": "sessionId" }` in body.
+    *   `sessions.get`: (Params: `{ "sessionId": "id" }`) -> Responds with session details.
+    *   `sessions.delete`: (Params: `{ "sessionId": "id" }`) -> Responds with success/failure.
+    *   `sessions.assert`: (Params: `{ "sessionId": "id" }`, Payload: `{ "text": "string" }`) -> Responds with assertion result.
+    *   `sessions.query`: (Params: `{ "sessionId": "id" }`, Payload: `{ "query": "string", "options": { ... } }`) -> Responds with query result.
+    *   `sessions.explainQuery`: (Params: `{ "sessionId": "id" }`, Payload: `{ "query": "string" }`) -> Responds with explanation.
 
-- **`POST /api/v1/translate/rules-to-nl`**
-  - **Description:** Translates Prolog rules directly into a natural language explanation.
-  - **Request Body:** `{ "rules": "string", "style": "string" (optional) }`
-  - **Response Body (Success):** `{ "success": true, "explanation": "string" }`
+*   **Ontology Management:**
+    *   `ontologies.create`: (Payload: `{ "id": "string", "name": "string", ... }`)
+    *   `ontologies.list`: (Query: `{ "includeContent": true/false }`)
+    *   `ontologies.get`: (Params: `{ "name": "ontologyName" }`)
+    *   `ontologies.update`: (Params: `{ "name": "ontologyName" }`, Payload: `{ ...updates... }`)
+    *   `ontologies.delete`: (Params: `{ "name": "ontologyName" }`)
 
-- **`POST /api/v1/explain-query/{sessionId}`**
-  - **Description:** Explains a natural language question in the context of a session.
-  - **Request Body:** `{ "query": "string" }`
-  - **Response Body (Success):** `{ "success": true, "explanation": "string", "debugInfo": { ... } }`
+*   **Direct Translation:**
+    *   `translate.nlToRules`: (Payload: `{ "text": "string", "strategyId": "string" (optional) }`)
+    *   `translate.rulesToNl`: (Payload: `{ "rules": "string", "style": "string" (optional) }`)
 
-- **`GET /api/v1/ontologies`**
-  - **Description:** Lists all available global ontologies.
-  - **Response Body:** `[{ "id": "string", "name": "string", "description": "string", "content"?: "string" (if includeContent=true) }, ...]`
+*   **Strategy Management:**
+    *   `strategies.list`: (Payload: `{}`)
+    *   `strategies.setActive`: (Payload: `{ "strategyId": "string" }`)
+    *   `strategies.getActive`: (Payload: `{}`)
 
-- **`POST /api/v1/ontologies`**
-  - **Description:** Adds a new global ontology.
-  - **Request Body:** `{ "id": "string", "name": "string", "description": "string", "rules": "string" }`
-  - **Response Body:** `{ "success": true, "message": "string", "ontology": { ... } }`
+*   **Utility & Debugging:**
+    *   `utility.getPrompts`: (Payload: `{}`)
+    *   `utility.debugFormatPrompt`: (Payload: `{ "templateName": "string", "inputVariables": { ... } }`)
 
-- **`GET /api/v1/ontologies/{ontologyId}`**
-  - **Description:** Retrieves a specific global ontology.
-  - **Response Body:** `{ "id": "string", "name": "string", "description": "string", "rules": "string" }`
+*(This is a summary. The exact payload/params/query structure for each action mirrors the request body and URL parameters of the former REST endpoints. Refer to the `src/websocketHandlers.js` `routeMessage` function for the definitive mapping.)*
 
-- **`PUT /api/v1/ontologies/{ontologyId}`**
-  - **Description:** Updates an existing global ontology.
-  - **Request Body:** `{ "name": "string" (optional), "description": "string" (optional), "rules": "string" (optional) }`
-  - **Response Body:** `{ "success": true, "message": "string", "ontology": { ... } }`
+---
 
-- **`DELETE /api/v1/ontologies/{ontologyId}`**
-  - **Description:** Deletes a global ontology.
-  - **Response Body:** `204 No Content` or error object.
+### HTTP API Endpoints (Remaining)
 
-- **`GET /api/v1/prompts`**
-  - **Description:** Retrieves all available prompt templates.
-  - **Response Body:** `{ "success": true, "prompts": { ... } }`
+These endpoints remain accessible via standard HTTP requests:
 
-- **`POST /api/v1/debug/format-prompt`**
-  - **Description:** Formats a specified prompt template with given input variables.
-  - **Request Body:** `{ "templateName": "string", "inputVariables": { ... } }`
-  - **Response Body (Success):** `{ "success": true, "templateName": "string", "rawTemplate": { ... }, "formattedUserPrompt": "string", "inputVariables": { ... } }`
+- **`GET /api/v1/health`**
+  - **Description:** Health check for the server.
+  - **Response Body:** `{ "status": "ok", "message": "MCR server is running" }`
 
-_Note: Actual API responses for errors usually include `success: false`, `message`, and often an `error` code and `details`._
-_For session-related endpoints, if a session is not found, a 404 error with a JSON body like `{ "success": false, "message": "Session not found", "error": "SESSION_NOT_FOUND" }` is typical._
+- **`GET /api/v1/status`**
+  - **Description:** Basic status of the MCR server. (Handled by `utilityHandlers.getStatusHandler`)
+  - **Response Body:** Varies, includes version, active LLM, etc.
 
-**Example (Node.js using `axios`):**
+- **`GET /mcp/sse`**
+  - **Description:** Server-Sent Events endpoint for Model Context Protocol (MCP) integration.
+  - **Response Type:** `text/event-stream`
+
+_Note: For WebSocket error responses, the `status` field in the server's message will indicate an error (e.g., 400, 404, 500), and the `body` will typically contain `{ "error": "Error message", "details": "..." }`._
+
+**Example (Node.js using `ws` library for WebSockets):**
 
 ```javascript
-const axios = require('axios');
+const WebSocket = require('ws');
 
-async function createMcrSession() {
-  try {
-    const response = await axios.post('http://localhost:8080/api/v1/sessions'); // Adjust URL if needed
-    console.log('Session created:', response.data);
-    return response.data.id;
-  } catch (error) {
-    console.error(
-      'Error creating MCR session:',
-      error.response ? error.response.data : error.message
-    );
+const ws = new WebSocket('ws://localhost:8080'); // Adjust URL if needed
+
+ws.on('open', function open() {
+  console.log('Connected to MCR WebSocket server.');
+
+  // Example: Create a session
+  const createSessionMessage = {
+    messageId: `client-${Date.now()}`,
+    action: 'sessions.create',
+    payload: {}
+  };
+  ws.send(JSON.stringify(createSessionMessage));
+});
+
+ws.on('message', function incoming(data) {
+  const message = JSON.parse(data.toString());
+  console.log('Received from server:', message);
+
+  if (message.action === 'sessions.create' && message.body && message.body.id) {
+    const sessionId = message.body.id;
+    console.log('Session created with ID:', sessionId);
+    // You can now use this sessionId for further actions
   }
-}
+  // Handle other responses based on message.messageId or message.action
+});
 
-// createMcrSession(); // Example call
+ws.on('error', function error(err) {
+  console.error('WebSocket error:', err);
+});
+
+ws.on('close', function close() {
+  console.log('Disconnected from MCR WebSocket server.');
+});
 ```
 
 **4. Direct Library Usage (Experimental/Advanced):**
-While the primary way to use MCR is via its server API, core functionalities can be imported directly if you are embedding MCR within a larger Node.js application and managing the MCR lifecycle yourself. This is an advanced use case.
+While the primary way to use MCR is via its server API (now WebSockets), core functionalities can be imported directly if you are embedding MCR within a larger Node.js application and managing the MCR lifecycle yourself. This is an advanced use case.
 
 ```javascript
 // main.js in your project

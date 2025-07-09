@@ -25,6 +25,7 @@ function startServer() {
   // const mcrService = require('./src/mcrService');
   // mcrService.init().then(() => { ... start server ... }).catch(err => ...);
 
+  // app is now an http.Server instance, so we call listen on it directly.
   const server = app.listen(PORT, HOST, () => {
     // logger.info(`MCR Streamlined server listening on http://${HOST}:${PORT}`);
     logger.info('Server is running'); // Exact match for tool detection
