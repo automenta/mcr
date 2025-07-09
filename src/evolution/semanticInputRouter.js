@@ -1,6 +1,6 @@
 // src/evolution/semanticInputRouter.js
-const logger = require('../logger');
-const { MCRError, ErrorCodes } = require('../errors');
+const logger = require('../../server/logger');
+const { MCRError, ErrorCodes } = require('../../server/errors');
 const { inputArchetypes } = require('./semanticArchetypes');
 
 // Default classification if no archetype matches well enough or in case of errors

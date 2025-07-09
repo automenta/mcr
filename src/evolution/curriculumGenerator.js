@@ -1,9 +1,9 @@
 // src/evolution/curriculumGenerator.js
 const crypto = require('crypto');
-const logger = require('../logger');
-const { initDb } = require('../database'); // closeDb removed
-const llmService = require('../llmService');
-const { prompts, fillTemplate } = require('../prompts');
+const logger = require('../../server/logger');
+const { initDb } = require('../../server/database'); // closeDb removed
+const llmService = require('../../server/services/llmService');
+const { prompts, fillTemplate } = require('../../server/prompts');
 const { loadAllEvalCases } = require('../evalCases/baseEvals'); // To get existing cases
 const fs = require('fs');
 const path = require('path');

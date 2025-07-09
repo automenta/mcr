@@ -2,10 +2,10 @@
 console.log('[MCR Pre-Init] Starting mcr.js...'); // Very early log
 
 const http = require('http'); // Required for creating HTTP server explicitly
-const app = require('./src/app'); // Express app for basic HTTP (health check)
-const config = require('./src/config');
-const logger = require('./src/logger');
-const { setupWebSocketServer } = require('./src/websocketHandler');
+const app = require('./server/app'); // Express app for basic HTTP (health check)
+const config = require('./server/config');
+const logger = require('./server/logger');
+const { setupWebSocketServer } = require('./server/websocketHandler');
 
 /**
  * Initializes and starts the MCR HTTP server and attaches the WebSocket server.

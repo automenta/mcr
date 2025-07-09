@@ -234,9 +234,9 @@ MCR uses a WebSocket-based API for all client-server communication.
         }
         ```
 
-### Available Tools (partial list, see `src/tools.js` for full definitions):
+### Available Tools (partial list, see `server/tools.js` for full definitions):
 
-The `tool_name` in a `tool_invoke` message corresponds to one of the tools defined in `src/tools.js`. Each tool expects a specific `input` object. Examples:
+The `tool_name` in a `tool_invoke` message corresponds to one of the tools defined in `server/tools.js`. Each tool expects a specific `input` object. Examples:
 
 -   **`create_session`**: `input: { sessionId: "optional-string" }` (sessionId is optional)
 -   **`assert_nl_to_session`**: `input: { sessionId: "string", naturalLanguageText: "string" }`
@@ -269,7 +269,7 @@ While the primary way to use MCR is via its server and WebSocket API, core funct
 
 ```javascript
 // main.js in your project
-const mcrService = require('model-context-reasoner/src/mcrService');
+const mcrService = require('model-context-reasoner/server/services/mcrService'); // Adjusted path
 // ... (ensure config and logger are appropriately handled) ...
 
 async function useMcrDirectly() {
@@ -393,13 +393,9 @@ node src/evolution/optimizer.js --runBootstrap --iterations 3
 
 ### Performance Dashboard TUI
 
-To explore the `performance_results.db` and view strategy performance, use the Performance Dashboard TUI:
+To explore the `performance_results.db` and view strategy performance, use the **MCR Workbench's System Analysis Mode**, which provides similar capabilities. The previous `./cli.js perf-dashboard` TUI has been removed in favor of the web interface.
 
-```bash
-./cli.js perf-dashboard
-```
-
-This interface allows you to:
+The MCR Workbench allows you to:
 
 - List all evaluated strategy hashes.
 - Select a strategy to view its individual evaluation runs.
@@ -476,6 +472,58 @@ The utility scripts `generate_example.js` and `generate_ontology.js` remain valu
 - Use JSDoc for public functions/modules: document parameters, return values, and purpose.
 - Comment complex or non-obvious logic.
 
+## 🧑‍💻 Developer Notes
+
+This section provides a brief overview for developers looking to contribute to or extend MCR.
+
+### Project Structure Overview
+
+-   **`/` (Root)**: Contains main entry point (`mcr.js`), `package.json`, `README.md`, configuration (`.env.example`), and top-level directories.
+-   **`/server/`**: Contains all core server-side logic.
+    -   **`/server/services/`**: Houses the main service classes like `mcrService.js`, `llmService.js`, `ontologyService.js`, etc.
+    -   `websocketHandler.js`: Manages WebSocket connections and message dispatching.
+    -   `tools.js`: Defines all tools callable via the WebSocket API.
+    -   `config.js`, `logger.js`, `database.js`, `errors.js`, `prompts.js` (prompt loader).
+-   **`/src/`**: Contains modules that are not part of the direct server runtime but provide implementations or utilities used by services.
+    -   **`/src/llmProviders/`**: Implementations for different LLM providers.
+    -   **`/src/reasonerProviders/`**: Implementations for reasoner providers (e.g., Tau Prolog wrapper).
+    -   **`/src/evolution/`**: Logic for the MCR Evolution Engine (Optimizer, Evolver, Curriculum Generator).
+    -   **`/src/evalCases/`**: Evaluation cases for testing strategies.
+    -   **`/src/demos/`**: Demo scripts runnable via the MCR Workbench.
+    -   `FileSessionStore.js`, `InMemorySessionStore.js`: Session storage implementations.
+    -   `interfaces/`, `evaluation/`, `sandbox/`, `mcpHandler.js`.
+-   **`/ui/`**: Contains the React SPA for the MCR Workbench.
+    -   **`/ui/src/`**: Source code for the React application.
+        -   `App.jsx`: Main application component, mode switching.
+        -   `apiService.js`: WebSocket client for interacting with the server tools.
+        -   `modes/`: Components for "Interactive Session Mode" and "System Analysis Mode".
+        -   `components/`: Reusable UI components like `DataListViewer.jsx`.
+-   **`/ontologies/`**: Global Prolog ontology files.
+-   **`/prompts/`**: Prompt template files (JS modules).
+-   **`/strategies/`**: JSON-defined translation strategy files.
+-   **`/tests/`**: Jest test suites.
+
+### Adding New Server Tools
+
+1.  Implement the core logic as a new method in an appropriate service in `server/services/` (usually `mcrService.js` or a new specific service).
+2.  Define the tool in `server/tools.js`:
+    - Add a new entry to the `toolDefinitions` object.
+    - Specify `description` and a `handler` that calls your new service method (usually wrapped with `toolHandlerWrapper`).
+3.  The tool will then be available via the WebSocket API and can be called by `apiClient` in the UI.
+
+### UI Development
+
+- The UI is a React SPA located in `ui/`.
+- It uses `apiClient.js` to make `tool_invoke` calls over WebSocket.
+- State management is primarily done using React hooks (`useState`, `useEffect`, `useCallback`).
+- New UI features for specific tools or modes would involve creating or modifying components in `ui/src/components/` or `ui/src/modes/`.
+
+### Testing
+
+- Run tests with `npm test`.
+- Jest is used for testing. Test files are in `tests/`.
+- Ensure new backend logic (especially in services and tools) is covered by unit or integration tests.
+
 ## Extensibility
 
 ### Adding a New LLM Provider
@@ -483,43 +531,44 @@ The utility scripts `generate_example.js` and `generate_ontology.js` remain valu
 To add support for a new LLM provider (e.g., "MyNewLLM"):
 
 1.  **Create Provider Module**:
-    - Add a new file, e.g., `src/llmProviders/myNewLlmProvider.js`.
+    - Add a new file, e.g., `src/llmProviders/myNewLlmProvider.js`. (Path to providers is still under src/)
     - This module must export an object with at least:
       - `name` (string): The identifier for the provider (e.g., `'mynewllm'`).
-      - `generate` (async function): A function `async (systemPrompt, userPrompt, options) => { ... }` that interacts with the LLM and returns the generated text string.
+      - `generate` (async function): A function `async (systemPrompt, userPrompt, options) => { ... }` that interacts with the LLM and returns an object `{ text: "string", costData: object | null }`.
     - Example:
 
       ```javascript
       // src/llmProviders/myNewLlmProvider.js
-      const logger = require('../logger'); // Assuming logger is available
+      const logger = require('../../server/logger'); // Adjusted path
+      // const config = require('../../server/config'); // If needed for API key directly here
       // const { SomeApiClient } = require('some-llm-sdk');
 
       const MyNewLlmProvider = {
         name: 'mynewllm',
         async generate(systemPrompt, userPrompt, options = {}) {
-          // const apiKey = config.llm.mynewllm.apiKey; // Get from config
-          // const model = config.llm.mynewllm.model;
+          // const apiKey = config.llm.mynewllm.apiKey; // Get from config (via llmService)
+          // const model = config.llm.mynewllm.model; // Get from config (via llmService)
           // if (!apiKey) throw new Error('MyNewLLM API key not configured');
           logger.debug(
-            `MyNewLlmProvider generating text with model: ${model}`,
+            `MyNewLlmProvider generating text...`, // Model info is usually logged by llmService itself
             { systemPrompt, userPrompt, options }
           );
           // ... logic to call the LLM API ...
-          // return generatedText;
+          // return { text: generatedText, costData: { ... } };
           throw new Error('MyNewLlmProvider not implemented yet');
         },
       };
       module.exports = MyNewLlmProvider;
       ```
 
-2.  **Register in `src/llmService.js`**:
-    - Import your new provider: `const MyNewLlmProvider = require('./llmProviders/myNewLlmProvider');`
+2.  **Register in `server/services/llmService.js`**:
+    - Import your new provider: `const MyNewLlmProvider = require('../../src/llmProviders/myNewLlmProvider');` (Adjust path from `server/services` to `src/llmProviders`)
     - Add a `case` for `'mynewllm'` in the `switch` statement within the `getProvider()` function to set `selectedProvider = MyNewLlmProvider;`.
 
-3.  **Update Configuration (`src/config.js`)**:
+3.  **Update Configuration (`server/config.js`)**:
     - Add a configuration section for your provider under `config.llm`:
       ```javascript
-      // In config.js, inside the config object:
+      // In server/config.js, inside the config object:
       llm: {
         provider: process.env.MCR_LLM_PROVIDER || 'ollama',
         // ... other providers ...
@@ -530,7 +579,7 @@ To add support for a new LLM provider (e.g., "MyNewLLM"):
         },
       }
       ```
-    - Update `validateConfig()` in `src/config.js` if your provider has mandatory configuration (e.g., API key).
+    - Update `validateConfig()` in `server/config.js` if your provider has mandatory configuration (e.g., API key).
 
 4.  **Update `.env.example`**:
     - Add environment variable examples for your new provider (e.g., `MYNEWLLM_API_KEY`, `MCR_LLM_MODEL_MYNEWLLM`).

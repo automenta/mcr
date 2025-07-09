@@ -1,8 +1,8 @@
 // Mock dependencies FIRST
-jest.mock('../src/llmService', () => ({
+jest.mock('../server/services/llmService', () => ({
   generate: jest.fn(),
 }));
-jest.mock('../src/config', () => ({
+jest.mock('../server/config', () => ({
   llm: {
     // Corrected: llmProvider to llm
     provider: 'ollama',
@@ -23,7 +23,7 @@ jest.mock('../src/config', () => ({
   translationStrategy: 'SIR-R1',
 }));
 
-jest.mock('../src/reasonerService', () => ({
+jest.mock('../server/services/reasonerService', () => ({
   executeQuery: jest.fn(),
   validateKnowledgeBase: jest.fn().mockResolvedValue({ isValid: true }),
 }));
@@ -44,27 +44,77 @@ jest.mock('../src/InMemorySessionStore', () => {
   return jest.fn(() => mockInstance); // Return a constructor that returns the mockInstance
 });
 
-jest.mock('../src/ontologyService', () => ({
+jest.mock('../server/services/ontologyService', () => ({
   listOntologies: jest.fn(),
   getGlobalOntologyRulesAsString: jest
     .fn()
     .mockResolvedValue('global_ontology_rule_from_mock.'),
 }));
-jest.mock('../src/logger', () => ({
+jest.mock('../server/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
   debug: jest.fn(),
 }));
 
-const mcrService = require('../src/mcrService');
-const llmService = require('../src/llmService');
-const reasonerService = require('../src/reasonerService');
+jest.mock('../server/services/strategyManager', () => {
+  const mockDefaultStrategy = {
+    id: 'SIR-R1', // Matches config.translationStrategy
+    name: 'Mocked Default SIR-R1 for Test',
+    description: 'A mock strategy used for mcrService tests.',
+    nodes: [
+      // Minimal nodes needed for StrategyExecutor not to fail, depends on what's tested
+      // For example, if a test goes through LLM_Call -> Parse_JSON -> SIR_To_Prolog:
+      { id: 'step1_nl_to_sir_llm', type: 'LLM_Call', prompt_template_name: 'NL_TO_SIR_ASSERT', output_variable: 'sir_json_string'},
+      { id: 'step2_parse_sir_json', type: 'Parse_JSON', input_variable: 'sir_json_string', output_variable: 'sir_json_object'},
+      { id: 'step3_sir_to_prolog', type: 'SIR_To_Prolog', input_variable: 'sir_json_object', output_variable: 'prolog_clauses'}
+    ],
+    edges: [
+      { from: 'step1_nl_to_sir_llm', to: 'step2_parse_sir_json'},
+      { from: 'step2_parse_sir_json', to: 'step3_sir_to_prolog'}
+    ],
+    result_variable: 'prolog_clauses' // For assert-like strategies
+  };
+  const mockQueryStrategy = { // For query/explain paths
+    ...mockDefaultStrategy,
+    id: 'SIR-R1-Query', name: 'Mocked SIR-R1 Query',
+    nodes: [
+        { id: 'step1_nl_to_query_llm', type: 'LLM_Call', prompt_template_name: 'NL_TO_QUERY', output_variable: 'raw_llm_query_output'},
+        { id: 'step2_extract_prolog_query', type: 'Extract_Prolog_Query', input_variable: 'raw_llm_query_output', output_variable: 'prolog_query'}
+    ],
+    edges: [ {from: 'step1_nl_to_query_llm', to: 'step2_extract_prolog_query'} ],
+    result_variable: 'prolog_query'
+  };
+
+
+  return {
+    getStrategy: jest.fn(strategyId => {
+      if (strategyId === 'SIR-R1' || strategyId === 'SIR-R1-Assert') {
+        return { ...mockDefaultStrategy, id: strategyId, name: `Mocked ${strategyId}` };
+      }
+      if (strategyId === 'SIR-R1-Query') {
+        return { ...mockQueryStrategy, id: strategyId, name: `Mocked ${strategyId}` };
+      }
+      // Fallback for other specific strategy IDs if needed during tests
+      // console.warn(`Mock StrategyManager: getStrategy called for unhandled ID: ${strategyId}`);
+      return undefined;
+    }),
+    getDefaultStrategy: jest.fn(() => mockDefaultStrategy),
+    getAvailableStrategies: jest.fn(() => [{ id: 'SIR-R1', name: 'Mocked SIR-R1' }]),
+    // getStrategyByHash: jest.fn(), // if needed
+  };
+});
+
+
+const mcrService = require('../server/services/mcrService');
+const llmService = require('../server/services/llmService');
+const reasonerService = require('../server/services/reasonerService');
 // const sessionManager = require('../src/sessionManager'); // Old import
 const InMemorySessionStore = require('../src/InMemorySessionStore'); // Import the class
-const { ErrorCodes } = require('../src/errors');
-const ontologyService = require('../src/ontologyService');
-const { prompts } = require('../src/prompts');
+const { ErrorCodes } = require('../server/errors');
+const ontologyService = require('../server/services/ontologyService');
+const strategyManager = require('../server/services/strategyManager'); // Import the mock
+const { prompts } = require('../server/prompts');
 
 // Get the mock instance that mcrService will be using internally
 // This relies on the fact that jest.mock hoists and mcrService is loaded after mocks are set up.
@@ -127,7 +177,7 @@ describe('MCR Service (mcrService.js)', () => {
     const prologFact = 'is_blue(sky).';
 
     beforeEach(async () => {
-      await mcrService.setTranslationStrategy('SIR-R1');
+      // await mcrService.setTranslationStrategy('SIR-R1'); // REMOVED - strategy is session-specific or default from config
       // Ensure mockSessionStoreInstance is used for setting up test conditions
       mockSessionStoreInstance.getSession.mockResolvedValue({
         id: sessionId,
@@ -400,7 +450,7 @@ describe('MCR Service (mcrService.js)', () => {
     const dynamicOntologyText = 'dynamic_rule(a).';
 
     beforeEach(async () => {
-      await mcrService.setTranslationStrategy('SIR-R1');
+      // await mcrService.setTranslationStrategy('SIR-R1'); // REMOVED
       mockSessionStoreInstance.getSession.mockResolvedValue({
         // Use mockResolvedValue
         id: sessionId,
@@ -541,7 +591,7 @@ describe('MCR Service (mcrService.js)', () => {
     const expectedPrologRule = 'mortal(X) :- man(X).';
 
     beforeEach(async () => {
-      await mcrService.setTranslationStrategy('SIR-R1');
+      // await mcrService.setTranslationStrategy('SIR-R1'); // REMOVED
       llmService.generate.mockReset(); // Important: Reset before setting new specific mock
       llmService.generate.mockImplementation(
         async (systemPrompt, userPrompt) => {
@@ -630,7 +680,7 @@ describe('MCR Service (mcrService.js)', () => {
     const explanation = 'The sky is blue due to Rayleigh scattering.';
 
     beforeEach(async () => {
-      await mcrService.setTranslationStrategy('SIR-R1'); // Ensures SIR-R1-Query is used for the first part
+      // await mcrService.setTranslationStrategy('SIR-R1'); // REMOVED - Ensures SIR-R1-Query is used for the first part via config mock
       mockSessionStoreInstance.getSession.mockResolvedValue({
         // Use mockResolvedValue
         id: sessionId,

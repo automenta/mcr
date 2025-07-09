@@ -1,6 +1,6 @@
 const inquirer = require('inquirer');
-const mcrService = require('../mcrService'); // New MCR Service
-const config = require('../config'); // For LLM info
+const mcrService = require('../../server/services/mcrService'); // New MCR Service
+const config = require('../../server/config'); // For LLM info
 // const { ApiError } = require('../errors'); // If needed for specific error handling
 
 async function sandboxLoop() {

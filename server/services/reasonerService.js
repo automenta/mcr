@@ -1,7 +1,7 @@
 // new/src/reasonerService.js
-const config = require('./config');
-const logger = require('./logger');
-const PrologReasonerProvider = require('./reasonerProviders/prologReasoner');
+const config = require('../config');
+const logger = require('../logger');
+const PrologReasonerProvider = require('../../src/reasonerProviders/prologReasoner');
 
 let selectedProvider;
 

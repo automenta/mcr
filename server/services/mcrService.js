@@ -2,17 +2,17 @@
 const llmService = require('./llmService');
 const reasonerService = require('./reasonerService');
 // const sessionManager = require('./sessionManager'); // Old import
-const InMemorySessionStore = require('./InMemorySessionStore');
-const FileSessionStore = require('./FileSessionStore'); // Import FileSessionStore
+const InMemorySessionStore = require('../../src/InMemorySessionStore');
+const FileSessionStore = require('../../src/FileSessionStore'); // Import FileSessionStore
 const ontologyService = require('./ontologyService');
-const { prompts, fillTemplate, getPromptTemplateByName } = require('./prompts');
-const logger = require('./logger');
-const config = require('./config');
+const { prompts, fillTemplate, getPromptTemplateByName } = require('../prompts');
+const logger = require('../logger');
+const config = require('../config');
 const strategyManager = require('./strategyManager');
 const StrategyExecutor = require('./strategyExecutor');
-const { MCRError, ErrorCodes } = require('./errors');
-const KeywordInputRouter = require('./evolution/keywordInputRouter.js');
-const db = require('./database');
+const { MCRError, ErrorCodes } = require('../errors');
+const KeywordInputRouter = require('../../src/evolution/keywordInputRouter.js');
+const db = require('../database');
 
 // Instantiate the session store based on configuration
 let sessionStore;
@@ -55,130 +55,236 @@ try {
   inputRouterInstance = null;
 }
 
-let baseStrategyId = config.translationStrategy;
+// let baseStrategyId = config.translationStrategy; // REMOVED GLOBAL
 
-async function getOperationalStrategyJson(operationType, naturalLanguageText) {
+async function getOperationalStrategyJson(operationType, naturalLanguageText, sessionId) { // Added sessionId
   let strategyJson = null;
   const llmModelId = config.llm[config.llm.provider]?.model || 'default';
+  let sessionBaseStrategyId = null;
 
-  // 1. Attempt to find the best strategy using the Input Router
-  if (inputRouterInstance && naturalLanguageText) {
+  if (sessionId) {
+    if (typeof sessionStore.getActiveStrategy === 'function') {
+      try {
+        sessionBaseStrategyId = await sessionStore.getActiveStrategy(sessionId);
+        if (sessionBaseStrategyId) {
+          logger.info(`[McrService] Session ${sessionId} has active strategy: "${sessionBaseStrategyId}"`);
+        }
+      } catch (e) {
+        logger.warn(`[McrService] Error fetching active strategy for session ${sessionId}: ${e.message}. Falling back.`);
+      }
+    } else {
+      logger.warn(`[McrService] sessionStore.getActiveStrategy not implemented. Cannot fetch session-specific strategy for session ${sessionId}.`);
+    }
+  }
+
+  // If session has a specific strategy, it takes precedence.
+  // Otherwise, consider router or system default.
+  // This logic might need refinement based on desired override behavior (e.g., router vs. session explicit)
+
+  let determinedBaseStrategyId = sessionBaseStrategyId || config.translationStrategy; // Fallback to system default if session has no specific strategy
+
+  // Optional: Input router could still play a role, e.g., if session strategy is "auto" or to refine a general session strategy.
+  // For now, keeping it simple: session explicit strategy > system default. Router is bypassed if session has explicit.
+  if (!sessionBaseStrategyId && inputRouterInstance && naturalLanguageText) { // Router only if no explicit session strategy
     try {
       const recommendedStrategyHash = await inputRouterInstance.route(
         naturalLanguageText,
         llmModelId
       );
       if (recommendedStrategyHash) {
-        strategyJson = strategyManager.getStrategyByHash(
-          recommendedStrategyHash
-        );
-        if (strategyJson) {
+        const routerStrategy = strategyManager.getStrategyByHash(recommendedStrategyHash);
+        if (routerStrategy) {
           logger.info(
-            `[McrService] InputRouter recommended strategy by HASH "${recommendedStrategyHash.substring(0, 12)}" (ID: "${strategyJson.id}") for input: "${naturalLanguageText.substring(0, 50)}..."`
+            `[McrService] InputRouter recommended strategy by HASH "${recommendedStrategyHash.substring(0, 12)}" (ID: "${routerStrategy.id}") for input: "${naturalLanguageText.substring(0, 50)}..." for session ${sessionId} (no explicit session strategy).`
           );
+          // If router recommends, this could become the strategy for *this operation*
+          // For simplicity, let's say router can suggest the base for this operation if no session specific one.
+          // This means the router's suggestion would be used instead of system default if session has no strategy.
+          // To make router override system default but not session specific:
+          // determinedBaseStrategyId = routerStrategy.id; // This would use router's base ID
+          // However, the original logic used router to find a full strategyJson directly.
+          // Let's stick to the idea that router finds a *full* strategy.
+          // If router finds one, we use it, otherwise proceed with determinedBaseStrategyId (session or system default).
+          strategyJson = routerStrategy;
         } else {
           logger.warn(
-            `[McrService] InputRouter recommended strategy HASH "${recommendedStrategyHash.substring(0, 12)}" but it was not found by StrategyManager. Falling back.`
+            `[McrService] InputRouter recommended strategy HASH "${recommendedStrategyHash.substring(0, 12)}" but it was not found by StrategyManager. Session ${sessionId}.`
           );
         }
       }
     } catch (routerError) {
       logger.error(
-        `[McrService] InputRouter failed: ${routerError.message}. Falling back.`
+        `[McrService] InputRouter failed for session ${sessionId}: ${routerError.message}.`
       );
     }
   }
 
-  // 2. Fallback to configured strategy if router doesn't provide one
-  if (!strategyJson) {
+  if (!strategyJson) { // If router didn't provide a full strategy, build from determinedBaseStrategyId
     const operationSuffix = operationType === 'Assert' ? '-Assert' : '-Query';
-    const operationalStrategyId = `${baseStrategyId}${operationSuffix}`;
+    const operationalStrategyId = `${determinedBaseStrategyId}${operationSuffix}`;
     strategyJson = strategyManager.getStrategy(operationalStrategyId);
+
     if (strategyJson) {
       logger.info(
-        `[McrService] Using configured operational strategy: "${strategyJson.id}"`
+        `[McrService] Session ${sessionId}: Using operational strategy: "${strategyJson.id}" (derived from base "${determinedBaseStrategyId}")`
       );
     } else {
-      // 3. Final fallback to the base strategy ID or system default
       logger.warn(
-        `[McrService] Operational strategy "${operationalStrategyId}" not found. Trying base strategy "${baseStrategyId}".`
+        `[McrService] Session ${sessionId}: Operational strategy "${operationalStrategyId}" not found. Trying base "${determinedBaseStrategyId}".`
       );
-      strategyJson =
-        strategyManager.getStrategy(baseStrategyId) ||
-        strategyManager.getDefaultStrategy();
-      logger.info(`[McrService] Using fallback strategy: "${strategyJson.id}"`);
+      strategyJson = strategyManager.getStrategy(determinedBaseStrategyId);
+      if (strategyJson) {
+         logger.info(`[McrService] Session ${sessionId}: Using base strategy as operational: "${strategyJson.id}"`);
+      } else {
+        // Final fallback to system default strategy if determinedBaseStrategyId itself (e.g. from session) is not found
+        logger.warn(`[McrService] Session ${sessionId}: Base strategy "${determinedBaseStrategyId}" also not found. Falling back to system default strategy.`);
+        strategyJson = strategyManager.getDefaultStrategy();
+        logger.info(`[McrService] Session ${sessionId}: Using system default strategy: "${strategyJson.id}"`);
+      }
     }
   }
   return strategyJson;
 }
 
-async function logInitialStrategy() {
-  try {
-    const initialDisplayStrategy = await getOperationalStrategyJson(
-      'Assert',
-      'System startup initial strategy check.'
-    );
-    logger.info(
-      `[McrService] Initialized with base translation strategy ID: "${baseStrategyId}". Effective assertion strategy: "${initialDisplayStrategy.name}" (ID: ${initialDisplayStrategy.id})`
-    );
-  } catch (e) {
-    logger.error(
-      `[McrService] Failed to initialize with a default assertion strategy. Base ID: "${baseStrategyId}". Error: ${e.message}`
-    );
-  }
-}
-logInitialStrategy();
+// async function logInitialStrategy() { // REMOVED
+//   try {
+//     const initialDisplayStrategy = await getOperationalStrategyJson(
+//       'Assert',
+//       'System startup initial strategy check.',
+//        null // No session ID for initial log
+//     );
+//     logger.info(
+//       `[McrService] Initialized with base translation strategy ID: "${config.translationStrategy}". Effective assertion strategy: "${initialDisplayStrategy.name}" (ID: ${initialDisplayStrategy.id})`
+//     );
+//   } catch (e) {
+//     logger.error(
+//       `[McrService] Failed to initialize with a default assertion strategy. Base ID: "${config.translationStrategy}". Error: ${e.message}`
+//     );
+//   }
+// }
+// logInitialStrategy(); // REMOVED
+
+// /**  // REMOVED Global setTranslationStrategy
+//  * Sets the base translation strategy ID for the MCR service.
+//  * The system will attempt to use variants like `${strategyId}-Assert` or `${strategyId}-Query`
+//  * based on the operation type, or the strategyId itself if variants are not found.
+//  * @param {string} strategyId - The ID of the base strategy to set (e.g., "SIR-R1", "Direct-S1").
+//  * @returns {Promise<boolean>} True if the strategy (or its variants) was found and set, false otherwise.
+//  */
+// async function setTranslationStrategy(strategyId) {
+//   logger.debug(
+//     `[McrService] Attempting to set base translation strategy ID to: ${strategyId}`
+//   );
+//   const assertVariantId = `${strategyId}-Assert`;
+//   const queryVariantId = `${strategyId}-Query`;
+
+//   const assertStrategyExists = strategyManager.getStrategy(assertVariantId);
+//   const queryStrategyExists = strategyManager.getStrategy(queryVariantId);
+//   const baseStrategyItselfExists = strategyManager.getStrategy(strategyId);
+
+//   if (assertStrategyExists || queryStrategyExists || baseStrategyItselfExists) {
+//     // const oldBaseStrategyId = baseStrategyId; // No longer global baseStrategyId
+//     // baseStrategyId = strategyId; // No longer global baseStrategyId
+//     // Instead, this might set a system-wide default for NEW sessions, or be fully removed.
+//     // For now, let's assume it's removed in favor of per-session.
+//     logger.info(`[McrService] Global setTranslationStrategy is deprecated. Use setActiveStrategyForSession.`);
+//     // try {
+//     //   const currentAssertStrategy = await getOperationalStrategyJson(
+//     //     'Assert',
+//     //     'Strategy set check.',
+//     //      null // No session for a global default check
+//     //   );
+//     //   logger.info(
+//     //     `[McrService] System default translation strategy potentially changed to "${strategyId}". Effective assertion strategy for new sessions: "${currentAssertStrategy.name}" (ID: ${currentAssertStrategy.id})`
+//     //   );
+//     // } catch (e) {
+//     //   logger.warn(
+//     //     `[McrService] System default translation strategy potentially changed to "${strategyId}", but failed to determine effective assertion strategy for logging: ${e.message}`
+//     //   );
+//     // }
+//     return true; // Or false if truly deprecated
+//   }
+
+//   logger.warn(
+//     `[McrService] Attempted to set unknown or invalid system default strategy ID: ${strategyId}.`
+//   );
+//   return false;
+// }
 
 /**
- * Sets the base translation strategy ID for the MCR service.
- * The system will attempt to use variants like `${strategyId}-Assert` or `${strategyId}-Query`
- * based on the operation type, or the strategyId itself if variants are not found.
- * @param {string} strategyId - The ID of the base strategy to set (e.g., "SIR-R1", "Direct-S1").
- * @returns {Promise<boolean>} True if the strategy (or its variants) was found and set, false otherwise.
+ * Gets the currently active strategy ID for a given session.
+ * Falls back to system default if session has no specific strategy or sessionStore doesn't support it.
+ * @param {string} sessionId - The ID of the session.
+ * @returns {Promise<string>} The ID of the active strategy for the session.
  */
-async function setTranslationStrategy(strategyId) {
-  logger.debug(
-    `[McrService] Attempting to set base translation strategy ID to: ${strategyId}`
-  );
+async function getActiveStrategyId(sessionId) { // Modified to take sessionId
+  if (!sessionId) {
+    logger.warn('[McrService] getActiveStrategyId called without sessionId. Returning system default.');
+    return config.translationStrategy; // System default
+  }
+  if (typeof sessionStore.getActiveStrategy !== 'function') {
+    logger.warn(`[McrService] sessionStore.getActiveStrategy not implemented. Session ${sessionId} will use system default strategy.`);
+    return config.translationStrategy; // Fallback to system default
+  }
+  try {
+    const strategyId = await sessionStore.getActiveStrategy(sessionId);
+    return strategyId || config.translationStrategy; // Fallback to system default if session returns null/undefined
+  } catch (error) {
+    logger.error(`[McrService] Error getting active strategy for session ${sessionId}: ${error.message}. Falling back to system default.`);
+    return config.translationStrategy;
+  }
+}
+
+/**
+ * Sets the active translation strategy for a specific session.
+ * @param {string} sessionId - The ID of the session.
+ * @param {string} strategyId - The ID of the strategy to set for this session.
+ * @returns {Promise<object>} Result object: { success: boolean, message?: string, error?: object }
+ */
+async function setActiveStrategyForSession(sessionId, strategyId) {
+  logger.debug(`[McrService] Attempting to set strategy for session ${sessionId} to: "${strategyId}"`);
+  if (!sessionId || !strategyId) {
+    return { success: false, error: { message: "sessionId and strategyId are required.", code: ErrorCodes.INVALID_INPUT } };
+  }
+
+  const sessionExists = await sessionStore.getSession(sessionId);
+  if (!sessionExists) {
+    return { success: false, error: { message: "Session not found.", code: ErrorCodes.SESSION_NOT_FOUND } };
+  }
+
+  // Validate strategyId existence using strategyManager (checks main ID and variants)
   const assertVariantId = `${strategyId}-Assert`;
   const queryVariantId = `${strategyId}-Query`;
-
   const assertStrategyExists = strategyManager.getStrategy(assertVariantId);
   const queryStrategyExists = strategyManager.getStrategy(queryVariantId);
   const baseStrategyItselfExists = strategyManager.getStrategy(strategyId);
 
-  if (assertStrategyExists || queryStrategyExists || baseStrategyItselfExists) {
-    const oldBaseStrategyId = baseStrategyId;
-    baseStrategyId = strategyId;
-    try {
-      const currentAssertStrategy = await getOperationalStrategyJson(
-        'Assert',
-        'Strategy set check.'
-      );
-      logger.info(
-        `[McrService] Base translation strategy ID changed from "${oldBaseStrategyId}" to "${baseStrategyId}". Effective assertion strategy: "${currentAssertStrategy.name}" (ID: ${currentAssertStrategy.id})`
-      );
-    } catch (e) {
-      logger.warn(
-        `[McrService] Base translation strategy ID changed from "${oldBaseStrategyId}" to "${baseStrategyId}", but failed to determine effective assertion strategy for logging: ${e.message}`
-      );
-    }
-    return true;
+  if (!(assertStrategyExists || queryStrategyExists || baseStrategyItselfExists)) {
+    logger.warn(`[McrService] Attempted to set unknown strategy "${strategyId}" for session ${sessionId}. Available: ${JSON.stringify(strategyManager.getAvailableStrategies().map(s=>s.id))}`);
+    return { success: false, error: { message: `Strategy "${strategyId}" not found or invalid.`, code: ErrorCodes.STRATEGY_NOT_FOUND } };
   }
 
-  logger.warn(
-    `[McrService] Attempted to set unknown or invalid base strategy ID: ${strategyId}. Neither "${assertVariantId}", "${queryVariantId}" nor the base ID "${strategyId}" itself were found. Available strategies: ${JSON.stringify(strategyManager.getAvailableStrategies())}`
-  );
-  return false;
+  if (typeof sessionStore.setActiveStrategy !== 'function') {
+    logger.error(`[McrService] sessionStore.setActiveStrategy not implemented for session ${sessionId}.`);
+    return { success: false, error: { message: "Setting session strategy is not supported by the current session store.", code: "NOT_IMPLEMENTED" } };
+  }
+
+  try {
+    const success = await sessionStore.setActiveStrategy(sessionId, strategyId);
+    if (success) {
+      logger.info(`[McrService] Strategy for session ${sessionId} successfully set to "${strategyId}".`);
+      return { success: true, message: `Strategy for session ${sessionId} set to "${strategyId}".` };
+    } else {
+      // This path might indicate an issue within sessionStore's implementation if it's expected to always succeed or throw
+      logger.error(`[McrService] sessionStore.setActiveStrategy returned false for session ${sessionId} with strategy "${strategyId}".`);
+      return { success: false, error: { message: "Failed to set session strategy in store (returned false).", code: ErrorCodes.SESSION_STORE_ERROR } };
+    }
+  } catch (error) {
+    logger.error(`[McrService] Error setting strategy for session ${sessionId} to "${strategyId}": ${error.message}`, { stack: error.stack });
+    return { success: false, error: { message: error.message, code: 'SET_SESSION_STRATEGY_ERROR' } };
+  }
 }
 
-/**
- * Gets the currently active base translation strategy ID.
- * @returns {string} The ID of the active base strategy.
- */
-function getActiveStrategyId() {
-  return baseStrategyId;
-}
 
 /**
  * Asserts a natural language statement to a specific session.
@@ -194,7 +300,8 @@ function getActiveStrategyId() {
 async function assertNLToSession(sessionId, naturalLanguageText) {
   const activeStrategyJson = await getOperationalStrategyJson(
     'Assert',
-    naturalLanguageText
+    naturalLanguageText,
+    sessionId // Pass sessionId
   );
   const currentStrategyId = activeStrategyJson.id;
   logger.info(
@@ -377,7 +484,8 @@ async function querySessionWithNL(
 ) {
   const activeStrategyJson = await getOperationalStrategyJson(
     'Query',
-    naturalLanguageQuestion
+    naturalLanguageQuestion,
+    sessionId // Pass sessionId
   );
   const currentStrategyId = activeStrategyJson.id;
   const { dynamicOntology, style = 'conversational' } = queryOptions;
@@ -586,22 +694,23 @@ async function querySessionWithNL(
  */
 async function translateNLToRulesDirect(naturalLanguageText, strategyIdToUse) {
   // Use getOperationalStrategyJson from mcrService
-  const effectiveBaseId = strategyIdToUse || baseStrategyId; // Use mcrService's baseStrategyId
+  // For direct translation, there's no session, so pass null for sessionId
+  const effectiveBaseId = strategyIdToUse || config.translationStrategy; // Fallback to system default
   const strategyJsonToUse = strategyIdToUse
     ? strategyManager.getStrategy(`${effectiveBaseId}-Assert`) || // Prefer assert variant
       strategyManager.getStrategy(effectiveBaseId) ||
-      (await getOperationalStrategyJson('Assert', naturalLanguageText)) // Fallback to mcrService's logic
-    : await getOperationalStrategyJson('Assert', naturalLanguageText);
+      (await getOperationalStrategyJson('Assert', naturalLanguageText, null)) // Fallback, no session
+    : await getOperationalStrategyJson('Assert', naturalLanguageText, null); // No session
 
   if (!strategyJsonToUse) {
     logger.error(
-      `[McrService] No valid strategy found for direct NL to Rules. Base ID: "${effectiveBaseId}".`
+      `[McrService] No valid strategy found for direct NL to Rules. Base ID used: "${effectiveBaseId}".`
     );
     return {
       success: false,
-      message: `No valid strategy could be determined for base ID "${effectiveBaseId}".`,
+      message: `No valid strategy could be determined for direct translation using base ID "${effectiveBaseId}".`,
       error: ErrorCodes.STRATEGY_NOT_FOUND,
-      strategyId: effectiveBaseId,
+      strategyId: effectiveBaseId, // This is the base ID that was attempted
     };
   }
   const currentStrategyId = strategyJsonToUse.id;
@@ -799,7 +908,8 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
   // Use getOperationalStrategyJson from mcrService
   const activeStrategyJson = await getOperationalStrategyJson(
     'Query',
-    naturalLanguageQuestion
+    naturalLanguageQuestion,
+    sessionId // Pass sessionId
   );
   const currentStrategyId = activeStrategyJson.id;
   const operationId = `explain-${Date.now()}`;
@@ -1086,8 +1196,9 @@ async function debugFormatPrompt(templateName, inputVariables) {
 module.exports = {
   assertNLToSession,
   querySessionWithNL,
-  setTranslationStrategy,
-  getActiveStrategyId,
+  // setTranslationStrategy, // REMOVED global setter
+  getActiveStrategyId, // Now takes sessionId
+  setActiveStrategyForSession, // ADDED for per-session strategy setting
   // Updated session management functions to use sessionStore and be async
   /**
    * Creates a new session.
@@ -1131,6 +1242,15 @@ module.exports = {
   getPrompts,
   debugFormatPrompt,
   getAvailableStrategies: strategyManager.getAvailableStrategies,
+
+  // System Analysis Methods (Stubs for now)
+  getStrategyPerformanceData,
+  getEvaluationCases,
+  createEvaluationCase,
+  updateEvaluationCase,
+  generateEvaluationCaseVariations,
+  runEvolutionCycle,
+  getEvolverStatus,
 
   /**
    * Retrieves the full knowledge base for a given session.
@@ -1237,4 +1357,87 @@ module.exports = {
       };
     }
   },
+
+  listSessions: async () => {
+    logger.debug(`[McrService] listSessions called`);
+    try {
+      // Assuming sessionStore will have a listSessions method
+      if (typeof sessionStore.listSessions !== 'function') {
+        logger.warn('[McrService] sessionStore.listSessions is not implemented.');
+        // Return a structure indicating not implemented or an empty array with a warning
+        return { success: false, error: { message: "Listing sessions is not supported by the current session store.", code: "NOT_IMPLEMENTED" } };
+      }
+      const sessions = await sessionStore.listSessions(); // This method needs to be added to session store implementations
+      return { success: true, data: sessions };
+    } catch (error) {
+      logger.error(`[McrService] Error listing sessions: ${error.message}`, { stack: error.stack });
+      return { success: false, error: { message: error.message, code: 'LIST_SESSIONS_ERROR' } };
+    }
+  },
+};
+
+// System Analysis Stubs - Define functions before module.exports
+async function getStrategyPerformanceData(options) {
+  logger.info('[McrService] STUB: getStrategyPerformanceData called', options);
+  return { success: true, data: [{ strategyId: 'stub-strat-1', accuracy: 0.9, latency: 100, cost: 0.01, name: 'Stub Strategy 1' }] };
+}
+
+async function getEvaluationCases(options) {
+  logger.info('[McrService] STUB: getEvaluationCases called', options);
+  const baseEvals = require('../../src/evalCases/baseEvals');
+  const sirSpecific = require('../../src/evalCases/sirStrategySpecificCases');
+  return { success: true, data: { baseEvals, sirSpecific } };
+}
+
+async function createEvaluationCase(caseData) {
+  logger.info('[McrService] STUB: createEvaluationCase called', caseData);
+  if (!caseData || !caseData.fileName || !caseData.content) {
+      return { success: false, error: {message: "fileName and content are required for creating eval case."}};
+  }
+  logger.info(`[McrService] STUB: Would write to evalCases/${caseData.fileName} with content: ${JSON.stringify(caseData.content)}`);
+  return { success: true, data: { id: caseData.id || 'new-stub-case', ...caseData } };
+}
+
+async function updateEvaluationCase(caseData) {
+  logger.info('[McrService] STUB: updateEvaluationCase called', caseData);
+   if (!caseData || !caseData.fileName || !caseData.content) { // Or use an ID
+      return { success: false, error: {message: "fileName/id and content are required for updating eval case."}};
+  }
+  logger.info(`[McrService] STUB: Would update evalCases/${caseData.fileName} with content: ${JSON.stringify(caseData.content)}`);
+  return { success: true, data: { ...caseData } };
+}
+
+async function generateEvaluationCaseVariations(options) {
+  logger.info('[McrService] STUB: generateEvaluationCaseVariations called', options);
+  if(!options || !options.baseCaseDescription || !options.generationInstructions) {
+      return { success: false, error: {message: "baseCaseDescription and generationInstructions are required."}};
+  }
+  const variations = [
+      { id: 'stub-variant-1', description: `Variant of ${options.baseCaseDescription} based on "${options.generationInstructions}"`, naturalLanguageInput: "Generated NL variation 1?", inputType: "query", expectedProlog: "variation1(X).", expectedAnswer: "yes" },
+      { id: 'stub-variant-2', description: `Another variant of ${options.baseCaseDescription}`, naturalLanguageInput: "Generated NL assertion 2.", inputType: "assert", expectedProlog: "variation2(true)." }
+  ];
+  return { success: true, data: variations };
+}
+
+async function runEvolutionCycle(options) {
+  logger.info('[McrService] STUB: runEvolutionCycle called', options);
+  return { success: true, message: "Evolution cycle started (stub). Monitor logs for progress." };
+}
+
+async function getEvolverStatus(options) {
+  logger.info('[McrService] STUB: getEvolverStatus called', options);
+  return { success: true, data: { status: "idle", cycleCount: 0, bestStrategyId: "N/A", lastRun: null, details: "Evolver is idle. No cycles run yet." } };
+}
+
+// Update module.exports to include these functions by name
+const originalExports = module.exports;
+module.exports = {
+  ...originalExports,
+  getStrategyPerformanceData,
+  getEvaluationCases,
+  createEvaluationCase,
+  updateEvaluationCase,
+  generateEvaluationCaseVariations,
+  runEvolutionCycle,
+  getEvolverStatus,
 };

@@ -1,9 +1,9 @@
 const KeywordInputRouter = require('../src/evolution/keywordInputRouter.js');
-const logger = require('../src/logger');
-const { MCRError, ErrorCodes } = require('../src/errors');
+const logger = require('../server/logger');
+const { MCRError, ErrorCodes } = require('../server/errors');
 
 // Mock logger to prevent console output during tests and allow assertions
-jest.mock('../src/logger', () => ({
+jest.mock('../server/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),

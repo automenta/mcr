@@ -1,5 +1,5 @@
 // tests/evaluatorMetrics.test.js
-const { metrics } = require('../src/evaluator'); // Assuming metrics are exported or accessible
+const metrics = require('../src/evaluation/metrics'); // Changed path
 
 describe('Evaluator Metrics', () => {
   describe('normalizeProlog', () => {

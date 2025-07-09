@@ -1,7 +1,7 @@
 // src/tools.js
-const mcrService = require('./mcrService');
-const ontologyService = require('./ontologyService');
-const strategyManager = require('./strategyManager');
+const mcrService = require('./services/mcrService');
+const ontologyService = require('./services/ontologyService');
+const strategyManager = require('./services/strategyManager');
 const logger =require('./logger');
 
 // Wrapper function to ensure all handlers return a structured response or throw an error
@@ -45,6 +45,10 @@ const toolDefinitions = {
   delete_session: {
     description: "Deletes a session.",
     handler: async (payload) => toolHandlerWrapper('delete_session', mcrService.deleteSession, payload.sessionId),
+  },
+  list_sessions: {
+    description: "Lists all active sessions.",
+    handler: async (payload) => toolHandlerWrapper('list_sessions', mcrService.listSessions, payload),
   },
   get_session_kb: {
     description: "Retrieves the knowledge base for a given session.",
@@ -124,13 +128,23 @@ const toolDefinitions = {
     description: "Lists all available translation strategies.",
     handler: async (payload) => toolHandlerWrapper('list_strategies', mcrService.getAvailableStrategies, payload),
   },
-  get_active_strategy: {
-    description: "Gets the currently active base translation strategy ID.",
-    handler: async (payload) => toolHandlerWrapper('get_active_strategy', mcrService.getActiveStrategyId, payload),
+  get_active_strategy: { // Now requires sessionId
+    description: "Gets the currently active translation strategy ID for a given session.",
+    handler: async (payload) => { // Payload must include sessionId
+        if (!payload || !payload.sessionId) {
+            return { success: false, error: { message: "sessionId is required to get active strategy.", code: "MISSING_PARAM" } };
+        }
+        return toolHandlerWrapper('get_active_strategy_for_session', () => mcrService.getActiveStrategyId(payload.sessionId), payload);
+    }
   },
-  set_active_strategy: {
-    description: "Sets the base translation strategy.",
-    handler: async (payload) => toolHandlerWrapper('set_active_strategy', mcrService.setTranslationStrategy, payload.strategyId),
+  set_active_strategy_for_session: { // Renamed and updated
+    description: "Sets the active translation strategy for a specific session.",
+    handler: async (payload) => { // Payload must include sessionId and strategyId
+        if (!payload || !payload.sessionId || !payload.strategyId) {
+            return { success: false, error: { message: "sessionId and strategyId are required.", code: "MISSING_PARAM" } };
+        }
+        return toolHandlerWrapper('set_active_strategy_for_session', () => mcrService.setActiveStrategyForSession(payload.sessionId, payload.strategyId), payload);
+    }
   },
 
   // Direct Translation (utility, might not be directly used by chat UI but good for tools.js)
@@ -152,63 +166,76 @@ const toolDefinitions = {
 
   // Demo running (conceptual)
   list_demos: {
-      description: "Lists available demos.",
-      handler: async (payload) => {
-          // This would typically list files from src/demos/*
-          // For now, a placeholder:
-          const demos = [
-              { id: 'familyOntologyDemo', name: 'Family Ontology Demo', description: 'Demonstrates assertions and queries with the family ontology.' },
-              { id: 'simpleAssertionsDemo', name: 'Simple Assertions Demo', description: 'Shows basic assertion capabilities.' },
-              { id: 'simpleQADemo', name: 'Simple Q&A Demo', description: 'Basic question answering.' },
+      description: "Lists available demos. (Placeholder - full implementation pending)",
+      handler: async (payload) => toolHandlerWrapper('list_demos', () => {
+          logger.info('[Tool:list_demos] Placeholder implementation.');
+          // Actual implementation would scan a directory, require demo classes, and get their metadata.
+          // This requires solving the dynamic require and Example base class issues.
+          const placeholderDemos = [
+              { id: 'simpleAssertionsDemo', name: 'Simple Assertions Demo (Placeholder)', description: 'Basic assertion capabilities.' },
+              { id: 'familyOntologyDemo', name: 'Family Ontology Demo (Placeholder)', description: 'Family tree example.' },
+              { id: 'abstractReasoningDemo', name: 'Abstract Reasoning Demo (Placeholder)', description: 'Reasoning with fictional entities.' },
           ];
-          return { success: true, data: demos };
-      }
+          return { success: true, data: placeholderDemos };
+      }, payload),
   },
   run_demo_in_session: {
-      description: "Runs a specific demo's sequence in the current session.",
-      handler: async (payload) => { // { sessionId: string, demoId: string }
-          // This is highly conceptual and would require a demo runner service.
-          // The demo runner would need to iterate through demo steps and call assert/query tools.
-          // For now, a placeholder acknowledging the request.
-          logger.info(`[Tool:run_demo_in_session] Request to run demo ${payload.demoId} in session ${payload.sessionId}. This needs a demo execution engine.`);
-          // Simulate interaction for 'simpleAssertionsDemo'
-          if (payload.demoId === 'simpleAssertionsDemo' && payload.sessionId) {
-              const steps = [
-                  "Assert: Socrates is a human.",
-                  "Assert: All humans are mortal."
-              ];
-              let results = [];
-              for (const step of steps) {
-                  if (step.startsWith("Assert: ")) {
-                      const nl = step.substring("Assert: ".length);
-                      const res = await mcrService.assertNLToSession(payload.sessionId, nl);
-                      results.push({ step, res });
-                  }
-              }
-              return { success: true, message: `Demo '${payload.demoId}' steps simulated.`, results };
+      description: "Runs a specific demo's sequence in the current session. (Placeholder - full implementation pending)",
+      handler: async (payload) => toolHandlerWrapper('run_demo_in_session', async (input) => {
+          const { sessionId, demoId } = input;
+          logger.info(`[Tool:run_demo_in_session] Placeholder for demo ${demoId} in session ${sessionId}.`);
+          if (!sessionId || !demoId) {
+              return { success: false, error: { message: "sessionId and demoId are required." } };
           }
-          return { success: false, error: { message: `Demo runner for '${payload.demoId}' not implemented.` }};
-      }
+          // Actual implementation would load the demo class, instantiate with sessionId, and call its run() method.
+          // This depends on the Example base class being correctly set up to use mcrService.
+          // Forcing a known demo to "succeed" for placeholder testing:
+          if (demoId === "simpleAssertionsDemo" && sessionId) {
+            return { success: true, message: `Placeholder: Demo '${demoId}' run simulated in session ${sessionId}. Output would appear in session.` };
+          }
+          return { success: true, message: `Placeholder: Demo '${demoId}' would run in session ${sessionId}. Full implementation pending.` };
+      }, payload),
   },
 
-  // System Analysis Mode Tools (placeholders, to be fleshed out)
+  // System Analysis Mode Tools
   get_strategy_performance: {
     description: "Retrieves performance data for strategies.",
-    handler: async (payload) => ({ success: false, error: { message: "Tool 'get_strategy_performance' not implemented yet."}}),
+    handler: async (payload) => toolHandlerWrapper('get_strategy_performance', () => mcrService.getStrategyPerformanceData(payload?.options), payload),
   },
   get_evaluation_cases: {
-    description: "Retrieves evaluation cases.",
-    handler: async (payload) => ({ success: false, error: { message: "Tool 'get_evaluation_cases' not implemented yet."}}),
+    description: "Retrieves evaluation cases. (Payload can include options like path or category)",
+    handler: async (payload) => toolHandlerWrapper('get_evaluation_cases', () => mcrService.getEvaluationCases(payload?.options), payload),
+  },
+  create_evaluation_case: {
+    description: "Creates a new evaluation case.",
+    handler: async (payload) => { // Expects payload.caseData
+        if (!payload || !payload.caseData) return { success: false, error: { message: "caseData is required." } };
+        return toolHandlerWrapper('create_evaluation_case', () => mcrService.createEvaluationCase(payload.caseData), payload);
+    }
+  },
+  update_evaluation_case: {
+    description: "Updates an existing evaluation case.",
+    handler: async (payload) => { // Expects payload.caseData (which includes ID)
+        if (!payload || !payload.caseData || (!payload.caseData.id && !payload.caseData.fileName)) return { success: false, error: { message: "caseData with id or fileName is required." } };
+        return toolHandlerWrapper('update_evaluation_case', () => mcrService.updateEvaluationCase(payload.caseData), payload);
+    }
   },
   generate_eval_variations: {
     description: "Generates variations for an evaluation case.",
-    handler: async (payload) => ({ success: false, error: { message: "Tool 'generate_eval_variations' not implemented yet."}}),
+    handler: async (payload) => { // Expects payload.options: { baseCaseId, generationInstructions }
+        if (!payload || !payload.options) return { success: false, error: { message: "options (baseCaseId, generationInstructions) are required." } };
+        return toolHandlerWrapper('generate_eval_variations', () => mcrService.generateEvaluationCaseVariations(payload.options), payload);
+    }
   },
   run_evolver_cycle: {
     description: "Runs a single evolution cycle for strategies.",
-    handler: async (payload) => ({ success: false, error: { message: "Tool 'run_evolver_cycle' not implemented yet."}}),
+    handler: async (payload) => toolHandlerWrapper('run_evolver_cycle', () => mcrService.runEvolutionCycle(payload?.options), payload),
   },
-   get_full_kb_for_session: { // New tool needed for live KB view
+  get_evolver_status: {
+    description: "Gets the current status of the evolution engine.",
+    handler: async (payload) => toolHandlerWrapper('get_evolver_status', () => mcrService.getEvolverStatus(payload?.options), payload),
+  },
+  get_full_kb_for_session: { // New tool needed for live KB view
     description: "Retrieves the complete knowledge base for a session.",
     handler: async (payload) => {
         const { sessionId } = payload;

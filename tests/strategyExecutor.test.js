@@ -1,10 +1,10 @@
 // tests/strategyExecutor.test.js
-const StrategyExecutor = require('../src/strategyExecutor');
-const { MCRError, ErrorCodes } = require('../src/errors');
+const StrategyExecutor = require('../server/services/strategyExecutor');
+const { MCRError, ErrorCodes } = require('../server/errors');
 // const logger = require('../src/logger'); // Unused
 
 // Mock logger to prevent console output during tests
-jest.mock('../src/logger', () => ({
+jest.mock('../server/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),

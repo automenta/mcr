@@ -1,14 +1,14 @@
 // src/evolution/strategyEvolver.js
 const crypto = require('crypto');
-const logger = require('../logger');
-const { initDb } = require('../database'); // closeDb removed
-const llmService = require('../llmService'); // Assuming llmService is set up and provides a 'generate' method
+const logger = require('../../server/logger');
+const { initDb } = require('../../server/database'); // closeDb removed
+const llmService = require('../../server/services/llmService'); // Assuming llmService is set up and provides a 'generate' method
 const {
   prompts,
   fillTemplate,
   getPromptTemplateByName,
   addOrUpdatePromptTemplate,
-} = require('../prompts'); // Need to manage prompts
+} = require('../../server/prompts'); // Need to manage prompts
 
 class StrategyEvolver {
   constructor(config = {}) {
@@ -100,7 +100,7 @@ class StrategyEvolver {
       // This requires access to eval case definitions. For simplicity, assume eval cases are loaded elsewhere
       // and accessible, e.g., via a function or passed in.
       // This is a temporary workaround. Ideally, this logic is closer to evaluation case data.
-      const { loadAllEvalCases } = require('../evalCases/baseEvals'); // Temporary direct import
+      const { loadAllEvalCases } = require('../evalCases/baseEvals'); // Temporary direct import - path is fine relative to src/evolution
       const allEvalCases = loadAllEvalCases(); // Loads all cases from configured paths
       const evalCaseMap = new Map(allEvalCases.map((ec) => [ec.id, ec]));
 

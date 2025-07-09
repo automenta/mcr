@@ -1,7 +1,7 @@
 // new/tests/reasonerService.test.js
 
 // Mock config at the top level
-jest.mock('../src/config', () => ({
+jest.mock('../server/config', () => ({
   llm: {
     provider: 'test-provider',
     // ... other llm configs if needed by any module imported by reasonerService
@@ -17,7 +17,7 @@ jest.mock('../src/config', () => ({
   ontology: {},
 }));
 
-jest.mock('../src/logger', () => ({
+jest.mock('../server/logger', () => ({
   // Basic logger mock
   info: jest.fn(),
   warn: jest.fn(),
@@ -151,7 +151,7 @@ jest.mock('tau-prolog', () => ({
 }));
 */
 
-const reasonerService = require('../src/reasonerService');
+const reasonerService = require('../server/services/reasonerService');
 // const config = require('../src/config'); // No longer needed here, config is mocked
 
 // Ensure we're testing with the prolog provider for these unit tests

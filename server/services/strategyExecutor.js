@@ -1,7 +1,7 @@
 // src/strategyExecutor.js
-const logger = require('./logger');
-const { prompts, fillTemplate } = require('./prompts');
-const { MCRError, ErrorCodes } = require('./errors');
+const logger = require('../logger');
+const { prompts, fillTemplate } = require('../prompts');
+const { MCRError, ErrorCodes } = require('../errors');
 
 /**
  * @file src/strategyExecutor.js

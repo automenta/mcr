@@ -1,10 +1,10 @@
 // src/evolution/optimizer.js
 const yargs = require('yargs/yargs');
 const { hideBin } = require('yargs/helpers');
-const logger = require('../logger');
-const strategyManager = require('../strategyManager');
-const { Evaluator } = require('../evaluator'); // Assuming Evaluator class is exported
-const { initDb, closeDb } = require('../database'); // DB_PATH removed
+const logger = require('../../server/logger');
+const strategyManager = require('../../server/services/strategyManager');
+const { Evaluator } = require('../evaluator'); // Assuming Evaluator class is exported from src/evaluator.js
+const { initDb, closeDb } = require('../../server/database'); // DB_PATH removed
 // const sqlite3 = require('sqlite3').verbose(); // sqlite3 removed
 // Placeholder for StrategyEvolver and CurriculumGenerator
 // const StrategyEvolver = require('./strategyEvolver');

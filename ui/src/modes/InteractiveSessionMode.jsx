@@ -9,13 +9,22 @@ const ConfigurationPane = ({
     onSessionChange,
     activeStrategy,
     setActiveStrategy,
-    availableTools,
-    // onAssertOntologyRules // This prop is no longer needed as logic is encapsulated
+    availableTools
 }) => {
-    const [newSessionId, setNewSessionId] = useState('');
-    // const [allSessions, setAllSessions] = useState([]); // Future: fetch from server
+    const [newSessionId, setNewSessionId] = useState(''); // For manual input if needed
+    const [allSessions, setAllSessions] = useState([]);
+    const [sessionsLoading, setSessionsLoading] = useState(false);
+    const [selectedSessionForSwitch, setSelectedSessionForSwitch] = useState('');
+
     const [ontologies, setOntologies] = useState([]);
     const [ontologiesLoading, setOntologiesLoading] = useState(false);
+    const [showCreateOntologyModal, setShowCreateOntologyModal] = useState(false);
+    // Add state for new/editing ontology form if implementing modals later
+    // const [editingOntology, setEditingOntology] = useState(null); // { name: string, rules: string }
+    // const [ontologyNameInput, setOntologyNameInput] = useState('');
+    // const [ontologyRulesInput, setOntologyRulesInput] = useState('');
+
+
     const [demos, setDemos] = useState([]);
     const [demosLoading, setDemosLoading] = useState(false);
     const [strategies, setStrategies] = useState([]);
@@ -30,21 +39,36 @@ const ConfigurationPane = ({
     useEffect(() => {
         setOntologiesLoading(true);
         apiClient.list_ontologies({ includeContent: false })
-            .then(res => { if (res.success) setOntologies(res.data || []); }) // Ensure data is array
+            .then(res => { if (res.success) setOntologies(res.data || []); })
             .catch(err => console.error("Error fetching ontologies", err))
             .finally(() => setOntologiesLoading(false));
 
         setDemosLoading(true);
         apiClient.list_demos()
-            .then(res => { if (res.success) setDemos(res.data || []); }) // Ensure data is array
+            .then(res => { if (res.success) setDemos(res.data || []); })
             .catch(err => console.error("Error fetching demos", err))
             .finally(() => setDemosLoading(false));
 
         setStrategiesLoading(true);
         apiClient.list_strategies()
-            .then(res => { if (res.success) setStrategies(res.data || []); }) // Ensure data is array
+            .then(res => { if (res.success) setStrategies(res.data || []); })
             .catch(err => console.error("Error fetching strategies", err))
             .finally(() => setStrategiesLoading(false));
+
+        setSessionsLoading(true);
+        apiClient.list_sessions()
+            .then(res => { if (res.success) setAllSessions(res.data || []); })
+            .catch(err => console.error("Error fetching sessions", err))
+            .finally(() => setSessionsLoading(false));
+
+    }, []); // Empty dependency array means this runs once on mount
+
+    const refreshSessions = useCallback(() => { // Added useCallback for refreshSessions
+        setSessionsLoading(true);
+        apiClient.list_sessions()
+            .then(res => { if (res.success) setAllSessions(res.data || []); })
+            .catch(err => console.error("Error fetching sessions", err))
+            .finally(() => setSessionsLoading(false));
     }, []);
 
     const handleCreateSession = async () => {
@@ -52,7 +76,9 @@ const ConfigurationPane = ({
             const result = await apiClient.create_session();
             if (result.success && result.data && result.data.id) {
                 onSessionChange(result.data.id);
-                setNewSessionId('');
+                setNewSessionId(''); // Clear manual input if used
+                setSelectedSessionForSwitch(result.data.id); // Select new session in dropdown
+                refreshSessions(); // Refresh session list
             } else {
                 alert(`Failed to create session: ${result.error?.message || 'Unknown error'}`);
             }
@@ -62,8 +88,12 @@ const ConfigurationPane = ({
     };
 
     const handleSwitchSession = () => {
-        if (newSessionId.trim()) {
+        // Use selectedSessionForSwitch from dropdown
+        if (selectedSessionForSwitch) {
+            onSessionChange(selectedSessionForSwitch);
+        } else if (newSessionId.trim()) { // Fallback to manual input if dropdown not used
             onSessionChange(newSessionId.trim());
+            setSelectedSessionForSwitch(newSessionId.trim());
         }
     };
 
@@ -78,6 +108,8 @@ const ConfigurationPane = ({
                 if (result.success) {
                     alert(`Session ${currentSessionId} deleted.`);
                     onSessionChange(null);
+                    setSelectedSessionForSwitch(''); // Clear selection
+                    refreshSessions(); // Refresh session list
                 } else {
                     alert(`Failed to delete session: ${result.error?.message || 'Unknown error'}`);
                 }
@@ -123,27 +155,79 @@ const ConfigurationPane = ({
 
     const handleChangeStrategy = async (event) => {
         const newStrategyId = event.target.value;
-        setSelectedStrategy(newStrategyId);
+        if (!currentSessionId) {
+            alert("Please select a session before changing its strategy.");
+            event.target.value = selectedStrategy; // Revert dropdown
+            return;
+        }
+        if (!newStrategyId) { // Handle case where user selects "-- Select Strategy --"
+            setSelectedStrategy("");
+            // Optionally, do nothing or revert to session's current strategy if known
+            return;
+        }
+
+        setSelectedStrategy(newStrategyId); // Optimistically update UI
         try {
-            const result = await apiClient.set_active_strategy({ strategyId: newStrategyId });
+            // Use set_active_strategy_for_session
+            const result = await apiClient.set_active_strategy_for_session({ sessionId: currentSessionId, strategyId: newStrategyId });
             if (result.success) {
-                setActiveStrategy(newStrategyId);
-                alert(`Active strategy set to ${newStrategyId}`);
+                setActiveStrategy(newStrategyId); // Update global state via App.jsx
+                alert(`Strategy for session ${currentSessionId} set to ${newStrategyId}`);
             } else {
                 alert(`Failed to set strategy: ${result.error?.message || 'Unknown error'}`);
-                setSelectedStrategy(activeStrategy);
+                setSelectedStrategy(activeStrategy); // Revert UI on failure
             }
         } catch (error) {
             alert(`Error setting strategy: ${error.message}`);
-            setSelectedStrategy(activeStrategy);
+            setSelectedStrategy(activeStrategy); // Revert UI on failure
         }
     };
+
+    // Placeholder actions for ontology CRUD
+    const handleCreateNewOntology = () => {
+        // setShowCreateOntologyModal(true);
+        // setEditingOntology(null); // Clear any previous editing state
+        // setOntologyNameInput('');
+        // setOntologyRulesInput('');
+        alert("UI for creating ontology: To be implemented. Would open a modal/form.");
+        // Example: call apiClient.create_ontology({name: 'newOnto', rules: 'rule(a).'})
+    };
+    const handleEditOntology = (ontology) => {
+        // setEditingOntology(ontology);
+        // setOntologyNameInput(ontology.name);
+        // const fullOnto = await apiClient.get_ontology({name: ontology.name}); // Fetch full rules
+        // setOntologyRulesInput(fullOnto.data.rules);
+        // setShowCreateOntologyModal(true);
+        alert(`UI for editing ontology '${ontology.name}': To be implemented. Would fetch rules and open modal/form.`);
+        // Example: call apiClient.update_ontology({name: ontology.name, rules: 'new_rule(b).'})
+    };
+     const handleDeleteOntology = async (ontology) => {
+        if (window.confirm(`Are you sure you want to delete ontology ${ontology.name}?`)) {
+            try {
+                const result = await apiClient.delete_ontology({ name: ontology.name });
+                if (result.success) {
+                    alert(`Ontology '${ontology.name}' deleted.`);
+                    // Refresh ontology list
+                    apiClient.list_ontologies({ includeContent: false })
+                        .then(res => { if (res.success) setOntologies(res.data || []); });
+                } else {
+                    alert(`Failed to delete ontology: ${result.error?.message || 'Unknown error'}`);
+                }
+            } catch (error) {
+                alert(`Error deleting ontology: ${error.message}`);
+            }
+        }
+    };
+
 
     const ontologyItemConfig = {
         displayField: 'name',
         actions: [
-            { label: 'Load to Session', onClick: handleLoadOntology, disabled: !currentSessionId }
-        ]
+            { label: 'Load to Session', onClick: handleLoadOntology, disabled: !currentSessionId },
+            { label: 'Edit', onClick: handleEditOntology },
+            { label: 'Delete', onClick: handleDeleteOntology, className: 'action-delete'}
+        ],
+        // itemDetailRenderer: (item) => <pre>{item.rulesPreview || "No preview"}</pre> // If we fetch rules preview
     };
 
     const demoItemConfig = {
@@ -160,22 +244,40 @@ const ConfigurationPane = ({
             <div className="config-section">
                 <h5>Session Info</h5>
                 <p>Current Session ID: {currentSessionId || 'None'}</p>
-                <input
+                <div>
+                    <select
+                        value={selectedSessionForSwitch}
+                        onChange={e => setSelectedSessionForSwitch(e.target.value)}
+                        disabled={sessionsLoading}
+                    >
+                        <option value="">-- Select a Session --</option>
+                        {sessionsLoading && <option>Loading sessions...</option>}
+                        {Array.isArray(allSessions) && allSessions.map(session => (
+                            <option key={session.id} value={session.id}>
+                                {session.id} (Created: {new Date(session.createdAt).toLocaleTimeString()})
+                            </option>
+                        ))}
+                    </select>
+                    <button onClick={handleSwitchSession} disabled={!selectedSessionForSwitch}>Switch to Selected</button>
+                </div>
+                {/* Fallback manual input for session ID */}
+                {/* <input
                     type="text"
                     value={newSessionId}
                     onChange={(e) => setNewSessionId(e.target.value)}
-                    placeholder="Enter Session ID to switch"
+                    placeholder="Or Enter Session ID manually"
                 />
-                <button onClick={handleSwitchSession} disabled={!newSessionId.trim()}>Switch Session</button>
+                <button onClick={handleSwitchSession} disabled={!newSessionId.trim() && !selectedSessionForSwitch}>Switch Session</button> */}
                 <button onClick={handleCreateSession}>New Session</button>
                 <button onClick={handleDeleteSession} disabled={!currentSessionId} className="secondary">Delete Current Session</button>
+                <button onClick={refreshSessions} disabled={sessionsLoading}>Refresh Sessions</button>
             </div>
 
             <div className="config-section">
-                <h5>Active Strategy: {activeStrategy || 'N/A'}</h5>
-                 <select value={selectedStrategy} onChange={handleChangeStrategy} disabled={strategiesLoading || strategies.length === 0}>
+                <h5>Active Strategy (Session: {currentSessionId || 'N/A'}): {activeStrategy || 'N/A'}</h5>
+                 <select value={selectedStrategy} onChange={handleChangeStrategy} disabled={strategiesLoading || strategies.length === 0 || !currentSessionId}>
                     {strategiesLoading && <option>Loading strategies...</option>}
-                    {!strategiesLoading && <option value="">-- Select Strategy --</option>}
+                    <option value="">-- Select Strategy for Session --</option>
                     {Array.isArray(strategies) && strategies.map(strategy => (
                         <option key={strategy.id} value={strategy.id}>
                             {strategy.name} ({strategy.id})
@@ -184,12 +286,25 @@ const ConfigurationPane = ({
                 </select>
             </div>
 
+            {/* Ontology Create Modal Placeholder */}
+            {/* {showCreateOntologyModal && (
+                <div className="modal">
+                    <h4>{editingOntology ? "Edit Ontology" : "Create New Ontology"}</h4>
+                    <input type="text" placeholder="Ontology Name" value={ontologyNameInput} onChange={e => setOntologyNameInput(e.target.value)} readOnly={!!editingOntology} />
+                    <textarea placeholder="Ontology Rules (Prolog)" value={ontologyRulesInput} onChange={e => setOntologyRulesInput(e.target.value)} rows={10} />
+                    <button onClick={handleSaveOntology}>Save</button>
+                    <button onClick={() => setShowCreateOntologyModal(false)}>Cancel</button>
+                </div>
+            )} */}
+
+
             <DataListViewer
                 title="Ontologies"
                 items={ontologies}
                 itemConfig={ontologyItemConfig}
                 loading={ontologiesLoading}
                 emptyMessage="No ontologies found."
+                headerActions={[{label: "Create New Ontology", onClick: handleCreateNewOntology }]}
             />
 
             <DataListViewer
@@ -231,6 +346,13 @@ const InteractionPane = ({ currentSessionId, activeStrategy }) => {
 
         const currentText = inputText;
         setInputText('');
+
+        if (currentText.trim().toLowerCase() === '/clear') {
+            setHistory([]);
+            addMessageToHistory('system', 'Chat history cleared.');
+            return;
+        }
+
         addMessageToHistory('user', currentText);
 
         let operation = inputType;
@@ -325,37 +447,8 @@ const InteractiveSessionMode = ({
     availableTools
 }) => {
 
-  // This is a conceptual function for how an ontology's rules might be asserted.
-  // The actual logic for "loading" an ontology (i.e., asserting its rules)
-  // should ideally be a dedicated tool on the server.
-  // For now, this function is passed down but ConfigurationPane uses `load_ontology_into_session` tool.
-  const assertOntologyRulesToSession = async (rules) => {
-    if (!currentSessionId) {
-      alert("No active session to assert rules to.");
-      return;
-    }
-    // This is a simplified example. A real implementation might need to break down
-    // rules or use a specific server tool to assert raw Prolog.
-    // The `assert_nl_to_session` tool expects natural language.
-    // For now, we're relying on `load_ontology_into_session` tool which is better.
-    try {
-      // This is a placeholder for what a direct rule assertion might look like
-      // if we had a tool like `assert_prolog_rules_to_session`.
-      // Since we don't, this specific function isn't fully utilized by ConfigurationPane's ontology load.
-      console.warn("assertOntologyRulesToSession called, but ConfigurationPane uses a dedicated server tool for loading ontologies.");
-      // const result = await apiClient.assert_nl_to_session({
-      //   sessionId: currentSessionId,
-      //   naturalLanguageText: `The following Prolog rules are asserted: ${rules}`
-      // });
-      // if (result.success) {
-      //   console.log("Ontology rules asserted (simulated via NL). KB will update via WebSocket.");
-      // } else {
-      //   alert(`Failed to assert ontology rules: ${result.error?.message}`);
-      // }
-    } catch (error) {
-      alert(`Error asserting ontology rules: ${error.message}`);
-    }
-  };
+  // const assertOntologyRulesToSession = async (rules) => { // REMOVED
+  // };
 
 
   return (
@@ -366,7 +459,7 @@ const InteractiveSessionMode = ({
         activeStrategy={activeStrategy}
         setActiveStrategy={setActiveStrategy}
         availableTools={availableTools}
-        onAssertOntologyRules={assertOntologyRulesToSession} // Passed down
+        // onAssertOntologyRules={assertOntologyRulesToSession} // REMOVED
       />
       <InteractionPane
         currentSessionId={currentSessionId}

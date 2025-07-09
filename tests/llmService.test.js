@@ -21,7 +21,7 @@ const mockConfig = {
 };
 // jest.mock('../src/config', () => mockConfig); // This line caused the error
 
-jest.mock('../src/config', () => ({
+jest.mock('../server/config', () => ({
   // Define the mock directly in the factory
   llm: {
     provider: 'ollama', // Default for tests, can be overridden per test
@@ -38,7 +38,7 @@ jest.mock('../src/config', () => ({
 }));
 
 // Mock logger (can be done more simply if not changing levels)
-jest.mock('../src/logger', () => ({
+jest.mock('../server/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
@@ -69,20 +69,20 @@ describe('LlmService', () => {
 
   beforeAll(() => {
     // Set logger level to silent for all tests in this suite
-    require('../src/logger').level = 'silent';
+    require('../server/logger').level = 'silent';
   });
 
   afterAll(() => {
     // Restore original log level (if it matters for other suites)
     // This depends on how logger is shared/cached across test files by Jest
-    require('../src/logger').level = mockConfig.logLevel || 'info';
+    require('../server/logger').level = mockConfig.logLevel || 'info';
   });
 
   beforeEach(() => {
     jest.resetModules(); // Crucial: clears the cache for all modules
 
     // Re-require the mocked config and logger
-    config = require('../src/config');
+    config = require('../server/config');
     // logger = require('../src/logger'); // logger variable in this scope is unused
 
     // Reset call counts for provider mocks
@@ -100,7 +100,7 @@ describe('LlmService', () => {
 
   test('should load and use Ollama provider when configured', async () => {
     config.llm.provider = 'ollama'; // Set desired provider on the fresh mocked config
-    llmService = require('../src/llmService'); // Import llmService, it will use the above config
+    llmService = require('../server/services/llmService'); // Import llmService, it will use the above config
 
     mockOllamaGenerate.mockResolvedValue('Ollama says hello');
 
@@ -120,7 +120,7 @@ describe('LlmService', () => {
 
   test('should load and use Gemini provider when configured', async () => {
     config.llm.provider = 'gemini'; // Use the re-required config
-    llmService = require('../src/llmService'); // Re-import
+    llmService = require('../server/services/llmService'); // Re-import
 
     mockGeminiGenerate.mockResolvedValue('Gemini says hi');
 
@@ -140,7 +140,7 @@ describe('LlmService', () => {
 
   test('should default to Ollama provider if an unsupported provider is configured', async () => {
     config.llm.provider = 'unsupported_provider'; // Use the re-required config
-    llmService = require('../src/llmService'); // Re-import
+    llmService = require('../server/services/llmService'); // Re-import
 
     mockOllamaGenerate.mockResolvedValue('Ollama default response');
 
@@ -154,7 +154,7 @@ describe('LlmService', () => {
 
   test('should pass options to the provider', async () => {
     config.llm.provider = 'ollama'; // Use the re-required config
-    llmService = require('../src/llmService'); // Re-import
+    llmService = require('../server/services/llmService'); // Re-import
 
     mockOllamaGenerate.mockResolvedValue('Ollama with options');
     const options = { jsonMode: true, temperature: 0.5 };
@@ -165,7 +165,7 @@ describe('LlmService', () => {
 
   test('should re-throw errors from the provider', async () => {
     config.llm.provider = 'ollama'; // Use the re-required config
-    llmService = require('../src/llmService'); // Re-import
+    llmService = require('../server/services/llmService'); // Re-import
 
     const errorMessage = 'Provider failed';
     mockOllamaGenerate.mockRejectedValue(new Error(errorMessage));
@@ -185,7 +185,7 @@ describe('LlmService', () => {
       // generate method is intentionally missing
     }));
 
-    llmService = require('../src/llmService'); // llmService will now load the "broken" ollamaProvider
+    llmService = require('../server/services/llmService'); // llmService will now load the "broken" ollamaProvider
 
     await expect(llmService.generate('s', 'u')).rejects.toThrow(
       'LLM provider misconfiguration.'

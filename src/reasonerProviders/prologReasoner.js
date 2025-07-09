@@ -1,6 +1,6 @@
 // src/reasonerProviders/prologReasoner.js
 const prolog = require('tau-prolog');
-const logger = require('../logger');
+const logger = require('../../server/logger');
 
 // Tau Prolog sessions are stateful. We'll manage one session per logical "knowledge base".
 // For this streamlined version, a single global session might be sufficient if not dealing

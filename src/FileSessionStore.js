@@ -2,9 +2,9 @@
 const fs = require('fs').promises;
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-const logger = require('./logger');
+const logger = require('../server/logger');
 const ISessionStore = require('./interfaces/ISessionStore');
-const config = require('./config'); // To get the session file path
+const config = require('../server/config'); // To get the session file path
 
 class FileSessionStore extends ISessionStore {
   constructor() {

@@ -76,12 +76,23 @@ const App = () => {
 
   // Effect to fetch active strategy when server connects or session changes
   useEffect(() => {
-    if (serverConnected && currentSessionId) { // Or just serverConnected if strategy is global
-      apiClient.getActiveStrategy().then(result => {
-        if (result.success && result.data) {
-          setActiveStrategy(result.data); // Assuming data is the strategyId string
-        }
-      }).catch(err => console.error("Failed to get active strategy", err));
+    if (serverConnected && currentSessionId) {
+      apiClient.getActiveStrategy({ sessionId: currentSessionId }) // Pass sessionId
+        .then(result => {
+          if (result.success && result.data) { // result.data should be the strategyId string
+            setActiveStrategy(result.data.activeStrategy || result.data); // Adjust based on actual tool response structure
+          } else if (result.success && result.data === null) { // Strategy might be null if not set for session
+            setActiveStrategy(''); // Or a default indicator
+          }
+        })
+        .catch(err => {
+          console.error("Failed to get active strategy for session", currentSessionId, err);
+          // setActiveStrategy(''); // Clear or set to default on error
+        });
+    } else if (serverConnected && !currentSessionId) {
+      // If there's no current session, maybe clear active strategy or set to a global default if applicable
+      // For now, let's assume strategy is session-specific and clear it.
+      // setActiveStrategy(''); // This might be too aggressive if user just de-selected a session
     }
   }, [serverConnected, currentSessionId]);
 

@@ -1,5 +1,5 @@
 // src/llmProviders/nullLlmProvider.js
-const logger = require('../logger');
+const logger = require('../../server/logger');
 
 const NullLlmProvider = {
   name: 'nullllm', // Consistent name for configuration

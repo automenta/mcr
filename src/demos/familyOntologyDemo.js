@@ -1,4 +1,4 @@
-const { Example } = require('../../demo'); // Adjust path as necessary
+const { Example } = require('../../server/demoUtils/Example'); // Adjusted path to anticipated location
 const { readFileContentSafe } = require('./demoUtils'); // Import the utility
 const path = require('path');
 

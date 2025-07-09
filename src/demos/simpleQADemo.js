@@ -1,4 +1,4 @@
-const mcrService = require('../mcrService'); // New MCR Service
+const mcrService = require('../../server/services/mcrService'); // New MCR Service
 const { demoLogger, delay } = require('./demoUtils');
 // const { ApiError } = require('../errors'); // If needed for specific error handling
 

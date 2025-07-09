@@ -1,4 +1,4 @@
-const { Example } = require('../../demo'); // Adjust path as necessary
+const { Example } = require('../../server/demoUtils/Example'); // Adjusted path to anticipated location
 
 class SimpleAssertionsDemo extends Example {
   getName() {

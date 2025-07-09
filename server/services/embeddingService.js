@@ -1,5 +1,5 @@
 // src/services/embeddingService.js
-const logger = require('../logger');
+const logger = require('../logger'); // Path from server/services to server/logger.js
 
 /**
  * @typedef {Array<number>} EmbeddingVector

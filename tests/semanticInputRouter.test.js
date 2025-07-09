@@ -1,12 +1,12 @@
 // tests/semanticInputRouter.test.js
 const SemanticInputRouter = require('../src/evolution/semanticInputRouter');
-const EmbeddingService = require('../src/services/embeddingService'); // Using the mock
+const EmbeddingService = require('../server/services/embeddingService'); // Using the mock
 const { inputArchetypes } = require('../src/evolution/semanticArchetypes');
-const logger = require('../src/logger');
-const { MCRError, ErrorCodes } = require('../src/errors');
+const logger = require('../server/logger');
+const { MCRError, ErrorCodes } = require('../server/errors');
 
 // Mock logger to prevent console output during tests and allow assertions
-jest.mock('../src/logger', () => ({
+jest.mock('../server/logger', () => ({
   info: jest.fn(),
   warn: jest.fn(),
   error: jest.fn(),
