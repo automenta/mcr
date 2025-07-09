@@ -98,7 +98,6 @@ const toolDefinitions = {
     description: "Loads ontology rules as assertions into a session.",
     handler: async (payload) => { // { sessionId: string, ontologyName: string }
         const { sessionId, ontologyName } = payload;
-        const { sessionId, ontologyName } = payload;
         if (!sessionId || !ontologyName) {
             return { success: false, error: { message: "sessionId and ontologyName are required." } };
         }

@@ -6,7 +6,10 @@ const config = require('../config');
 const { MCRError, ErrorCodes } = require('../errors');
 
 // Define the new directory for JSON strategies relative to the project root
-const STRATEGIES_DIR_JSON = path.join(__dirname, '../../../strategies');
+// const STRATEGIES_DIR_JSON = path.join(__dirname, '../../../strategies');
+// Assuming the process is run from the project root:
+const STRATEGIES_DIR_JSON = path.resolve(process.cwd(), 'strategies');
+
 
 /**
  * @class StrategyManager
