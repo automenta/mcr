@@ -9,9 +9,9 @@ const config = require('../server/config'); // To get the session file path
 class FileSessionStore extends ISessionStore {
   constructor() {
     super();
-    this.sessionsDir = config.sessionStore?.filePath || './.sessions';
+    this.sessionsDir = config.sessionStore?.filePath || path.join(process.cwd(), '.sessions'); // Ensure path is absolute or well-defined from cwd
     logger.info(
-      `[FileSessionStore] Initialized. Sessions directory: ${this.sessionsDir}`
+      `[FileSessionStore] Initialized. Sessions directory: ${path.resolve(this.sessionsDir)}` // Log resolved path
     );
   }
 
@@ -128,6 +128,7 @@ class FileSessionStore extends ISessionStore {
       createdAt: new Date(),
       facts: [],
       lexicon: new Set(),
+      activeStrategyId: null, // Initialize activeStrategyId
     };
     await this._writeSessionFile(sessionId, session);
     logger.info(
@@ -137,6 +138,7 @@ class FileSessionStore extends ISessionStore {
     return {
       ...session,
       lexicon: new Set(session.lexicon), // Ensure it's a new Set instance
+      activeStrategyId: session.activeStrategyId,
     };
   }
 
@@ -307,6 +309,73 @@ class FileSessionStore extends ISessionStore {
   async close() {
     logger.debug('[FileSessionStore] Close called (no-op).');
     return Promise.resolve();
+  }
+
+  /**
+   * Sets the active strategy ID for a session.
+   * @param {string} sessionId - The ID of the session.
+   * @param {string} strategyId - The ID of the strategy to set.
+   * @returns {Promise<boolean>} True if strategy was set, false if session not found.
+   */
+  async setActiveStrategy(sessionId, strategyId) {
+    const sessionData = await this._readSessionFile(sessionId);
+    if (!sessionData) {
+      logger.warn(`[FileSessionStore] Cannot set active strategy: Session not found: ${sessionId}`);
+      return false;
+    }
+    sessionData.activeStrategyId = strategyId;
+    await this._writeSessionFile(sessionId, sessionData);
+    logger.info(`[FileSessionStore] Active strategy for session ${sessionId} set to: ${strategyId}`);
+    return true;
+  }
+
+  /**
+   * Retrieves the active strategy ID for a session.
+   * @param {string} sessionId - The ID of the session.
+   * @returns {Promise<string|null>} The active strategy ID or null if session not found or no strategy set.
+   */
+  async getActiveStrategy(sessionId) {
+    const sessionData = await this._readSessionFile(sessionId);
+    if (!sessionData) {
+      logger.warn(`[FileSessionStore] Cannot get active strategy: Session not found: ${sessionId}`);
+      return null;
+    }
+    return sessionData.activeStrategyId || null; // Returns null if undefined
+  }
+
+  /**
+   * Lists all active sessions with summary information.
+   * @returns {Promise<Array<{id: string, createdAt: Date, activeStrategyId?: string, factCount: number, lexiconSize: number}>>}
+   */
+  async listSessions() {
+    try {
+      const files = await fs.readdir(this.sessionsDir);
+      const sessionSummaries = [];
+      for (const file of files) {
+        if (file.endsWith('.json')) {
+          const sessionId = file.replace('.json', '');
+          try {
+            const sessionData = await this._readSessionFile(sessionId);
+            if (sessionData) {
+              sessionSummaries.push({
+                id: sessionData.id,
+                createdAt: sessionData.createdAt, // Already a Date object from _readSessionFile
+                activeStrategyId: sessionData.activeStrategyId || null,
+                factCount: sessionData.facts.length,
+                lexiconSize: sessionData.lexicon.size,
+              });
+            }
+          } catch (readError) {
+            logger.warn(`[FileSessionStore] Error reading session file ${file} during listSessions: ${readError.message}. Skipping.`);
+          }
+        }
+      }
+      logger.info(`[FileSessionStore] Listed ${sessionSummaries.length} active sessions.`);
+      return sessionSummaries;
+    } catch (error) {
+      logger.error(`[FileSessionStore] Error listing session files from ${this.sessionsDir}: ${error.message}`);
+      return []; // Return empty array on error reading directory
+    }
   }
 }
 

@@ -64,16 +64,12 @@ async function createOntology(
   ensureDirectoryExists(ontologiesDir);
   writeGeneratedFile({
     filePath,
-    content: fullContent, // Pass the content with the prolog-specific header
-    domain, // Still pass these for the standard JS-style comment header if desired by the utility
+    content: fullContent, // This content already includes the Prolog-style header
+    domain, // Domain and instructions are still useful for metadata even if header is suppressed
     instructions,
     scriptName: SCRIPT_NAME,
+    suppressDefaultHeader: true, // Suppress the default JS-style comment header
   });
-  // Note: writeGeneratedFile will add a JS-style comment header.
-  // If only the Prolog '%' style comments are desired, the content passed to writeGeneratedFile
-  // should be solely `cleanedProlog`, and the header logic within writeGeneratedFile might need adjustment
-  // or an option to suppress its header. For now, we'll have both.
-  // A better approach might be for writeGeneratedFile to accept an optional custom header formatter.
 
   logger.info(`[${SCRIPT_NAME}] Successfully generated ontology.`);
 }

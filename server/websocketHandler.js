@@ -40,9 +40,12 @@ async function messageDispatcher(clientId, message) {
   } catch (error) {
     logger.error(`[WebSocket] Failed to parse message from client ${clientId}: ${message}`, error);
     sendToClient(clientId, {
-      type: 'error',
-      correlationId: null,
-      payload: { message: 'Invalid JSON message format.' },
+      type: 'tool_result', // Changed from 'error'
+      correlationId: null, // No correlationId available from unparseable message
+      payload: {
+        success: false,
+        error: { message: 'Invalid JSON message format.', code: 'INVALID_JSON' },
+      },
     });
     return;
   }
@@ -176,9 +179,12 @@ async function messageDispatcher(clientId, message) {
   } else {
     logger.warn(`[WebSocket] Unknown message type: ${type} from client ${clientId}`);
     sendToClient(clientId, {
-      type: 'error',
-      correlationId,
-      payload: { message: `Unknown message type: ${type}`, code: 'UNKNOWN_MESSAGE_TYPE' },
+      type: 'tool_result', // Changed from 'error'
+      correlationId, // Echo correlationId if present in the unknown message type
+      payload: {
+        success: false,
+        error: { message: `Unknown message type: ${type}`, code: 'UNKNOWN_MESSAGE_TYPE' },
+      },
     });
   }
 }

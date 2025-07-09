@@ -6,15 +6,16 @@ const strategyManager = require('../../server/services/strategyManager');
 const { Evaluator } = require('../evaluator'); // Assuming Evaluator class is exported from src/evaluator.js
 const { initDb, closeDb } = require('../../server/database'); // DB_PATH removed
 // const sqlite3 = require('sqlite3').verbose(); // sqlite3 removed
-// Placeholder for StrategyEvolver and CurriculumGenerator
-// const StrategyEvolver = require('./strategyEvolver');
-// const CurriculumGenerator = require('./curriculumGenerator');
+const StrategyEvolver = require('./strategyEvolver');
+const CurriculumGenerator = require('./curriculumGenerator');
+const { getEmbeddingService } = require('../services/embeddingService'); // Path to actual embedding service
 
 class OptimizationCoordinator {
   constructor(config = {}) {
     this.config = config;
-    // this.strategyEvolver = new StrategyEvolver();
-    // this.curriculumGenerator = new CurriculumGenerator();
+    // const embeddingServiceInstance = getEmbeddingService(); // Not directly needed by Optimizer/Evolver/CurriculumGen
+    this.strategyEvolver = new StrategyEvolver({ /* evolver config if any */ });
+    this.curriculumGenerator = new CurriculumGenerator({ /* curriculum config if any */ });
     this.evaluator = new Evaluator(config.evalCasesPath || 'src/evalCases'); // Use default path
   }
 
@@ -155,31 +156,29 @@ class OptimizationCoordinator {
       return null;
     }
     logger.info(`[Optimizer] Evolving strategy: ${strategyJson.id}`);
-    // Placeholder for StrategyEvolver invocation
-    // const evolvedStrategy = await this.strategyEvolver.evolve(strategyJson);
-    // logger.info(`[Optimizer] Evolution complete. New strategy ID (if any): ${evolvedStrategy ? evolvedStrategy.id : 'None'}`);
-    // return evolvedStrategy;
-    logger.warn(
-      '[Optimizer] StrategyEvolver not yet implemented. Returning null.'
-    );
-    return null;
+    logger.info(`[Optimizer] Evolving strategy: ${strategyJson.id}`);
+    const evolvedStrategy = await this.strategyEvolver.evolve(strategyJson);
+    if (evolvedStrategy) {
+        logger.info(`[Optimizer] Evolution complete. New strategy ID: ${evolvedStrategy.id}`);
+    } else {
+        logger.warn(`[Optimizer] Strategy evolution did not produce a new strategy for ${strategyJson.id}.`);
+    }
+    return evolvedStrategy;
   }
 
-  async generateNewCurriculum(/* currentStrategy = null, failingCases = null */) {
-    // Parameters removed
+  async generateNewCurriculum() {
     logger.info('[Optimizer] Generating new curriculum...');
-    // Placeholder for CurriculumGenerator invocation
-    // const newCases = await this.curriculumGenerator.generate(currentStrategy, failingCases);
-    // logger.info(`[Optimizer] Curriculum generation complete. New cases generated: ${newCases ? newCases.length : 0}`);
-    // return newCases;
-    logger.warn(
-      '[Optimizer] CurriculumGenerator not yet implemented. Returning empty array.'
-    );
-    return [];
+    const newCases = await this.curriculumGenerator.generate();
+    if (newCases && newCases.length > 0) {
+        logger.info(`[Optimizer] Curriculum generation complete. New cases generated: ${newCases.length}`);
+        // Note: curriculumGenerator saves the cases to file itself.
+    } else {
+        logger.info('[Optimizer] No new curriculum cases were generated in this cycle.');
+    }
+    return newCases; // Return for potential further use, though already saved
   }
 
-  async evaluateStrategy(strategyJson /*, curriculumCases = null */) {
-    // Parameter removed
+  async evaluateStrategy(strategyJson) {
     if (!strategyJson) {
       logger.warn(
         '[Optimizer] No strategy JSON provided to evaluate. Skipping evaluation.'

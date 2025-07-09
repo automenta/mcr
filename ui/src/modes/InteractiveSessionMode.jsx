@@ -18,11 +18,11 @@ const ConfigurationPane = ({
 
     const [ontologies, setOntologies] = useState([]);
     const [ontologiesLoading, setOntologiesLoading] = useState(false);
-    const [showCreateOntologyModal, setShowCreateOntologyModal] = useState(false);
-    // Add state for new/editing ontology form if implementing modals later
-    // const [editingOntology, setEditingOntology] = useState(null); // { name: string, rules: string }
-    // const [ontologyNameInput, setOntologyNameInput] = useState('');
-    // const [ontologyRulesInput, setOntologyRulesInput] = useState('');
+    const [showOntologyModal, setShowOntologyModal] = useState(false);
+    const [editingOntology, setEditingOntology] = useState(null); // null for new, object for edit
+    const [ontologyNameInput, setOntologyNameInput] = useState('');
+    const [ontologyRulesInput, setOntologyRulesInput] = useState('');
+    const [ontologyModalError, setOntologyModalError] = useState('');
 
 
     const [demos, setDemos] = useState([]);
@@ -183,25 +183,71 @@ const ConfigurationPane = ({
         }
     };
 
-    // Placeholder actions for ontology CRUD
+    const refreshOntologies = useCallback(() => {
+        setOntologiesLoading(true);
+        apiClient.list_ontologies({ includeContent: false })
+            .then(res => { if (res.success) setOntologies(res.data || []); })
+            .catch(err => console.error("Error fetching ontologies", err))
+            .finally(() => setOntologiesLoading(false));
+    }, []);
+
+    // Actions for ontology CRUD
     const handleCreateNewOntology = () => {
-        // setShowCreateOntologyModal(true);
-        // setEditingOntology(null); // Clear any previous editing state
-        // setOntologyNameInput('');
-        // setOntologyRulesInput('');
-        alert("UI for creating ontology: To be implemented. Would open a modal/form.");
-        // Example: call apiClient.create_ontology({name: 'newOnto', rules: 'rule(a).'})
+        setEditingOntology(null);
+        setOntologyNameInput('');
+        setOntologyRulesInput('');
+        setOntologyModalError('');
+        setShowOntologyModal(true);
     };
-    const handleEditOntology = (ontology) => {
-        // setEditingOntology(ontology);
-        // setOntologyNameInput(ontology.name);
-        // const fullOnto = await apiClient.get_ontology({name: ontology.name}); // Fetch full rules
-        // setOntologyRulesInput(fullOnto.data.rules);
-        // setShowCreateOntologyModal(true);
-        alert(`UI for editing ontology '${ontology.name}': To be implemented. Would fetch rules and open modal/form.`);
-        // Example: call apiClient.update_ontology({name: ontology.name, rules: 'new_rule(b).'})
+
+    const handleEditOntology = async (ontology) => {
+        setEditingOntology(ontology);
+        setOntologyNameInput(ontology.name);
+        setOntologyModalError('');
+        setShowOntologyModal(true);
+        try {
+            // Fetch full ontology content for editing
+            const result = await apiClient.get_ontology({ name: ontology.name });
+            if (result.success && result.data) {
+                setOntologyRulesInput(result.data.rules || '');
+            } else {
+                setOntologyModalError(`Failed to fetch rules for ${ontology.name}: ${result.error?.message}`);
+                setOntologyRulesInput(''); // Clear rules if fetch failed
+            }
+        } catch (error) {
+            setOntologyModalError(`Error fetching rules for ${ontology.name}: ${error.message}`);
+            setOntologyRulesInput('');
+        }
     };
-     const handleDeleteOntology = async (ontology) => {
+
+    const handleSaveOntology = async () => {
+        if (!ontologyNameInput.trim() || !ontologyRulesInput.trim()) {
+            setOntologyModalError("Ontology name and rules cannot be empty.");
+            return;
+        }
+        setOntologyModalError(''); // Clear previous errors
+
+        try {
+            let result;
+            if (editingOntology) { // Update existing
+                result = await apiClient.update_ontology({ name: editingOntology.name, rules: ontologyRulesInput });
+            } else { // Create new
+                result = await apiClient.create_ontology({ name: ontologyNameInput, rules: ontologyRulesInput });
+            }
+
+            if (result.success) {
+                setShowOntologyModal(false);
+                refreshOntologies(); // Refresh list
+                alert(`Ontology '${ontologyNameInput || editingOntology.name}' ${editingOntology ? 'updated' : 'created'} successfully.`);
+            } else {
+                setOntologyModalError(result.error?.message || `Failed to ${editingOntology ? 'update' : 'create'} ontology.`);
+            }
+        } catch (error) {
+            setOntologyModalError(`Error saving ontology: ${error.message}`);
+        }
+    };
+
+    const handleDeleteOntology = async (ontology) => {
         if (window.confirm(`Are you sure you want to delete ontology ${ontology.name}?`)) {
             try {
                 const result = await apiClient.delete_ontology({ name: ontology.name });
@@ -286,17 +332,42 @@ const ConfigurationPane = ({
                 </select>
             </div>
 
-            {/* Ontology Create Modal Placeholder */}
-            {/* {showCreateOntologyModal && (
-                <div className="modal">
-                    <h4>{editingOntology ? "Edit Ontology" : "Create New Ontology"}</h4>
-                    <input type="text" placeholder="Ontology Name" value={ontologyNameInput} onChange={e => setOntologyNameInput(e.target.value)} readOnly={!!editingOntology} />
-                    <textarea placeholder="Ontology Rules (Prolog)" value={ontologyRulesInput} onChange={e => setOntologyRulesInput(e.target.value)} rows={10} />
-                    <button onClick={handleSaveOntology}>Save</button>
-                    <button onClick={() => setShowCreateOntologyModal(false)}>Cancel</button>
+            {showOntologyModal && (
+                <div className="modal-overlay">
+                    <div className="modal">
+                        <h4>{editingOntology ? `Edit Ontology: ${editingOntology.name}` : "Create New Ontology"}</h4>
+                        {ontologyModalError && <p className="error-text">{ontologyModalError}</p>}
+                        <div className="form-group">
+                            <label htmlFor="ontologyName">Name:</label>
+                            <input
+                                type="text"
+                                id="ontologyName"
+                                placeholder="Ontology Name (e.g., family_rules)"
+                                value={ontologyNameInput}
+                                onChange={e => setOntologyNameInput(e.target.value)}
+                                readOnly={!!editingOntology}
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="ontologyRules">Rules (Prolog):</label>
+                            <textarea
+                                id="ontologyRules"
+                                placeholder="Enter Prolog rules... e.g., parent(john, mary)."
+                                value={ontologyRulesInput}
+                                onChange={e => setOntologyRulesInput(e.target.value)}
+                                rows={10}
+                                style={{ width: '100%', fontFamily: 'monospace' }}
+                            />
+                        </div>
+                        <div className="modal-actions">
+                            <button onClick={handleSaveOntology}>
+                                {editingOntology ? "Save Changes" : "Create Ontology"}
+                            </button>
+                            <button onClick={() => setShowOntologyModal(false)} className="secondary">Cancel</button>
+                        </div>
+                    </div>
                 </div>
-            )} */}
-
+            )}
 
             <DataListViewer
                 title="Ontologies"

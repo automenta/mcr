@@ -4,7 +4,7 @@ const logger = require('../server/logger');
 const ISessionStore = require('./interfaces/ISessionStore');
 
 // In-memory store for sessions.
-// Structure: { sessionId: { id: string, createdAt: Date, facts: string[], lexicon: Set<string> }, ... }
+// Structure: { sessionId: { id: string, createdAt: Date, facts: string[], lexicon: Set<string>, activeStrategyId?: string }, ... }
 const sessions = {};
 
 class InMemorySessionStore extends ISessionStore {
@@ -51,6 +51,7 @@ class InMemorySessionStore extends ISessionStore {
       createdAt: new Date(),
       facts: [], // Stores Prolog facts as strings
       lexicon: new Set(), // Stores predicate/arity strings e.g., "is_color/2"
+      activeStrategyId: null, // Initialize activeStrategyId
     };
     sessions[sessionId] = session;
     logger.info(`[InMemorySessionStore] Session created: ${sessionId}`);
@@ -60,6 +61,7 @@ class InMemorySessionStore extends ISessionStore {
       createdAt: session.createdAt,
       facts: [...session.facts],
       lexicon: new Set(session.lexicon),
+      activeStrategyId: session.activeStrategyId,
     });
   }
 
@@ -80,6 +82,7 @@ class InMemorySessionStore extends ISessionStore {
       createdAt: session.createdAt,
       facts: [...session.facts],
       lexicon: new Set(session.lexicon), // Return a copy of the Set
+      activeStrategyId: session.activeStrategyId,
     });
   }
 
@@ -241,6 +244,52 @@ class InMemorySessionStore extends ISessionStore {
     // No-op for in-memory store
     logger.debug('[InMemorySessionStore] Close called (no-op).');
     return Promise.resolve();
+  }
+
+  /**
+   * Sets the active strategy ID for a session.
+   * @param {string} sessionId - The ID of the session.
+   * @param {string} strategyId - The ID of the strategy to set.
+   * @returns {Promise<boolean>} True if strategy was set, false if session not found.
+   */
+  async setActiveStrategy(sessionId, strategyId) {
+    if (!sessions[sessionId]) {
+      logger.warn(`[InMemorySessionStore] Cannot set active strategy: Session not found: ${sessionId}`);
+      return Promise.resolve(false);
+    }
+    sessions[sessionId].activeStrategyId = strategyId;
+    logger.info(`[InMemorySessionStore] Active strategy for session ${sessionId} set to: ${strategyId}`);
+    return Promise.resolve(true);
+  }
+
+  /**
+   * Retrieves the active strategy ID for a session.
+   * @param {string} sessionId - The ID of the session.
+   * @returns {Promise<string|null>} The active strategy ID or null if session not found or no strategy set.
+   */
+  async getActiveStrategy(sessionId) {
+    if (!sessions[sessionId]) {
+      logger.warn(`[InMemorySessionStore] Cannot get active strategy: Session not found: ${sessionId}`);
+      return Promise.resolve(null);
+    }
+    // Returns null if activeStrategyId is not set, which is fine.
+    return Promise.resolve(sessions[sessionId].activeStrategyId);
+  }
+
+  /**
+   * Lists all active sessions with summary information.
+   * @returns {Promise<Array<{id: string, createdAt: Date, activeStrategyId?: string, factCount: number, lexiconSize: number}>>}
+   */
+  async listSessions() {
+    const sessionSummaries = Object.values(sessions).map(session => ({
+      id: session.id,
+      createdAt: session.createdAt,
+      activeStrategyId: session.activeStrategyId || null,
+      factCount: session.facts.length,
+      lexiconSize: session.lexicon.size,
+    }));
+    logger.info(`[InMemorySessionStore] Listed ${sessionSummaries.length} active sessions.`);
+    return Promise.resolve(sessionSummaries);
   }
 }
 

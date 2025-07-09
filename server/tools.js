@@ -163,37 +163,20 @@ const toolDefinitions = {
       () => mcrService.explainQuery(payload.sessionId, payload.naturalLanguageQuestion), payload),
   },
 
-  // Demo running (conceptual)
+  // Demo running
   list_demos: {
-      description: "Lists available demos. (Placeholder - full implementation pending)",
-      handler: async (payload) => toolHandlerWrapper('list_demos', () => {
-          logger.info('[Tool:list_demos] Placeholder implementation.');
-          // Actual implementation would scan a directory, require demo classes, and get their metadata.
-          // This requires solving the dynamic require and Example base class issues.
-          const placeholderDemos = [
-              { id: 'simpleAssertionsDemo', name: 'Simple Assertions Demo (Placeholder)', description: 'Basic assertion capabilities.' },
-              { id: 'familyOntologyDemo', name: 'Family Ontology Demo (Placeholder)', description: 'Family tree example.' },
-              { id: 'abstractReasoningDemo', name: 'Abstract Reasoning Demo (Placeholder)', description: 'Reasoning with fictional entities.' },
-          ];
-          return { success: true, data: placeholderDemos };
-      }, payload),
+    description: "Lists available demos.",
+    handler: async (payload) => toolHandlerWrapper('list_demos', mcrService.listDemos, payload),
   },
   run_demo_in_session: {
-      description: "Runs a specific demo's sequence in the current session. (Placeholder - full implementation pending)",
-      handler: async (payload) => toolHandlerWrapper('run_demo_in_session', async (input) => {
-          const { sessionId, demoId } = input;
-          logger.info(`[Tool:run_demo_in_session] Placeholder for demo ${demoId} in session ${sessionId}.`);
-          if (!sessionId || !demoId) {
-              return { success: false, error: { message: "sessionId and demoId are required." } };
-          }
-          // Actual implementation would load the demo class, instantiate with sessionId, and call its run() method.
-          // This depends on the Example base class being correctly set up to use mcrService.
-          // Forcing a known demo to "succeed" for placeholder testing:
-          if (demoId === "simpleAssertionsDemo" && sessionId) {
-            return { success: true, message: `Placeholder: Demo '${demoId}' run simulated in session ${sessionId}. Output would appear in session.` };
-          }
-          return { success: true, message: `Placeholder: Demo '${demoId}' would run in session ${sessionId}. Full implementation pending.` };
-      }, payload),
+    description: "Runs a specific demo's sequence in the current session.",
+    handler: async (payload) => {
+        const { sessionId, demoId } = payload;
+        if (!sessionId || !demoId) {
+            return { success: false, error: { message: "sessionId and demoId are required.", code: "MISSING_PARAM" } };
+        }
+        return toolHandlerWrapper('run_demo_in_session', () => mcrService.runDemo(sessionId, demoId), payload);
+    },
   },
 
   // System Analysis Mode Tools

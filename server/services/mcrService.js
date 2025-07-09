@@ -13,6 +13,9 @@ const StrategyExecutor = require('./strategyExecutor');
 const { MCRError, ErrorCodes } = require('../errors');
 const KeywordInputRouter = require('../../src/evolution/keywordInputRouter.js');
 const db = require('../database');
+const fs = require('fs');
+const path = require('path');
+
 
 // Instantiate the session store based on configuration
 let sessionStore;
@@ -1440,4 +1443,78 @@ module.exports = {
   generateEvaluationCaseVariations,
   runEvolutionCycle,
   getEvolverStatus,
+  listDemos,
+  runDemo,
 };
+
+// Helper function to list and run demos
+const DEMOS_DIR = path.join(__dirname, '../../src/demos');
+
+async function listDemos() {
+    try {
+        const files = fs.readdirSync(DEMOS_DIR);
+        const demoModules = files
+            .filter(file => file.endsWith('Demo.js') && !file.startsWith('Abstract'))
+            .map(file => {
+                try {
+                    const demoModule = require(path.join(DEMOS_DIR, file));
+                    // Assume demo files export a class with static 'title' and 'description' properties
+                    // and an 'id' which could be the filename without .js
+                    const demoId = path.basename(file, '.js');
+                    return {
+                        id: demoId,
+                        name: demoModule.title || demoId.replace(/Demo$/, '').replace(/([A-Z])/g, ' $1').trim(), // Auto-generate name
+                        description: demoModule.description || 'No description available.',
+                        // _module: demoModule // Potentially keep module for runDemo, or re-require
+                    };
+                } catch (e) {
+                    logger.error(`[McrService] Error loading demo module ${file}: ${e.message}`);
+                    return null;
+                }
+            })
+            .filter(Boolean);
+        return { success: true, data: demoModules };
+    } catch (error) {
+        logger.error(`[McrService] Error listing demos from ${DEMOS_DIR}: ${error.message}`);
+        return { success: false, error: { message: `Failed to list demos: ${error.message}`, code: 'DEMO_LIST_ERROR' } };
+    }
+}
+
+async function runDemo(sessionId, demoId) {
+    if (!sessionId || !demoId) {
+        return { success: false, error: { message: 'sessionId and demoId are required.', code: ErrorCodes.INVALID_INPUT } };
+    }
+    const sessionExists = await sessionStore.getSession(sessionId);
+    if (!sessionExists) {
+        return { success: false, error: { message: 'Session not found.', code: ErrorCodes.SESSION_NOT_FOUND } };
+    }
+
+    try {
+        const demoFilePath = path.join(DEMOS_DIR, `${demoId}.js`);
+        if (!fs.existsSync(demoFilePath)) {
+            return { success: false, error: { message: `Demo ID '${demoId}' not found.`, code: 'DEMO_NOT_FOUND' } };
+        }
+        const DemoClass = require(demoFilePath);
+        if (typeof DemoClass !== 'function' || !DemoClass.prototype || typeof DemoClass.prototype.run !== 'function') {
+             logger.error(`[McrService] Demo module ${demoId} does not export a valid class with a run method.`);
+             return { success: false, error: { message: `Demo '${demoId}' is not a valid demo module.`, code: 'INVALID_DEMO_MODULE'}};
+        }
+
+        // Pass `mcrService` (or specific needed methods) to the demo instance.
+        // This creates a controlled way for demos to interact with MCR.
+        // For simplicity, passing `this` (mcrService instance) might be too broad.
+        // A better approach is a dedicated demo context or passing specific functions.
+        // For now, let's assume demos might need to assert/query, so they need session-aware functions.
+        // This simplified mcrService pass-through is for demonstration.
+        const demoInstance = new DemoClass(sessionId, module.exports); // Pass mcrService API
+
+        logger.info(`[McrService] Running demo '${demoId}' in session '${sessionId}'...`);
+        const results = await demoInstance.run(); // Demos should be async and return results/messages
+
+        return { success: true, message: `Demo '${demoId}' completed.`, data: results };
+
+    } catch (error) {
+        logger.error(`[McrService] Error running demo ${demoId} in session ${sessionId}: ${error.message}`, { stack: error.stack });
+        return { success: false, error: { message: `Error running demo: ${error.message}`, code: 'DEMO_RUN_ERROR', details: error.stack } };
+    }
+}
