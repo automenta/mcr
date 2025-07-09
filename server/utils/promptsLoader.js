@@ -44,7 +44,7 @@ function fillTemplate(template, variables) {
 }
 
 const prompts = {};
-const promptsDir = path.join(__dirname, '../prompts'); // Corrected path relative to src/
+const promptsDir = path.join(__dirname, '../../prompts'); // Corrected path relative to src/
 
 fs.readdirSync(promptsDir).forEach((file) => {
   if (file.endsWith('.js')) {

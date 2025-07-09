@@ -1,9 +1,9 @@
 // src/ontologyService.js
 const fs = require('fs').promises;
 const path = require('path');
-const config = require('./config');
-const logger = require('./util/logger');
-const { ApiError } = require('./errors');
+const config = require('../config/config');
+const logger = require('../utils/logger');
+const { ApiError } = require('../utils/errors');
 const reasonerService = require('./reasonerService'); // Import reasonerService
 
 const ONTOLOGY_DIR = config.ontology.directory;

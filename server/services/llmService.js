@@ -1,8 +1,8 @@
 // new/src/llmService.js
-const config = require('./config');
-const logger = require('./util/logger');
-const OllamaProvider = require('./llm/ollamaProvider');
-const GeminiProvider = require('./llm/geminiProvider');
+const config = require('../config/config');
+const logger = require('../utils/logger');
+const OllamaProvider = require('../llm/ollamaProvider');
+const GeminiProvider = require('../llm/geminiProvider');
 
 let selectedProvider;
 

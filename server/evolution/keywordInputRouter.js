@@ -1,5 +1,5 @@
-const logger = require('../util/logger');
-const { ErrorCodes, MCRError } = require('../errors');
+const logger = require('../utils/logger');
+const { ErrorCodes, MCRError } = require('../utils/errors');
 // const { loadAllEvalCases } = require('../evalCases/baseEvals'); // No longer needed here
 
 // Placeholder for more sophisticated classification

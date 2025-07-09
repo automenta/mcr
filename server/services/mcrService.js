@@ -2,17 +2,17 @@
 const llmService = require('./llmService');
 const reasonerService = require('./reasonerService');
 // const sessionManager = require('./sessionManager'); // Old import
-const InMemorySessionStore = require('./store/InMemorySessionStore');
-const FileSessionStore = require('./store/FileSessionStore'); // Import FileSessionStore
+const InMemorySessionStore = require('../store/InMemorySessionStore');
+const FileSessionStore = require('../store/FileSessionStore'); // Import FileSessionStore
 const ontologyService = require('./ontologyService');
-const { prompts, fillTemplate, getPromptTemplateByName } = require('./prompts');
-const logger = require('./util/logger');
-const config = require('./config');
+const { prompts, fillTemplate, getPromptTemplateByName } = require('../utils/promptsLoader');
+const logger = require('../utils/logger');
+const config = require('../config/config');
 const strategyManager = require('./strategyManager');
 const StrategyExecutor = require('./strategyExecutor');
-const { MCRError, ErrorCodes } = require('./errors');
-const KeywordInputRouter = require('./evolution/keywordInputRouter.js');
-const db = require('./store/database');
+const { MCRError, ErrorCodes } = require('../utils/errors');
+const KeywordInputRouter = require('../evolution/keywordInputRouter.js');
+const db = require('../store/database');
 
 // Instantiate the session store based on configuration
 let sessionStore;
@@ -1140,4 +1140,13 @@ module.exports = {
   getPrompts,
   debugFormatPrompt,
   getAvailableStrategies: strategyManager.getAvailableStrategies,
+  /**
+   * Retrieves the entire knowledge base for a session.
+   * @param {string} sessionId - The ID of the session.
+   * @returns {Promise<string|null>} A string containing all Prolog facts, or null if session not found.
+   */
+  getKnowledgeBase: async (sessionId) => {
+    // Ensure it's async
+    return sessionStore.getKnowledgeBase(sessionId);
+  },
 };

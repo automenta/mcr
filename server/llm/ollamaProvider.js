@@ -3,8 +3,8 @@ const { ChatOllama } = require('@langchain/community/chat_models/ollama');
 // StringOutputParser and PromptTemplate are no longer used directly in this simplified version
 // const { StringOutputParser } = require('@langchain/core/output_parsers');
 // const { PromptTemplate } = require('@langchain/core/prompts');
-const config = require('../config');
-const logger = require('../util/logger');
+const config = require('../config/config');
+const logger = require('../utils/logger');
 
 let ollamaInstance;
 

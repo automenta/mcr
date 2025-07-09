@@ -1,12 +1,12 @@
 // src/strategyManager.js
 const fs = require('fs');
 const path = require('path');
-const logger = require('./util/logger');
-const config = require('./config');
-const { MCRError, ErrorCodes } = require('./errors');
+const logger = require('../utils/logger');
+const config = require('../config/config');
+const { MCRError, ErrorCodes } = require('../utils/errors');
 
 // Define the new directory for JSON strategies relative to the project root
-const STRATEGIES_DIR_JSON = path.join(__dirname, '..', 'strategies');
+const STRATEGIES_DIR_JSON = path.join(__dirname, '../../strategies');
 
 /**
  * @class StrategyManager

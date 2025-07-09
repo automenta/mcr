@@ -3,8 +3,8 @@ const { ChatGoogleGenerativeAI } = require('@langchain/google-genai');
 const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
 // const { StringOutputParser } = require('@langchain/core/output_parsers'); // Removed
 
-const config = require('../config');
-const logger = require('../util/logger');
+const config = require('../config/config');
+const logger = require('../utils/logger');
 
 let geminiInstance;
 

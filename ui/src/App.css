@@ -1,0 +1,34 @@
+/* Styles for App.jsx, if any specific ones are needed beyond index.css */
+
+/* Example: Consistent header style if not handled inline or in index.css */
+/*
+header {
+  background-color: #333;
+  padding: 1rem;
+  color: white;
+  text-align: center;
+}
+*/
+
+/* Basic styling for the three-pane layout defined in App.jsx */
+/* Pane styles can be added here if preferred over inline styles */
+/*
+.pane {
+  border: 1px solid #555;
+  padding: 10px;
+  overflow-y: auto;
+  background-color: #252526;
+}
+
+.pane-config { flex: 1; }
+.pane-interaction { flex: 2; display: flex; flex-direction: column; }
+.pane-state-viewer { flex: 1.5; }
+*/
+
+h2 { /* Style for pane titles */
+  text-align: center;
+  margin-top: 0;
+  border-bottom: 1px solid #444;
+  padding-bottom: 10px;
+  color: #b0b0b0; /* Lighter than default text for emphasis */
+}

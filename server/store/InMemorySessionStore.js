@@ -1,6 +1,6 @@
 // src/InMemorySessionStore.js
 const { v4: uuidv4 } = require('uuid');
-const logger = require('../util/logger');
+const logger = require('../utils/logger');
 const ISessionStore = require('../interfaces/ISessionStore');
 
 // In-memory store for sessions.
