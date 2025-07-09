@@ -1131,4 +1131,110 @@ module.exports = {
   getPrompts,
   debugFormatPrompt,
   getAvailableStrategies: strategyManager.getAvailableStrategies,
+
+  /**
+   * Retrieves the full knowledge base for a given session.
+   * @param {string} sessionId - The ID of the session.
+   * @returns {Promise<object>} { success: true, data: string } or { success: false, error: object }
+   */
+  getKnowledgeBaseForSession: async (sessionId) => {
+    logger.debug(`[McrService] getKnowledgeBaseForSession called for session: ${sessionId}`);
+    if (!sessionId) {
+      return { success: false, error: { message: "Session ID is required.", code: ErrorCodes.INVALID_INPUT } };
+    }
+    const sessionExists = await sessionStore.getSession(sessionId);
+    if (!sessionExists) {
+      return { success: false, error: { message: "Session not found.", code: ErrorCodes.SESSION_NOT_FOUND } };
+    }
+    try {
+      const kb = await sessionStore.getKnowledgeBase(sessionId);
+      if (kb === null) { // Should not happen if sessionExists is true, but as a safeguard
+        return { success: false, error: { message: "Knowledge base is null for the session.", code: ErrorCodes.INTERNAL_KB_NOT_FOUND } };
+      }
+      return { success: true, data: kb };
+    } catch (error) {
+      logger.error(`[McrService] Error retrieving knowledge base for session ${sessionId}: ${error.message}`, { stack: error.stack });
+      return { success: false, error: { message: error.message, code: 'KB_RETRIEVAL_ERROR' } };
+    }
+  },
+
+  /**
+   * Asserts a raw Prolog string (facts or rules) to a specific session.
+   * Validates the Prolog string before adding.
+   * @param {string} sessionId - The ID of the session to assert to.
+   * @param {string} prologString - The Prolog string to assert. Should be a single valid Prolog fact/rule or multiple, each ending with a period.
+   * @returns {Promise<object>} An object indicating success or failure.
+   *                            Successful structure: `{ success: true, message: string, addedProlog: string[] }`
+   *                            Error structure: `{ success: false, message: string, error: string, details?: string }`
+   */
+  assertRawPrologToSession: async (sessionId, prologString) => {
+    logger.info(`[McrService] Enter assertRawPrologToSession for session ${sessionId}. Prolog: "${prologString.substring(0, 100)}..."`);
+
+    const sessionExists = await sessionStore.getSession(sessionId);
+    if (!sessionExists) {
+      return { success: false, message: 'Session not found.', error: ErrorCodes.SESSION_NOT_FOUND };
+    }
+
+    if (typeof prologString !== 'string' || prologString.trim() === '') {
+        return { success: false, message: 'Prolog string cannot be empty.', error: ErrorCodes.INVALID_INPUT };
+    }
+
+    // Split the prologString into individual facts/rules if it contains multiple.
+    // Simple split by '.', then filter empty strings and add '.' back. More robust parsing might be needed for complex cases.
+    const individualPrologItems = prologString.split('.')
+                                     .map(s => s.trim())
+                                     .filter(s => s.length > 0)
+                                     .map(s => s + '.');
+
+    if (individualPrologItems.length === 0 && prologString.length > 0) {
+        return { success: false, message: 'No valid Prolog items found in the provided string (ensure they end with a period).', error: ErrorCodes.INVALID_GENERATED_PROLOG};
+    }
+    if (individualPrologItems.length === 0 && prologString.length === 0) {
+        return { success: true, message: 'No prolog to assert.', addedProlog: [] };
+    }
+
+
+    try {
+      for (const item of individualPrologItems) {
+        const validationResult = await reasonerService.validateKnowledgeBase(item);
+        if (!validationResult.isValid) {
+          const validationErrorMsg = `Provided Prolog is invalid: "${item}". Error: ${validationResult.error}`;
+          logger.error(`[McrService] Validation failed for raw Prolog: ${validationErrorMsg}`);
+          return {
+            success: false,
+            message: 'Failed to assert Prolog: Invalid syntax.',
+            error: ErrorCodes.INVALID_GENERATED_PROLOG, // Reusing, as it's about prolog validity
+            details: validationErrorMsg,
+          };
+        }
+      }
+      logger.info(`[McrService] All ${individualPrologItems.length} raw Prolog items validated successfully.`);
+
+      const addSuccess = await sessionStore.addFacts(sessionId, individualPrologItems);
+      if (addSuccess) {
+        logger.info(`[McrService] Raw Prolog successfully added to session ${sessionId}. Items:`, individualPrologItems);
+        return {
+          success: true,
+          message: 'Raw Prolog asserted successfully.',
+          addedProlog: individualPrologItems,
+        };
+      } else {
+        // This case might be redundant if session check and validation are thorough
+        logger.error(`[McrService] Failed to add raw Prolog to session ${sessionId} after validation.`);
+        return {
+          success: false,
+          message: 'Failed to add raw Prolog to session store after validation.',
+          error: ErrorCodes.SESSION_ADD_FACTS_FAILED,
+        };
+      }
+    } catch (error) {
+      logger.error(`[McrService] Error asserting raw Prolog to session ${sessionId}: ${error.message}`, { stack: error.stack });
+      return {
+        success: false,
+        message: `Error during raw Prolog assertion: ${error.message}`,
+        error: error.code || 'RAW_PROLOG_ASSERTION_ERROR',
+        details: error.message,
+      };
+    }
+  },
 };
