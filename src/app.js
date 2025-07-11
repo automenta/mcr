@@ -91,25 +91,6 @@ wss.on('connection', (ws, req) => { // 'req' is available here, contains upgrade
 });
 
 logger.info('WebSocket server set up.');
-  logger.info('New WebSocket connection established.');
-  handleWebSocketConnection(ws); // Delegate to the handler
-
-  // ws.on('message', (message) => { // This logic is now in handleWebSocketConnection
-  //   logger.info(`Received WebSocket message: ${message}`);
-  //   // Placeholder: Message routing logic will be added here
-  //   ws.send(`Echo: ${message}`); // Simple echo for now
-  // });
-
-  ws.on('close', () => {
-    logger.info('WebSocket connection closed.');
-  });
-
-  ws.on('error', (error) => {
-    logger.error('WebSocket error:', error);
-  });
-});
-
-logger.info('WebSocket server set up.');
 
 // Error handling middleware - should be last for the Express app
 logger.info('Attaching error handling middleware...');

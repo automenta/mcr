@@ -43,7 +43,6 @@
     "LICENSE",
     "generate_example.js",
     "generate_ontology.js",
-    "src/util/generatorUtils.js",
     "prompts/"
   ],
   "repository": {
