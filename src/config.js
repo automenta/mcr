@@ -4,7 +4,7 @@ require('dotenv').config({ path: path.resolve(process.cwd(), '.env') }); // Load
 
 const config = {
   server: {
-    port: process.env.PORT || 8080,
+    port: process.env.PORT || 8081,
     host: process.env.HOST || '0.0.0.0',
   },
   llm: {

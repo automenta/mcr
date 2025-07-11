@@ -1,16 +1,17 @@
 // new/src/app.js
 const express = require('express');
 const http = require('http');
-const WebSocket = require('ws');
-// const setupRoutes = require('./routes'); // REMOVED
-const { errorHandlerMiddleware } = require('./errors');
-const logger = require('./util/logger'); // For logging server start
+const { Server } = require('socket.io');
 const { handleWebSocketConnection } = require('./websocketHandlers');
 const path = require('path'); // For serving static UI files
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const io = new Server(server, {
+  cors: {
+    origin: '*', // Allow all origins for now
+  },
+});
 
 // Standard middleware
 app.use(express.json()); // For parsing application/json request bodies
@@ -65,46 +66,9 @@ app.get('*', (req, res, next) => {
 // setupRoutes(app); // HTTP routes are set up on the Express app
 // logger.info('Application routes set up.');
 
-// WebSocket connection handling
-wss.on('connection', (ws, req) => { // 'req' is available here, contains upgrade request
-  let clientIp = 'unknown_ip';
-  let requestUrl = 'unknown_url';
-
-  try {
-    // Safely access IP and URL
-    clientIp = req.socket?.remoteAddress || req.headers?.['x-forwarded-for'] || 'unknown_ip_fallback';
-    requestUrl = req?.url || 'unknown_url_fallback';
-
-    logger.info(`[App WSS] Attempting to handle new WebSocket connection from IP: ${clientIp}. Request URL: ${requestUrl}`);
-
-    // Optional: Log headers from the upgrade request for detailed debugging if needed
-    // logger.debug(`[App WSS] Upgrade Request Headers for ${clientIp}:`, req.headers);
-
-    // Delegate to the handler, passing req for potential future use or context
-    handleWebSocketConnection(ws, req);
-    logger.info(`[App WSS] Successfully delegated to handleWebSocketConnection for IP: ${clientIp}, URL: ${requestUrl}.`);
-
-  } catch (error) {
-    logger.error(`[App WSS] CRITICAL ERROR in wss.on('connection') handler for IP ${clientIp}, URL: ${requestUrl}: ${error.message}`, {
-      stack: error.stack,
-      clientIp: clientIp,
-      requestUrl: requestUrl
-    });
-    // If an error occurs here, the ws object might be in an unstable state.
-    // Try to close it gracefully if it's not already closed.
-    if (ws && ws.readyState !== WebSocket.CLOSED && ws.readyState !== WebSocket.CLOSING) {
-      logger.warn(`[App WSS] Attempting to terminate WebSocket due to error during connection setup for IP: ${clientIp}, URL: ${requestUrl}.`);
-      ws.terminate(); // Force close the WebSocket connection
-    }
-  }
-
-  // Note: Generic 'close' and 'error' handlers on 'ws' itself are usually set up
-  // within handleWebSocketConnection or by the 'ws' library.
-  // If handleWebSocketConnection is not reached, or if it fails to set them up,
-  // errors on this specific 'ws' instance might go unlogged here.
-  // However, the primary goal of this try-catch is to catch errors in *this* callback.
-  // Errors on the WebSocket connection *after* successful delegation
-  // should be handled by listeners attached in `handleWebSocketConnection`.
+// WebSocket connection handling with Socket.IO
+io.on('connection', (socket) => {
+  handleWebSocketConnection(socket, io);
 });
 
 logger.info('WebSocket server set up.');

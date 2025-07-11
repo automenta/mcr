@@ -120,18 +120,10 @@ function App() {
     // Initial connection attempt
     setWsConnectionStatus('🔌 Connecting...');
     apiService.connect().catch(err => {
-      // This catch is primarily for the *very first* connection attempt failing
-      // before onclose/onerror within apiService might trigger a reconnect sequence.
-      // The 'connection_status' listener will also pick up 'error' or 'reconnecting' states.
-      // So, this specific catch might be redundant if handleConnectionStatus covers initial errors well.
-      // However, it ensures an immediate UI update if the initial promise rejects.
+      // The `apiService` is designed to handle reconnects. This catch block
+      // is for logging the very first connection failure. The UI will be
+      // updated by the `connection_status` listener.
       console.error("Initial apiService.connect() promise rejected:", err);
-      setIsWsServiceConnected(false);
-      // wsConnectionStatus will likely be set by the 'error' or 'reconnecting' status event.
-      // If not, this is a fallback:
-      if (!wsConnectionStatus.startsWith('🔴 Error') && !wsConnectionStatus.startsWith('🟡 Reconnecting')) {
-         setWsConnectionStatus(`🔴 Initial Connect Failed: ${err.message}. Check console.`);
-      }
     });
 
     return () => {

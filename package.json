@@ -69,6 +69,7 @@
     "inquirer": "^8.2.0",
     "langchain": "^0.3.29",
     "react": "^19.1.0",
+    "socket.io": "^4.8.1",
     "sqlite3": "^5.1.7",
     "tau-prolog": "^0.3.4",
     "uuid": "^11.1.0",
