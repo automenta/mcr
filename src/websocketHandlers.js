@@ -102,7 +102,7 @@ async function routeMessage(socket, message) {
   }
 }
 
-function handleWebSocketConnection(socket, io) {
+function handleWebSocketConnection(socket /*, io */) { // io parameter removed as it's unused
   socket.correlationId = `ws-conn-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   logger.info(`[WS-Handler][${socket.correlationId}] New WebSocket connection processing started.`);
 

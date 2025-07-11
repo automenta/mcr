@@ -61,7 +61,7 @@ describe('MCR Tool Definitions (src/tools.js)', () => {
 
   it('should not have undefined handlers for any defined tool', () => {
     for (const toolName in mcrToolDefinitions) {
-      if (mcrToolDefinitions.hasOwnProperty(toolName)) {
+      if (Object.prototype.hasOwnProperty.call(mcrToolDefinitions, toolName)) {
         expect(mcrToolDefinitions[toolName]).toBeDefined();
         expect(mcrToolDefinitions[toolName].description).toBeDefined();
         expect(typeof mcrToolDefinitions[toolName].description).toBe('string');

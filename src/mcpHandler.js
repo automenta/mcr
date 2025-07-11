@@ -199,7 +199,7 @@ const mcrTools = [
   },
 ];
 
-function sendSseEvent(
+/* function sendSseEvent( // Commented out as it's unused
   res,
   eventName,
   data,
@@ -223,7 +223,7 @@ function sendSseEvent(
     `[MCP SSE][${clientId}] Sent SSE event. Name: ${eventName}, EventID: ${eventId}, InvocationID: ${invocation_id}`,
     { eventName, eventId, invocation_id, data: loggedData }
   );
-}
+} */
 
 // Function to send data over WebSocket
 function sendWebSocketMessage(ws, type, data, messageId, correlationId, invocation_id = 'N/A') {

@@ -143,7 +143,7 @@ describe('MCR Service (mcrService.js)', () => {
 
       // More generic mock in beforeEach, specific tests will override
       llmService.generate.mockImplementation(
-        async (systemPrompt, _userPrompt) => {
+         async (systemPrompt /*, _userPrompt */) => { // _userPrompt commented out
           return {
             text: JSON.stringify({
               error: `Fallback mock in assertNLToSession for prompt: ${systemPrompt.substring(0, 50)}`,

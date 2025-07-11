@@ -7,7 +7,7 @@ const { ErrorCodes } = require('./errors');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto'); // For hashing strategy content
-const ExampleBase = require('./demo/ExampleBase'); // Required for demo.run
+// const ExampleBase = require('./demo/ExampleBase'); // Required for demo.run - Commented out as unused
 const { queryPerformanceResults } = require('./store/database'); // For DB access
 const { spawn } = require('child_process');
 
