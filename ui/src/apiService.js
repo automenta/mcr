@@ -28,7 +28,9 @@ class ApiService {
     return `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   }
 
-  connect(url = 'ws://localhost:8080/ws') { // Default MCR server URL
+  // Allow overriding the WebSocket URL via a global variable or use the default.
+  // This is useful if the backend server is not on 'ws://localhost:8080/ws'.
+  connect(url = window.MCR_WEBSOCKET_URL || 'ws://localhost:8080/ws') {
     this.serverUrl = url;
     this.explicitlyClosed = false; // Reset this flag on every explicit call to connect
 
