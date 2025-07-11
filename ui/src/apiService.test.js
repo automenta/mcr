@@ -1,155 +1,164 @@
 // ui/src/apiService.test.js
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import apiServiceInstance from './apiService'; // Testing the singleton instance
+import { io } from 'socket.io-client'; // Import to access the mock
 
-const TEST_URL = 'ws://localhost:1234/test';
+const TEST_WS_URL = 'ws://localhost:1234/test';
+const TEST_HTTP_URL = 'http://localhost:1234/test'; // socket.io-client uses http/https, path should be preserved
 
-describe('ApiService', () => {
-  let WebSocketMock;
+describe('ApiService with socket.io-client mock', () => {
+  let mockSocket;
 
   beforeEach(() => {
-    // Reset the singleton's state if necessary, or create new instance if not a true singleton.
-    // For this service, we might need to manually reset some of its internal state for clean tests.
-    apiServiceInstance.disconnect(); // Ensure it's disconnected before each test
-    apiServiceInstance.socket = null; // Ensure socket is null so a new one is created
-    apiServiceInstance.eventListeners.clear(); // Corrected from messageListeners
+    // Reset the singleton's state for clean tests
+    // Disconnect if a socket instance exists from a previous test
+    if (apiServiceInstance.socket) {
+      apiServiceInstance.disconnect();
+    }
+    apiServiceInstance.socket = null;
+    apiServiceInstance.connectPromise = null;
+    apiServiceInstance.eventListeners.clear();
     apiServiceInstance.pendingMessages.clear();
-    apiServiceInstance.reconnectAttempts = 0;
     apiServiceInstance.explicitlyClosed = false;
     apiServiceInstance.serverUrl = null;
 
-    // Get the mock constructor from global (setupTests.js)
-    WebSocketMock = global.WebSocket;
-    // Clear mock call history before each test
-    WebSocketMock.mockClear();
-    // Reset the instances array for a cleaner state for instance-based assertions
-    WebSocketMock.mock.instances.length = 0;
+    // The io function itself is mocked by vi.mock in setupTests.js
+    // We call io() here to ensure a mock socket instance is created for apiService to use.
+    // However, apiService.connect() is what actually calls io(), so we don't call it here.
+    // We will get the mock instance after apiService.connect() is called.
 
-    // Instead of trying to clear instance mocks here,
-    // we rely on getting the fresh instance in each test after `connect()` is called.
-    // The global mock's functions (like send, close) are new vi.fn() for each new WebSocket instance
-    // as defined in setupTests.js, so they are inherently "cleared" for new instances.
+    // Clear any history from the mock `io` function itself
+    if (io.mockClear) { // io is a vi.fn() due to vi.mock
+        io.mockClear();
+    }
+
+    // Clear the global mock socket instance if setupTests.js provides a helper
+    if (io.clearMockSocketInstance) {
+        io.clearMockSocketInstance();
+    }
   });
 
   afterEach(() => {
-    vi.useRealTimers(); // Clean up timers if any were mocked
+    // Ensure any timers are cleaned up if they were mocked in specific test suites
+    vi.useRealTimers();
+    // Disconnect the service after each test to clean up
+    apiServiceInstance.disconnect();
+    if (io.clearMockSocketInstance) {
+        io.clearMockSocketInstance(); // Clear the shared mock instance
+    }
   });
 
   describe('Connection and Disconnection', () => {
-    it('should connect to the WebSocket server', async () => {
-      const connectPromise = apiServiceInstance.connect(TEST_URL);
+    it('should connect to the socket.io server and convert ws:// URL', async () => {
+      const connectPromise = apiServiceInstance.connect(TEST_WS_URL);
+      // apiService.connect calls io(url), which is mocked. Get the instance.
+      mockSocket = io.getMockSocketInstance();
+      expect(mockSocket).toBeDefined();
 
-      // Simulate successful WebSocket connection
-      // The mock instance is created when `new WebSocket()` is called in connect()
-      const mockWsInstance = WebSocketMock.mock.instances[0];
-      expect(mockWsInstance).toBeDefined();
-      mockWsInstance.readyState = WebSocketMock.OPEN; // Ensure readyState is OPEN before onopen
+      // Check if io was called with the correct, transformed URL
+      expect(io).toHaveBeenCalledWith(TEST_HTTP_URL, expect.any(Object));
 
-      // Trigger onopen
-      if (typeof mockWsInstance.onopen === 'function') mockWsInstance.onopen();
+      // Simulate successful connection by triggering the 'connect' event on the mock socket
+      mockSocket._simulateServerEvent('connect');
 
       await expect(connectPromise).resolves.toBeUndefined();
       expect(apiServiceInstance.isConnected()).toBe(true);
-      expect(WebSocketMock).toHaveBeenCalledWith(TEST_URL);
+      expect(apiServiceInstance.serverUrl).toBe(TEST_HTTP_URL);
     });
 
     it('should handle connection error', async () => {
-      const connectPromise = apiServiceInstance.connect(TEST_URL);
-      const mockWsInstance = WebSocketMock.mock.instances[0];
-      expect(mockWsInstance).toBeDefined();
-      // No need to set readyState to OPEN for onerror simulation usually, but handler might check
-      // mockWsInstance.readyState = WebSocketMock.CONNECTING; // Or some other relevant state
+      const connectPromise = apiServiceInstance.connect(TEST_WS_URL);
+      mockSocket = io.getMockSocketInstance();
+      expect(mockSocket).toBeDefined();
 
-      const errorEvent = new Event('error');
-      // Trigger onerror
-      if (typeof mockWsInstance.onerror === 'function') mockWsInstance.onerror(errorEvent);
+      const error = new Error('Connection failed');
+      mockSocket._simulateConnectError(error);
 
-      await expect(connectPromise).rejects.toThrow(); // Or specific error
+      await expect(connectPromise).rejects.toThrow(`Socket.IO connection error: ${error.message}`);
       expect(apiServiceInstance.isConnected()).toBe(false);
     });
 
-    it('should disconnect from the WebSocket server', async () => {
-      const connectPromise = apiServiceInstance.connect(TEST_URL);
-      const mockWsInstance = WebSocketMock.mock.instances[0];
-      mockWsInstance.readyState = WebSocketMock.OPEN; // Ensure readyState is OPEN before onopen
-      if (typeof mockWsInstance.onopen === 'function') mockWsInstance.onopen();
-      await connectPromise; // Ensure connection is established
+    it('should disconnect from the socket.io server', async () => {
+      const connectPromise = apiServiceInstance.connect(TEST_WS_URL);
+      mockSocket = io.getMockSocketInstance();
+      mockSocket._simulateServerEvent('connect'); // Successfully connect first
+      await connectPromise;
+
+      expect(apiServiceInstance.isConnected()).toBe(true);
 
       apiServiceInstance.disconnect();
-      expect(mockWsInstance.close).toHaveBeenCalled();
+      // The disconnect method on apiService should call socket.disconnect()
+      expect(mockSocket.disconnect).toHaveBeenCalled();
+      // Our mock socket's disconnect method also simulates the 'disconnect' event if it was connected.
+      // apiService listens to this and updates its state.
       expect(apiServiceInstance.isConnected()).toBe(false);
       expect(apiServiceInstance.explicitlyClosed).toBe(true);
     });
 
-    it('should not connect if already connected', async () => {
+    it('should not create a new connection if already connected', async () => {
       // First connection
-      let connectPromise = apiServiceInstance.connect(TEST_URL);
-      let mockWsInstance = WebSocketMock.mock.instances[0];
-      mockWsInstance.readyState = WebSocketMock.OPEN; // Ensure readyState is OPEN
-      if (typeof mockWsInstance.onopen === 'function') mockWsInstance.onopen();
+      let connectPromise = apiServiceInstance.connect(TEST_WS_URL);
+      mockSocket = io.getMockSocketInstance();
+      mockSocket._simulateServerEvent('connect');
       await connectPromise;
       expect(apiServiceInstance.isConnected()).toBe(true);
-      WebSocketMock.mockClear(); // Clear calls from the first connection
+
+      io.mockClear(); // Clear calls to io from the first connection attempt
 
       // Attempt second connection
-      connectPromise = apiServiceInstance.connect(TEST_URL);
+      connectPromise = apiServiceInstance.connect(TEST_WS_URL);
       await expect(connectPromise).resolves.toBeUndefined(); // Should resolve immediately
-      expect(WebSocketMock).not.toHaveBeenCalled(); // Should not create a new WebSocket
+
+      // io() should not have been called again because the existing connection is used
+      expect(io).not.toHaveBeenCalled();
       expect(apiServiceInstance.isConnected()).toBe(true);
     });
 
     it('should return the existing promise if a connection attempt is already in progress', async () => {
-      const promise1 = apiServiceInstance.connect(TEST_URL); // First attempt
-      expect(WebSocketMock).toHaveBeenCalledTimes(1);
-      const mockWsInstance = WebSocketMock.mock.instances[0];
-      expect(mockWsInstance).toBeDefined(); // Ensure instance exists
-      mockWsInstance.readyState = WebSocketMock.CONNECTING; // Simulate it's trying to connect
+        const promise1 = apiServiceInstance.connect(TEST_WS_URL); // First attempt
+        mockSocket = io.getMockSocketInstance(); // Get the instance created by the first call
+        expect(io).toHaveBeenCalledTimes(1); // io() constructor should have been called once
+        expect(mockSocket).toBeDefined();
 
-      // apiServiceInstance.socket is set internally by connect() when it creates new WebSocket(url)
-      // So, the first call to connect() already sets apiServiceInstance.socket to mockWsInstance.
+        // Do not simulate 'connect' yet, so it's "in progress"
 
-      const promise2 = apiServiceInstance.connect(TEST_URL); // Second attempt
-      expect(promise2).toBe(promise1); // Key assertion: it's the same promise
+        const promise2 = apiServiceInstance.connect(TEST_WS_URL); // Second attempt while first is in progress
+        expect(promise2).toBe(promise1); // Key assertion: it's the same promise
+        expect(io).toHaveBeenCalledTimes(1); // io() constructor should still only have been called once
 
-      // Now, simulate the first connection succeeding (which affects promise1 and therefore promise2)
-      mockWsInstance.readyState = WebSocketMock.OPEN;
-      if (typeof mockWsInstance.onopen === 'function') {
-        mockWsInstance.onopen();
-      }
+        // Now, simulate the first connection succeeding
+        mockSocket._simulateServerEvent('connect');
 
-      // Both promises should now resolve
-      await expect(promise1).resolves.toBeUndefined();
-      // Since promise2 is promise1, this check is redundant if the above passes, but good for clarity.
-      await expect(promise2).resolves.toBeUndefined();
-
-      expect(WebSocketMock).toHaveBeenCalledTimes(1); // Still only one actual WebSocket attempt
-    });
+        // Both promises should now resolve
+        await expect(promise1).resolves.toBeUndefined();
+        await expect(promise2).resolves.toBeUndefined(); // As it's the same promise
+        expect(apiServiceInstance.isConnected()).toBe(true);
+      });
   });
 
   describe('Message Handling', () => {
     beforeEach(async () => {
       // Ensure connected before each message test
-      const connectPromise = apiServiceInstance.connect(TEST_URL);
-      const mockWsInstance = WebSocketMock.mock.instances[0];
-      expect(mockWsInstance).toBeDefined();
-      mockWsInstance.readyState = WebSocketMock.OPEN; // Set readyState to OPEN
-      if (typeof mockWsInstance.onopen === 'function') { // Call onopen if it's a function
-        mockWsInstance.onopen();
-      }
+      const connectPromise = apiServiceInstance.connect(TEST_WS_URL);
+      mockSocket = io.getMockSocketInstance();
+      expect(mockSocket).toBeDefined();
+      mockSocket._simulateServerEvent('connect'); // Simulate connection
       await connectPromise;
-      expect(apiServiceInstance.isConnected()).toBe(true); // Verify connection
+      expect(apiServiceInstance.isConnected()).toBe(true);
     });
 
-    it('should send a message and handle response', async () => {
-      const mockWsInstance = WebSocketMock.mock.instances[0];
+    it('should send a message ("tool_invoke") and handle response', async () => {
       const toolName = 'test.tool';
       const input = { data: 'testData' };
 
       const responsePromise = apiServiceInstance.invokeTool(toolName, input);
 
-      expect(mockWsInstance.send).toHaveBeenCalledTimes(1);
-      const sentMessageString = mockWsInstance.send.mock.calls[0][0];
-      const sentMessage = JSON.parse(sentMessageString);
+      expect(mockSocket.emit).toHaveBeenCalledTimes(1);
+      // Check the arguments of the first call to emit
+      // First arg is event name ('message'), second is payload
+      const emittedArgs = mockSocket.emit.mock.calls[0];
+      expect(emittedArgs[0]).toBe('message');
+      const sentMessage = emittedArgs[1];
 
       expect(sentMessage.type).toBe('tool_invoke');
       expect(sentMessage.messageId).toEqual(expect.any(String));
@@ -158,287 +167,242 @@ describe('ApiService', () => {
         input: input,
       });
 
-      // Simulate server response
+      // Simulate server response via 'tool_result' event
       const mockResponsePayload = { success: true, data: 'response data' };
-      // const sentMessage = JSON.parse(mockWsInstance.send.mock.calls[0][0]); // Already got sentMessage from before
       const serverResponseMessage = {
-        type: 'tool_result', // Added type
-        messageId: JSON.parse(mockWsInstance.send.mock.calls[0][0]).messageId,
+        // type: 'tool_result', // This is the event name, not part of payload for this handler
+        messageId: sentMessage.messageId, // Use the same messageId
         payload: mockResponsePayload,
       };
-      mockWsInstance.onmessage({ data: JSON.stringify(serverResponseMessage) });
+      // The apiService listens for 'tool_result'
+      mockSocket._simulateServerEvent('tool_result', serverResponseMessage);
 
       await expect(responsePromise).resolves.toEqual(mockResponsePayload);
     });
 
-    it('should reject promise if server response indicates failure', async () => {
-      const mockWsInstance = WebSocketMock.mock.instances[0];
+    it('should reject promise if server response ("tool_result") indicates failure', async () => {
       const toolName = 'test.tool.fail';
       const input = { data: 'testData' };
 
       const responsePromise = apiServiceInstance.invokeTool(toolName, input);
+      const sentMessage = mockSocket.emit.mock.calls[0][1]; // Get the payload of the emitted 'message'
 
       const mockResponsePayload = { success: false, message: 'Tool execution failed' };
-      const sentMessage = JSON.parse(mockWsInstance.send.mock.calls[0][0]);
       const serverResponseMessage = {
-        type: 'tool_result', // Added type
         messageId: sentMessage.messageId,
         payload: mockResponsePayload,
       };
-      mockWsInstance.onmessage({ data: JSON.stringify(serverResponseMessage) });
+      mockSocket._simulateServerEvent('tool_result', serverResponseMessage);
 
-      // The promise is rejected with an Error object, not the payload itself.
-      // The error message is constructed from payload.message or payload.error.
       await expect(responsePromise).rejects.toThrow('Tool execution failed');
     });
 
-    it('should reject promise if server sends no payload on failure', async () => {
-        const mockWsInstance = WebSocketMock.mock.instances[0];
-        const toolName = 'test.tool.fail.nopayload';
+    it('should reject promise if server response ("tool_result") indicates failure with error field', async () => {
+        const toolName = 'test.tool.fail.errorfield';
+        const input = { data: 'testDataError' };
 
-        const responsePromise = apiServiceInstance.invokeTool(toolName, {});
+        const responsePromise = apiServiceInstance.invokeTool(toolName, input);
+        const sentMessage = mockSocket.emit.mock.calls[0][1];
 
-        const sentMessage = JSON.parse(mockWsInstance.send.mock.calls[0][0]);
+        const mockResponsePayload = { success: false, error: 'Tool execution failed with error field' };
         const serverResponseMessage = {
-          type: 'tool_result', // Added type
           messageId: sentMessage.messageId,
-          payload: { success: false, error: 'NO_PAYLOAD_ERROR_FROM_TEST' } // Explicitly make it a failure
+          payload: mockResponsePayload,
         };
-        mockWsInstance.onmessage({ data: JSON.stringify(serverResponseMessage) });
+        mockSocket._simulateServerEvent('tool_result', serverResponseMessage);
 
-        await expect(responsePromise).rejects.toThrow('NO_PAYLOAD_ERROR_FROM_TEST');
+        await expect(responsePromise).rejects.toThrow('Tool execution failed with error field');
       });
 
-    it('should notify listeners on incoming messages not matching a pending request', () => {
-      const mockWsInstance = WebSocketMock.mock.instances[0];
+    it('should reject promise if server sends no payload message/error on failure for "tool_result"', async () => {
+        const toolName = 'test.tool.fail.nopayloadmsg';
+        const responsePromise = apiServiceInstance.invokeTool(toolName, {});
+        const sentMessage = mockSocket.emit.mock.calls[0][1];
+        const serverResponseMessage = {
+          messageId: sentMessage.messageId,
+          payload: { success: false } // No message or error field
+        };
+        mockSocket._simulateServerEvent('tool_result', serverResponseMessage);
+        await expect(responsePromise).rejects.toThrow('Tool invocation failed'); // Default error
+      });
+
+    it('should notify generic listeners for "kb_updated" events', () => {
       const listener = vi.fn();
-      apiServiceInstance.addMessageListener(listener);
+      apiServiceInstance.addMessageListener(listener); // Listens via '*'
 
-      const serverPushMessage = { type: 'server_event', data: 'something happened' };
-      mockWsInstance.onmessage({ data: JSON.stringify(serverPushMessage) });
+      const kbUpdatePayload = { data: 'kb was updated' };
+      mockSocket._simulateServerEvent('kb_updated', kbUpdatePayload);
 
-      expect(listener).toHaveBeenCalledWith(serverPushMessage);
+      // Generic listener receives { type: eventType, payload: data }
+      expect(listener).toHaveBeenCalledWith({ type: 'kb_updated', payload: kbUpdatePayload });
     });
 
-    it('should remove message listener', () => {
-      const mockWsInstance = WebSocketMock.mock.instances[0];
+    it('should notify specific listeners for "kb_updated" events', () => {
+        const specificListener = vi.fn();
+        apiServiceInstance.addEventListener('kb_updated', specificListener);
+
+        const kbUpdatePayload = { data: 'specific kb update' };
+        mockSocket._simulateServerEvent('kb_updated', kbUpdatePayload);
+
+        expect(specificListener).toHaveBeenCalledWith(kbUpdatePayload);
+      });
+
+    it('should remove message listener (generic via "*")', () => {
       const listener = vi.fn();
       apiServiceInstance.addMessageListener(listener);
-      apiServiceInstance.removeMessageListener(listener);
+      apiServiceInstance.removeMessageListener(listener); // Removes the '*' listener
 
-      const serverPushMessage = { type: 'server_event', data: 'something happened' };
-      mockWsInstance.onmessage({ data: JSON.stringify(serverPushMessage) });
-
+      mockSocket._simulateServerEvent('kb_updated', { data: 'another update' });
       expect(listener).not.toHaveBeenCalled();
     });
 
-    it('should reject sendMessage if not connected', async () => {
-      apiServiceInstance.disconnect(); // Ensure disconnected
-      const mockWsInstance = WebSocketMock.mock.instances[0];
-      if (mockWsInstance) mockWsInstance.readyState = WebSocket.CLOSED;
+    it('should remove specific event listener', () => {
+        const specificListener = vi.fn();
+        apiServiceInstance.addEventListener('kb_updated', specificListener);
+        apiServiceInstance.removeEventListener('kb_updated', specificListener);
 
+        mockSocket._simulateServerEvent('kb_updated', { data: 'specific update no listener' });
+        expect(specificListener).not.toHaveBeenCalled();
+      });
+
+
+    it('should reject sendMessage if not connected', async () => {
+      // Disconnect explicitly, then try to send.
+      // First, ensure it was connected
+      expect(apiServiceInstance.isConnected()).toBe(true);
+      // Now, simulate a disconnect event from the server *after* initial connection
+      mockSocket._simulateServerEvent('disconnect', 'io server disconnect');
+      expect(apiServiceInstance.isConnected()).toBe(false);
 
       await expect(apiServiceInstance.invokeTool('test.tool', {}))
         .rejects
-        .toThrow('WebSocket is not connected.');
+        .toThrow('Socket.IO is not connected.');
     });
+
      it('should handle MCP specific message structure for sendMessage', async () => {
-      const mockWsInstance = WebSocketMock.mock.instances[0];
       const actionName = 'mcp.action';
-      const payload = { data: 'mcpData' };
+      const mcpPayload = { data: 'mcpData' };
 
-      // Use the generic sendMessage for MCP type
-      const responsePromise = apiServiceInstance.sendMessage('mcp', actionName, payload);
+      const responsePromise = apiServiceInstance.sendMessage('mcp', actionName, mcpPayload);
 
-      expect(mockWsInstance.send).toHaveBeenCalledTimes(1);
-      const sentMcpMessageStringInitial = mockWsInstance.send.mock.calls[0][0];
-      const sentMcpMessageInitial = JSON.parse(sentMcpMessageStringInitial);
+      expect(mockSocket.emit).toHaveBeenCalledTimes(1);
+      const emittedArgs = mockSocket.emit.mock.calls[0];
+      expect(emittedArgs[0]).toBe('message');
+      const sentMessage = emittedArgs[1];
 
-      expect(sentMcpMessageInitial.type).toBe('mcp');
-      expect(sentMcpMessageInitial.messageId).toEqual(expect.any(String));
-      expect(sentMcpMessageInitial.action).toBe(actionName);
-      expect(sentMcpMessageInitial.payload).toEqual(payload);
+      expect(sentMessage.action).toBe(actionName); // MCP uses 'action' directly
+      expect(sentMessage.messageId).toEqual(expect.any(String));
+      // expect(sentMessage.type).toBeUndefined(); // Type might not be in top-level for MCP as per apiService.js logic
+      expect(sentMessage.payload).toEqual(mcpPayload); // Payload is not nested under 'input' for mcp
 
-
-      // Simulate server response
+      // Simulate server response (assuming it still comes as 'tool_result' or similar)
       const mockResponsePayload = { success: true, data: 'mcp response' };
-      const sentMcpMessageString = mockWsInstance.send.mock.calls[0][0];
-      const sentMcpMessage = JSON.parse(sentMcpMessageString);
       const serverResponseMessage = {
-        type: 'tool_result', // Assuming MCP responses also use tool_result or a type handled similarly for pending messages
-        messageId: sentMcpMessage.messageId,
+        messageId: sentMessage.messageId,
         payload: mockResponsePayload,
       };
-      mockWsInstance.onmessage({ data: JSON.stringify(serverResponseMessage) });
+      mockSocket._simulateServerEvent('tool_result', serverResponseMessage);
 
       await expect(responsePromise).resolves.toEqual(mockResponsePayload);
     });
   });
 
-  // TODO: This test suite is skipped due to persistent issues with vi.useFakeTimers()
-  // not correctly mocking or advancing timers for setTimeout used in the reconnection logic.
-  // This leads to tests either timing out or not behaving as expected regarding reconnection attempts.
-  // Further investigation is needed to resolve the timer mocking interaction with the component's async logic.
-  describe('Reconnection Logic', () => { // Unskip the suite
-    const MAX_RECONNECT_ATTEMPTS = 5; // As defined in apiService.js (should ideally be configurable or imported)
-    const RECONNECT_INTERVAL = 3000; // As defined in apiService.js
+  describe('Reconnection and Event Handling', () => {
+    // socket.io-client handles reconnection automatically.
+    // These tests will focus on how ApiService reacts to socket.io events like 'disconnect' and 'connect_error'
+    // rather than trying to mock the complex timer-based reconnection logic of socket.io itself.
 
-    beforeEach(() => {
-      vi.useFakeTimers(); // Use fake timers for all tests in this suite
-      vi.spyOn(global, 'setTimeout'); // Spy on setTimeout
+    it('should notify "connection_status" listeners on "disconnect" event (e.g. server initiated)', async () => {
+      const connectPromise = apiServiceInstance.connect(TEST_WS_URL);
+      mockSocket = io.getMockSocketInstance();
+      const statusListener = vi.fn();
+      apiServiceInstance.addEventListener('connection_status', statusListener);
+
+      mockSocket._simulateServerEvent('connect');
+      await connectPromise;
+      expect(apiServiceInstance.isConnected()).toBe(true);
+      expect(statusListener).toHaveBeenCalledWith({ status: 'connected', url: TEST_HTTP_URL });
+      statusListener.mockClear(); // Clear calls from initial connect
+
+      // Simulate server disconnecting the client
+      mockSocket._simulateServerEvent('disconnect', 'io server disconnect');
+
+      expect(apiServiceInstance.isConnected()).toBe(false);
+      expect(statusListener).toHaveBeenCalledWith({ status: 'disconnected_server', reason: 'io server disconnect' });
+      // Check that pending messages are rejected
     });
 
-    afterEach(() => {
-      vi.runOnlyPendingTimers(); // Ensure all timers are run
-      vi.useRealTimers(); // Restore real timers
-      vi.restoreAllMocks(); // Restore any spies, including setTimeout
-    });
+    it('should notify "connection_status" listeners on "disconnect" event (explicit client disconnect)', async () => {
+        const connectPromise = apiServiceInstance.connect(TEST_WS_URL);
+        mockSocket = io.getMockSocketInstance();
+        const statusListener = vi.fn();
+        apiServiceInstance.addEventListener('connection_status', statusListener);
 
-    it('should attempt to reconnect on unexpected close', async () => {
-      // vi.useFakeTimers(); // Moved to beforeEach
-      // try { // Not strictly necessary if afterEach cleans up timers
-        let connectPromise = apiServiceInstance.connect(TEST_URL);
-        let mockWsInstance = WebSocketMock.mock.instances[0];
-        expect(mockWsInstance).toBeDefined();
-        mockWsInstance.readyState = WebSocketMock.OPEN;
-        if(typeof mockWsInstance.onopen === 'function') mockWsInstance.onopen();
+        mockSocket._simulateServerEvent('connect');
         await connectPromise;
+        statusListener.mockClear();
 
-        expect(apiServiceInstance.isConnected()).toBe(true);
-        WebSocketMock.mockClear();
-
-        // Simulate unexpected close by calling the socket's close method
-        // The mock's close() method will set readyState to CLOSED and then call the onclose handler.
-        mockWsInstance.close();
-        // No need to directly call mockWsInstance.onclose() anymore.
+        apiServiceInstance.disconnect(); // This calls mockSocket.disconnect()
+                                       // which in turn simulates the 'disconnect' event with 'io client disconnect'
 
         expect(apiServiceInstance.isConnected()).toBe(false);
+        expect(statusListener).toHaveBeenCalledWith({ status: 'disconnected_explicit', reason: 'io client disconnect' });
+      });
 
-        expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), RECONNECT_INTERVAL);
-        vi.advanceTimersByTime(RECONNECT_INTERVAL);
 
-        expect(WebSocketMock).toHaveBeenCalledTimes(1); // A new WebSocket was created for reconnect
-        const newMockWsInstance = WebSocketMock.mock.instances[0]; // After clear & new connect, this is the one
-        expect(newMockWsInstance).toBeDefined();
-        expect(newMockWsInstance).not.toBe(mockWsInstance);
+    it('should notify "connection_status" listeners on "connect_error" event', async () => {
+      const statusListener = vi.fn();
+      apiServiceInstance.addEventListener('connection_status', statusListener);
 
-        newMockWsInstance.readyState = WebSocketMock.OPEN;
-        if(typeof newMockWsInstance.onopen === 'function') newMockWsInstance.onopen();
+      // Attempt to connect, it will create the mockSocket
+      const connectPromise = apiServiceInstance.connect(TEST_WS_URL);
+      mockSocket = io.getMockSocketInstance();
 
-        await vi.waitFor(() => expect(apiServiceInstance.isConnected()).toBe(true));
-        expect(apiServiceInstance.reconnectAttempts).toBe(0);
-      // } finally { // Removed orphaned finally
-      //   vi.useRealTimers();
-      // }
-    });
+      const error = new Error('Network issue');
+      mockSocket._simulateConnectError(error); // Simulate a connection error event
 
-    it('should stop reconnecting after MAX_RECONNECT_ATTEMPTS', async () => {
-      // vi.useFakeTimers(); // Moved to beforeEach
-      // try { // Removed try
-        let connectPromise = apiServiceInstance.connect(TEST_URL);
-        let mockWsInstance = WebSocketMock.mock.instances[0];
-        expect(mockWsInstance).toBeDefined();
-        mockWsInstance.readyState = WebSocketMock.OPEN;
-        if(typeof mockWsInstance.onopen === 'function') mockWsInstance.onopen();
+      try {
         await connectPromise;
-        expect(apiServiceInstance.isConnected()).toBe(true);
-        WebSocketMock.mockClear(); // Clear the initial connect call to WebSocket constructor
-        WebSocketMock.mockClear(); // Clear the initial connect call to WebSocket constructor
+      } catch (e) {
+        // Expected rejection
+      }
 
-        // Simulate the first unexpected close on the initial instance
-        mockWsInstance.close(); // This will set readyState and call the onclose handler
-
-        expect(apiServiceInstance.isConnected()).toBe(false);
-        // reconnectAttempts becomes 1 when handleReconnect is first entered due to the close.
-        // Then setTimeout schedules the first connect attempt.
-        expect(apiServiceInstance.reconnectAttempts).toBe(1);
-
-        for (let i = 0; i < MAX_RECONNECT_ATTEMPTS; i++) {
-          expect(setTimeout).toHaveBeenCalledWith(expect.any(Function), RECONNECT_INTERVAL);
-          vi.advanceTimersByTime(RECONNECT_INTERVAL);
-
-          // Each advanceTimersByTime triggers a new WebSocket connection attempt.
-          // WebSocketMock.mock.instances should reflect this.
-          // After the first close, WebSocketMock was cleared. So instances[0] is the first retry.
-          const currentAttemptInstance = WebSocketMock.mock.instances[i];
-          expect(currentAttemptInstance).toBeDefined();
-          currentAttemptInstance.readyState = WebSocketMock.CONNECTING; // Simulate it tries
-
-          // Simulate failure for this reconnect attempt
-          if(typeof currentAttemptInstance.onerror === 'function') currentAttemptInstance.onerror(new Event('error'));
-          // Call close() on the mock, which then calls the onclose handler and sets readyState
-          currentAttemptInstance.close();
-          // Note: The onclose handler in apiService.js will be called with the default event from the mock's close,
-          // not with { wasClean: false, code: 1006... }. This might be acceptable for testing max attempts.
-
-          // reconnectAttempts is incremented inside handleReconnect *before* the setTimeout for the *next* attempt.
-          // So after the Nth failed attempt's onclose, reconnectAttempts will be N+1, up to MAX_RECONNECT_ATTEMPTS.
-          if (i < MAX_RECONNECT_ATTEMPTS -1) {
-            expect(apiServiceInstance.reconnectAttempts).toBe(i + 2);
-          } else {
-             expect(apiServiceInstance.reconnectAttempts).toBe(MAX_RECONNECT_ATTEMPTS);
-          }
-        }
-
-        expect(apiServiceInstance.reconnectAttempts).toBe(MAX_RECONNECT_ATTEMPTS);
-        const finalCallCount = (setTimeout).mock.calls.length;
-        vi.advanceTimersByTime(RECONNECT_INTERVAL); // Try to trigger one more
-        expect(setTimeout).toHaveBeenCalledTimes(finalCallCount); // Should not have been called again
-
-      // } finally { // Removed orphaned finally
-      //   vi.useRealTimers();
-      // }
+      expect(apiServiceInstance.isConnected()).toBe(false);
+      // For an initial connect_error, the promise is rejected.
+      // The status listener should be called for 'error' or 'reconnecting_error' depending on state.
+      // In this case, it's the initial connect failing.
+      expect(statusListener).toHaveBeenCalledWith({ status: 'error', message: 'Socket.IO connection error', error: error.message });
     });
 
-    it('should not attempt to reconnect if explicitly closed', () => {
-      // vi.useFakeTimers(); // Moved to beforeEach
-
-      apiServiceInstance.connect(TEST_URL);
-      const mockWsInstance = WebSocketMock.mock.instances[0];
-      expect(mockWsInstance).toBeDefined(); // Good practice to assert instance exists
-      mockWsInstance.readyState = WebSocketMock.OPEN; // Set state for connect
-      if(typeof mockWsInstance.onopen === 'function') mockWsInstance.onopen();
-
-
-      apiServiceInstance.disconnect(); // Explicitly close. This will call mockWsInstance.close()
-                                     // The mock close() now also calls the assigned onclose handler.
-      expect(mockWsInstance.close).toHaveBeenCalled();
-      expect(apiServiceInstance.explicitlyClosed).toBe(true);
-
-      // No need to call mockWsInstance.onclose() directly here, as the mock .close() does it.
-      // apiService.handleReconnect checks explicitlyClosed in the onclose handler.
-      expect(setTimeout).not.toHaveBeenCalled(); // setTimeout should be the mocked one now
-      expect(apiServiceInstance.reconnectAttempts).toBe(0);
-
-      // vi.useRealTimers(); // Moved to afterEach
-    });
-
-    it('should reject pending messages when connection closes unexpectedly', async () => {
-      // vi.useFakeTimers(); // Moved to beforeEach
-      // try { // Removed try
-        const connectPromise = apiServiceInstance.connect(TEST_URL);
-        const mockWsInstance = WebSocketMock.mock.instances[0];
-        expect(mockWsInstance).toBeDefined();
-        mockWsInstance.readyState = WebSocketMock.OPEN;
-        if(typeof mockWsInstance.onopen === 'function') mockWsInstance.onopen();
+    it('should reject pending messages when connection disconnects before response', async () => {
+        const connectPromise = apiServiceInstance.connect(TEST_WS_URL);
+        mockSocket = io.getMockSocketInstance();
+        mockSocket._simulateServerEvent('connect');
         await connectPromise;
         expect(apiServiceInstance.isConnected()).toBe(true);
 
         const responsePromise = apiServiceInstance.invokeTool('test.tool', {});
-        // Ensure message is considered pending BEFORE close happens.
-        // If invokeTool resolves/rejects too quickly before onclose, this might be 0.
-        // However, it adds to pendingMessages synchronously.
         expect(apiServiceInstance.pendingMessages.size).toBe(1);
 
-        // Simulate unexpected close by calling the socket's close method
-        mockWsInstance.close();
-        // apiService's onclose handler should reject pending messages and clear the map.
+        // Simulate unexpected disconnect from server
+        mockSocket._simulateServerEvent('disconnect', 'io server disconnect');
 
-        await expect(responsePromise).rejects.toThrow('WebSocket connection closed before response received.');
+        await expect(responsePromise).rejects.toThrow('Socket.IO connection disconnected before response received.');
         expect(apiServiceInstance.pendingMessages.size).toBe(0);
-      // } finally { // Removed orphaned finally
-      //   vi.useRealTimers();
-      // }
+      });
+
+    it('should handle server emitting an "error" event', () => {
+        apiServiceInstance.connect(TEST_WS_URL);
+        mockSocket = io.getMockSocketInstance();
+        mockSocket._simulateServerEvent('connect'); // Connect first
+
+        const errorListener = vi.fn();
+        apiServiceInstance.addEventListener('error', errorListener); // Generic error listener
+
+        const serverErrorPayload = { code: 500, message: 'Server internal error' };
+        mockSocket._simulateServerEvent('error', serverErrorPayload);
+
+        expect(errorListener).toHaveBeenCalledWith(serverErrorPayload);
     });
   });
 });
