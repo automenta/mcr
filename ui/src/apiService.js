@@ -29,8 +29,8 @@ class ApiService {
   }
 
   // Allow overriding the WebSocket URL via a global variable or use the default.
-  // This is useful if the backend server is not on 'ws://localhost:8080/ws'.
-  connect(url = window.MCR_WEBSOCKET_URL || 'ws://localhost:8080/ws') {
+  // This is useful if the backend server is not on 'ws://localhost:8080/'.
+  connect(url = window.MCR_WEBSOCKET_URL || 'ws://localhost:8080/') {
     this.serverUrl = url;
     this.explicitlyClosed = false; // Reset this flag on every explicit call to connect
 

@@ -29,6 +29,7 @@ function startServer() {
   const server = app.listen(PORT, HOST, () => {
     // logger.info(`MCR Streamlined server listening on http://${HOST}:${PORT}`);
     logger.info('Server is running'); // Exact match for tool detection
+    logger.info(`  Listening on: http://${HOST}:${PORT}`);
     logger.info('--- Configuration ---');
     logger.info(`  Log Level: ${config.logLevel}`);
     logger.info(`  LLM Provider: ${config.llm.provider}`);
@@ -46,6 +47,26 @@ function startServer() {
       `  Default Translation Strategy: ${config.translationStrategy}`
     );
     logger.info('---------------------');
+  });
+
+  server.on('error', (error) => {
+    if (error.syscall !== 'listen') {
+      throw error;
+    }
+    // Handle specific listen errors with friendly messages
+    switch (error.code) {
+      case 'EACCES':
+        logger.error(`[MCR Start] Error: Port ${PORT} requires elevated privileges.`);
+        process.exit(1);
+        break;
+      case 'EADDRINUSE':
+        logger.error(`[MCR Start] Error: Port ${PORT} is already in use.`);
+        process.exit(1);
+        break;
+      default:
+        logger.error(`[MCR Start] Error starting server: ${error.message}`);
+        process.exit(1);
+    }
   });
 
   // Graceful shutdown
