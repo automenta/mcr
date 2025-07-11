@@ -124,11 +124,13 @@ describe('App.jsx', () => {
 
   it('displays error and retry button if initial WebSocket connection fails', async () => {
     const connectError = new Error('Test connection failed');
-    apiService.connect.mockImplementationOnce(() => {
-      setTimeout(() => act(() => apiService._simulateConnectionStatus({ status: 'error', message: connectError.message })), 0);
-      return Promise.reject(connectError);
+    await act(async () => {
+      apiService.connect.mockImplementationOnce(() => {
+        setTimeout(() => act(() => apiService._simulateConnectionStatus({ status: 'error', message: connectError.message })), 0);
+        return Promise.reject(connectError);
+      });
+      render(<App />);
     });
-    await act(async () => { render(<App />); });
     expect(await screen.findByText(`🔴 Error: ${connectError.message}. Retrying...`)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /🔄 Retry/i })).toBeInTheDocument();
 
@@ -143,7 +145,9 @@ describe('App.jsx', () => {
 
   describe('Session Management', () => {
     beforeEach(async () => {
-      render(<App />);
+      await act(async () => {
+        render(<App />);
+      });
       await screen.findByText('🟢 Connected');
       expect(apiService.invokeTool).toHaveBeenCalledWith('strategy.getActive');
       vi.mocked(apiService.invokeTool).mockClear();
@@ -188,12 +192,14 @@ describe('App.jsx', () => {
       const props = vi.mocked(InteractiveSessionMode).mock.lastCall[0];
       const { connectSession } = props;
       expect(connectSession).toBeDefined();
-      apiService.invokeTool.mockImplementation(async (toolName, params) => {
-        if (toolName === 'session.get' && params.sessionId === 'existing-session-abc') return { success: true, data: { id: 'existing-session-abc', facts: 'existing facts.' } };
-        if (toolName === 'strategy.getActive') return { success: true, data: { activeStrategyId: 'session-strategy-existing' } };
-        return { success: true, data: {} };
+      await act(async () => {
+        apiService.invokeTool.mockImplementation(async (toolName, params) => {
+          if (toolName === 'session.get' && params.sessionId === 'existing-session-abc') return { success: true, data: { id: 'existing-session-abc', facts: 'existing facts.' } };
+          if (toolName === 'strategy.getActive') return { success: true, data: { activeStrategyId: 'session-strategy-existing' } };
+          return { success: true, data: {} };
+        });
+        await connectSession('existing-session-abc');
       });
-      await act(async () => { connectSession('existing-session-abc'); });
       expect(apiService.invokeTool).toHaveBeenCalledWith('session.get', { sessionId: 'existing-session-abc' });
       const updatedProps = vi.mocked(InteractiveSessionMode).mock.lastCall[0];
       expect(updatedProps.chatHistory).toEqual(expect.arrayContaining([expect.objectContaining({ text: expect.stringContaining('🔌 Connected to session: existing-session-abc'), type: 'system' })]));
@@ -208,11 +214,13 @@ describe('App.jsx', () => {
       const { connectSession } = props;
       expect(connectSession).toBeDefined();
       const errorMessage = 'Failed to create session due to reasons';
-      apiService.invokeTool.mockImplementation(async (toolName) => {
-        if (toolName === 'session.create') return { success: false, message: errorMessage };
-        return { success: true, data: {} };
+      await act(async () => {
+        apiService.invokeTool.mockImplementation(async (toolName) => {
+          if (toolName === 'session.create') return { success: false, message: errorMessage };
+          return { success: true, data: {} };
+        });
+        await connectSession('');
       });
-      await act(async () => { connectSession(''); });
       const updatedProps = vi.mocked(InteractiveSessionMode).mock.lastCall[0];
       expect(updatedProps.chatHistory).toEqual(expect.arrayContaining([expect.objectContaining({ text: expect.stringContaining(`❌ Error with session: ${errorMessage}`), type: 'system' })]));
       expect(updatedProps.sessionId).toBeNull();
@@ -264,7 +272,9 @@ describe('App.jsx', () => {
         if (toolName === 'session.get' && params?.sessionId === 'test-session-msg') return { success: true, data: { id: 'test-session-msg', facts: 'fact.one.' } };
         return { success: true, data: {} };
       });
-      render(<App />);
+      await act(async () => {
+        render(<App />);
+      });
       await screen.findByText('🟢 Connected');
       expect(InteractiveSessionMode).toHaveBeenCalled();
       let passedProps = vi.mocked(InteractiveSessionMode).mock.lastCall[0];
@@ -282,7 +292,9 @@ describe('App.jsx', () => {
     it('updates KB when "kb_updated" message is received for the current session', async () => {
       const newFacts = ['new_fact1.', 'new_fact2.'];
       const kbUpdatePayload = { sessionId: 'test-session-msg', fullKnowledgeBase: 'fact.one.\nnew_fact1.\nnew_fact2.', newFacts: newFacts };
-      await act(async () => { apiService._simulateServerMessage({ type: 'kb_updated', payload: kbUpdatePayload }); });
+      await act(async () => {
+        apiService._simulateServerMessage({ type: 'kb_updated', payload: kbUpdatePayload });
+      });
       const updatedProps = vi.mocked(InteractiveSessionMode).mock.lastCall[0];
       expect(updatedProps.currentKb).toBe(kbUpdatePayload.fullKnowledgeBase);
       expect(updatedProps.chatHistory).toEqual(expect.arrayContaining([
@@ -295,7 +307,9 @@ describe('App.jsx', () => {
       const initialProps = vi.mocked(InteractiveSessionMode).mock.lastCall[0];
       const initialKb = initialProps.currentKb;
       const kbUpdatePayload = { sessionId: 'other-session-id', fullKnowledgeBase: 'other.kb.', newFacts: ['other_fact.'] };
-      await act(async () => { apiService._simulateServerMessage({ type: 'kb_updated', payload: kbUpdatePayload }); });
+      await act(async () => {
+        apiService._simulateServerMessage({ type: 'kb_updated', payload: kbUpdatePayload });
+      });
       const updatedProps = vi.mocked(InteractiveSessionMode).mock.lastCall[0];
       expect(updatedProps.currentKb).toBe(initialKb);
       expect(screen.queryByText(/⚙️ KB updated remotely/i)).not.toBeInTheDocument();

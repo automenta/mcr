@@ -40,8 +40,10 @@ describe('StrategyPanel', () => {
     });
   });
 
-  it('renders panel title, list button and active strategy display', () => {
-    render(<StrategyPanel {...defaultProps} activeStrategy="current-active-strat" />);
+  it('renders panel title, list button and active strategy display', async () => {
+    await act(async () => {
+      render(<StrategyPanel {...defaultProps} activeStrategy="current-active-strat" />);
+    });
     expect(screen.getByText('🛠️ Strategies')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '🔄 List Strategies' })).toBeInTheDocument();
     const activeStrategyDisplay = screen.getByText(/🎯 Active:/);
@@ -54,14 +56,18 @@ describe('StrategyPanel', () => {
     apiService.invokeTool.mockImplementation(async (toolName) =>
       toolName === 'strategy.list' ? { success: true, data: strategiesData } : { success: true, data: {} }
     );
-    render(<StrategyPanel {...defaultProps} />);
+    await act(async () => {
+      render(<StrategyPanel {...defaultProps} />);
+    });
     await waitFor(() => expect(screen.getByText('Strategy Alpha')).toBeInTheDocument());
     expect(apiService.invokeTool).toHaveBeenCalledWith('strategy.list');
   });
 
   it('displays "No strategies found" when list is empty and session active', async () => {
     apiService.invokeTool.mockResolvedValue({ success: true, data: [] });
-    render(<StrategyPanel {...defaultProps} />);
+    await act(async () => {
+      render(<StrategyPanel {...defaultProps} />);
+    });
     await waitFor(() => expect(screen.getByText(/No strategies found/i)).toBeInTheDocument());
   });
 
@@ -70,7 +76,9 @@ describe('StrategyPanel', () => {
     const strategyData = { id: 's1', name: 'Strategy Alpha', description: 'Alpha strategy description.', definition: { some: 'detail' }};
     apiService.invokeTool.mockResolvedValueOnce({ success: true, data: [strategyData] }); // For list
 
-    render(<StrategyPanel {...defaultProps} />);
+    await act(async () => {
+      render(<StrategyPanel {...defaultProps} />);
+    });
     await waitFor(() => screen.getByText('Strategy Alpha'));
 
     const viewButton = screen.getByRole('button', { name: '👁️ View' });
@@ -101,7 +109,9 @@ describe('StrategyPanel', () => {
       return { success: true, data: {} };
     });
 
-    render(<StrategyPanel {...defaultProps} activeStrategy="s1" />);
+    await act(async () => {
+      render(<StrategyPanel {...defaultProps} activeStrategy="s1" />);
+    });
     await waitFor(() => screen.getByText('Strategy Beta'));
 
     const strategyBetaItem = screen.getByText('Strategy Beta').closest('li');
@@ -122,7 +132,9 @@ describe('StrategyPanel', () => {
     const strategiesData = [{ id: 's1', name: 'Strategy Alpha' }];
     apiService.invokeTool.mockResolvedValueOnce({ success: true, data: strategiesData });
 
-    render(<StrategyPanel {...defaultProps} activeStrategy="s1" />);
+    await act(async () => {
+      render(<StrategyPanel {...defaultProps} activeStrategy="s1" />);
+    });
     await waitFor(() => screen.getByText('Strategy Alpha'));
 
     const strategyAlphaItem = screen.getByText('Strategy Alpha').closest('li');
@@ -132,20 +144,24 @@ describe('StrategyPanel', () => {
   });
 
   it('disables buttons if MCR session is not active', async () => {
-    render(<StrategyPanel {...defaultProps} isMcrSessionActive={false} />);
-    await act(async () => {});
+    await act(async () => {
+      render(<StrategyPanel {...defaultProps} isMcrSessionActive={false} />);
+    });
     expect(screen.getByRole('button', {name: '🔄 List Strategies'})).toBeDisabled();
   });
 
   it('disables buttons if WebSocket service is not connected', async () => {
-    render(<StrategyPanel {...defaultProps} isWsServiceConnected={false} />);
-    await act(async () => {});
+    await act(async () => {
+      render(<StrategyPanel {...defaultProps} isWsServiceConnected={false} />);
+    });
     expect(screen.getByRole('button', {name: '🔄 List Strategies'})).toBeDisabled();
   });
 
   it('handles API error when listing strategies', async () => {
     apiService.invokeTool.mockResolvedValueOnce({ success: false, message: 'Failed to list strategies' });
-    render(<StrategyPanel {...defaultProps} />);
+    await act(async () => {
+      render(<StrategyPanel {...defaultProps} />);
+    });
     await waitFor(() => expect(mockAddMessageToHistory).toHaveBeenCalledWith(expect.objectContaining({
         text: "❌ Error listing strategies: Failed to list strategies"
     })));

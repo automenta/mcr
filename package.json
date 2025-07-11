@@ -95,7 +95,8 @@
   "jest": {
     "testPathIgnorePatterns": [
       "/node_modules/",
-      "/old/test/"
+      "/old/test/",
+      "/ui/"
     ],
     "modulePathIgnorePatterns": [
       "<rootDir>/old/"
