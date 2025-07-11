@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // CodeMirror Imports
-import { EditorState } from '@codemirror/state';
+import { EditorState, Compartment } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
 import { oneDark } from '@codemirror/theme-one-dark';
@@ -26,6 +26,7 @@ const PrologCodeViewer = ({
 }) => {
   const editorRef = useRef(null);
   const viewRef = useRef(null); // To store the EditorView instance
+  const readOnlyCompartmentRef = useRef(new Compartment()); // For toggling readOnly
   const [currentCode, setCurrentCode] = useState(initialContent || code || '');
   const [copyStatus, setCopyStatus] = useState(''); // Feedback for copy action
 
@@ -33,6 +34,7 @@ const PrologCodeViewer = ({
     if (editorRef.current && !viewRef.current) { // Only create editor once
       const initialDoc = isEditable ? (initialContent || '') : (code || '');
       setCurrentCode(initialDoc); // Sync internal state with initial document
+      const readOnlyCompartment = readOnlyCompartmentRef.current;
 
       const state = EditorState.create({
         doc: initialDoc,
@@ -41,7 +43,7 @@ const PrologCodeViewer = ({
           EditorView.lineWrapping,
           oneDark,
           prolog(),
-          EditorState.readOnly.of(!isEditable),
+          readOnlyCompartment.of(EditorState.readOnly.of(!isEditable)),
           EditorView.theme({
             "&": {
               maxHeight: isEditable ? "300px" : "200px", // Allow more space for editable instances
@@ -88,14 +90,15 @@ const PrologCodeViewer = ({
   }, [isEditable, initialContent, code, onSave]);
 
   // Update editor's readOnly state if isEditable prop changes dynamically
-  // This effect runs if the editor instance (viewRef.current) exists and isEditable changes.
   useEffect(() => {
-    if (viewRef.current) {
+    if (viewRef.current && readOnlyCompartmentRef.current) {
+      const readOnlyCompartment = readOnlyCompartmentRef.current;
       viewRef.current.dispatch({
-        effects: EditorState.readOnly.reconfigure(EditorState.readOnly.of(!isEditable))
+        effects: readOnlyCompartment.reconfigure(EditorState.readOnly.of(!isEditable))
       });
     }
-  }, [isEditable]);
+  // Only re-run if isEditable changes and the view/compartment are initialized.
+  }, [isEditable, viewRef, readOnlyCompartmentRef]);
 
 
   const handleCopyCode = () => {
