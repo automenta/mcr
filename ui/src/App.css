@@ -1,126 +1,145 @@
-/* Basic Reset */
+/* App.css - Dark Hacker Theme */
+
+/* Basic Reset from original is fine */
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-body {
-  font-family: sans-serif;
-  line-height: 1.6;
-  background-color: #f4f4f4;
-  color: #333;
-}
+/* Ensure html and body take full height for the flex layout in index.css */
+/* html, body, #root { height: 100%; overflow: hidden; } */
+/* This is now handled by index.css and App.jsx structure */
 
 /* App Header & Mode Switcher */
 .app-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 5px 10px; /* Reduced padding */
-  background-color: #333;
-  color: white;
-  height: 50px; /* Fixed height for the header */
-  box-sizing: border-box;
+  padding: 5px 15px;
+  background-color: #161b22; /* Darker header bg (GH dark) */
+  color: #c9d1d9; /* Light text */
+  height: 45px; /* Slightly reduced header height */
+  border-bottom: 1px solid #30363d; /* Separator line */
 }
 
 .app-mode-switcher button {
   margin: 0 5px;
-  padding: 8px 12px; /* Slightly smaller buttons */
-  background-color: #555;
-  color: white;
-  border: none;
+  padding: 6px 10px;
+  background-color: #21262d; /* Button bg */
+  color: #c9d1d9;
+  border: 1px solid #30363d;
   border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9em;
+  font-size: 0.85em;
+}
+.app-mode-switcher button:hover {
+  background-color: #30363d;
+  border-color: #58a6ff;
 }
 .app-mode-switcher button:disabled {
-  background-color: #007bff;
-  color: white;
+  background-color: #58a6ff; /* Active mode button highlighted */
+  color: #0d1117; /* Dark text on active button */
+  border-color: #58a6ff;
   cursor: default;
 }
 
 .ws-status {
-  font-size: 0.85em;
-  padding: 6px 10px;
-  background-color: #444;
+  font-size: 0.8em;
+  padding: 5px 10px;
+  background-color: #21262d; /* Consistent with button bg */
   border-radius: 4px;
-  margin-left: auto; /* Pushes to the right if space allows */
+  margin-left: auto;
 }
-.ws-status button {
-  padding: 4px 8px;
+.ws-status button { /* Retry connect button */
+  padding: 3px 6px;
   font-size: 0.9em;
-  background-color: #007bff;
-  color: white;
+  background-color: #58a6ff;
+  color: #0d1117;
   border: none;
-  border-radius: 3px;
-  margin-left: 5px;
+  margin-left: 8px;
+}
+.ws-status button:hover {
+  background-color: #2f81f7;
 }
 
-
+/* Main application layout */
 .app-container {
   display: flex;
-  height: calc(100vh - 50px); /* Full viewport height minus app-header height */
+  height: calc(100vh - 45px); /* Full viewport height minus app-header height */
   width: 100vw;
-  overflow: hidden; /* Prevent body scrollbars */
+  overflow: hidden;
 }
 
 .sidebar {
-  padding: 1rem;
-  background-color: #e9ecef;
-  overflow-y: auto; /* Allow sidebar content to scroll */
-  border-right: 1px solid #ccc;
+  padding: 0.8rem 1rem;
+  background-color: #161b22; /* Sidebar bg (same as header) */
+  overflow-y: auto;
+  border-right: 1px solid #30363d;
+  color: #8b949e; /* Secondary text color for sidebar content */
+}
+.sidebar h3, .sidebar h4 {
+  color: #58a6ff; /* Brighter headers in sidebar */
+  margin-top: 0.8rem;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid #30363d;
+}
+.sidebar h3:first-child, .sidebar h4:first-child {
+    margin-top: 0;
 }
 
+
 .left-sidebar {
-  width: 25%; /* Adjust as needed */
-  min-width: 300px;
+  width: 22%; /* Slightly narrower */
+  min-width: 280px;
 }
 
 .right-sidebar {
-  width: 25%; /* Adjust as needed */
-  min-width: 300px;
-  border-left: 1px solid #ccc;
+  width: 28%; /* Slightly wider for KB */
+  min-width: 320px;
+  border-left: 1px solid #30363d;
   border-right: none;
 }
 
 .main-interaction-wrapper {
   flex-grow: 1;
   display: flex;
-  flex-direction: column; /* Stack MainInteraction and ChatHistoryPane */
-  overflow: hidden; /* Prevent wrapper from causing scrollbars, children will scroll */
+  flex-direction: column;
+  overflow: hidden;
+  background-color: #0d1117; /* Main content area bg */
 }
 
-.main-content { /* This is Pane 2: Interaction (Chat REPL) */
-  padding: 1rem;
-  background-color: #fff;
-  /* This part does not scroll itself, its children might */
+.main-content { /* Pane 2: Interaction (Chat REPL) */
+  padding: 0.8rem 1rem;
+  /* background-color: #0d1117; /* Already set on wrapper */
 }
 
 .chat-history-pane {
-  flex-grow: 1; /* Takes remaining space in the wrapper */
-  padding: 1rem;
-  background-color: #fdfdfd;
-  overflow-y: auto; /* This is where chat history scrolls */
-  border-top: 1px solid #eee;
+  flex-grow: 1;
+  padding: 0.8rem 1rem;
+  /* background-color: #0d1117; */ /* Slightly different shade for visual separation if desired, or keep same */
+  overflow-y: auto;
+  border-top: 1px solid #30363d; /* Separator */
 }
 
 
 /* Chat REPL specific styles */
 .chat-input-area {
-  padding-top: 1rem;
-  border-top: 1px solid #eee;
+  padding-top: 0.8rem;
+  border-top: 1px solid #30363d;
   display: flex;
-  flex-direction: column; /* Stack textarea and controls */
+  flex-direction: column;
 }
 
 .chat-input-area textarea {
   width: 100%;
-  padding: 0.5rem;
+  padding: 0.6em 0.8em;
   margin-bottom: 0.5rem;
-  border: 1px solid #ccc;
+  background-color: #161b22; /* Slightly lighter than main bg for input */
+  border: 1px solid #30363d;
   border-radius: 4px;
-  font-family: inherit;
+  color: #c9d1d9;
+  min-height: 60px;
 }
 
 .chat-input-area div { /* Container for select and button */
@@ -130,151 +149,191 @@ body {
 }
 
 .chat-input-area select {
-  padding: 0.5rem;
+  padding: 0.5em 0.8em;
   margin-right: 0.5rem;
   border-radius: 4px;
+  background-color: #21262d;
+  border: 1px solid #30363d;
+  color: #c9d1d9;
 }
 
-.chat-input-area button {
-  padding: 0.5rem 1rem;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+.chat-input-area button { /* Send button */
+  padding: 0.5em 1.2em;
+  background-color: #238636; /* Green for send (GH primary button) */
+  color: #ffffff;
+  border: 1px solid #2ea043;
 }
-
+.chat-input-area button:hover {
+  background-color: #2ea043;
+}
 .chat-input-area button:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
+  background-color: #161b22;
+  color: #484f58;
+  border-color: #30363d;
 }
 
 /* Chat History Messages */
 .chat-message {
   margin-bottom: 0.75rem;
-  padding: 0.5rem;
-  border-radius: 4px;
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  line-height: 1.4;
 }
 
 .chat-message.user {
-  background-color: #e0f7fa; /* Light blue for user messages */
-  text-align: right;
+  background-color: #21262d; /* User message bg (GH dark comment header) */
+  /* text-align: right; */ /* Keep left aligned for now */
 }
 .chat-message.user strong {
+  color: #58a6ff; /* User name highlight */
   display: block;
+  margin-bottom: 0.2em;
 }
 
 .chat-message.mcr {
-  background-color: #f1f8e9; /* Light green for MCR messages */
+  background-color: #161b22; /* MCR message bg (darker, like code blocks) */
 }
 .chat-message.mcr strong {
+  color: #3fb950; /* MCR name highlight (GH green) */
   display: block;
+  margin-bottom: 0.2em;
 }
 .chat-message.mcr details {
   margin-top: 0.5rem;
-  font-size: 0.9em;
+  font-size: 0.85em;
+}
+.chat-message.mcr details summary {
+    cursor: pointer;
+    color: #8b949e; /* Secondary text for summary */
+}
+.chat-message.mcr details summary:hover {
+    color: #c9d1d9;
 }
 .chat-message.mcr pre {
-  background-color: #eee;
-  padding: 0.5rem;
-  border-radius: 3px;
-  overflow-x: auto; /* Allow scrolling for long pre content */
-  white-space: pre-wrap; /* Wrap long lines within pre */
-  word-break: break-all; /* Break long words/strings */
+  background-color: #0d1117; /* Darkest for preformatted text */
+  padding: 0.6rem;
+  border-radius: 4px;
+  border: 1px solid #30363d;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 0.85em;
+  color: #c9d1d9;
 }
-
 
 .chat-message.system {
-  background-color: #fff9c4; /* Light yellow for system messages */
+  background-color: rgba(88, 166, 255, 0.1); /* Subtle blue for system messages */
+  border: 1px dashed #58a6ff;
+  color: #8b949e; /* Muted text for system messages */
   font-style: italic;
-  font-size: 0.9em;
+  font-size: 0.85em;
   text-align: center;
 }
+
 /* Demo Message Specific Styling */
 .demo-message {
-  border-left: 3px solid #ff9800; /* Orange border for demo messages */
+  border-left: 3px solid #db6d28; /* Orange (GH warning color) */
   padding-left: 10px;
+  background-color: rgba(219, 109, 40, 0.1);
 }
 .demo-log-item {
   margin: 2px 0;
-  padding: 2px 5px;
-  font-size: 0.9em;
+  padding: 3px 6px;
+  font-size: 0.85em;
   border-radius: 3px;
 }
-.demo-log-info { background-color: #e3f2fd; } /* Light blue for info */
-.demo-log-warn { background-color: #fff9c4; } /* Light yellow for warn */
-.demo-log-error { background-color: #ffcdd2; color: #c62828; } /* Light red for error */
-.demo-log-debug { background-color: #f5f5f5; color: #555; } /* Light grey for debug */
+.demo-log-info { background-color: rgba(56, 139, 253, 0.1); color: #79c0ff; }
+.demo-log-warn { background-color: rgba(187, 128, 9, 0.1); color: #e3b341; }
+.demo-log-error { background-color: rgba(248, 81, 73, 0.1); color: #ff817a; }
+.demo-log-debug { background-color: rgba(139, 148, 158, 0.1); color: #8b949e; }
 .demo-log-item em { font-style: normal; font-weight: bold; }
 .demo-log-item pre {
-  max-height: 100px; /* Smaller max height for nested details */
+  max-height: 100px;
   font-size: 0.9em;
+  background-color: #0d1117;
+  border-color: #30363d;
 }
 
 
 /* Generic UI elements in sidebars */
-.left-sidebar h4, .left-sidebar hr {
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
-}
 .left-sidebar ul {
   list-style-type: none;
   padding-left: 0;
 }
 .left-sidebar li {
-  margin-bottom: 0.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  margin-bottom: 0.6rem;
+  padding: 0.3rem 0;
+  /* display: flex; */ /* Overridden for specific items if needed */
+  /* justify-content: space-between; */
+  /* align-items: center; */
 }
-.left-sidebar input[type="text"] {
-  width: calc(100% - 110px); /* Adjust based on button width */
-  padding: 0.5rem;
+.left-sidebar input[type="text"] { /* Session ID input */
+  width: calc(100% - 130px); /* Adjust based on button width */
+  padding: 0.5em 0.7em;
   margin-right: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  background-color: #0d1117;
+  border: 1px solid #30363d;
 }
-.left-sidebar button {
-  padding: 0.5rem;
-  background-color: #6c757d;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+.left-sidebar button { /* General buttons in left sidebar */
+  padding: 0.5em 0.8em;
+  background-color: #21262d;
+  color: #c9d1d9;
+  border: 1px solid #30363d;
+  font-size: 0.85em;
+}
+.left-sidebar button:hover {
+  background-color: #30363d;
+  border-color: #58a6ff;
+}
+.left-sidebar li button { /* Buttons next to list items, e.g., Load, Set */
+    background-color: #388bfd; /* Brighter blue for actions */
+    color: #ffffff;
+    border: 1px solid #58a6ff;
+    margin-left: 8px;
+}
+.left-sidebar li button:hover {
+    background-color: #58a6ff;
+}
+.left-sidebar p {
+  margin-bottom: 0.5em;
   font-size: 0.9em;
 }
-.left-sidebar button:disabled {
-  background-color: #aaa;
-  cursor: not-allowed;
-}
-.left-sidebar li button { /* Buttons next to list items */
-    background-color: #17a2b8;
+.left-sidebar small { /* For demo description, etc. */
+    color: #8b949e;
+    font-size: 0.85em;
+    display: block;
+    margin-left: 10px;
 }
 
-
+/* Right Sidebar (KB Viewer) */
 .right-sidebar pre {
-  white-space: pre-wrap; /* Wrap long lines */
-  word-break: break-all; /* Break long words/strings */
-  background-color: #fff;
-  padding: 0.5rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background-color: #0d1117; /* Darkest for KB view */
+  color: #c9d1d9;
+  padding: 0.8rem;
+  border: 1px solid #30363d;
   border-radius: 4px;
-  max-height: 80vh; /* Example max height */
-  overflow-y: auto;
+  flex-grow: 1; /* Allow pre to take available space if sidebar is flex */
+  overflow-y: auto; /* Ensure pre itself scrolls if content overflows */
+  font-size: 0.9em;
+  min-height: 200px; /* Ensure it has some height */
 }
-
 
 /* System Analysis Mode */
 .system-analysis-mode {
   padding: 1rem;
   width: 100%;
-  height: calc(100vh - 50px); /* Adjust based on switcher height */
+  height: calc(100vh - 45px);
   overflow-y: auto;
-  background-color: #fff;
+  background-color: #0d1117; /* Main bg for analysis mode */
+  color: #c9d1d9;
 }
 
 .system-analysis-mode h2 {
   text-align: center;
   margin-bottom: 1rem;
+  color: #58a6ff;
 }
 
 .analysis-nav {
@@ -283,93 +342,163 @@ body {
   gap: 0.5rem;
   margin-bottom: 1rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #30363d;
 }
 
 .analysis-nav button {
-  padding: 0.5rem 1rem;
+  padding: 0.6em 1em;
   font-size: 0.9em;
-  background-color: #f8f9fa;
-  color: #007bff;
-  border: 1px solid #007bff;
-  border-radius: 4px;
-  cursor: pointer;
+  background-color: #21262d;
+  color: #8b949e; /* Muted text for non-active nav buttons */
+  border: 1px solid #30363d;
 }
-
+.analysis-nav button:hover {
+  color: #c9d1d9;
+  border-color: #58a6ff;
+}
 .analysis-nav button:disabled {
-  background-color: #007bff;
-  color: white;
+  background-color: #58a6ff; /* Active nav button */
+  color: #0d1117;
+  border-color: #58a6ff;
   cursor: default;
 }
 
 .analysis-view-content {
   padding: 1rem;
-  border: 1px solid #ddd;
+  border: 1px solid #30363d;
   border-radius: 4px;
-  background-color: #fdfdfd;
+  background-color: #161b22; /* Slightly lighter bg for content area */
 }
 
-.analysis-view-content h4 {
-  margin-top: 0;
+.analysis-view-content h3, .analysis-view-content h4, .analysis-view-content h5 {
+  color: #58a6ff;
+  margin-top: 0.8rem;
   margin-bottom: 0.5rem;
-  color: #333;
 }
-.analysis-view-content table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 1rem;
-}
-.analysis-view-content th, .analysis-view-content td {
-  border: 1px solid #ddd;
-  padding: 0.5rem;
-  text-align: left;
+.analysis-view-content table { /* Already styled by index.css, but can override */
+  margin-top: 0.8rem;
 }
 .analysis-view-content th {
-  background-color: #f0f0f0;
+  background-color: #21262d; /* Darker header for tables in analysis */
 }
-hr {
-  margin: 15px 0;
-  border: 0;
-  border-top: 1px solid #ccc;
-}
-.analysis-view-content pre {
+.analysis-view-content pre { /* For JSON details, etc. */
   white-space: pre-wrap;
   word-break: break-all;
-  background: #f9f9f9;
-  padding: 5px;
-  border: 1px solid #eee;
-  max-height: 200px;
+  background: #0d1117;
+  padding: 0.5rem;
+  border: 1px solid #30363d;
+  max-height: 250px;
   overflow: auto;
+  font-size: 0.85em;
+  color: #c9d1d9;
 }
 .analysis-view-content details summary {
   cursor: pointer;
-  color: #007bff;
+  color: #58a6ff;
+  margin-bottom: 0.3rem;
 }
-.analysis-view-content button {
-  padding: 5px 10px;
+.analysis-view-content button { /* General buttons within analysis content */
+  padding: 0.4em 0.8em;
   margin-right: 5px;
-  cursor: pointer;
+  font-size: 0.85em;
 }
 .analysis-view-content input[type="text"],
 .analysis-view-content input[type="number"] {
-  padding: 5px;
-  margin-right: 10px;
+  padding: 0.4em 0.6em;
+  margin-right: 8px;
+  font-size: 0.9em;
 }
 
-ul {
+hr {
+  margin: 1rem 0;
+  border: 0;
+  border-top: 1px solid #30363d; /* Darker hr */
+}
+
+ul { /* General ul styling, if not overridden by sidebar specifics */
   list-style-type: none;
   padding-left: 0;
 }
-li {
-  margin-bottom: 8px;
-  padding: 5px;
-  /* border: 1px solid #eee; */ /* Removed default border for li */
-  /* background-color: #fff; */ /* Removed default background for li */
+li { /* General li styling */
+  margin-bottom: 0.5rem;
+  padding: 0.2rem 0;
 }
-button {
+
+/* Utility class for small text / descriptions */
+.text-muted {
+    color: #8b949e;
+    font-size: 0.85em;
+}
+
+/* Cursor pointer for clickable list items */
+.clickable {
+    cursor: pointer;
+}
+.clickable:hover {
+    background-color: rgba(88, 166, 255, 0.1); /* Subtle hover for clickable items */
+}
+
+/* Specific styling for strategy list items to show active */
+.left-sidebar .strategy-item {
+  padding: 5px;
+  border-radius: 3px;
   cursor: pointer;
 }
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
+.left-sidebar .strategy-item.active-strategy {
+  background-color: #58a6ff;
+  color: #0d1117;
+  font-weight: bold;
 }
+.left-sidebar .strategy-item.active-strategy button {
+  background-color: #21262d;
+  color: #c9d1d9;
+  border-color: #8b949e;
+}
+.left-sidebar .strategy-item.active-strategy button:hover {
+  border-color: #c9d1d9;
+}
+
+/* Styling for curriculum list items */
+.curriculum-list-item {
+    padding: 8px 5px;
+    border-radius: 3px;
+    cursor: pointer;
+    border: 1px solid transparent; /* for spacing */
+}
+.curriculum-list-item:hover {
+    background-color: rgba(88, 166, 255, 0.1);
+    border-color: #58a6ff;
+}
+.curriculum-list-item.selected-curriculum {
+    background-color: rgba(88, 166, 255, 0.2);
+    border-left: 3px solid #58a6ff;
+    font-weight: bold;
+}
+.curriculum-list-item small {
+    font-size: 0.8em;
+    color: #8b949e;
+    display: block;
+}
+
+/* Add some scrollbar styling for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0d1117;
+}
+::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #484f58;
+}
+
+/* Ensure full height for sidebars and main content area if they are direct children of app-container */
+.app-container > .sidebar,
+.app-container > .main-interaction-wrapper {
+    height: 100%; /* Make sure they fill the app-container height */
+}
+```

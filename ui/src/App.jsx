@@ -1,6 +1,58 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './App.css'; // Using App.css for main layout styles
 import apiService from './apiService';
+
+// CodeMirror Imports
+import { EditorState } from '@codemirror/state';
+import { EditorView, keymap } from '@codemirror/view';
+import { basicSetup } from 'codemirror';
+import { oneDark } from '@codemirror/theme-one-dark';
+import { prolog } from 'codemirror-lang-prolog';
+
+// --- Helper Component for Prolog Code in Chat ---
+const PrologCodeViewer = ({ code, title }) => {
+  const editorRef = useRef(null);
+  const viewRef = useRef(null); // To store the EditorView instance
+
+  useEffect(() => {
+    if (editorRef.current && !viewRef.current) { // Initialize only once
+      const state = EditorState.create({
+        doc: code,
+        extensions: [
+          // basicSetup, // basicSetup includes line numbers, folding, etc. which might be too much for chat.
+          EditorView.lineWrapping,
+          oneDark,
+          prolog(),
+          EditorState.readOnly.of(true),
+          EditorView.theme({
+            "&": {
+              maxHeight: "200px", // Keep it compact in chat
+              fontSize: "0.85em",
+              border: "1px solid #30363d", // Match app's border style
+              borderRadius: "4px",
+            },
+            ".cm-scroller": { overflow: "auto" },
+            // ".cm-gutters": { display: "none" } // Hide gutters if basicSetup is too much
+          })
+        ],
+      });
+      const view = new EditorView({ state, parent: editorRef.current });
+      viewRef.current = view; // Store the view instance
+    }
+    // No cleanup needed that would destroy and recreate on every code change,
+    // as it's read-only and content changes are infrequent in chat.
+    // If code prop changes, the component will re-render, creating a new instance.
+    // This is acceptable for chat messages. For frequent updates, a dispatch approach like in RightSidebar would be better.
+  }, [code]); // Re-run effect if code changes (though typically a new component instance is made per message)
+
+  return (
+    <div style={{ marginTop: '5px', marginBottom: '5px' }}>
+      {title && <p style={{ fontSize: '0.9em', color: '#8b949e', marginBottom: '3px' }}>{title}:</p>}
+      <div ref={editorRef}></div>
+    </div>
+  );
+};
+
 
 // --- Mode Components ---
 // SystemAnalysisMode and its sub-components will be created later
@@ -470,16 +522,49 @@ const InteractiveSessionMode = ({ sessionId, setSessionId, activeStrategy, setAc
             <h3>Chat History</h3>
             {chatHistory.map((msg, index) => (
               <div key={index} className={`chat-message ${msg.type} ${msg.isDemo ? 'demo-message' : ''} ${msg.demoLevel ? `demo-log-${msg.demoLevel}` : ''}`}>
-                {msg.type === 'user' && <strong>User: {msg.text}</strong>}
-                {msg.type === 'system' && <em>System: {msg.text}</em>}
+                {msg.type === 'user' && <strong>👤 User: {msg.text}</strong>}
+                {msg.type === 'system' && <em>⚙️ System: {msg.text}</em>}
                 {msg.type === 'mcr' && !msg.isDemo && ( // Regular MCR response
                   <div>
-                    <p><strong>MCR:</strong> {msg.response?.answer || msg.response?.message || JSON.stringify(msg.response)}</p>
+                    <p><strong>🤖 MCR:</strong> {msg.response?.answer || (msg.response?.success === false ? msg.response?.message : null) || 'Received a response.'}</p>
+
+                    {/* Display addedFacts if they exist */}
+                    {msg.response?.addedFacts && Array.isArray(msg.response.addedFacts) && msg.response.addedFacts.length > 0 && (
+                      <PrologCodeViewer code={msg.response.addedFacts.join('\n')} title="Added Facts" />
+                    )}
+
+                    {/* Display prologTrace if it exists in debugInfo */}
+                    {msg.response?.debugInfo?.prologTrace && (
+                      <PrologCodeViewer code={msg.response.debugInfo.prologTrace} title="Prolog Trace" />
+                    )}
+
+                    {/* Display explanation - if it looks like Prolog, use viewer, else plain text */}
+                    {msg.response?.explanation && (
+                      typeof msg.response.explanation === 'string' &&
+                      (msg.response.explanation.includes(":-") || msg.response.explanation.trim().endsWith(".")) &&
+                      msg.response.explanation.length > 10 // Basic heuristic for Prolog-like string
+                    ) ? (
+                      <PrologCodeViewer code={msg.response.explanation} title="Explanation (Prolog)" />
+                    ) : msg.response?.explanation ? (
+                      <div>
+                          <p style={{ fontSize: '0.9em', color: '#8b949e', marginBottom: '3px' }}>Explanation:</p>
+                          <p>{msg.response.explanation}</p>
+                      </div>
+                    ) : null}
+
+                    {/* Fallback for other details, excluding already displayed parts */}
                     {msg.response && (
                       <details>
-                        <summary>Details</summary>
-                        <pre>{JSON.stringify(msg.response, null, 2)}</pre>
+                        <summary>Raw Details</summary>
+                        <pre>{JSON.stringify(
+                          Object.fromEntries(
+                            Object.entries(msg.response).filter(([key]) => !['answer', 'addedFacts', 'explanation', 'debugInfo', 'message', 'success'].includes(key) || (key === 'debugInfo' && !msg.response.debugInfo.prologTrace))
+                          ), null, 2
+                        )}</pre>
                       </details>
+                    )}
+                     {msg.response?.success === false && msg.response?.error && (
+                        <p style={{color: '#ff817a', marginTop: '5px'}}>Error: {msg.response.error} - {msg.response.details || msg.response.message}</p>
                     )}
                   </div>
                 )}
@@ -507,7 +592,133 @@ const InteractiveSessionMode = ({ sessionId, setSessionId, activeStrategy, setAc
             ))}
         </div>
       </div>
-      <RightSidebar knowledgeBase={currentKb} isMcrSessionActive={isMcrSessionActive} />
+      <RightSidebar
+        knowledgeBase={currentKb}
+        isMcrSessionActive={isMcrSessionActive}
+        sessionId={sessionId}
+        fetchCurrentKb={fetchCurrentKb}
+        addMessageToHistory={addMessageToHistory}
+      />
+    </div>
+  );
+};
+
+
+// --- Modal Component ---
+const Modal = ({ isOpen, onClose, title, children }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', zIndex: 1000
+    }}>
+      <div style={{
+        backgroundColor: '#161b22', padding: '20px', borderRadius: '8px',
+        minWidth: '400px', maxWidth: '80vw', maxHeight: '80vh',
+        border: '1px solid #30363d', display: 'flex', flexDirection: 'column'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+          <h3 style={{ margin: 0, color: '#58a6ff' }}>{title}</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#c9d1d9', fontSize: '1.5em', cursor: 'pointer' }}>&times;</button>
+        </div>
+        <div style={{ overflowY: 'auto', flexGrow: 1 }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Direct KB Assertion Component ---
+const DirectAssertionEditor = ({ sessionId, isMcrSessionActive, isWsServiceConnected, addMessageToHistory }) => {
+  const editorRef = useRef(null);
+  const viewRef = useRef(null); // To store the EditorView instance
+  const [prologCode, setPrologCode] = useState(''); // Or manage via CodeMirror state directly
+
+  useEffect(() => {
+    if (editorRef.current && !viewRef.current) {
+      const state = EditorState.create({
+        doc: prologCode,
+        extensions: [
+          basicSetup, // Includes line numbers, history, etc.
+          EditorView.lineWrapping,
+          oneDark,
+          prolog(),
+          EditorView.theme({
+            "&": {
+              minHeight: "100px",
+              maxHeight: "200px",
+              fontSize: "0.9em",
+              border: "1px solid #30363d",
+              borderRadius: "4px",
+            },
+            ".cm-scroller": { overflow: "auto" },
+          }),
+          // Listener to update React state from CodeMirror state (optional if controlled by CM)
+          EditorView.updateListener.of(update => {
+            if (update.docChanged) {
+              setPrologCode(update.state.doc.toString());
+            }
+          })
+        ],
+      });
+      const view = new EditorView({ state, parent: editorRef.current });
+      viewRef.current = view;
+    }
+    // Basic cleanup if component unmounts, though full cleanup is tricky with CM6 + StrictMode
+    return () => {
+        // if (viewRef.current) { viewRef.current.destroy(); viewRef.current = null; }
+    };
+  }, []); // Initialize once
+
+  const handleAssertToKb = async () => {
+    if (!isMcrSessionActive || !sessionId || !isWsServiceConnected) {
+      addMessageToHistory({ type: 'system', text: '⚠️ Cannot assert: No active MCR session or WebSocket connection.' });
+      return;
+    }
+    if (!prologCode.trim()) {
+      addMessageToHistory({ type: 'system', text: '⚠️ Cannot assert: Prolog code is empty.' });
+      return;
+    }
+
+    addMessageToHistory({ type: 'system', text: `✏️ Asserting to KB: \n${prologCode}` });
+    try {
+      const response = await apiService.invokeTool('session.assert_rules', {
+        sessionId: sessionId,
+        rules: prologCode, // Send as a single string
+      });
+      if (response.success) {
+        addMessageToHistory({ type: 'system', text: '✅ Prolog asserted successfully. KB updated.' });
+        // Clear the editor on success
+        if (viewRef.current) {
+          viewRef.current.dispatch({
+            changes: { from: 0, to: viewRef.current.state.doc.length, insert: '' }
+          });
+        }
+        setPrologCode(''); // Also clear React state if using it
+      } else {
+        addMessageToHistory({ type: 'system', text: `❌ Error asserting Prolog: ${response.message || response.error || 'Unknown error'}` });
+      }
+    } catch (error) {
+      addMessageToHistory({ type: 'system', text: `❌ Exception asserting Prolog: ${error.message}` });
+      console.error("Exception asserting Prolog:", error);
+    }
+  };
+
+  return (
+    <div>
+      <h4>✏️ Direct KB Assertion</h4>
+      <p className="text-muted" style={{fontSize: '0.8em', marginBottom: '5px'}}>Enter Prolog facts or rules (e.g., <code>father(john,pete).</code> or <code>parent(X,Y) :- father(X,Y).</code>). Each statement must end with a period.</p>
+      <div ref={editorRef} style={{marginBottom: '10px'}}></div>
+      <button
+        onClick={handleAssertToKb}
+        disabled={!isMcrSessionActive || !isWsServiceConnected || !prologCode.trim()}
+        title="Assert the entered Prolog code to the current session's Knowledge Base"
+      >
+        ⚡ Assert to KB
+      </button>
     </div>
   );
 };
@@ -520,12 +731,24 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
   const [strategies, setStrategies] = useState([]);
   const [tempSessionId, setTempSessionId] = useState(sessionId || '');
 
+  // State for Modals
+  const [isOntologyModalOpen, setIsOntologyModalOpen] = useState(false);
+  const [selectedOntologyContent, setSelectedOntologyContent] = useState({ name: '', rules: '' });
+  const [isStrategyModalOpen, setIsStrategyModalOpen] = useState(false);
+  const [selectedStrategyContent, setSelectedStrategyContent] = useState({ name: '', description: '', definition: null }); // definition could be full JSON if API supports
+
+
   useEffect(() => {
     setTempSessionId(sessionId || '');
-    if (isMcrSessionActive) { // Auto-list demos if MCR session is active
+    if (isMcrSessionActive) {
+      // Fetch lists when session becomes active
+      listOntologies();
+      listStrategies();
       handleListDemos();
     } else {
-      setDemos([]); // Clear demos if not connected to an MCR session
+      setDemos([]);
+      setOntologies([]);
+      setStrategies([]);
     }
   }, [sessionId, isMcrSessionActive]);
 
@@ -584,45 +807,63 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
   };
 
   const listOntologies = async () => {
-    if (!isMcrSessionActive || !isWsServiceConnected) { alert("Connect to a session and ensure WebSocket is active first."); return; }
+    if (!isMcrSessionActive || !isWsServiceConnected) { addMessageToHistory({type: 'system', text: 'Session not active. Cannot list ontologies.'}); return; }
     try {
-      const response = await apiService.invokeTool('ontology.list', { includeRules: false });
+      const response = await apiService.invokeTool('ontology.list', { includeRules: false }); // includeRules: false is fine for listing
       if (response.success) setOntologies(response.data || []);
-      else alert(`Error listing ontologies: ${response.message}`);
-    } catch (error) { alert(`Error: ${error.message || 'Failed to list ontologies'}`); }
+      else addMessageToHistory({type: 'system', text: `Error listing ontologies: ${response.message}`});
+    } catch (error) { addMessageToHistory({type: 'system', text: `Error: ${error.message || 'Failed to list ontologies'}`});}
+  };
+
+  const viewOntology = async (ontologyName) => {
+    if (!isMcrSessionActive || !isWsServiceConnected) { addMessageToHistory({type: 'system', text: 'Session not active. Cannot view ontology.'}); return; }
+    try {
+      // Fetch with rules for viewing
+      const response = await apiService.invokeTool('ontology.get', { name: ontologyName, includeRules: true });
+      if (response.success && response.data) {
+        setSelectedOntologyContent({ name: response.data.name, rules: response.data.rules || "// No rules defined or an error occurred." });
+        setIsOntologyModalOpen(true);
+      } else {
+        addMessageToHistory({type: 'system', text: `Error fetching ontology '${ontologyName}': ${response.message}`});
+      }
+    } catch (error) { addMessageToHistory({type: 'system', text: `Error: ${error.message || `Failed to fetch ontology ${ontologyName}`}`});}
   };
 
   const loadOntologyToSession = async (ontologyName) => {
-    if (!isMcrSessionActive || !sessionId || !isWsServiceConnected) { alert("Connect to a session and ensure WebSocket is active first."); return; }
+    if (!isMcrSessionActive || !sessionId || !isWsServiceConnected) { addMessageToHistory({type: 'system', text: 'Session not active. Cannot load ontology.'}); return; }
     try {
-      const ontResponse = await apiService.invokeTool('ontology.get', { name: ontologyName });
+      const ontResponse = await apiService.invokeTool('ontology.get', { name: ontologyName, includeRules: true });
       if (ontResponse.success && ontResponse.data?.rules) {
-        // This is a placeholder for how one might assert rules.
-        // Requires a new tool `session.assert_rules` or similar.
         const assertInput = {
           sessionId: sessionId,
           rules: ontResponse.data.rules
         };
         const assertResponse = await apiService.invokeTool('session.assert_rules', assertInput);
         if (assertResponse.success) {
-          alert(`Ontology '${ontologyName}' rules asserted successfully. KB should update.`);
-          // KB will be updated via kb_updated message if server logic is correct
+          addMessageToHistory({type: 'system', text: `Ontology '${ontologyName}' rules asserted successfully. KB updated.`});
         } else {
-          alert(`Error asserting ontology '${ontologyName}': ${assertResponse.message || 'Unknown error'}`);
+          addMessageToHistory({type: 'system', text: `Error asserting ontology '${ontologyName}': ${assertResponse.message || 'Unknown error'}`});
         }
       } else {
-        alert(`Error getting ontology rules for '${ontologyName}': ${ontResponse.message}`);
+        addMessageToHistory({type: 'system', text: `Error getting ontology rules for '${ontologyName}': ${ontResponse.message}`});
       }
-    } catch (error) { alert(`Error: ${error.message || 'Failed to load ontology'}`); }
+    } catch (error) { addMessageToHistory({type: 'system', text: `Error: ${error.message || 'Failed to load ontology'}`});}
   };
 
   const listStrategies = async () => {
-    if (!isMcrSessionActive || !isWsServiceConnected) { alert("Connect to a session and ensure WebSocket is active first."); return; }
+    if (!isMcrSessionActive || !isWsServiceConnected) { addMessageToHistory({type: 'system', text: 'Session not active. Cannot list strategies.'}); return; }
     try {
       const response = await apiService.invokeTool('strategy.list');
       if (response.success) setStrategies(response.data || []);
-      else alert(`Error listing strategies: ${response.message}`);
-    } catch (error) { alert(`Error: ${error.message || 'Failed to list strategies'}`); }
+      else addMessageToHistory({type: 'system', text: `Error listing strategies: ${response.message}`});
+    } catch (error) { addMessageToHistory({type: 'system', text: `Error: ${error.message || 'Failed to list strategies'}`});}
+  };
+
+  const viewStrategy = (strategy) => {
+    // For now, just shows name and description.
+    // If API provided full JSON definition via strategy.get, we'd fetch and show that.
+    setSelectedStrategyContent({ name: strategy.name, description: strategy.description, definition: strategy.definition /* if available */ });
+    setIsStrategyModalOpen(true);
   };
 
   const handleSetStrategy = async (strategyId) => {
@@ -640,41 +881,96 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
 
   return (
     <div className="sidebar left-sidebar">
-      <h3>Pane 1: Config & Context</h3>
+      <h3>⚙️ Config & Context</h3>
       <div>
-        <h4>Session Management</h4>
-        <input type="text" value={tempSessionId} onChange={(e) => setTempSessionId(e.target.value)} placeholder="Session ID (optional)" disabled={isMcrSessionActive || !isWsServiceConnected}/>
-        {!isMcrSessionActive ?
-          <button onClick={handleConnect} disabled={!isWsServiceConnected}>Connect/Create</button> :
-          <button onClick={disconnectSession} disabled={!isWsServiceConnected}>Disconnect</button>
-        }
-        {isMcrSessionActive && <p>Session: {sessionId}</p>}
+        <h4>🔌 Session Management</h4>
+        <div style={{display: 'flex', alignItems: 'center', marginBottom: '0.5rem'}}>
+            <input type="text" value={tempSessionId} onChange={(e) => setTempSessionId(e.target.value)} placeholder="Session ID (optional)" disabled={isMcrSessionActive || !isWsServiceConnected} style={{flexGrow: 1, marginRight: '5px'}}/>
+            {!isMcrSessionActive ?
+              <button onClick={handleConnect} disabled={!isWsServiceConnected} title="Connect or Create Session">✅ Connect</button> :
+              <button onClick={disconnectSession} disabled={!isWsServiceConnected} title="Disconnect Session">❌ Disconnect</button>
+            }
+        </div>
+        {isMcrSessionActive && <p className="text-muted">Active Session: {sessionId}</p>}
       </div> <hr />
+
       <div>
-        <h4>Ontologies (Global)</h4>
-        <button onClick={listOntologies} disabled={!isMcrSessionActive || !isWsServiceConnected}>List Ontologies</button>
-        <ul>{ontologies.map(ont => <li key={ont.id || ont.name}>{ont.name} <button onClick={() => loadOntologyToSession(ont.name)} disabled={!isMcrSessionActive || !isWsServiceConnected}>Load</button></li>)}</ul>
+        <h4>📚 Ontologies (Global)</h4>
+        <button onClick={listOntologies} disabled={!isMcrSessionActive || !isWsServiceConnected} title="Refresh Ontology List">🔄 List</button>
+        {ontologies.length === 0 && isMcrSessionActive && <p className="text-muted" style={{marginTop:'5px'}}>No ontologies loaded or found.</p>}
+        <ul>{ontologies.map(ont => (
+          <li key={ont.id || ont.name} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+            <span>{ont.name}</span>
+            <div>
+              <button onClick={() => viewOntology(ont.name)} disabled={!isMcrSessionActive || !isWsServiceConnected} title="View Ontology Rules">👁️ View</button>
+              <button onClick={() => loadOntologyToSession(ont.name)} disabled={!isMcrSessionActive || !isWsServiceConnected} title="Load Ontology into Session" style={{marginLeft:'5px'}}>➕ Load</button>
+            </div>
+          </li>
+        ))}</ul>
       </div> <hr />
+
       <div>
-        <h4>Demos</h4>
-        <button onClick={handleListDemos} disabled={!isMcrSessionActive || !isWsServiceConnected}>List Demos</button>
-        {demos.length === 0 && isMcrSessionActive && <p>No demos found or loaded.</p>}
+        <h4>🚀 Demos</h4>
+        <button onClick={handleListDemos} disabled={!isMcrSessionActive || !isWsServiceConnected} title="Refresh Demo List">🔄 List</button>
+        {demos.length === 0 && isMcrSessionActive && <p className="text-muted" style={{marginTop:'5px'}}>No demos found or loaded.</p>}
         <ul>
           {demos.map(demo => (
             <li key={demo.id}>
-              {demo.name} ({demo.id})
-              <button onClick={() => handleRunDemo(demo.id)} disabled={!isMcrSessionActive || !sessionId || !isWsServiceConnected} style={{marginLeft: '10px'}}>Run</button>
-              <p style={{fontSize: '0.8em', margin: '2px 0 5px 10px'}}>{demo.description}</p>
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                <span>{demo.name} <small>({demo.id})</small></span>
+                <button onClick={() => handleRunDemo(demo.id)} disabled={!isMcrSessionActive || !sessionId || !isWsServiceConnected} title="Run Demo">▶️ Run</button>
+              </div>
+              {demo.description && <small className="text-muted" style={{paddingLeft: '10px'}}>{demo.description}</small>}
             </li>
           ))}
         </ul>
       </div> <hr />
+
       <div>
-        <h4>Strategies</h4>
-        <button onClick={listStrategies} disabled={!isMcrSessionActive || !isWsServiceConnected}>List Strategies</button>
-        <p>Active: {activeStrategy || 'N/A'}</p>
-        <ul>{strategies.map(strat => <li key={strat.id || strat.name}>{strat.name} ({strat.id}) <button onClick={() => handleSetStrategy(strat.id)} disabled={!isMcrSessionActive || !isWsServiceConnected}>Set</button></li>)}</ul>
+        <h4>🛠️ Strategies</h4>
+        <button onClick={listStrategies} disabled={!isMcrSessionActive || !isWsServiceConnected} title="Refresh Strategy List">🔄 List</button>
+        <p className="text-muted" style={{marginTop:'5px'}}>Active: <strong style={{color: '#58a6ff'}}>{activeStrategy || 'N/A'}</strong></p>
+        {strategies.length === 0 && isMcrSessionActive && <p className="text-muted">No strategies loaded or found.</p>}
+        <ul>{strategies.map(strat => (
+          <li key={strat.id || strat.name}
+              className={`strategy-item ${activeStrategy === strat.id ? 'active-strategy' : ''}`}
+              style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+            <span>{strat.name} <small>({strat.id})</small></span>
+            <div>
+              <button onClick={() => viewStrategy(strat)} disabled={!isMcrSessionActive || !isWsServiceConnected} title="View Strategy Details">👁️ View</button>
+              <button onClick={() => handleSetStrategy(strat.id)} disabled={!isMcrSessionActive || !isWsServiceConnected || activeStrategy === strat.id} title="Set as Active Strategy" style={{marginLeft:'5px'}}>
+                {activeStrategy === strat.id ? 'Active' : '✅ Set'}
+              </button>
+            </div>
+          </li>
+        ))}</ul>
       </div>
+
+      <Modal isOpen={isOntologyModalOpen} onClose={() => setIsOntologyModalOpen(false)} title={`Ontology: ${selectedOntologyContent.name}`}>
+        <PrologCodeViewer code={selectedOntologyContent.rules} />
+      </Modal>
+
+      <Modal isOpen={isStrategyModalOpen} onClose={() => setIsStrategyModalOpen(false)} title={`Strategy: ${selectedStrategyContent.name}`}>
+        <p><strong>Description:</strong></p>
+        <p style={{whiteSpace: 'pre-wrap', marginBottom: '15px'}}>{selectedStrategyContent.description || "No description available."}</p>
+        {selectedStrategyContent.definition ? (
+          <>
+            <p><strong>Definition (JSON):</strong></p>
+            <pre style={{maxHeight: '40vh', overflow: 'auto', background: '#0d1117', border: '1px solid #30363d', padding: '10px', borderRadius: '4px'}}>
+              {JSON.stringify(selectedStrategyContent.definition, null, 2)}
+            </pre>
+          </>
+        ) : (
+          <p className="text-muted">Full JSON definition not available for display.</p>
+        )}
+      </Modal>
+      <hr />
+      <DirectAssertionEditor
+        sessionId={sessionId}
+        isMcrSessionActive={isMcrSessionActive}
+        isWsServiceConnected={isWsServiceConnected}
+        addMessageToHistory={addMessageToHistory}
+      />
     </div>
   );
 };
@@ -707,9 +1003,9 @@ const MainInteraction = ({ sessionId, isMcrSessionActive, addMessageToHistory })
         <textarea value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder={isMcrSessionActive ? "Type assertion or query..." : "Connect session"} rows={3} disabled={!isMcrSessionActive}/>
         <div>
           <select value={interactionType} onChange={(e) => setInteractionType(e.target.value)} disabled={!isMcrSessionActive}>
-            <option value="query">Query</option> <option value="assert">Assert</option>
+            <option value="query">❓ Query</option> <option value="assert">✍️ Assert</option>
           </select>
-          <button onClick={handleSubmit} disabled={!isMcrSessionActive || !inputText.trim()}>Send</button>
+          <button onClick={handleSubmit} disabled={!isMcrSessionActive || !inputText.trim()} title="Send Message">▶️ Send</button>
         </div>
       </div>
     </div>
@@ -720,8 +1016,96 @@ const RightSidebar = ({ knowledgeBase, isMcrSessionActive }) => (
   <div className="sidebar right-sidebar">
     <h3>Pane 3: Live State Viewer</h3>
     {isMcrSessionActive ? <pre>{knowledgeBase || 'KB empty/not loaded.'}</pre> : <p>Connect to session.</p>}
-  </div>
-);
+  const editorRef = useRef(null);
+  const viewRef = useRef(null);
+  const [copyStatus, setCopyStatus] = useState(''); // To show 'Copied!' message
+
+  useEffect(() => {
+    if (editorRef.current && !viewRef.current && isMcrSessionActive) {
+      const startState = EditorState.create({
+        doc: knowledgeBase || 'KB empty/not loaded.',
+        extensions: [
+          basicSetup,
+          oneDark,
+          prolog(),
+          EditorState.readOnly.of(true),
+          EditorView.theme({
+            "&": {
+              height: "calc(100% - 40px)", // Adjust based on button container height
+              fontSize: "0.9em",
+            },
+            ".cm-scroller": { overflow: "auto" },
+          })
+        ],
+      });
+      const view = new EditorView({
+        state: startState,
+        parent: editorRef.current,
+      });
+      viewRef.current = view;
+    }
+
+    return () => {
+      if (viewRef.current) {
+        // viewRef.current.destroy(); // This might cause issues with StrictMode if not handled carefully
+        // viewRef.current = null;
+      }
+    };
+  }, [isMcrSessionActive]); // Initialize CodeMirror when session becomes active
+
+  useEffect(() => {
+    if (viewRef.current) {
+      const SCM = viewRef.current;
+      const currentDoc = SCM.state.doc.toString();
+      if (currentDoc !== (knowledgeBase || '')) {
+         SCM.dispatch({
+          changes: { from: 0, to: currentDoc.length, insert: knowledgeBase || '' }
+        });
+      }
+    }
+  }, [knowledgeBase]);
+
+  const handleCopyKb = () => {
+    if (navigator.clipboard && knowledgeBase) {
+      navigator.clipboard.writeText(knowledgeBase)
+        .then(() => {
+          setCopyStatus('Copied!');
+          setTimeout(() => setCopyStatus(''), 2000);
+          addMessageToHistory({ type: 'system', text: 'KB copied to clipboard.' });
+        })
+        .catch(err => {
+          setCopyStatus('Failed to copy.');
+          console.error('Failed to copy KB:', err);
+          addMessageToHistory({ type: 'system', text: `Error copying KB: ${err.message}` });
+        });
+    }
+  };
+
+  const handleRefreshKb = () => {
+    if (sessionId && fetchCurrentKb) {
+      fetchCurrentKb(sessionId);
+      addMessageToHistory({ type: 'system', text: 'Refreshing KB...' });
+    }
+  };
+
+  return (
+    <div className="sidebar right-sidebar" style={{ display: 'flex', flexDirection: 'column', height: '100%'}}>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem'}}>
+        <h3>🧠 Knowledge Base</h3>
+        <div>
+          <button onClick={handleRefreshKb} disabled={!isMcrSessionActive} title="Refresh KB">🔄</button>
+          <button onClick={handleCopyKb} disabled={!isMcrSessionActive || !knowledgeBase} title="Copy KB" style={{marginLeft: '5px'}}>📋</button>
+          {copyStatus && <span style={{marginLeft: '10px', fontSize: '0.8em', fontStyle: 'italic'}}>{copyStatus}</span>}
+        </div>
+      </div>
+      {isMcrSessionActive ? (
+        <div ref={editorRef} style={{ flexGrow: 1, overflow: 'hidden', border: '1px solid #30363d', borderRadius: '4px' }}></div>
+      ) : (
+        <p className="text-muted" style={{textAlign: 'center', marginTop: '20px'}}>Connect to a session to view Knowledge Base.</p>
+      )}
+    </div>
+  );
+};
 
 
 // --- Main App Component ---

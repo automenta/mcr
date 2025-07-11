@@ -10,6 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/theme-one-dark": "^6.1.3",
+    "@codemirror/view": "^6.38.0",
+    "codemirror": "^6.0.2",
+    "codemirror-lang-prolog": "^0.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

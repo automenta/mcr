@@ -1,11 +1,11 @@
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "Menlo", "Consolas", "Liberation Mono", "Courier New", monospace;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color-scheme: dark; /* Enforce dark scheme */
+  color: #c9d1d9; /* Light gray text (GitHub dark theme text) */
+  background-color: #0d1117; /* Dark background (GitHub dark theme bg) */
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -13,56 +13,107 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+body {
+  margin: 0;
+  display: flex; /* Ensure children can take full height */
+  flex-direction: column; /* Stack header and app container */
+  min-height: 100vh;
+  width: 100vw;
+  overflow: hidden; /* Prevent body scrollbars */
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  width: 100%;
+}
+
+
+h1, h2, h3, h4, h5, h6 {
+  color: #58a6ff; /* Brighter color for headers (GitHub dark theme blue) */
+}
+
 a {
   font-weight: 500;
-  color: #646cff;
+  color: #58a6ff;
   text-decoration: inherit;
 }
 a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+  color: #2f81f7;
+  text-decoration: underline;
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
+  border-radius: 6px; /* Slightly less rounded */
+  border: 1px solid #30363d; /* GitHub dark theme border */
+  padding: 0.5em 1em;
+  font-size: 0.9em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: #21262d; /* GitHub dark theme button bg */
+  color: #c9d1d9;
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: border-color 0.2s, background-color 0.2s;
 }
 button:hover {
-  border-color: #646cff;
+  background-color: #30363d; /* Darker on hover */
+  border-color: #8b949e; /* Lighter border on hover (GitHub secondary text) */
 }
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: 2px solid #58a6ff;
+  outline-offset: 2px;
+}
+button:disabled {
+  background-color: #161b22; /* More subdued for disabled (GitHub dark theme darker bg) */
+  color: #484f58; /* Muted text for disabled */
+  border-color: #30363d;
+  cursor: not-allowed;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+input[type="text"],
+input[type="number"],
+textarea,
+select {
+  font-family: inherit;
+  background-color: #0d1117; /* Dark input bg */
+  color: #c9d1d9; /* Light text */
+  border: 1px solid #30363d; /* GitHub border */
+  border-radius: 6px;
+  padding: 0.5em 0.75em;
+  font-size: 0.9em;
 }
+input[type="text"]:focus,
+input[type="number"]:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #58a6ff; /* Blue border on focus */
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.3);
+}
+input::placeholder,
+textarea::placeholder {
+    color: #484f58; /* Muted placeholder text */
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+th, td {
+  border: 1px solid #30363d; /* Dark borders for table cells */
+  padding: 0.6em 0.8em;
+  text-align: left;
+}
+
+th {
+  background-color: #161b22; /* Slightly darker header for tables */
+  color: #8b949e; /* Secondary text color for table headers */
+  font-weight: 600;
+}
+
+/* Remove the light theme override */
+/* @media (prefers-color-scheme: light) { ... } */
