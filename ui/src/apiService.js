@@ -51,6 +51,7 @@ class ApiService {
 
       logger.debug(`[ApiService] Attempting to connect to ${url}...`);
       this.socket = new WebSocket(url);
+      this.socket._isBeingCleanedUpByStrictMode = false; // Initialize flag on the instance
 
       const clearPromise = () => {
         this.connectPromise = null;
@@ -126,10 +127,13 @@ class ApiService {
           reject(new Error(`WebSocket closed before connection was established. Code: ${event.code}`));
         }
 
-        if (!this.explicitlyClosed) {
+        const currentSocketInstance = event.target;
+        if (!this.explicitlyClosed && !currentSocketInstance._isBeingCleanedUpByStrictMode) {
           this._notifyListeners('connection_status', { status: 'reconnecting', reason: event.reason, code: event.code });
           this.handleReconnect();
         } else {
+          // If explicitlyClosed is true OR this specific socket instance was tagged for cleanup,
+          // consider it an explicit disconnect and do not attempt to reconnect.
           this._notifyListeners('connection_status', { status: 'disconnected_explicit', reason: event.reason, code: event.code });
         }
       };
@@ -143,6 +147,7 @@ class ApiService {
     this.explicitlyClosed = true;
 
     if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+      this.socket._isBeingCleanedUpByStrictMode = true; // Tag this instance
       this.socket.close();
     } else {
       logger.debug('[ApiService] disconnect() called, but no socket instance or socket is already closing/closed.');

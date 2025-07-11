@@ -10,8 +10,15 @@ const WebSocketMock = vi.fn(function() {
   this.close = vi.fn(function() { // Mock close to update readyState and call onclose
     this.readyState = WebSocketMock.CLOSED;
     if (typeof this.onclose === 'function') {
-      // Simulate a clean closure event object
-      this.onclose({ wasClean: true, code: 1000, reason: 'Normal closure', type: 'close' });
+      // Simulate a clean closure event object, ensuring 'target' is present
+      const event = {
+        wasClean: true,
+        code: 1000,
+        reason: 'Normal closure',
+        type: 'close',
+        target: this // Add the WebSocket instance as the target
+      };
+      this.onclose(event);
     }
   });
   this.onopen = null;
