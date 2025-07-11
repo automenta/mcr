@@ -106,13 +106,22 @@ const RightSidebar = ({ knowledgeBase, isMcrSessionActive, sessionId, fetchCurre
     const newKbContent = viewRef.current.state.doc.toString();
     addMessageToHistory({ type: 'system', text: `💾 Saving KB to server...` });
     try {
+      // Uses the new session.set_kb tool
       const response = await apiService.invokeTool('session.set_kb', { sessionId, kbContent: newKbContent });
       if (response.success) {
         addMessageToHistory({ type: 'system', text: '✅ KB saved successfully.' });
-        setCurrentKb(newKbContent);
+        // The server should send a kb_updated message.
+        // App.jsx will listen for this and update currentKb, which flows down.
+        // No need to call setCurrentKb(newKbContent) directly here if kb_updated is handled.
+        // However, for immediate feedback and if kb_updated might have a slight delay,
+        // or as a fallback, we can still call it.
+        // For now, relying on kb_updated to be the source of truth.
+        // If kb_updated is not implemented yet in App.jsx, uncommenting the line below would be a temporary fix.
+        // Update: session.set_kb does not send kb_updated, so UI must update itself.
+        setCurrentKb(response.fullKnowledgeBase || newKbContent);
         setIsDirty(false);
       } else {
-        addMessageToHistory({ type: 'system', text: `❌ Error saving KB: ${response.message || 'Unknown error'}` });
+        addMessageToHistory({ type: 'system', text: `❌ Error saving KB: ${response.message || response.error || 'Unknown error'}` });
       }
     } catch (error) {
       addMessageToHistory({ type: 'system', text: `❌ Exception saving KB: ${error.message}` });
@@ -121,44 +130,52 @@ const RightSidebar = ({ knowledgeBase, isMcrSessionActive, sessionId, fetchCurre
   };
 
   const handleRunKbQuery = async () => {
-    if (!kbQuery.trim()) {
-      setKbQueryResult({ success: false, message: 'Query is empty.', results: [] });
-      return;
-    }
-    if (!viewRef.current) {
-      setKbQueryResult({ success: false, message: 'KB editor not ready.', results: [] });
-      return;
-    }
+    // This feature is temporarily disabled as session.query_with_temporary_kb tool doesn't exist on the backend.
+    // To implement this, a backend tool that accepts { sessionId, kbContent, query } is needed.
+    // It would temporarily use kbContent for querying without saving it to the session's main KB.
+    addMessageToHistory({ type: 'system', text: 'ℹ️ "Test Query Against Editor KB" feature is currently disabled. Please save the KB and use the main chat interface to query.' });
+    setKbQueryResult({ success: false, message: 'Feature disabled. Save KB and query via main chat.', results: [] });
+    return;
 
-    const currentKbContent = viewRef.current.state.doc.toString();
-    setIsQueryingKb(true);
-    setKbQueryResult(null);
+    // Original code for when the feature is enabled:
+    // if (!kbQuery.trim()) {
+    //   setKbQueryResult({ success: false, message: 'Query is empty.', results: [] });
+    //   return;
+    // }
+    // if (!viewRef.current) {
+    //   setKbQueryResult({ success: false, message: 'KB editor not ready.', results: [] });
+    //   return;
+    // }
 
-    addMessageToHistory({ type: 'system', text: `🔍 Querying against current KB editor content: ${kbQuery}`});
+    // const currentKbContent = viewRef.current.state.doc.toString();
+    // setIsQueryingKb(true);
+    // setKbQueryResult(null);
 
-    try {
-      const response = await apiService.invokeTool('session.query_with_temporary_kb', {
-        sessionId: sessionId,
-        kbContent: currentKbContent,
-        query: kbQuery
-      });
+    // addMessageToHistory({ type: 'system', text: `🔍 Querying against current KB editor content: ${kbQuery}`});
 
-      if (response.success) {
-        setKbQueryResult({
-            success: true,
-            message: response.message || `Query successful. Solutions: ${response.data?.solutions?.length || 0}`,
-            solutions: response.data?.solutions || [],
-            rawResponse: response.data,
-        });
-      } else {
-        setKbQueryResult({ success: false, message: `Query failed: ${response.message || response.error || 'Unknown error'}`, solutions: [] });
-      }
-    } catch (error) {
-      setKbQueryResult({ success: false, message: `Exception during query: ${error.message}`, solutions: [] });
-      addMessageToHistory({ type: 'system', text: `❌ Exception querying KB: ${error.message}`});
-    } finally {
-      setIsQueryingKb(false);
-    }
+    // try {
+    //   const response = await apiService.invokeTool('session.query_with_temporary_kb', {
+    //     sessionId: sessionId,
+    //     kbContent: currentKbContent,
+    //     query: kbQuery
+    //   });
+
+    //   if (response.success) {
+    //     setKbQueryResult({
+    //         success: true,
+    //         message: response.message || `Query successful. Solutions: ${response.data?.solutions?.length || 0}`,
+    //         solutions: response.data?.solutions || [],
+    //         rawResponse: response.data,
+    //     });
+    //   } else {
+    //     setKbQueryResult({ success: false, message: `Query failed: ${response.message || response.error || 'Unknown error'}`, solutions: [] });
+    //   }
+    // } catch (error) {
+    //   setKbQueryResult({ success: false, message: `Exception during query: ${error.message}`, solutions: [] });
+    //   addMessageToHistory({ type: 'system', text: `❌ Exception querying KB: ${error.message}`});
+    // } finally {
+    //   setIsQueryingKb(false);
+    // }
   };
 
   return (

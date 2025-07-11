@@ -1144,6 +1144,66 @@ module.exports = {
   getAvailableStrategies: strategyManager.getAvailableStrategies,
 
   /**
+   * Sets (replaces) the entire knowledge base for a specific session.
+   * @param {string} sessionId - The ID of the session.
+   * @param {string} kbContent - The new content for the knowledge base.
+   * @returns {Promise<object>} An object indicating success or failure.
+   *                            Structure: `{ success: true, message: string, fullKnowledgeBase: string }`
+   *                            or `{ success: false, message: string, error: string, details?: string }`
+   */
+  setSessionKnowledgeBase: async (sessionId, kbContent) => {
+    const operationId = `setKB-${Date.now()}`;
+    logger.info(`[McrService] Enter setSessionKnowledgeBase for session ${sessionId}. OpID: ${operationId}. KB length: ${kbContent.length}`);
+
+    const sessionExists = await sessionStore.getSession(sessionId);
+    if (!sessionExists) {
+      logger.warn(`[McrService] Session ${sessionId} not found for setKnowledgeBase. OpID: ${operationId}`);
+      return { success: false, message: 'Session not found.', error: ErrorCodes.SESSION_NOT_FOUND };
+    }
+
+    try {
+      // Basic validation of KB content (e.g., ensure it's a string)
+      if (typeof kbContent !== 'string') {
+        logger.error(`[McrService] Invalid kbContent type for setKnowledgeBase. OpID: ${operationId}. Type: ${typeof kbContent}`);
+        return { success: false, message: 'Invalid knowledge base content: must be a string.', error: ErrorCodes.INVALID_KB_CONTENT };
+      }
+
+      // Optional: More sophisticated validation (e.g., Prolog syntax check) could be added here
+      // For now, we trust the input or let the reasoner handle malformed KBs later.
+      // const validationResult = await reasonerService.validateKnowledgeBase(kbContent);
+      // if (!validationResult.isValid) {
+      //   return { success: false, message: 'Invalid KB content.', error: ErrorCodes.INVALID_KB_SYNTAX, details: validationResult.error };
+      // }
+
+      const success = await sessionStore.setKnowledgeBase(sessionId, kbContent);
+      if (success) {
+        const fullKnowledgeBase = await sessionStore.getKnowledgeBase(sessionId); // Should be === kbContent
+        logger.info(`[McrService] Knowledge base for session ${sessionId} successfully replaced. OpID: ${operationId}`);
+        return {
+          success: true,
+          message: 'Knowledge base updated successfully.',
+          fullKnowledgeBase, // Send back the new KB state
+        };
+      } else {
+        // This case might be rare if getSession succeeded, but store might have internal errors
+        logger.error(`[McrService] Failed to set knowledge base in session store for session ${sessionId}. OpID: ${operationId}`);
+        return { success: false, message: 'Failed to update knowledge base in session store.', error: ErrorCodes.SESSION_SET_KB_FAILED };
+      }
+    } catch (error) {
+      logger.error(
+        `[McrService] Error setting knowledge base for session ${sessionId} (OpID: ${operationId}): ${error.message}`,
+        { stack: error.stack, details: error.details, errorCode: error.code }
+      );
+      return {
+        success: false,
+        message: `Error setting knowledge base: ${error.message}`,
+        error: error.code || ErrorCodes.SESSION_SET_KB_FAILED,
+        details: error.message,
+      };
+    }
+  },
+
+  /**
    * Asserts raw Prolog facts/rules directly to a specific session's knowledge base.
    * Optionally validates the Prolog before adding.
    * @param {string} sessionId - The ID of the session.

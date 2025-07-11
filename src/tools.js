@@ -128,6 +128,15 @@ const mcrToolDefinitions = {
       return mcrService.assertRawPrologToSession(input.sessionId, input.rules, input.validate);
     },
   },
+  'session.set_kb': {
+    description: 'Replaces the entire Knowledge Base for a session with the provided content.',
+    handler: async (input) => {
+      if (!input?.sessionId || typeof input?.kbContent !== 'string') { // kbContent can be an empty string
+        return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'sessionId and kbContent (string) are required.' };
+      }
+      return mcrService.setSessionKnowledgeBase(input.sessionId, input.kbContent);
+    },
+  },
 
   // Ontology Management Tools
   'ontology.create': {

@@ -38,8 +38,22 @@ describe('OntologyPanel', () => {
     });
   });
 
-  it('renders the panel title and list button', () => {
-    render(<OntologyPanel {...defaultProps} />);
+  it('renders the panel title and list button, and handles mount effects', async () => {
+    // Ensure listOntologies mock is in place for the mount effect,
+    // providing some data so the component updates.
+    apiService.invokeTool.mockImplementation(async (toolName) => {
+      if (toolName === 'ontology.list') return { success: true, data: [{ id: 'mountEffectOnto', name: 'MountEffectOntoName' }] };
+      return { success: true, data: {} }; // Fallback for other potential calls
+    });
+
+    await act(async () => {
+      render(<OntologyPanel {...defaultProps} />);
+    });
+
+    // Wait for an item that confirms listOntologies on mount has completed and rendered
+    await waitFor(() => expect(screen.getByText('MountEffectOntoName')).toBeInTheDocument());
+
+    // Now assert the static elements
     expect(screen.getByText('📚 Ontologies')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '🔄 List Ontologies' })).toBeInTheDocument();
   });
@@ -49,14 +63,18 @@ describe('OntologyPanel', () => {
     apiService.invokeTool.mockImplementation(async (toolName) =>
       toolName === 'ontology.list' ? { success: true, data: ontologiesData } : { success: true, data: {} }
     );
-    render(<OntologyPanel {...defaultProps} />);
+    await act(async () => {
+      render(<OntologyPanel {...defaultProps} />);
+    });
     await waitFor(() => expect(screen.getByText('FamilyOntology')).toBeInTheDocument());
     expect(apiService.invokeTool).toHaveBeenCalledWith('ontology.list', { includeRules: false });
   });
 
   it('does not list ontologies if session is not active', async () => {
-    render(<OntologyPanel {...defaultProps} isMcrSessionActive={false} />);
-    await act(async () => {}); // Wait for any potential effects
+    await act(async () => {
+      render(<OntologyPanel {...defaultProps} isMcrSessionActive={false} />);
+    });
+    // No need for an additional await act(async () => {}); if render is already in act
     expect(apiService.invokeTool).not.toHaveBeenCalledWith('ontology.list', expect.anything());
     // Check that the message for "active session but no ontologies" is NOT there
     expect(screen.queryByText(/🤷 No ontologies found./i)).not.toBeInTheDocument();
@@ -66,7 +84,9 @@ describe('OntologyPanel', () => {
 
   it('displays "No ontologies found" when list is empty and session active', async () => {
     apiService.invokeTool.mockResolvedValue({ success: true, data: [] }); // Ensure empty list
-    render(<OntologyPanel {...defaultProps} />);
+    await act(async () => {
+      render(<OntologyPanel {...defaultProps} />);
+    });
     await waitFor(() => expect(screen.getByText(/No ontologies found/i)).toBeInTheDocument());
   });
 
@@ -80,7 +100,9 @@ describe('OntologyPanel', () => {
       return { success: true, data: {} };
     });
 
-    render(<OntologyPanel {...defaultProps} />);
+    await act(async () => {
+      render(<OntologyPanel {...defaultProps} />);
+    });
     await waitFor(() => screen.getByText('FamilyOntology'));
 
     const viewButton = screen.getByRole('button', { name: '👁️ View' });
@@ -103,7 +125,9 @@ describe('OntologyPanel', () => {
       return { success: true, data: {} };
     });
 
-    render(<OntologyPanel {...defaultProps} />);
+    await act(async () => {
+      render(<OntologyPanel {...defaultProps} />);
+    });
     await waitFor(() => screen.getByText('FamilyOntology'));
 
     const loadButton = screen.getByRole('button', { name: '➕ Load' });
@@ -119,21 +143,25 @@ describe('OntologyPanel', () => {
   });
 
   it('disables buttons if MCR session is not active', async () => {
-    render(<OntologyPanel {...defaultProps} isMcrSessionActive={false} />);
-    await act(async () => {});
+    await act(async () => {
+      render(<OntologyPanel {...defaultProps} isMcrSessionActive={false} />);
+    });
     expect(screen.getByRole('button', {name: '🔄 List Ontologies'})).toBeDisabled();
     // If ontologies were somehow listed, their buttons should also be disabled
   });
 
   it('disables buttons if WebSocket service is not connected', async () => {
-    render(<OntologyPanel {...defaultProps} isWsServiceConnected={false} />);
-    await act(async () => {});
+    await act(async () => {
+      render(<OntologyPanel {...defaultProps} isWsServiceConnected={false} />);
+    });
     expect(screen.getByRole('button', {name: '🔄 List Ontologies'})).toBeDisabled();
   });
 
   it('handles API error when listing ontologies', async () => {
     apiService.invokeTool.mockResolvedValueOnce({ success: false, message: 'Failed to list' });
-    render(<OntologyPanel {...defaultProps} />);
+    await act(async () => {
+      render(<OntologyPanel {...defaultProps} />);
+    });
     await waitFor(() => expect(mockAddMessageToHistory).toHaveBeenCalledWith(expect.objectContaining({
         text: "❌ Error listing ontologies: Failed to list"
     })));

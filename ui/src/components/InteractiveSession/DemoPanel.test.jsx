@@ -29,8 +29,10 @@ describe('DemoPanel', () => {
     });
   });
 
-  it('renders panel title and list button', () => {
-    render(<DemoPanel {...defaultProps} />);
+  it('renders panel title and list button', async () => {
+    await act(async () => {
+      render(<DemoPanel {...defaultProps} />);
+    });
     expect(screen.getByText('🚀 Demos')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '🔄 List Demos' })).toBeInTheDocument();
   });
@@ -40,7 +42,9 @@ describe('DemoPanel', () => {
     apiService.invokeTool.mockImplementation(async (toolName) =>
       toolName === 'demo.list' ? { success: true, data: demosData } : { success: true, data: {} }
     );
-    render(<DemoPanel {...defaultProps} />);
+    await act(async () => {
+      render(<DemoPanel {...defaultProps} />);
+    });
     await waitFor(() => expect(screen.getByText('First Demo')).toBeInTheDocument());
     expect(screen.getByText('A cool demo.')).toBeInTheDocument();
     expect(apiService.invokeTool).toHaveBeenCalledWith('demo.list');
@@ -48,7 +52,9 @@ describe('DemoPanel', () => {
 
   it('displays "No demos found" when list is empty and session active', async () => {
     apiService.invokeTool.mockResolvedValue({ success: true, data: [] });
-    render(<DemoPanel {...defaultProps} />);
+    await act(async () => {
+      render(<DemoPanel {...defaultProps} />);
+    });
     await waitFor(() => expect(screen.getByText(/No demos found/i)).toBeInTheDocument());
   });
 
@@ -62,7 +68,9 @@ describe('DemoPanel', () => {
       return { success: true, data: {} };
     });
 
-    render(<DemoPanel {...defaultProps} />);
+    await act(async () => {
+      render(<DemoPanel {...defaultProps} />);
+    });
     await waitFor(() => screen.getByText('First Demo'));
 
     const runButton = screen.getByRole('button', { name: '▶️ Run' });
@@ -86,8 +94,9 @@ describe('DemoPanel', () => {
     const demosData = [{ id: 'demo1', name: 'First Demo' }];
     apiService.invokeTool.mockResolvedValueOnce({ success: true, data: demosData }); // For demo.list
 
-    render(<DemoPanel {...defaultProps} isMcrSessionActive={false} sessionId={null} />);
-    await act(async () => {}); // Wait for any potential initial effects
+    await act(async () => {
+      render(<DemoPanel {...defaultProps} isMcrSessionActive={false} sessionId={null} />);
+    });
 
     // Verify demo.list was not called or resulted in no demos shown
     expect(apiService.invokeTool).not.toHaveBeenCalledWith('demo.list');
@@ -97,14 +106,16 @@ describe('DemoPanel', () => {
   });
 
   it('disables buttons if MCR session is not active', async () => {
-    render(<DemoPanel {...defaultProps} isMcrSessionActive={false} />);
-    await act(async () => {});
+    await act(async () => {
+      render(<DemoPanel {...defaultProps} isMcrSessionActive={false} />);
+    });
     expect(screen.getByRole('button', {name: '🔄 List Demos'})).toBeDisabled();
   });
 
   it('disables buttons if WebSocket service is not connected', async () => {
-    render(<DemoPanel {...defaultProps} isWsServiceConnected={false} />);
-    await act(async () => {});
+    await act(async () => {
+      render(<DemoPanel {...defaultProps} isWsServiceConnected={false} />);
+    });
     expect(screen.getByRole('button', {name: '🔄 List Demos'})).toBeDisabled();
   });
 
@@ -118,7 +129,9 @@ describe('DemoPanel', () => {
       return { success: true, data: {} };
     });
 
-    render(<DemoPanel {...defaultProps} />);
+    await act(async () => {
+      render(<DemoPanel {...defaultProps} />);
+    });
 
     await waitFor(() =>
       expect(mockAddMessageToHistory).toHaveBeenCalledWith(

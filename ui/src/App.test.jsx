@@ -1,6 +1,6 @@
 // ui/src/App.test.jsx
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import App from './App';
 import apiService from './apiService';
 
@@ -69,9 +69,16 @@ describe('App.jsx', () => {
         apiService._listeners.get('*').push(cb);
     });
 
+    // Revised mock for apiService.connect
     apiService.connect.mockImplementation(() => {
-      setTimeout(() => act(() => apiService._simulateConnectionStatus({ status: 'connected', url: 'ws://default-test-url' })), 0);
-      return Promise.resolve();
+      return new Promise(resolve => {
+        setTimeout(() => {
+          act(() => { // Still use act for the direct simulation of status update
+            apiService._simulateConnectionStatus({ status: 'connected', url: 'ws://default-test-url' });
+          });
+          resolve(); // Resolve the main connect promise after status update simulation
+        }, 0);
+      });
     });
     apiService.invokeTool.mockImplementation(async (toolName) => {
         if (toolName === 'strategy.getActive') {
@@ -201,11 +208,13 @@ describe('App.jsx', () => {
         await connectSession('existing-session-abc');
       });
       expect(apiService.invokeTool).toHaveBeenCalledWith('session.get', { sessionId: 'existing-session-abc' });
-      const updatedProps = vi.mocked(InteractiveSessionMode).mock.lastCall[0];
-      expect(updatedProps.chatHistory).toEqual(expect.arrayContaining([expect.objectContaining({ text: expect.stringContaining('🔌 Connected to session: existing-session-abc'), type: 'system' })]));
-      expect(updatedProps.sessionId).toBe('existing-session-abc');
-      expect(updatedProps.currentKb).toBe('existing facts.');
-      expect(updatedProps.isMcrSessionActive).toBe(true);
+      await waitFor(() => {
+        const updatedProps = vi.mocked(InteractiveSessionMode).mock.lastCall[0];
+        expect(updatedProps.chatHistory).toEqual(expect.arrayContaining([expect.objectContaining({ text: expect.stringContaining('🔌 Connected to session: existing-session-abc'), type: 'system' })]));
+        expect(updatedProps.sessionId).toBe('existing-session-abc');
+        expect(updatedProps.currentKb).toBe('existing facts.');
+        expect(updatedProps.isMcrSessionActive).toBe(true);
+      });
     });
 
     it('handles error when connecting to a session fails', async () => {
@@ -221,10 +230,12 @@ describe('App.jsx', () => {
         });
         await connectSession('');
       });
-      const updatedProps = vi.mocked(InteractiveSessionMode).mock.lastCall[0];
-      expect(updatedProps.chatHistory).toEqual(expect.arrayContaining([expect.objectContaining({ text: expect.stringContaining(`❌ Error with session: ${errorMessage}`), type: 'system' })]));
-      expect(updatedProps.sessionId).toBeNull();
-      expect(updatedProps.isMcrSessionActive).toBe(false);
+      await waitFor(() => {
+        const updatedProps = vi.mocked(InteractiveSessionMode).mock.lastCall[0];
+        expect(updatedProps.chatHistory).toEqual(expect.arrayContaining([expect.objectContaining({ text: expect.stringContaining(`❌ Error with session: ${errorMessage}`), type: 'system' })]));
+        expect(updatedProps.sessionId).toBeNull();
+        expect(updatedProps.isMcrSessionActive).toBe(false);
+      });
     });
 
     // TODO: This test is skipped due to unresolved issues with React state updates,
@@ -295,23 +306,32 @@ describe('App.jsx', () => {
       await act(async () => {
         apiService._simulateServerMessage({ type: 'kb_updated', payload: kbUpdatePayload });
       });
-      const updatedProps = vi.mocked(InteractiveSessionMode).mock.lastCall[0];
-      expect(updatedProps.currentKb).toBe(kbUpdatePayload.fullKnowledgeBase);
-      expect(updatedProps.chatHistory).toEqual(expect.arrayContaining([
-        expect.objectContaining({ text: expect.stringContaining('🔌 Connected to session: test-session-msg'), type: 'system' }),
-        expect.objectContaining({ text: expect.stringContaining(`⚙️ KB updated remotely. New facts: ${newFacts.join(', ')}`), type: 'system' })
-      ]));
+      await waitFor(() => {
+        const updatedProps = vi.mocked(InteractiveSessionMode).mock.lastCall[0];
+        expect(updatedProps.currentKb).toBe(kbUpdatePayload.fullKnowledgeBase);
+        expect(updatedProps.chatHistory).toEqual(expect.arrayContaining([
+          expect.objectContaining({ text: expect.stringContaining('🔌 Connected to session: test-session-msg'), type: 'system' }),
+          expect.objectContaining({ text: expect.stringContaining(`⚙️ KB updated remotely. New facts: ${newFacts.join(', ')}`), type: 'system' })
+        ]));
+      });
     });
 
     it('does not update KB if "kb_updated" message is for a different session', async () => {
+      // Ensure InteractiveSessionMode has been called and props are available.
+      await vi.waitFor(() => expect(InteractiveSessionMode).toHaveBeenCalled());
       const initialProps = vi.mocked(InteractiveSessionMode).mock.lastCall[0];
       const initialKb = initialProps.currentKb;
+
       const kbUpdatePayload = { sessionId: 'other-session-id', fullKnowledgeBase: 'other.kb.', newFacts: ['other_fact.'] };
       await act(async () => {
         apiService._simulateServerMessage({ type: 'kb_updated', payload: kbUpdatePayload });
       });
-      const updatedProps = vi.mocked(InteractiveSessionMode).mock.lastCall[0];
-      expect(updatedProps.currentKb).toBe(initialKb);
+
+      await waitFor(() => { // Wait for any potential (though not expected here) re-renders
+        const updatedProps = vi.mocked(InteractiveSessionMode).mock.lastCall[0];
+        expect(updatedProps.currentKb).toBe(initialKb);
+      });
+      // Check screen after waiting
       expect(screen.queryByText(/⚙️ KB updated remotely/i)).not.toBeInTheDocument();
     });
 

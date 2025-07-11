@@ -151,6 +151,11 @@ The following tools can be invoked using the `tool_invoke` message type. The `in
     -   Input: `{ "sessionId": "id", "rules": ["rule1.", "rule2."] or "rule1. rule2.", "validate": true_or_false (optional, default true) }`
     -   Success Payload: `{ "success": true, "message": "Rules asserted.", "addedFacts": ["rule1."], "fullKnowledgeBase": "complete_prolog_kb_string" }`
 
+-   **`session.set_kb`**
+    -   Description: Replaces the entire Knowledge Base for a session with the provided content.
+    -   Input: `{ "sessionId": "id", "kbContent": "full_prolog_kb_string" }`
+    -   Success Payload: `{ "success": true, "message": "Knowledge base updated successfully.", "fullKnowledgeBase": "complete_prolog_kb_string" }`
+
 -   **`session.query`**
     -   Description: Queries a session with a natural language question.
     -   Input: `{ "sessionId": "id", "naturalLanguageQuestion": "NL question", "queryOptions": { "dynamicOntology": "optional_prolog_rules_string", "style": "conversational_or_formal", "trace": true_or_false, "debug": true_or_false } }` (all fields in `queryOptions` are optional)

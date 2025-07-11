@@ -71,7 +71,39 @@ class ApiService {
       };
 
       this.socket.onmessage = (event) => {
-        // ... (onmessage logic remains the same)
+        try {
+          const message = JSON.parse(event.data);
+          logger.debug('Received message:', message);
+
+          if (message.type === 'tool_result' && message.messageId) {
+            const pending = this.pendingMessages.get(message.messageId);
+            if (pending) {
+              if (message.payload?.success) {
+                pending.resolve(message.payload);
+              } else {
+                pending.reject(new Error(message.payload?.message || message.payload?.error || 'Tool invocation failed'));
+              }
+              this.pendingMessages.delete(message.messageId);
+            } else {
+              logger.warn('Received tool_result for unknown messageId:', message.messageId);
+            }
+          } else if (message.type === 'kb_updated' || message.type === 'connection_ack' || message.type === 'error') {
+            // For server-pushed messages or generic errors not tied to a specific tool_invoke
+            this._notifyListeners(message.type, message.payload || message); // Pass full message if payload isn't nested
+          } else {
+            // Generic message handling for other types or if type is missing
+            // This also covers the '*' listeners added by addMessageListener
+            this._notifyListeners('*', message);
+            logger.debug('Received generic message:', message);
+          }
+        } catch (error) {
+          logger.error('Error processing received message:', error, event.data);
+          this._notifyListeners('service_error', {
+            message: 'Failed to process message from server.',
+            error: error.message,
+            originalData: event.data
+          });
+        }
       };
 
       this.socket.onerror = (errorEvent) => {

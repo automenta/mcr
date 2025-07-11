@@ -289,6 +289,7 @@ Refer to `src/tools.js` for the definitive list of tools and their expected `inp
     *   `session.delete`: (Input: `{ "sessionId": "id" }`)
     *   `session.assert`: (Input: `{ "sessionId": "id", "naturalLanguageText": "string" }`) -> Asserts NL, returns result including `addedFacts` and `fullKnowledgeBase`.
     *   `session.assert_rules`: (Input: `{ "sessionId": "id", "rules": ["rule1.", "rule2."] or "rule1. rule2.", "validate": true/false }`) -> Asserts raw Prolog, returns result including `addedFacts` and `fullKnowledgeBase`.
+    *   `session.set_kb`: (Input: `{ "sessionId": "id", "kbContent": "full_prolog_kb_string" }`) -> Replaces session KB, returns `fullKnowledgeBase`.
     *   `session.query`: (Input: `{ "sessionId": "id", "naturalLanguageQuestion": "string", "queryOptions": { ... } }`)
     *   `session.explainQuery`: (Input: `{ "sessionId": "id", "naturalLanguageQuestion": "string" }`)
 
@@ -435,6 +436,28 @@ This section covers setting up MCR for development, including running the backen
     node mcr.js
     ```
     The server will log its status. Access the MCR Workbench at `http://localhost:8080` (or your configured port).
+
+## 🧪 Testing
+
+MCR uses Jest for backend tests and Vitest for UI tests.
+
+-   **Run Backend Tests (Jest):**
+    From the project root:
+    ```bash
+    npm test
+    ```
+    This will run all tests located in the `tests/` directory.
+
+-   **Run UI Tests (Vitest):**
+    From the project root:
+    ```bash
+    npm run test:ui
+    ```
+    This will run all UI component and service tests located in the `ui/src/` directory. Watch mode and browser mode are also available:
+    ```bash
+    npm run test:ui-watch # For watch mode
+    npm run test:ui-browser # To run tests in a browser with Vitest UI
+    ```
 
 #### Debugging Configuration
 
