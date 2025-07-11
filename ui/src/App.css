@@ -101,32 +101,36 @@
   border-right: none;
 }
 
+/* This is now the main container for chat history and input area within MainInteraction component */
 .main-interaction-wrapper {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: hidden; /* Important for child flex scrolling */
   background-color: #0d1117; /* Main content area bg */
+  padding: 0.8rem 1rem; /* Padding for the whole chat area */
 }
 
-.main-content { /* Pane 2: Interaction (Chat REPL) */
-  padding: 0.8rem 1rem;
-  /* background-color: #0d1117; /* Already set on wrapper */
+.main-interaction-wrapper h3 { /* Style for "Chat REPL" title */
+  color: #58a6ff;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid #30363d;
+  text-align: center;
 }
 
+/* Styles for the CHAT HISTORY area */
 .chat-history-pane {
-  flex-grow: 1;
-  padding: 0.8rem 1rem;
-  /* background-color: #0d1117; */ /* Slightly different shade for visual separation if desired, or keep same */
-  overflow-y: auto;
-  border-top: 1px solid #30363d; /* Separator */
+  flex-grow: 1; /* Takes up available space */
+  overflow-y: auto; /* Enables scrolling for messages */
+  padding: 0.5rem; /* Padding inside the history pane */
+  margin-bottom: 0.5rem; /* Space before input area */
 }
 
-
-/* Chat REPL specific styles */
+/* Styles for the CHAT INPUT area */
 .chat-input-area {
-  padding-top: 0.8rem;
-  border-top: 1px solid #30363d;
+  /* padding-top: 0.8rem; (padding is now on main-interaction-wrapper or chat-history-pane) */
+  /* border-top: 1px solid #30363d; (border is on main-interaction-wrapper h3 or not needed) */
   display: flex;
   flex-direction: column;
 }

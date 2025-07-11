@@ -10,44 +10,80 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { prolog } from 'codemirror-lang-prolog';
 
 // --- Helper Component for Prolog Code in Chat ---
-const PrologCodeViewer = ({ code, title }) => {
+// Displays read-only Prolog code with syntax highlighting and an optional copy button.
+const PrologCodeViewer = ({ code, title, addMessageToHistory }) => {
   const editorRef = useRef(null);
   const viewRef = useRef(null); // To store the EditorView instance
+  const [copyStatus, setCopyStatus] = useState(''); // Feedback for copy action
 
   useEffect(() => {
+    // Initialize CodeMirror editor instance when the component mounts and editorRef is available.
+    // This effect runs only once for each instance due to !viewRef.current condition.
     if (editorRef.current && !viewRef.current) { // Initialize only once
       const state = EditorState.create({
-        doc: code,
+        doc: code, // Initial document content
         extensions: [
-          // basicSetup, // basicSetup includes line numbers, folding, etc. which might be too much for chat.
           EditorView.lineWrapping,
           oneDark,
           prolog(),
           EditorState.readOnly.of(true),
           EditorView.theme({
             "&": {
-              maxHeight: "200px", // Keep it compact in chat
+              maxHeight: "200px",
               fontSize: "0.85em",
-              border: "1px solid #30363d", // Match app's border style
+              border: "1px solid #30363d",
               borderRadius: "4px",
+              position: "relative", // For positioning copy button
             },
             ".cm-scroller": { overflow: "auto" },
-            // ".cm-gutters": { display: "none" } // Hide gutters if basicSetup is too much
           })
         ],
       });
       const view = new EditorView({ state, parent: editorRef.current });
-      viewRef.current = view; // Store the view instance
+      viewRef.current = view;
     }
-    // No cleanup needed that would destroy and recreate on every code change,
-    // as it's read-only and content changes are infrequent in chat.
-    // If code prop changes, the component will re-render, creating a new instance.
-    // This is acceptable for chat messages. For frequent updates, a dispatch approach like in RightSidebar would be better.
-  }, [code]); // Re-run effect if code changes (though typically a new component instance is made per message)
+  }, [code]); // Reruns if the code prop changes, ensuring new instances get the new code.
+
+  // Handles copying the displayed code to the clipboard.
+  const handleCopyCode = () => {
+    if (navigator.clipboard && code) {
+      navigator.clipboard.writeText(code)
+        .then(() => {
+          setCopyStatus('Copied!');
+          setTimeout(() => setCopyStatus(''), 1500); // Reset status after a short delay
+          // Optionally log to main chat history (currently disabled to reduce noise)
+          if (addMessageToHistory) {
+            // addMessageToHistory({ type: 'system', text: `📋 '${title || 'Prolog code'}' copied to clipboard.`});
+          }
+        })
+        .catch(err => {
+          setCopyStatus('Failed!');
+          setTimeout(() => setCopyStatus(''), 1500);
+          console.error(`Failed to copy ${title || 'Prolog code'}:`, err);
+           if (addMessageToHistory) {
+            // addMessageToHistory({ type: 'system', text: `❌ Error copying '${title || 'Prolog code'}'.`});
+           }
+        });
+    }
+  };
 
   return (
-    <div style={{ marginTop: '5px', marginBottom: '5px' }}>
-      {title && <p style={{ fontSize: '0.9em', color: '#8b949e', marginBottom: '3px' }}>{title}:</p>}
+    <div style={{ marginTop: '5px', marginBottom: '5px', position: 'relative' /* Parent for absolute positioning of copy button */ }}>
+      {/* Container for title and copy button, displayed above the code editor */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+        {title && <p style={{ fontSize: '0.9em', color: '#8b949e' }}>{title}:</p>}
+        <button
+          onClick={handleCopyCode}
+          title={`Copy ${title || 'Prolog code'}`}
+          style={{
+            background: '#21262d', border: '1px solid #30363d', color: '#c9d1d9',
+            padding: '2px 6px', fontSize: '0.75em', borderRadius: '3px', cursor: 'pointer',
+            // position: 'absolute', top: '-2px', right: '0px', // Alternative positioning
+          }}
+        >
+          {copyStatus || '📋 Copy'}
+        </button>
+      </div>
       <div ref={editorRef}></div>
     </div>
   );
@@ -94,9 +130,9 @@ const SystemAnalysisMode = () => {
 
     return (
       <div>
-        <h4>Strategy Leaderboard</h4>
+        <h4>🏆 Strategy Leaderboard</h4>
         <button onClick={fetchLeaderboard} disabled={isLoading}>
-          {isLoading ? 'Loading...' : 'Refresh Leaderboard'}
+          {isLoading ? 'Loading...' : '🔄 Refresh Leaderboard'}
         </button>
         {error && <p style={{ color: 'red' }}>Error: {error}</p>}
         {isLoading && !leaderboardData.length && <p>Loading data...</p>}
@@ -124,7 +160,7 @@ const SystemAnalysisMode = () => {
                   <td>{typeof row.avgLatencyMs === 'number' ? row.avgLatencyMs.toFixed(0) : 'N/A'}</td>
                   <td>{typeof row.avgCost === 'number' ? row.avgCost.toFixed(5) : 'N/A'}</td>
                   <td>
-                    <button onClick={() => onSelectStrategy(row.strategyId)}>View Details</button>
+                    <button onClick={() => onSelectStrategy(row.strategyId)}>👁️ Details</button>
                   </td>
                 </tr>
               ))}
@@ -168,15 +204,15 @@ const SystemAnalysisMode = () => {
 
     return (
       <div>
-        <button onClick={onBack} style={{marginBottom: '15px'}}>&larr; Back to Leaderboard</button>
-        <h3>Strategy Deep Dive: {details.definition?.name || strategyId}</h3>
+        <button onClick={onBack} style={{marginBottom: '15px'}}>⬅️ Back to Leaderboard</button>
+        <h3>🎯 Strategy Deep Dive: {details.definition?.name || strategyId}</h3>
         <p><strong>ID:</strong> {details.strategyId}</p>
         <p><strong>Hash:</strong> {details.hash}</p>
 
-        <h4>Summary Statistics</h4>
+        <h4>📊 Summary Statistics</h4>
         <pre>{JSON.stringify(details.summary, null, 2)}</pre>
 
-        <h4>Definition</h4>
+        <h4>📜 Definition</h4>
         <details>
           <summary>View Strategy JSON Definition</summary>
           <pre style={{maxHeight: '300px', overflow:'auto', border:'1px solid #ccc', padding:'10px', background:'#f9f9f9'}}>
@@ -184,7 +220,7 @@ const SystemAnalysisMode = () => {
           </pre>
         </details>
 
-        <h4>Performance Runs ({details.runs?.length || 0})</h4>
+        <h4>📈 Performance Runs ({details.runs?.length || 0})</h4>
         {details.runs && details.runs.length > 0 ? (
           <div style={{maxHeight: '500px', overflowY: 'auto'}}>
             <table>
@@ -268,14 +304,14 @@ const SystemAnalysisMode = () => {
 
     return (
       <div>
-        <h4>Curriculum Explorer</h4>
+        <h4>🎓 Curriculum Explorer</h4>
         {isLoadingList && <p>Loading curricula list...</p>}
         {error && <p style={{ color: 'red' }}>Error: {error}</p>}
 
         <div style={{ display: 'flex', maxHeight: '80vh' }}>
           <div style={{ width: '30%', borderRight: '1px solid #ccc', paddingRight: '10px', overflowY: 'auto' }}>
-            <h5>Available Curricula Files</h5>
-            <button onClick={fetchCurriculaList} disabled={isLoadingList}>Refresh List</button>
+            <h5>📚 Available Curricula</h5>
+            <button onClick={fetchCurriculaList} disabled={isLoadingList}>🔄 Refresh List</button>
             {curriculaList.length > 0 ? (
               <ul>
                 {curriculaList.map(cur => (
@@ -296,7 +332,7 @@ const SystemAnalysisMode = () => {
             {isLoadingDetails && <p>Loading curriculum details...</p>}
             {selectedCurriculum ? (
               <div>
-                <h5>Cases from: {selectedCurriculum.name}</h5>
+                <h5>🧪 Cases from: {selectedCurriculum.name}</h5>
                 {selectedCurriculum.cases && selectedCurriculum.cases.length > 0 ? (
                   <table>
                     <thead>
@@ -436,29 +472,29 @@ const SystemAnalysisMode = () => {
 
     return (
       <div>
-        <h4>Evolver Control Panel</h4>
+        <h4>🧬 Evolver Control Panel</h4>
         {error && <p style={{ color: 'red' }}>Error: {error}</p>}
 
         <div>
-          <h5>Status: {isLoadingStatus ? 'Loading...' : `${status.status} (PID: ${status.pid || 'N/A'})`}</h5>
+          <h5>ℹ️ Status: {isLoadingStatus ? 'Loading...' : `${status.status} (PID: ${status.pid || 'N/A'})`}</h5>
           <p>{status.message}</p>
-          <button onClick={fetchStatus} disabled={isLoadingStatus}>Refresh Status</button>
+          <button onClick={fetchStatus} disabled={isLoadingStatus}>🔄 Refresh Status</button>
         </div>
         <hr />
         <div>
-          <h5>Controls</h5>
+          <h5>⚙️ Controls</h5>
           <label>Iterations: <input type="number" value={iterations} onChange={e => setIterations(e.target.value)} min="1" disabled={isOptimizerRunning} /></label><br/>
           <label><input type="checkbox" checked={runBootstrap} onChange={e => setRunBootstrap(e.target.checked)} disabled={isOptimizerRunning || bootstrapOnly} /> Run Bootstrap Before Iterations</label><br/>
           <label><input type="checkbox" checked={bootstrapOnly} onChange={e => { setBootstrapOnly(e.target.checked); if(e.target.checked) setRunBootstrap(true); }} disabled={isOptimizerRunning} /> Bootstrap Only (implies Run Bootstrap)</label><br/>
           <label>Eval Cases Path: <input type="text" value={evalCasesPath} onChange={e => setEvalCasesPath(e.target.value)} disabled={isOptimizerRunning} /></label><br/>
 
-          <button onClick={handleStartOptimizer} disabled={isOptimizerRunning || isLoadingStatus}>Start Optimizer</button>
-          <button onClick={handleStopOptimizer} disabled={!isOptimizerRunning || isLoadingStatus}>Stop Optimizer</button>
+          <button onClick={handleStartOptimizer} disabled={isOptimizerRunning || isLoadingStatus}>▶️ Start Optimizer</button>
+          <button onClick={handleStopOptimizer} disabled={!isOptimizerRunning || isLoadingStatus}>⏹️ Stop Optimizer</button>
         </div>
         <hr />
         <div>
-          <h5>Optimizer Logs</h5>
-          <button onClick={fetchLogs} disabled={isLoadingLogs}>Refresh Logs</button>
+          <h5>📜 Optimizer Logs</h5>
+          <button onClick={fetchLogs} disabled={isLoadingLogs}>🔄 Refresh Logs</button>
           <pre style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #ccc', padding: '10px', background: '#f0f0f0' }}>
             {logs.length > 0 ? logs.map(log => `[${new Date(log.timestamp).toLocaleTimeString()}] [${log.type}] ${log.message}`).join('\n') : 'No logs available or fetched yet.'}
           </pre>
@@ -512,92 +548,19 @@ const InteractiveSessionMode = ({ sessionId, setSessionId, activeStrategy, setAc
         isWsServiceConnected={isWsServiceConnected} // Pass down
         addMessageToHistory={addMessageToHistory} // Pass down for demos
       />
-      <div className="main-interaction-wrapper">
-        <MainInteraction
-            sessionId={sessionId}
-            isMcrSessionActive={isMcrSessionActive}
-            addMessageToHistory={addMessageToHistory}
-        />
-        <div className="chat-history-pane">
-            <h3>Chat History</h3>
-            {chatHistory.map((msg, index) => (
-              <div key={index} className={`chat-message ${msg.type} ${msg.isDemo ? 'demo-message' : ''} ${msg.demoLevel ? `demo-log-${msg.demoLevel}` : ''}`}>
-                {msg.type === 'user' && <strong>👤 User: {msg.text}</strong>}
-                {msg.type === 'system' && <em>⚙️ System: {msg.text}</em>}
-                {msg.type === 'mcr' && !msg.isDemo && ( // Regular MCR response
-                  <div>
-                    <p><strong>🤖 MCR:</strong> {msg.response?.answer || (msg.response?.success === false ? msg.response?.message : null) || 'Received a response.'}</p>
-
-                    {/* Display addedFacts if they exist */}
-                    {msg.response?.addedFacts && Array.isArray(msg.response.addedFacts) && msg.response.addedFacts.length > 0 && (
-                      <PrologCodeViewer code={msg.response.addedFacts.join('\n')} title="Added Facts" />
-                    )}
-
-                    {/* Display prologTrace if it exists in debugInfo */}
-                    {msg.response?.debugInfo?.prologTrace && (
-                      <PrologCodeViewer code={msg.response.debugInfo.prologTrace} title="Prolog Trace" />
-                    )}
-
-                    {/* Display explanation - if it looks like Prolog, use viewer, else plain text */}
-                    {msg.response?.explanation && (
-                      typeof msg.response.explanation === 'string' &&
-                      (msg.response.explanation.includes(":-") || msg.response.explanation.trim().endsWith(".")) &&
-                      msg.response.explanation.length > 10 // Basic heuristic for Prolog-like string
-                    ) ? (
-                      <PrologCodeViewer code={msg.response.explanation} title="Explanation (Prolog)" />
-                    ) : msg.response?.explanation ? (
-                      <div>
-                          <p style={{ fontSize: '0.9em', color: '#8b949e', marginBottom: '3px' }}>Explanation:</p>
-                          <p>{msg.response.explanation}</p>
-                      </div>
-                    ) : null}
-
-                    {/* Fallback for other details, excluding already displayed parts */}
-                    {msg.response && (
-                      <details>
-                        <summary>Raw Details</summary>
-                        <pre>{JSON.stringify(
-                          Object.fromEntries(
-                            Object.entries(msg.response).filter(([key]) => !['answer', 'addedFacts', 'explanation', 'debugInfo', 'message', 'success'].includes(key) || (key === 'debugInfo' && !msg.response.debugInfo.prologTrace))
-                          ), null, 2
-                        )}</pre>
-                      </details>
-                    )}
-                     {msg.response?.success === false && msg.response?.error && (
-                        <p style={{color: '#ff817a', marginTop: '5px'}}>Error: {msg.response.error} - {msg.response.details || msg.response.message}</p>
-                    )}
-                  </div>
-                )}
-                {msg.isDemo && msg.type === 'mcr' && ( // Demo messages from MCR tool
-                  <div>
-                    <p><strong>Demo ({msg.demoPayload?.demoId || 'Run'}):</strong></p>
-                    {msg.demoPayload?.messages?.map((demoMsg, demoIdx) => (
-                      <div key={demoIdx} className={`demo-log-item demo-log-${demoMsg.level || 'info'}`}>
-                        <em>{demoMsg.level || 'log'}:</em> {demoMsg.message}
-                        {demoMsg.details && <pre style={{ fontSize: '0.8em', marginLeft: '10px' }}>{JSON.stringify(demoMsg.details, null, 2)}</pre>}
-                      </div>
-                    ))}
-                    {msg.response && msg.response.success === false && ( // If the demo tool itself failed
-                       <p style={{color: 'red'}}><strong>Demo Tool Error:</strong> {msg.response.message}</p>
-                    )}
-                  </div>
-                )}
-                 {msg.isDemo && msg.type === 'demo_log' && ( // Individual demo log line
-                  <div className={`demo-log-item demo-log-${msg.level || 'info'}`}>
-                    <em>Demo ({msg.level || 'log'}):</em> {msg.text}
-                    {msg.details && <pre style={{ fontSize: '0.8em', marginLeft: '10px' }}>{JSON.stringify(msg.details, null, 2)}</pre>}
-                  </div>
-                )}
-              </div>
-            ))}
-        </div>
-      </div>
+      <MainInteraction
+          sessionId={sessionId}
+          isMcrSessionActive={isMcrSessionActive}
+          addMessageToHistory={addMessageToHistory}
+          chatHistory={chatHistory} // Pass chatHistory to MainInteraction
+      />
       <RightSidebar
         knowledgeBase={currentKb}
         isMcrSessionActive={isMcrSessionActive}
         sessionId={sessionId}
         fetchCurrentKb={fetchCurrentKb}
         addMessageToHistory={addMessageToHistory}
+        setCurrentKb={setCurrentKb} // Pass down setCurrentKb
       />
     </div>
   );
@@ -632,12 +595,16 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 };
 
 // --- Direct KB Assertion Component ---
+// Component for directly asserting Prolog facts/rules to the Knowledge Base.
+// Found in the LeftSidebar.
 const DirectAssertionEditor = ({ sessionId, isMcrSessionActive, isWsServiceConnected, addMessageToHistory }) => {
   const editorRef = useRef(null);
-  const viewRef = useRef(null); // To store the EditorView instance
-  const [prologCode, setPrologCode] = useState(''); // Or manage via CodeMirror state directly
+  const viewRef = useRef(null); // Stores the CodeMirror EditorView instance
+  const [prologCode, setPrologCode] = useState(''); // Current Prolog code in the editor
+  const [assertionStatus, setAssertionStatus] = useState({ message: '', type: '' }); // For local feedback (e.g., success/error message)
 
   useEffect(() => {
+    // Initialize CodeMirror editor for Prolog input.
     if (editorRef.current && !viewRef.current) {
       const state = EditorState.create({
         doc: prologCode,
@@ -671,38 +638,59 @@ const DirectAssertionEditor = ({ sessionId, isMcrSessionActive, isWsServiceConne
     return () => {
         // if (viewRef.current) { viewRef.current.destroy(); viewRef.current = null; }
     };
-  }, []); // Initialize once
+  }, []); // Initialize CodeMirror once when the component mounts.
 
+  // Handles the submission of Prolog code to be asserted to the knowledge base.
   const handleAssertToKb = async () => {
+    setAssertionStatus({ message: '', type: '' }); // Clear previous status before new assertion.
+
+    // Basic validation checks.
     if (!isMcrSessionActive || !sessionId || !isWsServiceConnected) {
-      addMessageToHistory({ type: 'system', text: '⚠️ Cannot assert: No active MCR session or WebSocket connection.' });
+      const errorMsg = '⚠️ Cannot assert: No active MCR session or WebSocket connection.';
+      addMessageToHistory({ type: 'system', text: errorMsg }); // Log to main chat.
+      setAssertionStatus({ message: errorMsg, type: 'error' }); // Show local feedback.
       return;
     }
     if (!prologCode.trim()) {
-      addMessageToHistory({ type: 'system', text: '⚠️ Cannot assert: Prolog code is empty.' });
+      const errorMsg = '⚠️ Cannot assert: Prolog code is empty.';
+      addMessageToHistory({ type: 'system', text: errorMsg });
+      setAssertionStatus({ message: errorMsg, type: 'error' });
       return;
     }
 
-    addMessageToHistory({ type: 'system', text: `✏️ Asserting to KB: \n${prologCode}` });
+    const systemMessage = `✏️ Asserting to KB via Direct Editor: \n${prologCode}`;
+    addMessageToHistory({ type: 'system', text: systemMessage }); // Inform user via main chat.
+    setAssertionStatus({ message: 'Asserting...', type: 'info' }); // Local feedback: in progress.
+
     try {
+      // Invoke backend tool to assert rules.
       const response = await apiService.invokeTool('session.assert_rules', {
         sessionId: sessionId,
-        rules: prologCode, // Send as a single string
+        rules: prologCode, // Send content as a single string of rules.
       });
+
       if (response.success) {
-        addMessageToHistory({ type: 'system', text: '✅ Prolog asserted successfully. KB updated.' });
-        // Clear the editor on success
+        const successMsg = '✅ Prolog asserted successfully. KB updated.';
+        addMessageToHistory({ type: 'system', text: successMsg });
+        setAssertionStatus({ message: successMsg, type: 'success' });
+        // Clear the editor content on successful assertion.
         if (viewRef.current) {
           viewRef.current.dispatch({
             changes: { from: 0, to: viewRef.current.state.doc.length, insert: '' }
           });
         }
-        setPrologCode(''); // Also clear React state if using it
+        setPrologCode(''); // Also clear the React state backing the editor.
       } else {
-        addMessageToHistory({ type: 'system', text: `❌ Error asserting Prolog: ${response.message || response.error || 'Unknown error'}` });
+        // Handle assertion failure reported by the backend.
+        const errorMsg = `❌ Error asserting Prolog: ${response.message || response.error || 'Unknown error'}`;
+        addMessageToHistory({ type: 'system', text: errorMsg });
+        setAssertionStatus({ message: errorMsg, type: 'error' });
       }
     } catch (error) {
-      addMessageToHistory({ type: 'system', text: `❌ Exception asserting Prolog: ${error.message}` });
+      // Handle exceptions during the API call.
+      const errorMsg = `❌ Exception asserting Prolog: ${error.message}`;
+      addMessageToHistory({ type: 'system', text: errorMsg });
+      setAssertionStatus({ message: errorMsg, type: 'error' });
       console.error("Exception asserting Prolog:", error);
     }
   };
@@ -710,8 +698,8 @@ const DirectAssertionEditor = ({ sessionId, isMcrSessionActive, isWsServiceConne
   return (
     <div>
       <h4>✏️ Direct KB Assertion</h4>
-      <p className="text-muted" style={{fontSize: '0.8em', marginBottom: '5px'}}>Enter Prolog facts or rules (e.g., <code>father(john,pete).</code> or <code>parent(X,Y) :- father(X,Y).</code>). Each statement must end with a period.</p>
-      <div ref={editorRef} style={{marginBottom: '10px'}}></div>
+      <p className="text-muted" style={{fontSize: '0.8em', marginBottom: '5px'}}>Enter Prolog facts or rules (e.g., <code>father(john,pete).</code>). Each statement must end with a period.</p>
+      <div ref={editorRef} style={{marginBottom: '10px'}}></div> {/* CodeMirror editor container */}
       <button
         onClick={handleAssertToKb}
         disabled={!isMcrSessionActive || !isWsServiceConnected || !prologCode.trim()}
@@ -719,6 +707,23 @@ const DirectAssertionEditor = ({ sessionId, isMcrSessionActive, isWsServiceConne
       >
         ⚡ Assert to KB
       </button>
+      {/* Display local status message for the assertion operation */}
+      {assertionStatus.message && (
+        <p style={{
+          fontSize: '0.8em',
+          marginTop: '5px',
+          padding: '5px',
+          borderRadius: '3px',
+          backgroundColor: assertionStatus.type === 'error' ? 'rgba(248, 81, 73, 0.2)' :
+                             assertionStatus.type === 'success' ? 'rgba(63, 185, 80, 0.2)' :
+                             'rgba(88, 166, 255, 0.1)',
+          color: assertionStatus.type === 'error' ? '#ff817a' :
+                 assertionStatus.type === 'success' ? '#3fb950' :
+                 '#58a6ff'
+        }}>
+          {assertionStatus.message}
+        </p>
+      )}
     </div>
   );
 };
@@ -728,7 +733,7 @@ const DirectAssertionEditor = ({ sessionId, isMcrSessionActive, isWsServiceConne
 const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSession, disconnectSession, isMcrSessionActive, isWsServiceConnected, addMessageToHistory }) => {
   const [ontologies, setOntologies] = useState([]);
   const [demos, setDemos] = useState([]);
-  const [strategies, setStrategies] = useState([]);
+  const [strategies, setStrategies] = useState([]); // Add emojis to titles in return()
   const [tempSessionId, setTempSessionId] = useState(sessionId || '');
 
   // State for Modals
@@ -895,7 +900,7 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
       </div> <hr />
 
       <div>
-        <h4>📚 Ontologies (Global)</h4>
+        <h4>📚 Ontologies</h4>
         <button onClick={listOntologies} disabled={!isMcrSessionActive || !isWsServiceConnected} title="Refresh Ontology List">🔄 List</button>
         {ontologies.length === 0 && isMcrSessionActive && <p className="text-muted" style={{marginTop:'5px'}}>No ontologies loaded or found.</p>}
         <ul>{ontologies.map(ont => (
@@ -947,7 +952,7 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
       </div>
 
       <Modal isOpen={isOntologyModalOpen} onClose={() => setIsOntologyModalOpen(false)} title={`Ontology: ${selectedOntologyContent.name}`}>
-        <PrologCodeViewer code={selectedOntologyContent.rules} />
+        <PrologCodeViewer code={selectedOntologyContent.rules} title={selectedOntologyContent.name} addMessageToHistory={addMessageToHistory} />
       </Modal>
 
       <Modal isOpen={isStrategyModalOpen} onClose={() => setIsStrategyModalOpen(false)} title={`Strategy: ${selectedStrategyContent.name}`}>
@@ -975,13 +980,22 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
   );
 };
 
-const MainInteraction = ({ sessionId, isMcrSessionActive, addMessageToHistory }) => {
-  const [inputText, setInputText] = useState('');
-  const [interactionType, setInteractionType] = useState('query');
+const MainInteraction = ({ sessionId, isMcrSessionActive, addMessageToHistory, chatHistory }) => {
+  const [inputText, setInputText] = useState(''); // State for the text in the input textarea
+  const [interactionType, setInteractionType] = useState('query'); // State for 'query' or 'assert' selection
+  const chatHistoryRef = useRef(null); // Ref for the chat history container to enable auto-scrolling
 
+  useEffect(() => {
+    // Auto-scroll to the bottom of the chat history pane when new messages are added.
+    if (chatHistoryRef.current) {
+      chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
+    }
+  }, [chatHistory]); // Dependency: runs when chatHistory array changes.
+
+  // Handles submission of user input (natural language query or assertion).
   const handleSubmit = async () => {
-    if (!inputText.trim() || !isMcrSessionActive) return; // Also relies on MCR session
-    const toolName = interactionType === 'assert' ? 'session.assert' : 'session.query';
+    if (!inputText.trim() || !isMcrSessionActive) return; // Basic validation.
+    const toolName = interactionType === 'assert' ? 'session.assert' : 'session.query'; // Determine backend tool based on selected interaction type.
     const inputPayload = interactionType === 'assert'
       ? { sessionId, naturalLanguageText: inputText }
       : { sessionId, naturalLanguageQuestion: inputText, queryOptions: { trace: true, debug: true } };
@@ -996,110 +1010,290 @@ const MainInteraction = ({ sessionId, isMcrSessionActive, addMessageToHistory })
   };
 
   return (
-    <div className="main-content">
-      <h3>Pane 2: Interaction (Chat REPL)</h3>
-      {/* Chat history is now rendered in App by InteractiveSessionMode */}
+    <div className="main-interaction-wrapper"> {/* Renamed from main-content for clarity, or use main-content and ensure it's flex-column */}
+      <h3>💬 Chat REPL</h3>
+      <div className="chat-history-pane" ref={chatHistoryRef}>
+        {chatHistory.map((msg, index) => (
+          <div key={index} className={`chat-message ${msg.type} ${msg.isDemo ? 'demo-message' : ''} ${msg.demoLevel ? `demo-log-${msg.demoLevel}` : ''}`}>
+            {msg.type === 'user' && <strong>👤 User: {msg.text}</strong>}
+            {msg.type === 'system' && <em>⚙️ System: {msg.text}</em>}
+
+            {/* Render regular MCR (non-demo) responses */}
+            {msg.type === 'mcr' && !msg.isDemo && (
+              // Check if the response indicates success or failure
+              msg.response?.success !== false ? (
+                // Block for successful MCR responses
+                <div>
+                  <p><strong>🤖 MCR:</strong> {msg.response?.answer || 'Received a response.'}</p>
+                  {/* Display added facts if present */}
+                  {msg.response?.addedFacts && Array.isArray(msg.response.addedFacts) && msg.response.addedFacts.length > 0 && (
+                    <PrologCodeViewer code={msg.response.addedFacts.join('\n')} title="Added Facts" addMessageToHistory={addMessageToHistory}/>
+                  )}
+                  {/* Display Prolog trace from debugInfo if present */}
+                  {msg.response?.debugInfo?.prologTrace && (
+                    <PrologCodeViewer code={msg.response.debugInfo.prologTrace} title="Prolog Trace" addMessageToHistory={addMessageToHistory}/>
+                  )}
+                  {/* Display explanation, attempting to render as Prolog if it looks like it */}
+                  {msg.response?.explanation && (
+                    typeof msg.response.explanation === 'string' &&
+                    (msg.response.explanation.includes(":-") || msg.response.explanation.trim().endsWith(".")) &&
+                    msg.response.explanation.length > 10 // Heuristic for Prolog-like string
+                  ) ? (
+                    <PrologCodeViewer code={msg.response.explanation} title="Explanation (Prolog)" addMessageToHistory={addMessageToHistory}/>
+                  ) : msg.response?.explanation ? (
+                    <div>
+                        <p style={{ fontSize: '0.9em', color: '#8b949e', marginBottom: '3px' }}>Explanation:</p>
+                        <p>{msg.response.explanation}</p>
+                    </div>
+                  ) : null}
+                  {/* Collapsible section for all other raw details in the response */}
+                  {msg.response && (
+                    <details>
+                      <summary>Raw Details</summary>
+                      <pre>{JSON.stringify(
+                        Object.fromEntries(
+                          Object.entries(msg.response).filter(([key]) => !['answer', 'addedFacts', 'explanation', 'debugInfo', 'message', 'success'].includes(key) || (key === 'debugInfo' && !msg.response.debugInfo.prologTrace))
+                        ), null, 2
+                      )}</pre>
+                    </details>
+                  )}
+                </div>
+              ) : (
+                // Block for MCR responses that indicate an error (success === false)
+                <div>
+                  <p><strong>⚠️ MCR Error:</strong> <span style={{color: '#ff817a'}}>{msg.response.message || msg.response.error || 'An unspecified error occurred.'}</span></p>
+                  {/* Collapsible section for additional error details */}
+                  {(msg.response.details || (msg.response.error && msg.response.message)) && (
+                    <details style={{marginTop: '5px'}}>
+                      <summary style={{color: '#ff817a', fontSize:'0.9em'}}>Error Details</summary>
+                      <pre style={{borderColor: '#ff817a'}}>
+                        {JSON.stringify(Object.fromEntries(
+                          Object.entries(msg.response).filter(([key]) => !['success', 'message', 'error'].includes(key) || (key === 'error' && msg.response.message) )
+                        ), null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              )
+            )}
+
+            {/* Render messages from demo runs (which are also of type 'mcr' but have isDemo: true) */}
+            {msg.isDemo && msg.type === 'mcr' && (
+              <div>
+                <p><strong>🚀 Demo ({msg.demoPayload?.demoId || 'Run'}):</strong></p>
+                {msg.demoPayload?.messages?.map((demoMsg, demoIdx) => (
+                  <div key={demoIdx} className={`demo-log-item demo-log-${demoMsg.level || 'info'}`}>
+                    <em>{demoMsg.level || 'log'}:</em> {demoMsg.message}
+                    {demoMsg.details && <pre style={{ fontSize: '0.8em', marginLeft: '10px' }}>{JSON.stringify(demoMsg.details, null, 2)}</pre>}
+                  </div>
+                ))}
+                {msg.response && msg.response.success === false && ( // If the demo tool itself failed
+                   <p style={{color: 'red'}}><strong>Demo Tool Error:</strong> {msg.response.message}</p>
+                )}
+              </div>
+            )}
+             {msg.isDemo && msg.type === 'demo_log' && ( // Individual demo log line
+              <div className={`demo-log-item demo-log-${msg.level || 'info'}`}>
+                <em>🚀 Demo ({msg.level || 'log'}):</em> {msg.text}
+                {msg.details && <pre style={{ fontSize: '0.8em', marginLeft: '10px' }}>{JSON.stringify(msg.details, null, 2)}</pre>}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
       <div className="chat-input-area">
-        <textarea value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder={isMcrSessionActive ? "Type assertion or query..." : "Connect session"} rows={3} disabled={!isMcrSessionActive}/>
+        <textarea value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder={isMcrSessionActive ? "Type assertion or query... (Shift+Enter for new line)" : "Connect session"} rows={3} disabled={!isMcrSessionActive}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSubmit();
+            }
+          }}
+        />
         <div>
           <select value={interactionType} onChange={(e) => setInteractionType(e.target.value)} disabled={!isMcrSessionActive}>
             <option value="query">❓ Query</option> <option value="assert">✍️ Assert</option>
           </select>
-          <button onClick={handleSubmit} disabled={!isMcrSessionActive || !inputText.trim()} title="Send Message">▶️ Send</button>
+          <button onClick={handleSubmit} disabled={!isMcrSessionActive || !inputText.trim()} title="Send Message (Enter)">▶️ Send</button>
         </div>
       </div>
     </div>
   );
 };
 
-const RightSidebar = ({ knowledgeBase, isMcrSessionActive }) => (
-  <div className="sidebar right-sidebar">
-    <h3>Pane 3: Live State Viewer</h3>
-    {isMcrSessionActive ? <pre>{knowledgeBase || 'KB empty/not loaded.'}</pre> : <p>Connect to session.</p>}
-  const editorRef = useRef(null);
-  const viewRef = useRef(null);
-  const [copyStatus, setCopyStatus] = useState(''); // To show 'Copied!' message
+// Component for the right sidebar, primarily displaying the Knowledge Base.
+// Features an editable CodeMirror instance for the KB, with save, refresh, and copy capabilities.
+const RightSidebar = ({ knowledgeBase, isMcrSessionActive, sessionId, fetchCurrentKb, addMessageToHistory, setCurrentKb }) => {
+  const editorRef = useRef(null); // Ref for the CodeMirror editor's parent div
+  const viewRef = useRef(null); // Ref to store the CodeMirror EditorView instance
+  const [copyStatus, setCopyStatus] = useState(''); // Status message for copy action (e.g., "Copied!")
+  const [isDirty, setIsDirty] = useState(false); // Tracks if the editor content has changed from the last saved state or prop update
+  const [editableKbContent, setEditableKbContent] = useState(knowledgeBase || ''); // Local state for the editor's content, initially from prop
 
   useEffect(() => {
+    // This effect synchronizes the editor's content when the `knowledgeBase` prop changes.
+    // This typically occurs when:
+    // 1. The session is first connected, and the initial KB is loaded.
+    // 2. The KB is updated remotely (e.g., by another user, a demo, or DirectAssertionEditor).
+    // 3. The user clicks the "Refresh" button.
+    // It updates the local `editableKbContent` state. If the CodeMirror editor is already initialized,
+    // it dispatches a change to CodeMirror to update its document content.
+    // Crucially, it resets the `isDirty` flag, as the editor content is now aligned with the (new) `knowledgeBase` prop.
+    setEditableKbContent(knowledgeBase || ''); // Update local state
+    if (viewRef.current) { // If editor is initialized
+      const currentEditorDoc = viewRef.current.state.doc.toString();
+      if (currentEditorDoc !== (knowledgeBase || '')) { // Only update if different
+        viewRef.current.dispatch({
+          changes: { from: 0, to: currentEditorDoc.length, insert: knowledgeBase || '' }
+        });
+      }
+    }
+    setIsDirty(false); // Content is now aligned with prop, so it's not "dirty" relative to the source.
+  }, [knowledgeBase]); // Dependency: runs when `knowledgeBase` prop from App state changes.
+
+
+  useEffect(() => {
+    // Initializes the CodeMirror editor instance.
+    // This effect runs when `isMcrSessionActive` becomes true and the editor hasn't been initialized yet.
+    // It uses `editableKbContent` for the initial document, which should be up-to-date
+    // due to the `useEffect` above that listens to `knowledgeBase` prop.
     if (editorRef.current && !viewRef.current && isMcrSessionActive) {
-      const startState = EditorState.create({
-        doc: knowledgeBase || 'KB empty/not loaded.',
+      const state = EditorState.create({
+        doc: editableKbContent, // Initialize with current KB content.
         extensions: [
-          basicSetup,
-          oneDark,
-          prolog(),
-          EditorState.readOnly.of(true),
-          EditorView.theme({
+          basicSetup, // Standard CodeMirror features.
+          oneDark,    // Dark theme.
+          prolog(),   // Prolog language support.
+          EditorView.lineWrapping, // Wrap long lines.
+          // Listener to update React state when the CodeMirror document changes due to user typing.
+          EditorView.updateListener.of(update => {
+            if (update.docChanged) {
+              setEditableKbContent(update.state.doc.toString()); // Keep React state in sync.
+              setIsDirty(true); // Mark as dirty because the user has made changes.
+            }
+          }),
+          EditorView.theme({ // Custom styling.
             "&": {
-              height: "calc(100% - 40px)", // Adjust based on button container height
+              height: "calc(100% - 75px)", // Adjust height for buttons below.
               fontSize: "0.9em",
             },
             ".cm-scroller": { overflow: "auto" },
           })
         ],
       });
-      const view = new EditorView({
-        state: startState,
-        parent: editorRef.current,
-      });
-      viewRef.current = view;
+      const view = new EditorView({ state, parent: editorRef.current });
+      viewRef.current = view; // Store the CodeMirror view instance.
     }
+    // Optional: Cleanup CodeMirror instance on component unmount or when session becomes inactive.
+    // This might be important to prevent memory leaks if the component can be frequently mounted/unmounted
+    // or to ensure a fresh editor if the session is disconnected and reconnected.
+    // Example cleanup (might need adjustment based on strict mode behavior):
+    // return () => {
+    //   if (viewRef.current) {
+    //     viewRef.current.destroy();
+    //     viewRef.current = null;
+    //   }
+    // };
+  }, [isMcrSessionActive, editableKbContent]); // Dependencies:
+                                          // `isMcrSessionActive`: to trigger initialization when session starts.
+                                          // `editableKbContent`: included so if it's populated *after* isMcrSessionActive becomes true
+                                          // (e.g. knowledgeBase prop arrives late) but *before* this effect runs,
+                                          // the editor gets the correct initial content.
+                                          // Primary updates to an *existing* editor are handled by the separate [knowledgeBase] effect.
 
-    return () => {
-      if (viewRef.current) {
-        // viewRef.current.destroy(); // This might cause issues with StrictMode if not handled carefully
-        // viewRef.current = null;
-      }
-    };
-  }, [isMcrSessionActive]); // Initialize CodeMirror when session becomes active
-
-  useEffect(() => {
-    if (viewRef.current) {
-      const SCM = viewRef.current;
-      const currentDoc = SCM.state.doc.toString();
-      if (currentDoc !== (knowledgeBase || '')) {
-         SCM.dispatch({
-          changes: { from: 0, to: currentDoc.length, insert: knowledgeBase || '' }
-        });
-      }
-    }
-  }, [knowledgeBase]);
-
+  // Copies the current content of the KB editor to the clipboard.
   const handleCopyKb = () => {
-    if (navigator.clipboard && knowledgeBase) {
-      navigator.clipboard.writeText(knowledgeBase)
+    const contentToCopy = viewRef.current ? viewRef.current.state.doc.toString() : editableKbContent;
+    if (navigator.clipboard && contentToCopy) {
+      navigator.clipboard.writeText(contentToCopy)
         .then(() => {
           setCopyStatus('Copied!');
           setTimeout(() => setCopyStatus(''), 2000);
-          addMessageToHistory({ type: 'system', text: 'KB copied to clipboard.' });
+          addMessageToHistory({ type: 'system', text: '📝 KB content copied to clipboard.' });
         })
         .catch(err => {
           setCopyStatus('Failed to copy.');
           console.error('Failed to copy KB:', err);
-          addMessageToHistory({ type: 'system', text: `Error copying KB: ${err.message}` });
+          addMessageToHistory({ type: 'system', text: `❌ Error copying KB: ${err.message}` });
         });
     }
   };
 
+  // Refreshes the KB editor content from the server.
+  // If local changes exist (isDirty), it prompts the user for confirmation.
   const handleRefreshKb = () => {
     if (sessionId && fetchCurrentKb) {
-      fetchCurrentKb(sessionId);
-      addMessageToHistory({ type: 'system', text: 'Refreshing KB...' });
+      if (isDirty) {
+        if (!confirm("⚠️ You have unsaved changes in the KB editor. Refreshing will discard them. Continue?")) {
+          return;
+        }
+      }
+      fetchCurrentKb(sessionId); // This will update `knowledgeBase` prop, triggering the first useEffect.
+      addMessageToHistory({ type: 'system', text: '🔄 Refreshing KB from server...' });
+      // setIsDirty(false) is handled by the useEffect listening to `knowledgeBase` prop changes.
     }
   };
 
+  // Saves the current content of the KB editor to the server.
+  // Assumes a backend tool `session.set_kb` exists.
+  const handleSaveChanges = async () => {
+    if (!sessionId || !isMcrSessionActive || !viewRef.current) {
+      addMessageToHistory({ type: 'system', text: '⚠️ Cannot save KB: No active session or editor not ready.' });
+      return;
+    }
+    const newKbContent = viewRef.current.state.doc.toString(); // Get current content from CodeMirror.
+    addMessageToHistory({ type: 'system', text: `💾 Saving KB to server...` });
+    try {
+      // Preferred method: Use a dedicated backend tool to set the entire KB content.
+      const response = await apiService.invokeTool('session.set_kb', { sessionId, kbContent: newKbContent });
+
+      // Alternative (if session.set_kb is not available and requires session.clear_kb + session.assert_rules):
+      // const clearResponse = await apiService.invokeTool('session.clear_kb', { sessionId });
+      // if (!clearResponse.success) throw new Error(`Failed to clear KB before save: ${clearResponse.message}`);
+      // const response = await apiService.invokeTool('session.assert_rules', { sessionId, rules: newKbContent });
+
+      if (response.success) {
+        addMessageToHistory({ type: 'system', text: '✅ KB saved successfully.' });
+        setCurrentKb(newKbContent); // Update App's main KB state directly. This will also trigger the [knowledgeBase] useEffect.
+        setIsDirty(false); // Mark as no longer dirty as changes are saved.
+        // Optionally, could re-fetch from server to absolutely confirm, but setCurrentKb should be sufficient
+        // if the `session.set_kb` tool is reliable and the server doesn't modify content during set.
+        // fetchCurrentKb(sessionId);
+      } else {
+        addMessageToHistory({ type: 'system', text: `❌ Error saving KB: ${response.message || 'Unknown error'}` });
+      }
+    } catch (error) {
+      addMessageToHistory({ type: 'system', text: `❌ Exception saving KB: ${error.message}` });
+      console.error("Exception saving KB:", error);
+    }
+  };
+
+
   return (
     <div className="sidebar right-sidebar" style={{ display: 'flex', flexDirection: 'column', height: '100%'}}>
+      {/* Header for the KB section, indicates if there are unsaved changes with an asterisk */}
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem'}}>
-        <h3>🧠 Knowledge Base</h3>
+        <h3>🧠 Knowledge Base {isDirty ? "*" : ""}</h3>
         <div>
-          <button onClick={handleRefreshKb} disabled={!isMcrSessionActive} title="Refresh KB">🔄</button>
-          <button onClick={handleCopyKb} disabled={!isMcrSessionActive || !knowledgeBase} title="Copy KB" style={{marginLeft: '5px'}}>📋</button>
-          {copyStatus && <span style={{marginLeft: '10px', fontSize: '0.8em', fontStyle: 'italic'}}>{copyStatus}</span>}
+          {/* Placeholder for potential future buttons like Load from file / Save to file */}
         </div>
       </div>
       {isMcrSessionActive ? (
-        <div ref={editorRef} style={{ flexGrow: 1, overflow: 'hidden', border: '1px solid #30363d', borderRadius: '4px' }}></div>
+        <>
+          {/* CodeMirror editor container */}
+          <div ref={editorRef} style={{ flexGrow: 1, overflow: 'hidden', border: '1px solid #30363d', borderRadius: '4px' }}></div>
+          {/* Action buttons for the KB editor */}
+          <div className="kb-actions" style={{paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+            <div>
+              <button onClick={handleSaveChanges} disabled={!isDirty || !isMcrSessionActive} title="Save changes to session KB">💾 Save KB</button>
+              <button onClick={handleRefreshKb} disabled={!isMcrSessionActive} title="Refresh KB from server (discard local changes if any)" style={{marginLeft: '5px'}}>🔄 Refresh</button>
+            </div>
+            <div>
+              <button onClick={handleCopyKb} disabled={!isMcrSessionActive || !editableKbContent} title="Copy KB content" style={{marginLeft: '5px'}}>📋 Copy</button>
+              {copyStatus && <span style={{marginLeft: '10px', fontSize: '0.8em', fontStyle: 'italic'}}>{copyStatus}</span>}
+            </div>
+          </div>
+        </>
       ) : (
         <p className="text-muted" style={{textAlign: 'center', marginTop: '20px'}}>Connect to a session to view Knowledge Base.</p>
       )}
