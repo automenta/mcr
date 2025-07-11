@@ -1,82 +1,93 @@
 // new/src/app.js
 const express = require('express');
 const http = require('http');
-const { Server } = require('socket.io');
+const { Server: SocketIOServer } = require('socket.io'); // Renamed to avoid conflict
 const { handleWebSocketConnection } = require('./websocketHandlers');
-const path = require('path'); // For serving static UI files
+const path = require('path');
+const fs = require('fs'); // Needed for checking directory existence
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: '*', // Allow all origins for now
-  },
-});
+// Assuming logger and errorHandlerMiddleware are accessible or passed in mcr.js
+// For standalone tool checking, we might need placeholders if not modifying mcr.js in this step
+const logger = require('./util/logger'); // Assuming logger is here
+const { errorHandlerMiddleware } = require('./errors');
 
-// Standard middleware
-app.use(express.json()); // For parsing application/json request bodies
-
-// Request logging middleware (simple version) - useful for UI asset requests too
-app.use((req, res, next) => {
-  const correlationId = req.headers['x-correlation-id'] || `gen-${Date.now()}`;
-  req.correlationId = correlationId; // Make it available on req object
-  res.setHeader('X-Correlation-ID', correlationId);
-
-  // Log less for static assets if desired, or filter by path
-  if (!req.path.startsWith('/assets/') && !req.path.endsWith('.jsx')) { // Example filter
-    logger.http(`Request: ${req.method} ${req.path}`, {
-      correlationId,
-      method: req.method,
-      path: req.path,
-      ip: req.ip,
-      query: req.query,
-      // body: req.body // Be cautious logging request bodies
-    });
-  }
-  next();
-});
-
-// Serve static files for the MCR Workbench UI from the 'ui/dist' folder
-// This assumes the React app is built into 'ui/dist'
-const uiBuildPath = path.join(__dirname, '..', 'ui', 'dist');
-logger.info(`[App] Serving MCR Workbench UI from: ${uiBuildPath}`);
-app.use(express.static(uiBuildPath));
-
-// Fallback for SPAs: always serve index.html for non-api routes
-// This needs to be after API-specific routes (if any) and static files.
-// Since we removed dedicated API routes, this is simpler.
-app.get('*', (req, res, next) => {
-  // If express.static has not served an asset, and no other GET route matched,
-  // this will serve index.html for SPA routing.
-  // The check for req.path.includes('.') might be too broad if assets are served by express.static.
-  // WebSocket requests (/ws) are typically handled by an upgrade mechanism, not a GET route.
-  const indexPath = path.join(uiBuildPath, 'index.html');
-  logger.debug(`[App] SPA fallback: attempting to serve ${indexPath} for ${req.path}`);
-  res.sendFile(indexPath, (err) => {
-    if (err) {
-        logger.error(`[App] Error serving index.html for SPA fallback: ${err.message}`);
-        next(err);
-    }
+async function createServer() {
+  const app = express();
+  const httpServer = http.createServer(app);
+  const io = new SocketIOServer(httpServer, {
+    cors: {
+      origin: '*', // Allow all origins for now
+    },
   });
-});
 
+  // Standard middleware
+  app.use(express.json());
 
-// Setup routes - REMOVED
-// logger.info('Setting up application routes...');
-// setupRoutes(app); // HTTP routes are set up on the Express app
-// logger.info('Application routes set up.');
+  // Request logging middleware
+  app.use((req, res, next) => {
+    const correlationId = req.headers['x-correlation-id'] || `gen-${Date.now()}`;
+    req.correlationId = correlationId;
+    res.setHeader('X-Correlation-ID', correlationId);
+    // Avoid logging every asset request from Vite dev server if too noisy
+    if (!req.path.startsWith('/@vite') && !req.path.startsWith('/node_modules')) {
+      logger.http(`Request: ${req.method} ${req.path}`, {
+        correlationId, method: req.method, path: req.path, ip: req.ip, query: req.query,
+      });
+    }
+    next();
+  });
 
-// WebSocket connection handling with Socket.IO
-io.on('connection', (socket) => {
-  handleWebSocketConnection(socket, io);
-});
+  if (process.env.NODE_ENV === 'development') {
+    logger.info('[App] Starting in development mode with Vite middleware.');
+    const vite = await import('vite'); // Dynamic import for ESM module
+    const viteDevServer = await vite.createServer({
+      configFile: path.resolve(__dirname, '..', 'ui', 'vite.config.js'),
+      root: path.resolve(__dirname, '..', 'ui'),
+      server: { middlewareMode: true },
+      appType: 'spa', // ensure Vite handles SPA routing in dev
+    });
+    app.use(viteDevServer.middlewares);
+    logger.info('[App] Vite development middleware attached.');
+  } else {
+    logger.info('[App] Starting in production mode, serving static UI assets.');
+    const uiBuildPath = path.resolve(__dirname, '..', 'dist', 'ui');
+    logger.info(`[App] Serving static UI from: ${uiBuildPath}`);
 
-logger.info('WebSocket server set up.');
+    if (fs.existsSync(uiBuildPath)) {
+      app.use(express.static(uiBuildPath));
+      // Fallback for SPAs: always serve index.html for non-api GET routes
+      app.get('*', (req, res, next) => {
+        if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.includes('.')) {
+          const indexPath = path.join(uiBuildPath, 'index.html');
+          res.sendFile(indexPath, (err) => {
+            if (err) {
+              logger.error(`[App] Error serving index.html for SPA fallback: ${err.message}`);
+              next(err);
+            }
+          });
+        } else {
+          next(); // Important to call next for non-SPA routes or non-GET requests
+        }
+      });
+    } else {
+      logger.warn(`[App] Production UI build path not found: ${uiBuildPath}. UI will not be served.`);
+    }
+  }
 
-// Error handling middleware - should be last for the Express app
-logger.info('Attaching error handling middleware...');
-app.use(errorHandlerMiddleware);
-logger.info('Error handling middleware attached.');
+  // WebSocket connection handling
+  io.on('connection', (socket) => {
+    handleWebSocketConnection(socket, io);
+  });
+  logger.info('[App] WebSocket server event handlers set up.');
 
-// Export the HTTP server instance for starting the server (e.g., in mcr.js)
-module.exports = server;
+  // Error handling middleware - should be last for the Express app
+  // Assuming errorHandlerMiddleware is defined and imported elsewhere (e.g. mcr.js or a utils file)
+  // If not, this would need to be defined or imported:
+  app.use(errorHandlerMiddleware);
+  logger.info('[App] Error handling middleware attached.');
+
+  return httpServer;
+}
+
+// Export the async function that creates and returns the server
+module.exports = createServer;

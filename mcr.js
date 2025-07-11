@@ -5,17 +5,19 @@ console.log('[MCR Pre-Init] Starting mcr.js...'); // Very early log
  * Initializes and starts the MCR Express server.
  * Configures logging, sets up graceful shutdown handlers,
  * and handles uncaught exceptions and unhandled promise rejections.
- * @returns {import('http').Server} The running HTTP server instance.
+ * @returns {Promise<import('http').Server>} A promise that resolves to the running HTTP server instance.
  */
-function startServer() {
-  const app = require('./src/app');
-  // console.log('[MCR Pre-Init] app required.'); // Logger not yet available
+async function startServer() {
+  // Logger and config should be initialized first
   const config = require('./src/config');
-  // console.log('[MCR Pre-Init] config required.'); // Logger not yet available
   const logger = require('./src/util/logger');
+  logger.info('[MCR Init] Initializing MCR server...');
 
-  logger.debug('[MCR Init] app required.');
+  const createHttpServer = require('./src/app'); // This is now an async function
+
+  logger.debug('[MCR Init] src/app (createServer) required.');
   logger.debug('[MCR Init] config required.');
+
 
   const PORT = config.server.port;
   const HOST = config.server.host;
@@ -23,11 +25,14 @@ function startServer() {
   // Initialize core services if they have explicit init steps (currently they don't need async init)
   // For example, if mcrService needed async setup:
   // const mcrService = require('./src/mcrService');
-  // mcrService.init().then(() => { ... start server ... }).catch(err => ...);
+  // await mcrService.init(); // if it were async
 
-  // app is now an http.Server instance, so we call listen on it directly.
-  const server = app.listen(PORT, HOST, () => {
-    // logger.info(`MCR Streamlined server listening on http://${HOST}:${PORT}`);
+  // createHttpServer is an async function that returns the configured http.Server instance
+  const server = await createHttpServer();
+  logger.info('[MCR Init] HTTP server instance created by src/app.');
+
+  // Now, attach the listener to the server instance
+  server.listen(PORT, HOST, () => {
     logger.info('Server is running'); // Exact match for tool detection
     logger.info(`  Listening on: http://${HOST}:${PORT}`);
     logger.info('--- Configuration ---');
@@ -113,7 +118,12 @@ function startServer() {
 
 // If this script is run directly, start the server
 if (require.main === module) {
-  startServer();
+  startServer().catch(error => {
+    // Use logger if available, otherwise console.error
+    const logger = require('./src/util/logger'); // Re-require in this scope or ensure it's global
+    logger.error('[MCR Critical] Failed to start server:', error);
+    process.exit(1);
+  });
 }
 
 module.exports = { startServer };
