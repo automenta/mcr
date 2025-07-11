@@ -10,79 +10,165 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { prolog } from 'codemirror-lang-prolog';
 
 // --- Helper Component for Prolog Code in Chat ---
-// Displays read-only Prolog code with syntax highlighting and an optional copy button.
-const PrologCodeViewer = ({ code, title, addMessageToHistory }) => {
+// Displays Prolog code with syntax highlighting. Can be read-only or editable.
+// Includes optional buttons for copy, load to KB, and query.
+const PrologCodeViewer = ({
+  code,
+  title,
+  addMessageToHistory,
+  isEditable = false,
+  onSave, // Callback for when editable content is saved (e.g., Ctrl+S or a save button)
+  showLoadToKbButton = false,
+  onLoadToKb, // Callback to load content to KB
+  showQueryThisButton = false,
+  onQueryThis, // Callback to execute content as query
+  sessionId, // Needed for onLoadToKb and onQueryThis
+  isWsServiceConnected, // Needed for button enablement
+  initialContent, // For editable instances, to set initial doc
+}) => {
   const editorRef = useRef(null);
   const viewRef = useRef(null); // To store the EditorView instance
+  const [currentCode, setCurrentCode] = useState(initialContent || code || '');
   const [copyStatus, setCopyStatus] = useState(''); // Feedback for copy action
 
   useEffect(() => {
-    // Initialize CodeMirror editor instance when the component mounts and editorRef is available.
-    // This effect runs only once for each instance due to !viewRef.current condition.
-    if (editorRef.current && !viewRef.current) { // Initialize only once
+    if (editorRef.current && !viewRef.current) {
       const state = EditorState.create({
-        doc: code, // Initial document content
+        doc: currentCode,
         extensions: [
+          basicSetup, // Includes line numbers, history, etc.
           EditorView.lineWrapping,
           oneDark,
           prolog(),
-          EditorState.readOnly.of(true),
+          EditorState.readOnly.of(!isEditable),
           EditorView.theme({
             "&": {
-              maxHeight: "200px",
+              maxHeight: isEditable ? "300px" : "200px", // Allow more space for editable instances
+              minHeight: isEditable ? "100px" : "auto",
               fontSize: "0.85em",
               border: "1px solid #30363d",
               borderRadius: "4px",
-              position: "relative", // For positioning copy button
             },
             ".cm-scroller": { overflow: "auto" },
-          })
+          }),
+          EditorView.updateListener.of(update => {
+            if (update.docChanged && isEditable) {
+              setCurrentCode(update.state.doc.toString());
+            }
+          }),
+          // Optional: Keymap for saving if editable (e.g., Ctrl+S)
+          isEditable && onSave ? keymap.of([{
+            key: "Mod-s",
+            run: () => { onSave(viewRef.current.state.doc.toString()); return true; }
+          }]) : []
         ],
       });
       const view = new EditorView({ state, parent: editorRef.current });
       viewRef.current = view;
+    } else if (viewRef.current && !isEditable && code !== viewRef.current.state.doc.toString()) {
+      // If read-only and code prop changes, update the editor
+      viewRef.current.dispatch({
+        changes: { from: 0, to: viewRef.current.state.doc.length, insert: code || '' }
+      });
+      setCurrentCode(code || ''); // Also update internal state if needed
     }
-  }, [code]); // Reruns if the code prop changes, ensuring new instances get the new code.
 
-  // Handles copying the displayed code to the clipboard.
+    // Cleanup
+    return () => {
+      // Basic cleanup, though full CM6 cleanup with React strict mode can be tricky
+      // if (viewRef.current) { viewRef.current.destroy(); viewRef.current = null;}
+    };
+  }, [isEditable, code, initialContent]); // Re-initialize or update if these critical props change
+
+  // Update editor's readOnly state if isEditable prop changes dynamically
+  useEffect(() => {
+    if (viewRef.current) {
+      viewRef.current.dispatch({
+        effects: EditorState.readOnly.reconfigure(EditorState.readOnly.of(!isEditable))
+      });
+    }
+  }, [isEditable]);
+
+
   const handleCopyCode = () => {
-    if (navigator.clipboard && code) {
-      navigator.clipboard.writeText(code)
+    const codeToCopy = viewRef.current ? viewRef.current.state.doc.toString() : currentCode;
+    if (navigator.clipboard && codeToCopy) {
+      navigator.clipboard.writeText(codeToCopy)
         .then(() => {
           setCopyStatus('Copied!');
-          setTimeout(() => setCopyStatus(''), 1500); // Reset status after a short delay
-          // Optionally log to main chat history (currently disabled to reduce noise)
+          setTimeout(() => setCopyStatus(''), 1500);
           if (addMessageToHistory) {
-            // addMessageToHistory({ type: 'system', text: `📋 '${title || 'Prolog code'}' copied to clipboard.`});
+            // addMessageToHistory({ type: 'system', text: `📋 '${title || 'Prolog code'}' copied to clipboard.` });
           }
         })
         .catch(err => {
           setCopyStatus('Failed!');
           setTimeout(() => setCopyStatus(''), 1500);
           console.error(`Failed to copy ${title || 'Prolog code'}:`, err);
-           if (addMessageToHistory) {
-            // addMessageToHistory({ type: 'system', text: `❌ Error copying '${title || 'Prolog code'}'.`});
-           }
+          if (addMessageToHistory) {
+            // addMessageToHistory({ type: 'system', text: `❌ Error copying '${title || 'Prolog code'}'.` });
+          }
         });
     }
   };
 
+  const handleLoadToKb = () => {
+    if (onLoadToKb) {
+      const codeToLoad = viewRef.current ? viewRef.current.state.doc.toString() : currentCode;
+      onLoadToKb(codeToLoad);
+    }
+  };
+
+  const handleQueryThis = () => {
+    if (onQueryThis) {
+      const queryToRun = viewRef.current ? viewRef.current.state.doc.toString() : currentCode;
+      onQueryThis(queryToRun);
+    }
+  };
+
   return (
-    <div style={{ marginTop: '5px', marginBottom: '5px', position: 'relative' /* Parent for absolute positioning of copy button */ }}>
-      {/* Container for title and copy button, displayed above the code editor */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-        {title && <p style={{ fontSize: '0.9em', color: '#8b949e' }}>{title}:</p>}
-        <button
-          onClick={handleCopyCode}
-          title={`Copy ${title || 'Prolog code'}`}
-          style={{
-            background: '#21262d', border: '1px solid #30363d', color: '#c9d1d9',
-            padding: '2px 6px', fontSize: '0.75em', borderRadius: '3px', cursor: 'pointer',
-            // position: 'absolute', top: '-2px', right: '0px', // Alternative positioning
-          }}
-        >
-          {copyStatus || '📋 Copy'}
-        </button>
+    <div style={{ marginTop: '5px', marginBottom: '5px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px', flexWrap: 'wrap' }}>
+        {title && <p style={{ fontSize: '0.9em', color: '#8b949e', marginRight: '10px' }}>{title}:</p>}
+        <div className="prolog-viewer-actions">
+          {showLoadToKbButton && onLoadToKb && (
+            <button
+              onClick={handleLoadToKb}
+              disabled={!sessionId || !isWsServiceConnected}
+              title="⚡ Load this code into the Knowledge Base"
+              className="action-button"
+            >
+              ➕ Load to KB
+            </button>
+          )}
+          {showQueryThisButton && onQueryThis && (
+            <button
+              onClick={handleQueryThis}
+              disabled={!sessionId || !isWsServiceConnected}
+              title="❓ Execute this code as a query"
+              className="action-button"
+            >
+              ❓ Query This
+            </button>
+          )}
+          <button
+            onClick={handleCopyCode}
+            title={`📋 Copy ${title || 'Prolog code'}`}
+            className="action-button"
+          >
+            {copyStatus || '📋 Copy'}
+          </button>
+          {isEditable && onSave && (
+             <button
+              onClick={() => onSave(viewRef.current.state.doc.toString())}
+              disabled={!sessionId || !isWsServiceConnected} // Assuming save might interact with session
+              title="💾 Save changes (Ctrl+S)"
+              className="action-button"
+            >
+              💾 Save
+            </button>
+          )}
+        </div>
       </div>
       <div ref={editorRef}></div>
     </div>
@@ -132,11 +218,11 @@ const SystemAnalysisMode = () => {
       <div>
         <h4>🏆 Strategy Leaderboard</h4>
         <button onClick={fetchLeaderboard} disabled={isLoading}>
-          {isLoading ? 'Loading...' : '🔄 Refresh Leaderboard'}
+          {isLoading ? '⏳ Loading...' : '🔄 Refresh Leaderboard'}
         </button>
         {error && <p style={{ color: 'red' }}>Error: {error}</p>}
-        {isLoading && !leaderboardData.length && <p>Loading data...</p>}
-        {!isLoading && !leaderboardData.length && !error && <p>No leaderboard data available.</p>}
+        {isLoading && !leaderboardData.length && <p>⏳ Loading data...</p>}
+        {!isLoading && !leaderboardData.length && !error && <p>🤷 No leaderboard data available.</p>}
         {leaderboardData.length > 0 && (
           <table>
             <thead>
@@ -197,10 +283,10 @@ const SystemAnalysisMode = () => {
       fetchDetails();
     }, [strategyId]);
 
-    if (!strategyId) return <p>No strategy selected for deep dive.</p>;
-    if (isLoading) return <p>Loading strategy details for {strategyId}...</p>;
+    if (!strategyId) return <p>🤷 No strategy selected for deep dive.</p>;
+    if (isLoading) return <p>⏳ Loading strategy details for {strategyId}...</p>;
     if (error) return <p style={{ color: 'red' }}>Error: {error}</p>;
-    if (!details) return <p>No details found for strategy {strategyId}.</p>;
+    if (!details) return <p>🤷 No details found for strategy {strategyId}.</p>;
 
     return (
       <div>
@@ -214,7 +300,7 @@ const SystemAnalysisMode = () => {
 
         <h4>📜 Definition</h4>
         <details>
-          <summary>View Strategy JSON Definition</summary>
+          <summary>👁️ View Strategy JSON Definition</summary>
           <pre style={{maxHeight: '300px', overflow:'auto', border:'1px solid #ccc', padding:'10px', background:'#f9f9f9'}}>
             {JSON.stringify(details.definition, null, 2)}
           </pre>
@@ -244,13 +330,13 @@ const SystemAnalysisMode = () => {
                     <td>{run.latency_ms}</td>
                     <td><pre>{JSON.stringify(run.metrics, null, 2)}</pre></td>
                     <td><pre>{JSON.stringify(run.cost, null, 2)}</pre></td>
-                    <td><details><summary>View Output</summary><pre>{run.raw_output}</pre></details></td>
+                    <td><details><summary>👁️ View Output</summary><pre>{run.raw_output}</pre></details></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        ) : <p>No performance runs found for this strategy hash.</p>}
+        ) : <p>🤷 No performance runs found for this strategy hash.</p>}
       </div>
     );
   };
@@ -305,7 +391,7 @@ const SystemAnalysisMode = () => {
     return (
       <div>
         <h4>🎓 Curriculum Explorer</h4>
-        {isLoadingList && <p>Loading curricula list...</p>}
+        {isLoadingList && <p>⏳ Loading curricula list...</p>}
         {error && <p style={{ color: 'red' }}>Error: {error}</p>}
 
         <div style={{ display: 'flex', maxHeight: '80vh' }}>
@@ -324,12 +410,12 @@ const SystemAnalysisMode = () => {
                 ))}
               </ul>
             ) : (
-              !isLoadingList && <p>No curricula files found.</p>
+              !isLoadingList && <p>🤷 No curricula files found.</p>
             )}
           </div>
 
           <div style={{ width: '70%', paddingLeft: '10px', overflowY: 'auto' }}>
-            {isLoadingDetails && <p>Loading curriculum details...</p>}
+            {isLoadingDetails && <p>⏳ Loading curriculum details...</p>}
             {selectedCurriculum ? (
               <div>
                 <h5>🧪 Cases from: {selectedCurriculum.name}</h5>
@@ -360,10 +446,10 @@ const SystemAnalysisMode = () => {
                       ))}
                     </tbody>
                   </table>
-                ) : <p>No cases found in this curriculum file, or file is empty/invalid.</p>}
+                ) : <p>🤷 No cases found in this curriculum file, or file is empty/invalid.</p>}
               </div>
             ) : (
-              !isLoadingDetails && <p>Select a curriculum file from the list to view its cases.</p>
+              !isLoadingDetails && <p>👈 Select a curriculum file from the list to view its cases.</p>
             )}
           </div>
         </div>
@@ -476,7 +562,7 @@ const SystemAnalysisMode = () => {
         {error && <p style={{ color: 'red' }}>Error: {error}</p>}
 
         <div>
-          <h5>ℹ️ Status: {isLoadingStatus ? 'Loading...' : `${status.status} (PID: ${status.pid || 'N/A'})`}</h5>
+          <h5>ℹ️ Status: {isLoadingStatus ? '⏳ Loading...' : `${status.status} (PID: ${status.pid || 'N/A'})`}</h5>
           <p>{status.message}</p>
           <button onClick={fetchStatus} disabled={isLoadingStatus}>🔄 Refresh Status</button>
         </div>
@@ -496,7 +582,7 @@ const SystemAnalysisMode = () => {
           <h5>📜 Optimizer Logs</h5>
           <button onClick={fetchLogs} disabled={isLoadingLogs}>🔄 Refresh Logs</button>
           <pre style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #ccc', padding: '10px', background: '#f0f0f0' }}>
-            {logs.length > 0 ? logs.map(log => `[${new Date(log.timestamp).toLocaleTimeString()}] [${log.type}] ${log.message}`).join('\n') : 'No logs available or fetched yet.'}
+            {logs.length > 0 ? logs.map(log => `[${new Date(log.timestamp).toLocaleTimeString()}] [${log.type}] ${log.message}`).join('\n') : '🤷 No logs available or fetched yet.'}
           </pre>
         </div>
       </div>
@@ -520,12 +606,11 @@ const SystemAnalysisMode = () => {
 
   return (
     <div className="system-analysis-mode">
-      <h2>MCR System Analysis Mode</h2>
+      <h2>📊 MCR System Analysis</h2>
       <nav className="analysis-nav">
-        <button onClick={() => { setSelectedStrategyIdForDeepDive(null); setCurrentAnalysisView('leaderboard');}} disabled={currentAnalysisView === 'leaderboard' && !selectedStrategyIdForDeepDive}>Leaderboard</button>
-        <button onClick={() => setCurrentAnalysisView('curriculum')} disabled={currentAnalysisView === 'curriculum'}>Curriculum</button>
-        <button onClick={() => setCurrentAnalysisView('evolver')} disabled={currentAnalysisView === 'evolver'}>Evolver</button>
-        {/* Deep Dive is navigated to from Leaderboard, so no direct button here unless we want to show last selected */}
+        <button onClick={() => { setSelectedStrategyIdForDeepDive(null); setCurrentAnalysisView('leaderboard');}} disabled={currentAnalysisView === 'leaderboard' && !selectedStrategyIdForDeepDive}>🏆 Leaderboard</button>
+        <button onClick={() => setCurrentAnalysisView('curriculum')} disabled={currentAnalysisView === 'curriculum'}>🎓 Curriculum</button>
+        <button onClick={() => setCurrentAnalysisView('evolver')} disabled={currentAnalysisView === 'evolver'}>🧬 Evolver</button>
       </nav>
       <div className="analysis-view-content">
         {renderCurrentView()}
@@ -551,6 +636,7 @@ const InteractiveSessionMode = ({ sessionId, setSessionId, activeStrategy, setAc
       <MainInteraction
           sessionId={sessionId}
           isMcrSessionActive={isMcrSessionActive}
+          isWsServiceConnected={isWsServiceConnected} // Pass down
           addMessageToHistory={addMessageToHistory}
           chatHistory={chatHistory} // Pass chatHistory to MainInteraction
       />
@@ -595,91 +681,67 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 };
 
 // --- Direct KB Assertion Component ---
-// Component for directly asserting Prolog facts/rules to the Knowledge Base.
-// Found in the LeftSidebar.
+// Uses PrologCodeViewer for consistent editor experience.
 const DirectAssertionEditor = ({ sessionId, isMcrSessionActive, isWsServiceConnected, addMessageToHistory }) => {
-  const editorRef = useRef(null);
-  const viewRef = useRef(null); // Stores the CodeMirror EditorView instance
-  const [prologCode, setPrologCode] = useState(''); // Current Prolog code in the editor
-  const [assertionStatus, setAssertionStatus] = useState({ message: '', type: '' }); // For local feedback (e.g., success/error message)
+  const [currentPrologCode, setCurrentPrologCode] = useState('');
+  const [assertionStatus, setAssertionStatus] = useState({ message: '', type: '' });
+  const prologViewerRef = useRef(); // To potentially call methods on PrologCodeViewer if needed, though not used currently
 
-  useEffect(() => {
-    // Initialize CodeMirror editor for Prolog input.
-    if (editorRef.current && !viewRef.current) {
-      const state = EditorState.create({
-        doc: prologCode,
-        extensions: [
-          basicSetup, // Includes line numbers, history, etc.
-          EditorView.lineWrapping,
-          oneDark,
-          prolog(),
-          EditorView.theme({
-            "&": {
-              minHeight: "100px",
-              maxHeight: "200px",
-              fontSize: "0.9em",
-              border: "1px solid #30363d",
-              borderRadius: "4px",
-            },
-            ".cm-scroller": { overflow: "auto" },
-          }),
-          // Listener to update React state from CodeMirror state (optional if controlled by CM)
-          EditorView.updateListener.of(update => {
-            if (update.docChanged) {
-              setPrologCode(update.state.doc.toString());
-            }
-          })
-        ],
-      });
-      const view = new EditorView({ state, parent: editorRef.current });
-      viewRef.current = view;
-    }
-    // Basic cleanup if component unmounts, though full cleanup is tricky with CM6 + StrictMode
-    return () => {
-        // if (viewRef.current) { viewRef.current.destroy(); viewRef.current = null; }
-    };
-  }, []); // Initialize CodeMirror once when the component mounts.
+  // Callback for PrologCodeViewer's onSave, which we'll use as "Assert"
+  const handleAssertToKb = async (codeToAssert) => {
+    setCurrentPrologCode(codeToAssert); // Keep local state in sync if needed, or rely on viewer's internal state
+    setAssertionStatus({ message: '', type: '' });
 
-  // Handles the submission of Prolog code to be asserted to the knowledge base.
-  const handleAssertToKb = async () => {
-    setAssertionStatus({ message: '', type: '' }); // Clear previous status before new assertion.
-
-    // Basic validation checks.
     if (!isMcrSessionActive || !sessionId || !isWsServiceConnected) {
       const errorMsg = '⚠️ Cannot assert: No active MCR session or WebSocket connection.';
       addMessageToHistory({ type: 'system', text: errorMsg }); // Log to main chat.
       setAssertionStatus({ message: errorMsg, type: 'error' }); // Show local feedback.
       return;
     }
-    if (!prologCode.trim()) {
+    if (!codeToAssert.trim()) {
       const errorMsg = '⚠️ Cannot assert: Prolog code is empty.';
       addMessageToHistory({ type: 'system', text: errorMsg });
       setAssertionStatus({ message: errorMsg, type: 'error' });
       return;
     }
 
-    const systemMessage = `✏️ Asserting to KB via Direct Editor: \n${prologCode}`;
-    addMessageToHistory({ type: 'system', text: systemMessage }); // Inform user via main chat.
-    setAssertionStatus({ message: 'Asserting...', type: 'info' }); // Local feedback: in progress.
+    const systemMessage = `✏️ Asserting to KB via Direct Editor: \n${codeToAssert}`;
+    addMessageToHistory({ type: 'system', text: systemMessage });
+    setAssertionStatus({ message: '⏳ Asserting...', type: 'info' });
 
     try {
-      // Invoke backend tool to assert rules.
       const response = await apiService.invokeTool('session.assert_rules', {
         sessionId: sessionId,
-        rules: prologCode, // Send content as a single string of rules.
+        rules: codeToAssert,
       });
 
       if (response.success) {
         const successMsg = '✅ Prolog asserted successfully. KB updated.';
         addMessageToHistory({ type: 'system', text: successMsg });
         setAssertionStatus({ message: successMsg, type: 'success' });
-        // Clear the editor content on successful assertion.
-        if (viewRef.current) {
-          viewRef.current.dispatch({
-            changes: { from: 0, to: viewRef.current.state.doc.length, insert: '' }
-          });
-        }
-        setPrologCode(''); // Also clear the React state backing the editor.
+        setCurrentPrologCode(''); // Clear the content for next assertion
+        // The PrologCodeViewer itself will need to be told to clear its content.
+        // This can be done by changing its `initialContent` prop or by calling a method on it if exposed.
+        // For now, we'll rely on changing a key for PrologCodeViewer to force re-mount or update doc.
+        // This is a common pattern when direct manipulation of child's CodeMirror is complex.
+        // However, since PrologCodeViewer's useEffect for !isEditable updates on `code` prop,
+        // and for editable, it uses `initialContent` for setup, we might need to pass `code`
+        // and update it, or give PrologCodeViewer a key that changes.
+        // Simpler: if PrologCodeViewer takes `code` prop and updates its internal doc when `code` changes,
+        // setting currentPrologCode here and passing it as `code` prop to PrologCodeViewer would work.
+        // Let's assume PrologCodeViewer is primarily controlled by its `initialContent` for editable mode,
+        // and we need a way to reset it. The easiest is to change its `key` prop to force a re-render.
+        // Or, we modify PrologCodeViewer to accept a `doc` prop and an `onDocChange` for full control.
+        // For now, let's set currentPrologCode and expect PrologCodeViewer to reflect it if `key` changes.
+        // The `PrologCodeViewer`'s `currentCode` state is internal.
+        // A better way: pass `currentPrologCode` as `code` to `PrologCodeViewer` and have an `onChange` handler.
+        // For now, let's rely on a key change if this doesn't clear automatically.
+        // The current PrologCodeViewer updates based on `initialContent` or `code` in its useEffect.
+        // If we pass `currentPrologCode` as `initialContent` (or `code`) and then change `currentPrologCode` to '',
+        // the viewer should update if its `useEffect` dependencies are set correctly.
+        // The current setup is: `initialContent` is used once. `code` is used for read-only updates.
+        // Let's pass `currentPrologCode` as `code` to PrologCodeViewer for editable mode too,
+        // and handle updates via `onSave` which already gives us the latest code.
       } else {
         // Handle assertion failure reported by the backend.
         const errorMsg = `❌ Error asserting Prolog: ${response.message || response.error || 'Unknown error'}`;
@@ -698,15 +760,23 @@ const DirectAssertionEditor = ({ sessionId, isMcrSessionActive, isWsServiceConne
   return (
     <div>
       <h4>✏️ Direct KB Assertion</h4>
-      <p className="text-muted" style={{fontSize: '0.8em', marginBottom: '5px'}}>Enter Prolog facts or rules (e.g., <code>father(john,pete).</code>). Each statement must end with a period.</p>
-      <div ref={editorRef} style={{marginBottom: '10px'}}></div> {/* CodeMirror editor container */}
-      <button
-        onClick={handleAssertToKb}
-        disabled={!isMcrSessionActive || !isWsServiceConnected || !prologCode.trim()}
-        title="Assert the entered Prolog code to the current session's Knowledge Base"
-      >
-        ⚡ Assert to KB
-      </button>
+      <p className="text-muted" style={{fontSize: '0.8em', marginBottom: '5px'}}>
+        Enter Prolog facts or rules (e.g., <code>father(john,pete).</code>). Each statement must end with a period.
+        Use the "💾 Save" button below the editor (or Ctrl/Cmd+S) to assert.
+      </p>
+      <PrologCodeViewer
+        ref={prologViewerRef} // Not strictly needed now but good for future direct interactions
+        key={currentPrologCode === '' ? 'empty' : 'filled'} // Force re-render with new doc if we clear currentPrologCode
+        initialContent={currentPrologCode} // Set initial content, and when it changes (e.g. cleared), re-key
+        isEditable={true}
+        onSave={handleAssertToKb} // This is our "Assert to KB" action
+        addMessageToHistory={addMessageToHistory}
+        sessionId={sessionId}
+        isWsServiceConnected={isWsServiceConnected}
+        // No title needed for this internal editor, or a generic one
+        // Buttons like LoadToKB or QueryThis are not relevant here.
+      />
+      {/* The "Assert to KB" button is now part of PrologCodeViewer as "Save" */}
       {/* Display local status message for the assertion operation */}
       {assertionStatus.message && (
         <p style={{
@@ -733,20 +803,19 @@ const DirectAssertionEditor = ({ sessionId, isMcrSessionActive, isWsServiceConne
 const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSession, disconnectSession, isMcrSessionActive, isWsServiceConnected, addMessageToHistory }) => {
   const [ontologies, setOntologies] = useState([]);
   const [demos, setDemos] = useState([]);
-  const [strategies, setStrategies] = useState([]); // Add emojis to titles in return()
+  const [strategies, setStrategies] = useState([]);
   const [tempSessionId, setTempSessionId] = useState(sessionId || '');
 
   // State for Modals
   const [isOntologyModalOpen, setIsOntologyModalOpen] = useState(false);
   const [selectedOntologyContent, setSelectedOntologyContent] = useState({ name: '', rules: '' });
   const [isStrategyModalOpen, setIsStrategyModalOpen] = useState(false);
-  const [selectedStrategyContent, setSelectedStrategyContent] = useState({ name: '', description: '', definition: null }); // definition could be full JSON if API supports
+  const [selectedStrategyContent, setSelectedStrategyContent] = useState({ name: '', description: '', definition: null });
 
 
   useEffect(() => {
     setTempSessionId(sessionId || '');
     if (isMcrSessionActive) {
-      // Fetch lists when session becomes active
       listOntologies();
       listStrategies();
       handleListDemos();
@@ -758,11 +827,10 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
   }, [sessionId, isMcrSessionActive]);
 
   const handleConnect = () => {
-    // connectSession internally checks for isWsServiceConnected
     if (tempSessionId.trim()) {
       connectSession(tempSessionId.trim());
     } else {
-      connectSession();
+      connectSession(); // Create new if empty
     }
   };
 
@@ -773,36 +841,28 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
       if (response.success) {
         setDemos(response.data || []);
       } else {
-        alert(`Error listing demos: ${response.message || 'Unknown error'}`);
+        addMessageToHistory({type: 'system', text: `Error listing demos: ${response.message || 'Unknown error'}`});
         setDemos([]);
       }
     } catch (error) {
-      alert(`Error: ${error.message || 'Failed to list demos'}`);
+      addMessageToHistory({type: 'system', text: `Error: ${error.message || 'Failed to list demos'}`});
       setDemos([]);
     }
   };
 
   const handleRunDemo = async (demoId) => {
     if (!isMcrSessionActive || !sessionId || !isWsServiceConnected) { alert("Connect to a session and ensure WebSocket is active first."); return; }
-    addMessageToHistory({ type: 'system', text: `Attempting to run demo: ${demoId}...` });
+    addMessageToHistory({ type: 'system', text: `🚀 Attempting to run demo: ${demoId}...` });
     try {
       const response = await apiService.invokeTool('demo.run', { demoId, sessionId });
-      // Add a single message that contains all demo log lines, to be processed by chat history rendering
       addMessageToHistory({
-        type: 'mcr', // Or a new type like 'demo_result'
+        type: 'mcr',
         isDemo: true,
-        demoPayload: response.data, // This will contain { demoId, messages: capturedLogs }
-        response: response, // Include the whole response for success/error status of the tool itself
+        demoPayload: response.data,
+        response: response,
       });
-      if (response.success) {
-        // The kb_updated message should refresh the KB if the demo changed it.
-        // We might also want to explicitly refresh KB after a demo.
-        // For now, rely on kb_updated or manual refresh.
-      } else {
-        alert(`Error running demo '${demoId}': ${response.message || 'Unknown error'}`);
-      }
+      // KB update should be handled by `kb_updated` message or manual refresh.
     } catch (error) {
-      alert(`Error: ${error.message || `Failed to run demo ${demoId}`}`);
       addMessageToHistory({
         type: 'mcr',
         isDemo: true,
@@ -812,62 +872,56 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
   };
 
   const listOntologies = async () => {
-    if (!isMcrSessionActive || !isWsServiceConnected) { addMessageToHistory({type: 'system', text: 'Session not active. Cannot list ontologies.'}); return; }
+    if (!isMcrSessionActive || !isWsServiceConnected) { addMessageToHistory({type: 'system', text: '⚠️ Session not active. Cannot list ontologies.'}); return; }
     try {
-      const response = await apiService.invokeTool('ontology.list', { includeRules: false }); // includeRules: false is fine for listing
+      const response = await apiService.invokeTool('ontology.list', { includeRules: false });
       if (response.success) setOntologies(response.data || []);
-      else addMessageToHistory({type: 'system', text: `Error listing ontologies: ${response.message}`});
-    } catch (error) { addMessageToHistory({type: 'system', text: `Error: ${error.message || 'Failed to list ontologies'}`});}
+      else addMessageToHistory({type: 'system', text: `❌ Error listing ontologies: ${response.message}`});
+    } catch (error) { addMessageToHistory({type: 'system', text: `❌ Error: ${error.message || 'Failed to list ontologies'}`});}
   };
 
   const viewOntology = async (ontologyName) => {
-    if (!isMcrSessionActive || !isWsServiceConnected) { addMessageToHistory({type: 'system', text: 'Session not active. Cannot view ontology.'}); return; }
+    if (!isMcrSessionActive || !isWsServiceConnected) { addMessageToHistory({type: 'system', text: '⚠️ Session not active. Cannot view ontology.'}); return; }
     try {
-      // Fetch with rules for viewing
       const response = await apiService.invokeTool('ontology.get', { name: ontologyName, includeRules: true });
       if (response.success && response.data) {
-        setSelectedOntologyContent({ name: response.data.name, rules: response.data.rules || "// No rules defined or an error occurred." });
+        setSelectedOntologyContent({ name: response.data.name, rules: response.data.rules || "// No rules defined." });
         setIsOntologyModalOpen(true);
       } else {
-        addMessageToHistory({type: 'system', text: `Error fetching ontology '${ontologyName}': ${response.message}`});
+        addMessageToHistory({type: 'system', text: `❌ Error fetching ontology '${ontologyName}': ${response.message}`});
       }
-    } catch (error) { addMessageToHistory({type: 'system', text: `Error: ${error.message || `Failed to fetch ontology ${ontologyName}`}`});}
+    } catch (error) { addMessageToHistory({type: 'system', text: `❌ Error: ${error.message || `Failed to fetch ontology ${ontologyName}`}`});}
   };
 
   const loadOntologyToSession = async (ontologyName) => {
-    if (!isMcrSessionActive || !sessionId || !isWsServiceConnected) { addMessageToHistory({type: 'system', text: 'Session not active. Cannot load ontology.'}); return; }
+    if (!isMcrSessionActive || !sessionId || !isWsServiceConnected) { addMessageToHistory({type: 'system', text: '⚠️ Session not active. Cannot load ontology.'}); return; }
+    addMessageToHistory({ type: 'system', text: `➕ Loading ontology '${ontologyName}' to session...` });
     try {
       const ontResponse = await apiService.invokeTool('ontology.get', { name: ontologyName, includeRules: true });
       if (ontResponse.success && ontResponse.data?.rules) {
-        const assertInput = {
-          sessionId: sessionId,
-          rules: ontResponse.data.rules
-        };
-        const assertResponse = await apiService.invokeTool('session.assert_rules', assertInput);
+        const assertResponse = await apiService.invokeTool('session.assert_rules', { sessionId, rules: ontResponse.data.rules });
         if (assertResponse.success) {
-          addMessageToHistory({type: 'system', text: `Ontology '${ontologyName}' rules asserted successfully. KB updated.`});
+          addMessageToHistory({type: 'system', text: `✅ Ontology '${ontologyName}' rules asserted successfully. KB updated.`});
         } else {
-          addMessageToHistory({type: 'system', text: `Error asserting ontology '${ontologyName}': ${assertResponse.message || 'Unknown error'}`});
+          addMessageToHistory({type: 'system', text: `❌ Error asserting ontology '${ontologyName}': ${assertResponse.message || 'Unknown error'}`});
         }
       } else {
-        addMessageToHistory({type: 'system', text: `Error getting ontology rules for '${ontologyName}': ${ontResponse.message}`});
+        addMessageToHistory({type: 'system', text: `❌ Error getting ontology rules for '${ontologyName}': ${ontResponse.message}`});
       }
-    } catch (error) { addMessageToHistory({type: 'system', text: `Error: ${error.message || 'Failed to load ontology'}`});}
+    } catch (error) { addMessageToHistory({type: 'system', text: `❌ Error: ${error.message || 'Failed to load ontology'}`});}
   };
 
   const listStrategies = async () => {
-    if (!isMcrSessionActive || !isWsServiceConnected) { addMessageToHistory({type: 'system', text: 'Session not active. Cannot list strategies.'}); return; }
+    if (!isMcrSessionActive || !isWsServiceConnected) { addMessageToHistory({type: 'system', text: '⚠️ Session not active. Cannot list strategies.'}); return; }
     try {
       const response = await apiService.invokeTool('strategy.list');
       if (response.success) setStrategies(response.data || []);
-      else addMessageToHistory({type: 'system', text: `Error listing strategies: ${response.message}`});
-    } catch (error) { addMessageToHistory({type: 'system', text: `Error: ${error.message || 'Failed to list strategies'}`});}
+      else addMessageToHistory({type: 'system', text: `❌ Error listing strategies: ${response.message}`});
+    } catch (error) { addMessageToHistory({type: 'system', text: `❌ Error: ${error.message || 'Failed to list strategies'}`});}
   };
 
   const viewStrategy = (strategy) => {
-    // For now, just shows name and description.
-    // If API provided full JSON definition via strategy.get, we'd fetch and show that.
-    setSelectedStrategyContent({ name: strategy.name, description: strategy.description, definition: strategy.definition /* if available */ });
+    setSelectedStrategyContent({ name: strategy.name, description: strategy.description, definition: strategy.definition });
     setIsStrategyModalOpen(true);
   };
 
@@ -876,12 +930,12 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
     try {
       const response = await apiService.invokeTool('strategy.setActive', { strategyId });
       if (response.success) {
-        alert(`Strategy set to ${response.data.activeStrategyId}`);
-        setActiveStrategy(response.data.activeStrategyId); // Update App's state via callback
+        addMessageToHistory({type: 'system', text: `✅ Strategy set to ${response.data.activeStrategyId}`});
+        setActiveStrategy(response.data.activeStrategyId);
       } else {
-        alert(`Error setting strategy: ${response.message}`);
+        addMessageToHistory({type: 'system', text: `❌ Error setting strategy: ${response.message}`});
       }
-    } catch (error) { alert(`Error: ${error.message || 'Failed to set strategy'}`); }
+    } catch (error) { addMessageToHistory({type: 'system', text: `❌ Error: ${error.message || 'Failed to set strategy'}`}); }
   };
 
   return (
@@ -892,17 +946,17 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
         <div style={{display: 'flex', alignItems: 'center', marginBottom: '0.5rem'}}>
             <input type="text" value={tempSessionId} onChange={(e) => setTempSessionId(e.target.value)} placeholder="Session ID (optional)" disabled={isMcrSessionActive || !isWsServiceConnected} style={{flexGrow: 1, marginRight: '5px'}}/>
             {!isMcrSessionActive ?
-              <button onClick={handleConnect} disabled={!isWsServiceConnected} title="Connect or Create Session">✅ Connect</button> :
-              <button onClick={disconnectSession} disabled={!isWsServiceConnected} title="Disconnect Session">❌ Disconnect</button>
+              <button onClick={handleConnect} disabled={!isWsServiceConnected} title="Connect or Create Session">🟢 Connect</button> :
+              <button onClick={disconnectSession} disabled={!isWsServiceConnected} title="Disconnect Session">🔴 Disconnect</button>
             }
         </div>
-        {isMcrSessionActive && <p className="text-muted">Active Session: {sessionId}</p>}
+        {isMcrSessionActive && <p className="text-muted">🔑 Active Session: {sessionId}</p>}
       </div> <hr />
 
       <div>
         <h4>📚 Ontologies</h4>
-        <button onClick={listOntologies} disabled={!isMcrSessionActive || !isWsServiceConnected} title="Refresh Ontology List">🔄 List</button>
-        {ontologies.length === 0 && isMcrSessionActive && <p className="text-muted" style={{marginTop:'5px'}}>No ontologies loaded or found.</p>}
+        <button onClick={listOntologies} disabled={!isMcrSessionActive || !isWsServiceConnected} title="Refresh Ontology List">🔄 List Ontologies</button>
+        {ontologies.length === 0 && isMcrSessionActive && <p className="text-muted" style={{marginTop:'5px'}}>🤷 No ontologies found.</p>}
         <ul>{ontologies.map(ont => (
           <li key={ont.id || ont.name} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
             <span>{ont.name}</span>
@@ -916,8 +970,8 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
 
       <div>
         <h4>🚀 Demos</h4>
-        <button onClick={handleListDemos} disabled={!isMcrSessionActive || !isWsServiceConnected} title="Refresh Demo List">🔄 List</button>
-        {demos.length === 0 && isMcrSessionActive && <p className="text-muted" style={{marginTop:'5px'}}>No demos found or loaded.</p>}
+        <button onClick={handleListDemos} disabled={!isMcrSessionActive || !isWsServiceConnected} title="Refresh Demo List">🔄 List Demos</button>
+        {demos.length === 0 && isMcrSessionActive && <p className="text-muted" style={{marginTop:'5px'}}>🤷 No demos found.</p>}
         <ul>
           {demos.map(demo => (
             <li key={demo.id}>
@@ -933,9 +987,9 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
 
       <div>
         <h4>🛠️ Strategies</h4>
-        <button onClick={listStrategies} disabled={!isMcrSessionActive || !isWsServiceConnected} title="Refresh Strategy List">🔄 List</button>
-        <p className="text-muted" style={{marginTop:'5px'}}>Active: <strong style={{color: '#58a6ff'}}>{activeStrategy || 'N/A'}</strong></p>
-        {strategies.length === 0 && isMcrSessionActive && <p className="text-muted">No strategies loaded or found.</p>}
+        <button onClick={listStrategies} disabled={!isMcrSessionActive || !isWsServiceConnected} title="Refresh Strategy List">🔄 List Strategies</button>
+        <p className="text-muted" style={{marginTop:'5px'}}>🎯 Active: <strong style={{color: '#58a6ff'}}>{activeStrategy || 'N/A'}</strong></p>
+        {strategies.length === 0 && isMcrSessionActive && <p className="text-muted">🤷 No strategies found.</p>}
         <ul>{strategies.map(strat => (
           <li key={strat.id || strat.name}
               className={`strategy-item ${activeStrategy === strat.id ? 'active-strategy' : ''}`}
@@ -944,29 +998,29 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
             <div>
               <button onClick={() => viewStrategy(strat)} disabled={!isMcrSessionActive || !isWsServiceConnected} title="View Strategy Details">👁️ View</button>
               <button onClick={() => handleSetStrategy(strat.id)} disabled={!isMcrSessionActive || !isWsServiceConnected || activeStrategy === strat.id} title="Set as Active Strategy" style={{marginLeft:'5px'}}>
-                {activeStrategy === strat.id ? 'Active' : '✅ Set'}
+                {activeStrategy === strat.id ? '✅ Active' : '➡️ Set'}
               </button>
             </div>
           </li>
         ))}</ul>
       </div>
 
-      <Modal isOpen={isOntologyModalOpen} onClose={() => setIsOntologyModalOpen(false)} title={`Ontology: ${selectedOntologyContent.name}`}>
+      <Modal isOpen={isOntologyModalOpen} onClose={() => setIsOntologyModalOpen(false)} title={`📚 Ontology: ${selectedOntologyContent.name}`}>
         <PrologCodeViewer code={selectedOntologyContent.rules} title={selectedOntologyContent.name} addMessageToHistory={addMessageToHistory} />
       </Modal>
 
-      <Modal isOpen={isStrategyModalOpen} onClose={() => setIsStrategyModalOpen(false)} title={`Strategy: ${selectedStrategyContent.name}`}>
+      <Modal isOpen={isStrategyModalOpen} onClose={() => setIsStrategyModalOpen(false)} title={`🛠️ Strategy: ${selectedStrategyContent.name}`}>
         <p><strong>Description:</strong></p>
         <p style={{whiteSpace: 'pre-wrap', marginBottom: '15px'}}>{selectedStrategyContent.description || "No description available."}</p>
         {selectedStrategyContent.definition ? (
           <>
-            <p><strong>Definition (JSON):</strong></p>
+            <p><strong>📜 Definition (JSON):</strong></p>
             <pre style={{maxHeight: '40vh', overflow: 'auto', background: '#0d1117', border: '1px solid #30363d', padding: '10px', borderRadius: '4px'}}>
               {JSON.stringify(selectedStrategyContent.definition, null, 2)}
             </pre>
           </>
         ) : (
-          <p className="text-muted">Full JSON definition not available for display.</p>
+          <p className="text-muted">🤷 Full JSON definition not available for display.</p>
         )}
       </Modal>
       <hr />
@@ -981,6 +1035,8 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
 };
 
 const MainInteraction = ({ sessionId, isMcrSessionActive, addMessageToHistory, chatHistory }) => {
+  const [inputText, setInputText] = useState(''); // State for the text in the input textarea
+const MainInteraction = ({ sessionId, isMcrSessionActive, isWsServiceConnected, addMessageToHistory, chatHistory }) => {
   const [inputText, setInputText] = useState(''); // State for the text in the input textarea
   const [interactionType, setInteractionType] = useState('query'); // State for 'query' or 'assert' selection
   const chatHistoryRef = useRef(null); // Ref for the chat history container to enable auto-scrolling
@@ -1009,6 +1065,42 @@ const MainInteraction = ({ sessionId, isMcrSessionActive, addMessageToHistory, c
     }
   };
 
+  // Handles actions from PrologCodeViewer buttons (Load to KB, Query This)
+  const handlePrologAction = async (prologCode, actionType) => {
+    if (!prologCode.trim() || !isMcrSessionActive || !sessionId || !isWsServiceConnected) {
+      addMessageToHistory({ type: 'system', text: '⚠️ Cannot perform Prolog action: Session/connection issue or empty code.' });
+      return;
+    }
+
+    let toolName;
+    let inputPayload;
+    let userMessagePrefix;
+
+    if (actionType === 'assert_rules') {
+      toolName = 'session.assert_rules';
+      inputPayload = { sessionId, rules: prologCode };
+      userMessagePrefix = '✍️ Asserting from viewer';
+    } else if (actionType === 'query') {
+      toolName = 'session.query';
+      inputPayload = { sessionId, naturalLanguageQuestion: prologCode, queryOptions: { trace: true, debug: true, source: 'prolog_viewer' } };
+      userMessagePrefix = '❓ Querying from viewer';
+    } else {
+      addMessageToHistory({ type: 'system', text: `⚠️ Unknown Prolog action: ${actionType}` });
+      return;
+    }
+
+    addMessageToHistory({ type: 'user', text: `${userMessagePrefix}: \n${prologCode}` });
+
+    try {
+      const response = await apiService.invokeTool(toolName, inputPayload);
+      addMessageToHistory({ type: 'mcr', response });
+      // KB updates should be handled by 'kb_updated' broadcast or explicit refresh in RightSidebar
+    } catch (error) {
+      addMessageToHistory({ type: 'mcr', response: { success: false, message: error.message || 'Prolog action failed', error } });
+    }
+  };
+
+
   return (
     <div className="main-interaction-wrapper"> {/* Renamed from main-content for clarity, or use main-content and ensure it's flex-column */}
       <h3>💬 Chat REPL</h3>
@@ -1027,11 +1119,27 @@ const MainInteraction = ({ sessionId, isMcrSessionActive, addMessageToHistory, c
                   <p><strong>🤖 MCR:</strong> {msg.response?.answer || 'Received a response.'}</p>
                   {/* Display added facts if present */}
                   {msg.response?.addedFacts && Array.isArray(msg.response.addedFacts) && msg.response.addedFacts.length > 0 && (
-                    <PrologCodeViewer code={msg.response.addedFacts.join('\n')} title="Added Facts" addMessageToHistory={addMessageToHistory}/>
+                    <PrologCodeViewer
+                      code={msg.response.addedFacts.join('\n')}
+                      title="✍️ Added Facts"
+                      addMessageToHistory={addMessageToHistory}
+                      showLoadToKbButton={true} // Allow re-asserting these facts
+                      onLoadToKb={(facts) => handlePrologAction(facts, 'assert_rules')}
+                      sessionId={sessionId}
+                      isWsServiceConnected={isWsServiceConnected} // Passed down from App through MainInteraction
+                    />
                   )}
                   {/* Display Prolog trace from debugInfo if present */}
                   {msg.response?.debugInfo?.prologTrace && (
-                    <PrologCodeViewer code={msg.response.debugInfo.prologTrace} title="Prolog Trace" addMessageToHistory={addMessageToHistory}/>
+                    <PrologCodeViewer
+                      code={msg.response.debugInfo.prologTrace}
+                      title="🕵️ Prolog Trace"
+                      addMessageToHistory={addMessageToHistory}
+                      showQueryThisButton={true} // Allow running parts of the trace as a query
+                      onQueryThis={(query) => handlePrologAction(query, 'query')}
+                      sessionId={sessionId}
+                      isWsServiceConnected={isWsServiceConnected}
+                    />
                   )}
                   {/* Display explanation, attempting to render as Prolog if it looks like it */}
                   {msg.response?.explanation && (
@@ -1039,17 +1147,27 @@ const MainInteraction = ({ sessionId, isMcrSessionActive, addMessageToHistory, c
                     (msg.response.explanation.includes(":-") || msg.response.explanation.trim().endsWith(".")) &&
                     msg.response.explanation.length > 10 // Heuristic for Prolog-like string
                   ) ? (
-                    <PrologCodeViewer code={msg.response.explanation} title="Explanation (Prolog)" addMessageToHistory={addMessageToHistory}/>
+                    <PrologCodeViewer
+                      code={msg.response.explanation}
+                      title="📜 Explanation (Prolog)"
+                      addMessageToHistory={addMessageToHistory}
+                      showLoadToKbButton={true} // If explanation is a rule, allow asserting
+                      onLoadToKb={(rules) => handlePrologAction(rules, 'assert_rules')}
+                      showQueryThisButton={true} // If explanation is a goal, allow querying
+                      onQueryThis={(query) => handlePrologAction(query, 'query')}
+                      sessionId={sessionId}
+                      isWsServiceConnected={isWsServiceConnected}
+                    />
                   ) : msg.response?.explanation ? (
                     <div>
-                        <p style={{ fontSize: '0.9em', color: '#8b949e', marginBottom: '3px' }}>Explanation:</p>
+                        <p style={{ fontSize: '0.9em', color: '#8b949e', marginBottom: '3px' }}>💬 Explanation:</p>
                         <p>{msg.response.explanation}</p>
                     </div>
                   ) : null}
                   {/* Collapsible section for all other raw details in the response */}
                   {msg.response && (
                     <details>
-                      <summary>Raw Details</summary>
+                      <summary>🔬 Raw Details</summary>
                       <pre>{JSON.stringify(
                         Object.fromEntries(
                           Object.entries(msg.response).filter(([key]) => !['answer', 'addedFacts', 'explanation', 'debugInfo', 'message', 'success'].includes(key) || (key === 'debugInfo' && !msg.response.debugInfo.prologTrace))
@@ -1065,7 +1183,7 @@ const MainInteraction = ({ sessionId, isMcrSessionActive, addMessageToHistory, c
                   {/* Collapsible section for additional error details */}
                   {(msg.response.details || (msg.response.error && msg.response.message)) && (
                     <details style={{marginTop: '5px'}}>
-                      <summary style={{color: '#ff817a', fontSize:'0.9em'}}>Error Details</summary>
+                      <summary style={{color: '#ff817a', fontSize:'0.9em'}}>🔬 Error Details</summary>
                       <pre style={{borderColor: '#ff817a'}}>
                         {JSON.stringify(Object.fromEntries(
                           Object.entries(msg.response).filter(([key]) => !['success', 'message', 'error'].includes(key) || (key === 'error' && msg.response.message) )
@@ -1088,7 +1206,7 @@ const MainInteraction = ({ sessionId, isMcrSessionActive, addMessageToHistory, c
                   </div>
                 ))}
                 {msg.response && msg.response.success === false && ( // If the demo tool itself failed
-                   <p style={{color: 'red'}}><strong>Demo Tool Error:</strong> {msg.response.message}</p>
+                   <p style={{color: 'red'}}><strong>❌ Demo Tool Error:</strong> {msg.response.message}</p>
                 )}
               </div>
             )}
@@ -1102,7 +1220,7 @@ const MainInteraction = ({ sessionId, isMcrSessionActive, addMessageToHistory, c
         ))}
       </div>
       <div className="chat-input-area">
-        <textarea value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder={isMcrSessionActive ? "Type assertion or query... (Shift+Enter for new line)" : "Connect session"} rows={3} disabled={!isMcrSessionActive}
+        <textarea value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder={isMcrSessionActive ? "Type assertion or query... (Shift+Enter for new line)" : "🔌 Connect session to start"} rows={3} disabled={!isMcrSessionActive}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
@@ -1129,6 +1247,9 @@ const RightSidebar = ({ knowledgeBase, isMcrSessionActive, sessionId, fetchCurre
   const [copyStatus, setCopyStatus] = useState(''); // Status message for copy action (e.g., "Copied!")
   const [isDirty, setIsDirty] = useState(false); // Tracks if the editor content has changed from the last saved state or prop update
   const [editableKbContent, setEditableKbContent] = useState(knowledgeBase || ''); // Local state for the editor's content, initially from prop
+  const [kbQuery, setKbQuery] = useState(''); // State for the KB query input
+  const [kbQueryResult, setKbQueryResult] = useState(null); // State for displaying query results { success: bool, message: string, results: [] }
+  const [isQueryingKb, setIsQueryingKb] = useState(false); // Loading state for KB query
 
   useEffect(() => {
     // This effect synchronizes the editor's content when the `knowledgeBase` prop changes.
@@ -1268,22 +1389,59 @@ const RightSidebar = ({ knowledgeBase, isMcrSessionActive, sessionId, fetchCurre
     }
   };
 
+  const handleRunKbQuery = async () => {
+    if (!kbQuery.trim()) {
+      setKbQueryResult({ success: false, message: 'Query is empty.', results: [] });
+      return;
+    }
+    if (!viewRef.current) {
+      setKbQueryResult({ success: false, message: 'KB editor not ready.', results: [] });
+      return;
+    }
+
+    const currentKbContent = viewRef.current.state.doc.toString();
+    setIsQueryingKb(true);
+    setKbQueryResult(null); // Clear previous results
+
+    addMessageToHistory({ type: 'system', text: `🔍 Querying against current KB editor content: ${kbQuery}`});
+
+    try {
+      // This is the new tool we need on the backend.
+      // It takes the full KB content and a query, runs it in an isolated manner.
+      const response = await apiService.invokeTool('session.query_with_temporary_kb', {
+        sessionId: sessionId, // May or may not be needed by backend depending on isolation
+        kbContent: currentKbContent,
+        query: kbQuery
+      });
+
+      if (response.success) {
+        setKbQueryResult({
+            success: true,
+            message: response.message || `Query successful. Solutions: ${response.data?.solutions?.length || 0}`,
+            solutions: response.data?.solutions || [], // Assuming solutions are in response.data.solutions
+            rawResponse: response.data, // For displaying other info if needed
+        });
+      } else {
+        setKbQueryResult({ success: false, message: `Query failed: ${response.message || response.error || 'Unknown error'}`, solutions: [] });
+      }
+    } catch (error) {
+      setKbQueryResult({ success: false, message: `Exception during query: ${error.message}`, solutions: [] });
+      addMessageToHistory({ type: 'system', text: `❌ Exception querying KB: ${error.message}`});
+    } finally {
+      setIsQueryingKb(false);
+    }
+  };
+
 
   return (
     <div className="sidebar right-sidebar" style={{ display: 'flex', flexDirection: 'column', height: '100%'}}>
-      {/* Header for the KB section, indicates if there are unsaved changes with an asterisk */}
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem'}}>
         <h3>🧠 Knowledge Base {isDirty ? "*" : ""}</h3>
-        <div>
-          {/* Placeholder for potential future buttons like Load from file / Save to file */}
-        </div>
       </div>
       {isMcrSessionActive ? (
         <>
-          {/* CodeMirror editor container */}
-          <div ref={editorRef} style={{ flexGrow: 1, overflow: 'hidden', border: '1px solid #30363d', borderRadius: '4px' }}></div>
-          {/* Action buttons for the KB editor */}
-          <div className="kb-actions" style={{paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+          <div ref={editorRef} style={{ flexGrow: 1, overflow: 'hidden', border: '1px solid #30363d', borderRadius: '4px', marginBottom: '10px' }}></div>
+          <div className="kb-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px'}}>
             <div>
               <button onClick={handleSaveChanges} disabled={!isDirty || !isMcrSessionActive} title="Save changes to session KB">💾 Save KB</button>
               <button onClick={handleRefreshKb} disabled={!isMcrSessionActive} title="Refresh KB from server (discard local changes if any)" style={{marginLeft: '5px'}}>🔄 Refresh</button>
@@ -1293,9 +1451,44 @@ const RightSidebar = ({ knowledgeBase, isMcrSessionActive, sessionId, fetchCurre
               {copyStatus && <span style={{marginLeft: '10px', fontSize: '0.8em', fontStyle: 'italic'}}>{copyStatus}</span>}
             </div>
           </div>
+
+          {/* KB Query Area */}
+          <div className="kb-query-area">
+            <h4>🧪 Test Query Against Editor KB</h4>
+            <div style={{display: 'flex', marginBottom: '5px'}}>
+              <input
+                type="text"
+                value={kbQuery}
+                onChange={(e) => setKbQuery(e.target.value)}
+                placeholder="e.g., father(X, Y)."
+                style={{flexGrow: 1, marginRight: '5px', fontSize:'0.85em'}}
+                disabled={isQueryingKb}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleRunKbQuery(); }}
+              />
+              <button onClick={handleRunKbQuery} disabled={isQueryingKb || !kbQuery.trim()}>
+                {isQueryingKb ? '⏳ Running...' : '❓ Run Query'}
+              </button>
+            </div>
+            {kbQueryResult && (
+              <div className="kb-query-results"
+                   style={{
+                     marginTop: '8px', padding: '8px', border: `1px solid ${kbQueryResult.success ? '#3fb950' : '#ff817a'}`,
+                     borderRadius: '4px', background: kbQueryResult.success ? 'rgba(63, 185, 80, 0.1)' : 'rgba(248, 81, 73, 0.1)',
+                     fontSize: '0.85em', maxHeight: '150px', overflowY: 'auto'
+                   }}>
+                <p style={{color: kbQueryResult.success ? '#3fb950' : '#ff817a', fontWeight:'bold'}}>{kbQueryResult.message}</p>
+                {kbQueryResult.solutions && kbQueryResult.solutions.length > 0 && (
+                  <pre>{JSON.stringify(kbQueryResult.solutions, null, 2)}</pre>
+                )}
+                {!kbQueryResult.success && kbQueryResult.rawResponse && (
+                     <details><summary>Raw Error Details</summary><pre>{JSON.stringify(kbQueryResult.rawResponse, null, 2)}</pre></details>
+                )}
+              </div>
+            )}
+          </div>
         </>
       ) : (
-        <p className="text-muted" style={{textAlign: 'center', marginTop: '20px'}}>Connect to a session to view Knowledge Base.</p>
+        <p className="text-muted" style={{textAlign: 'center', marginTop: '20px'}}>🔌 Connect to a session to view Knowledge Base.</p>
       )}
     </div>
   );
@@ -1305,36 +1498,31 @@ const RightSidebar = ({ knowledgeBase, isMcrSessionActive, sessionId, fetchCurre
 // --- Main App Component ---
 function App() {
   const [currentMode, setCurrentMode] = useState('interactive'); // 'interactive' or 'analysis'
-  const [isConnected, setIsConnected] = useState(false); // WebSocket connection to API service
-  const [sessionId, setSessionId] = useState(null); // Active MCR session
+  const [isConnected, setIsConnected] = useState(false); // true if MCR session is active
+  const [sessionId, setSessionId] = useState(null);
   const [currentKb, setCurrentKb] = useState('');
   const [activeStrategy, setActiveStrategy] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
-  // const [serverMessages, setServerMessages] = useState([]); // For non-request/response messages like kb_updated
-  const [isWsServiceConnected, setIsWsServiceConnected] = useState(false);
-  const [wsConnectionStatus, setWsConnectionStatus] = useState('Initializing...'); // 'Initializing...', 'Connecting...', 'Connected', 'Error', 'Disconnected'
+  const [isWsServiceConnected, setIsWsServiceConnected] = useState(false); // WebSocket service connection status
+  const [wsConnectionStatus, setWsConnectionStatus] = useState('⏳ Initializing...');
 
   const handleServerMessage = (message) => {
-    // setServerMessages(prev => [...prev, message]); // Store all for debugging if needed
     if (message.type === 'connection_ack') {
       console.log("Connection ACK received from server:", message.message);
-      // Actual connection status is managed by the connect promise and onclose/onerror handlers in apiService
     }
     if (message.type === 'kb_updated') {
       if (message.payload?.sessionId === sessionId) {
-        setCurrentKb(message.payload.fullKnowledgeBase || (message.payload.newFacts || []).join('\\n'));
-        addMessageToHistory({type: 'system', text: `KB updated remotely. New facts: ${message.payload.newFacts?.join(', ')}`});
+        setCurrentKb(message.payload.fullKnowledgeBase || (message.payload.newFacts || []).join('\n'));
+        addMessageToHistory({type: 'system', text: `⚙️ KB updated remotely. New facts: ${message.payload.newFacts?.join(', ')}`});
       }
     }
-    // If a tool_result indicates a change in state managed by App, update it.
     if (message.type === 'tool_result' && message.payload?.success) {
         if (message.payload?.data?.activeStrategyId && message.payload?.message?.includes("strategy set to")) {
             setActiveStrategy(message.payload.data.activeStrategyId);
         }
-        // If an assertion was successful, refresh KB.
-        // Better: rely on kb_updated. For now, manual refresh on successful assert.
         if (sessionId && message.payload?.addedFacts && message.payload?.message?.includes("asserted")) {
-            fetchCurrentKb(sessionId);
+            // Rely on kb_updated for actual KB content, but can log here if desired
+            // addMessageToHistory({type: 'system', text: `✅ Assertion successful, waiting for KB update broadcast.`});
         }
     }
   };
@@ -1342,108 +1530,109 @@ function App() {
   useEffect(() => {
     apiService.addMessageListener(handleServerMessage);
 
-    // Listener for apiService's internal status changes (optional, if apiService emits them)
-    const handleWsStatusChange = (status) => {
-        // This would require apiService to have an event emitter for its states like 'connecting', 'connected', 'disconnected', 'error'
-        // For now, we'll manage based on connect() promise and errors.
-        // Example: if (status === 'connected') setIsWsServiceConnected(true);
-    };
-    // apiService.on('statusChange', handleWsStatusChange);
-
-    // With apiService.connect() now resetting `explicitlyClosed`,
-    // this useEffect will correctly establish a connection even in StrictMode.
-    // 1. (Strict Mode) Effect runs first time: connect() called.
-    // 2. (Strict Mode) Cleanup runs: disconnect() called (sets explicitlyClosed = true).
-    // 3. (Strict Mode) Effect runs second time: connect() called (resets explicitlyClosed = false, connects).
-    // This is the desired behavior for a persistent connection.
-
-    setWsConnectionStatus('Connecting...');
+    setWsConnectionStatus('🔌 Connecting...');
     apiService.connect()
       .then(() => {
         setIsWsServiceConnected(true);
-        setWsConnectionStatus('Connected');
+        setWsConnectionStatus('🟢 Connected');
         console.log("Successfully connected to WebSocket service.");
-        fetchActiveStrategy(); // Fetch global active strategy once connected
+        // Fetch global active strategy once WS is connected, not dependent on MCR session.
+        fetchGlobalActiveStrategy();
       })
       .catch(err => {
         console.error("Initial auto-connect to WebSocket service failed:", err);
         setIsWsServiceConnected(false);
-        // The apiService will attempt reconnections. We can reflect this in status.
-        // The onclose event in apiService can also update a global status or emit an event.
-        setWsConnectionStatus(`Error: ${err.message || 'Failed to connect'}. Reconnecting...`);
-        // No alert here, apiService handles retries.
+        setWsConnectionStatus(`🔴 Error: ${err.message || 'Failed to connect'}. Retrying...`);
       });
 
     return () => {
       apiService.removeMessageListener(handleServerMessage);
-      // apiService.off('statusChange', handleWsStatusChange); // If using an event emitter
-
-      // This disconnect will run on component unmount.
-      // In StrictMode, it will run after the first effect execution.
-      // Since apiService.connect() now resets `explicitlyClosed`, the second
-      // effect execution in StrictMode will correctly re-establish the connection.
       apiService.disconnect();
     };
-  }, []); // Empty dependency array: runs once on mount, cleans up on unmount
+  }, []);
 
   const connectToSession = async (sidToConnect) => {
-    if (!isWsServiceConnected) { // Check WebSocket service connection
-        alert("WebSocket service not connected. Cannot manage sessions.");
-        setWsConnectionStatus('Error: WebSocket service not available');
+    if (!isWsServiceConnected) {
+        addMessageToHistory({type: 'system', text: "⚠️ WebSocket service not connected. Cannot manage sessions."});
+        setWsConnectionStatus('🔴 Error: WebSocket service not available');
         return;
     }
     try {
       let sessionToUse = sidToConnect;
-      if (!sidToConnect) { // Create new session
+      let systemMessageText;
+      if (!sessionToUse) { // Create new session
         const createResponse = await apiService.invokeTool('session.create');
-        if (createResponse.success && createResponse.data?.id) sessionToUse = createResponse.data.id;
-        else throw new Error(createResponse.message || 'Failed to create session');
-        addMessageToHistory({type: 'system', text: `New session created: ${sessionToUse}`});
+        if (createResponse.success && createResponse.data?.id) {
+            sessionToUse = createResponse.data.id;
+            systemMessageText = `✨ New session created: ${sessionToUse}`;
+        } else {
+            throw new Error(createResponse.message || 'Failed to create session');
+        }
       } else { // Use existing session ID
          const getResponse = await apiService.invokeTool('session.get', { sessionId: sessionToUse });
-         if (!getResponse.success) throw new Error(getResponse.message || `Failed to get session ${sessionToUse}`);
-         addMessageToHistory({type: 'system', text: `Connected to session: ${sessionToUse}`});
+         if (!getResponse.success) {
+            // Option: try to create if get fails for an existing ID that's no longer valid
+            // For now, assume get failing means it's an issue.
+            throw new Error(getResponse.message || `Failed to get session ${sessionToUse}`);
+         }
+         systemMessageText = `🔌 Connected to session: ${sessionToUse}`;
       }
       setSessionId(sessionToUse);
-      // setIsConnected(true); // This now means "MCR session active" vs "WS connected"
-      // For clarity, let's rename isConnected to isSessionActive and have a separate isWsConnected
-      // For now, isConnected will mean "MCR session is active"
-      fetchCurrentKb(sessionToUse);
-      fetchActiveStrategy(); // Re-fetch active strategy (might be session-specific in future)
+      setIsConnected(true); // MCR Session is now active
+      addMessageToHistory({type: 'system', text: systemMessageText});
+      fetchCurrentKb(sessionToUse); // Fetch KB for the newly connected/created session
+      // Active strategy might be session-specific or global. If global, fetchActiveStrategy()
+      // was already called. If session-specific, it might be part of session.get or need another call.
+      // For now, assuming strategy.getActive is global or defaults appropriately.
+      fetchGlobalActiveStrategy(); // Re-fetch, in case it's relevant or changed
     } catch (error) {
-      alert(`Error with session: ${error.message}`);
+      addMessageToHistory({type: 'system', text: `❌ Error with session: ${error.message}`});
       setSessionId(null);
+      setIsConnected(false);
     }
   };
 
   const disconnectFromSession = () => {
-    addMessageToHistory({type: 'system', text: `UI disconnected from session: ${sessionId}`});
-    setSessionId(null); // Mark MCR session as inactive
+    addMessageToHistory({type: 'system', text: `🔌 UI disconnected from session: ${sessionId}`});
+    setSessionId(null);
+    setIsConnected(false); // MCR Session is no longer active
     setCurrentKb('');
-    setChatHistory([]);
-    // Note: We don't set isConnected (WebSocket service) to false here.
-    // That stays true if the underlying WebSocket is still open.
+    setChatHistory([]); // Clear chat for this session
+    // Active strategy might reset to a global default or remain as is if not session-dependent.
+    // fetchGlobalActiveStrategy(); // Optionally fetch global default strategy
   };
 
   const fetchCurrentKb = async (sid) => {
-    if (!sid || !isConnected) return;
+    if (!sid || !isWsServiceConnected) return; // Need session and WS connection
     try {
       const response = await apiService.invokeTool('session.get', { sessionId: sid });
       if (response.success && response.data) {
         setCurrentKb(response.data.facts || 'KB data not found in session object.');
       } else {
-        setCurrentKb('Failed to load KB.');
+        setCurrentKb('⚠️ Failed to load KB.');
+        addMessageToHistory({type: 'system', text: `⚠️ Error loading KB for session ${sid}: ${response.message}`});
       }
-    } catch (error) { setCurrentKb(`Error loading KB: ${error.message}`); }
+    } catch (error) {
+        setCurrentKb(`❌ Exception loading KB: ${error.message}`);
+        addMessageToHistory({type: 'system', text: `❌ Exception loading KB for session ${sid}: ${error.message}`});
+    }
   };
 
-  const fetchActiveStrategy = async () => {
-    if (!isConnected) return; // Check WebSocket service connection
+  // Fetches the globally (or default) active strategy.
+  const fetchGlobalActiveStrategy = async () => {
+    if (!isWsServiceConnected) return; // Requires WS connection
     try {
         const response = await apiService.invokeTool('strategy.getActive');
-        if(response.success && response.data?.activeStrategyId) setActiveStrategy(response.data.activeStrategyId);
-        else setActiveStrategy('N/A (error)');
-    } catch (error) { setActiveStrategy(`Error fetching strategy: ${error.message}`); }
+        if(response.success && response.data?.activeStrategyId) {
+            setActiveStrategy(response.data.activeStrategyId);
+        } else {
+            setActiveStrategy('N/A (error)');
+            // addMessageToHistory({type: 'system', text: `⚠️ Could not fetch active strategy: ${response.message}`});
+        }
+    } catch (error) {
+        setActiveStrategy(`❌ Error fetching strategy: ${error.message}`);
+        // addMessageToHistory({type: 'system', text: `❌ Exception fetching active strategy: ${error.message}`});
+    }
   };
 
   const addMessageToHistory = (message) => {
@@ -1454,24 +1643,23 @@ function App() {
     <>
       <div className="app-header">
         <div className="app-mode-switcher">
-          <button onClick={() => setCurrentMode('interactive')} disabled={currentMode === 'interactive'}>Interactive Session</button>
-          <button onClick={() => setCurrentMode('analysis')} disabled={currentMode === 'analysis'}>System Analysis</button>
+          <button onClick={() => setCurrentMode('interactive')} disabled={currentMode === 'interactive'}>💬 Interactive Session</button>
+          <button onClick={() => setCurrentMode('analysis')} disabled={currentMode === 'analysis'}>📊 System Analysis</button>
         </div>
-        <div className="ws-status">
-          WebSocket: {wsConnectionStatus}
-          {!isWsServiceConnected && wsConnectionStatus.startsWith('Error') && (
+        <div className="ws-status" title={`WebSocket Connection: ${wsConnectionStatus}`}>
+          {wsConnectionStatus}
+          {!isWsServiceConnected && wsConnectionStatus.startsWith('🔴 Error') && (
             <button onClick={() => {
-              setWsConnectionStatus('Connecting...');
+              setWsConnectionStatus('🔌 Connecting...');
               apiService.connect().then(() => {
                 setIsWsServiceConnected(true);
-                setWsConnectionStatus('Connected');
-                fetchActiveStrategy();
+                setWsConnectionStatus('🟢 Connected');
+                fetchGlobalActiveStrategy();
               }).catch(err => {
-                setWsConnectionStatus(`Error: ${err.message || 'Failed to connect'}. Retrying...`);
-                // apiService will retry automatically, but this provides immediate feedback
+                setWsConnectionStatus(`🔴 Error: ${err.message || 'Failed to connect'}. Retrying...`);
               });
             }} style={{marginLeft: '10px'}}>
-              Retry Connect
+              🔄 Retry
             </button>
           )}
         </div>
@@ -1479,18 +1667,18 @@ function App() {
       {currentMode === 'interactive' ? (
         <InteractiveSessionMode
           sessionId={sessionId}
-          setSessionId={setSessionId} // Though connect/disconnect manage it
+          setSessionId={setSessionId}
           activeStrategy={activeStrategy}
-          setActiveStrategy={setActiveStrategy} // Pass callback to update App's state
+          setActiveStrategy={setActiveStrategy}
           currentKb={currentKb}
-          setCurrentKb={setCurrentKb} // Pass callback
+          setCurrentKb={setCurrentKb}
           connectSession={connectToSession}
           disconnectSession={disconnectFromSession}
-          isMcrSessionActive={!!sessionId} // Renamed for clarity
-          isWsServiceConnected={isWsServiceConnected} // Pass down WS service status
+          isMcrSessionActive={isConnected} // Pass MCR session status
+          isWsServiceConnected={isWsServiceConnected}
           addMessageToHistory={addMessageToHistory}
           chatHistory={chatHistory}
-          fetchActiveStrategy={fetchActiveStrategy}
+          fetchActiveStrategy={fetchGlobalActiveStrategy} // Pass global strategy fetcher
           fetchCurrentKb={fetchCurrentKb}
         />
       ) : (

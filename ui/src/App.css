@@ -505,4 +505,23 @@ li { /* General li styling */
 .app-container > .main-interaction-wrapper {
     height: 100%; /* Make sure they fill the app-container height */
 }
+
+/* Styles for PrologCodeViewer action buttons */
+.prolog-viewer-actions button {
+  background: #21262d;
+  border: 1px solid #30363d;
+  color: #c9d1d9;
+  padding: 3px 8px;
+  font-size: 0.75em; /* Small buttons */
+  border-radius: 3px;
+  cursor: pointer;
+  margin-left: 5px; /* Space between buttons */
+}
+.prolog-viewer-actions button:hover {
+  border-color: #8b949e;
+}
+.prolog-viewer-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 ```
