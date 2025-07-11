@@ -42,20 +42,19 @@ class ApiService {
       }
 
       if (this.socket && this.socket.readyState === WebSocket.CONNECTING) {
-        logger.debug('Connection attempt already in progress.');
+        logger.debug('[ApiService] Connection attempt already in progress.');
         // Could potentially queue this promise to resolve with the ongoing attempt
         reject(new Error('Connection attempt already in progress.'));
         return;
       }
 
-      logger.debug(`Attempting to connect to ${url}...`);
+      logger.debug(`[ApiService] Attempting to connect to ${url} (Attempt: ${this.reconnectAttempts + 1})...`);
       this.socket = new WebSocket(url);
 
       this.socket.onopen = () => {
-        logger.debug('WebSocket connection established.');
+        logger.debug('[ApiService] WebSocket.onopen: Connection established.');
         this.reconnectAttempts = 0; // Reset on successful connection
         this._notifyListeners('connection_status', { status: 'connected', url: this.serverUrl });
-        // The server might send a connection_ack, which will be handled by onmessage
         resolve();
       };
 
@@ -87,16 +86,16 @@ class ApiService {
       };
 
        this.socket.onerror = (errorEvent) => { // error is an Event, not an Error object
-        const errorMessage = errorEvent.message || 'WebSocket connection error during initial connect.';
-        logger.error('WebSocket error:', errorMessage, errorEvent);
-        // Don't automatically try to reconnect here, onclose will handle it for retries.
-        // For initial connect, this error means failure.
-        this._notifyListeners('connection_status', { status: 'error', message: errorMessage, event: errorEvent });
-        reject(new Error(errorMessage)); // Reject the initial connect promise with an Error object
+        const errorMessage = 'WebSocket.onerror triggered.'; // Generic message, details in event object
+        logger.error(`[ApiService] WebSocket.onerror: ${errorMessage}`, errorEvent);
+        // For initial connect, this error means failure for the current connect() promise.
+        // apiService's onclose handler will manage reconnect attempts.
+        this._notifyListeners('connection_status', { status: 'error', message: (errorEvent && errorEvent.message) || 'WebSocket connection error', event: errorEvent });
+        reject(new Error((errorEvent && errorEvent.message) || 'WebSocket connection error during initial connect.')); // Reject the current connect promise
       };
 
       this.socket.onclose = (event) => {
-        logger.debug(`WebSocket connection closed. WasClean: ${event.wasClean}, Code: ${event.code}, Reason: '${event.reason}'`);
+        logger.debug(`[ApiService] WebSocket.onclose: Connection closed. WasClean: ${event.wasClean}, Code: ${event.code}, Reason: '${event.reason}'`);
         this.pendingMessages.forEach(({ reject: rejectPromise }) => {
           rejectPromise(new Error('WebSocket connection closed before response received.'));
         });
@@ -114,33 +113,34 @@ class ApiService {
 
   disconnect() {
     if (this.socket) {
-      logger.debug('Disconnecting WebSocket.');
+      logger.debug('[ApiService] Explicit disconnect() called.');
       this.explicitlyClosed = true;
-      // Note: onclose listener will fire after this, and then notify 'disconnected_explicit'
-      this.socket.close();
+      this.socket.close(); // onclose listener will fire and handle notifications
+    } else {
+      logger.debug('[ApiService] disconnect() called, but no socket instance.');
     }
   }
 
   handleReconnect() {
     if (this.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
       this.reconnectAttempts++;
-      logger.debug(`Attempting to reconnect (${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+      logger.debug(`[ApiService] handleReconnect: Attempting to reconnect (${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
       setTimeout(() => {
         if (this.explicitlyClosed) {
-          logger.debug('WebSocket was explicitly closed during reconnect timeout. Aborting this reconnect attempt.');
+          logger.debug('[ApiService] handleReconnect: WebSocket was explicitly closed during reconnect timeout. Aborting this reconnect attempt.');
           return;
         }
+        // The connect() call here will use its own promise, which will be caught by App.jsx if it's the first call,
+        // or its error handling (onerror, onclose) will trigger further reconnect logic or max attempts.
         this.connect(this.serverUrl).catch(err => {
-            logger.warn(`Reconnect attempt ${this.reconnectAttempts} failed:`, err.message);
-            // If connect itself fails (e.g. server definitively down), onclose will trigger handleReconnect again,
-            // which will then increment reconnectAttempts and potentially hit the max.
+            // This catch is for the promise returned by this specific reconnect attempt's connect() call.
+            // If this connect() fails, its own .onerror and .onclose will have already been triggered,
+            // which would then call handleReconnect again if not explicitly closed.
+            logger.warn(`[ApiService] handleReconnect: Reconnect attempt ${this.reconnectAttempts} promise rejected:`, err.message);
         });
       }, this.reconnectInterval);
     } else {
-      logger.error('Max reconnect attempts reached. Will not try again automatically.');
-      // At this point, App.jsx's wsConnectionStatus will show the error from the last failed connect attempt.
-      // If a more specific "Max attempts reached" message is desired in App.jsx,
-      // apiService would need a way to communicate this state back (e.g., event, or a specific error type).
+      logger.error('[ApiService] handleReconnect: Max reconnect attempts reached. Will not try again automatically.');
       this._notifyListeners('connection_status', {
         status: 'failed_max_attempts',
         message: `Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Will not try again automatically.`,

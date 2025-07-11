@@ -145,14 +145,16 @@ function handleWebSocketConnection(ws) {
   // Prefer X-Correlation-ID from incoming request if available (e.g. via upgrade headers, though not standard for raw WS)
   // For now, generate one per connection.
   ws.correlationId = `ws-conn-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-  logger.info(`[WS-Handler] New WebSocket connection established. Assigned CorrelationID: ${ws.correlationId}`);
+  logger.info(`[WS-Handler][${ws.correlationId}] New WebSocket connection processing started.`);
 
   ws.on('message', async (messageBuffer) => {
     const messageString = messageBuffer.toString();
+    logger.info(`[WS-Handler][${ws.correlationId}] Received raw message: ${messageString}`); // Log raw message
     let parsedMessage;
 
     try {
       parsedMessage = JSON.parse(messageString);
+      logger.debug(`[WS-Handler][${ws.correlationId}] Parsed message:`, parsedMessage);
     } catch (error) {
       logger.error(`[WS-Handler][${ws.correlationId}] Failed to parse WebSocket message as JSON:`, {
         message: messageString,

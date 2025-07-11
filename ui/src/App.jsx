@@ -130,7 +130,14 @@ function App() {
       apiService.removeEventListener('connection_status', handleConnectionStatus);
       apiService.disconnect(); // Explicitly disconnect on component unmount
     };
-  }, [handleServerMessage, fetchGlobalActiveStrategy]); // Removed wsConnectionStatus
+  }, [handleServerMessage]); // fetchGlobalActiveStrategy removed, see new useEffect below
+
+  // Separate useEffect to react to connection success and fetch strategy
+  useEffect(() => {
+    if (isWsServiceConnected) {
+      fetchGlobalActiveStrategy();
+    }
+  }, [isWsServiceConnected, fetchGlobalActiveStrategy]);
 
   const connectToSession = async (sidToConnect) => {
     if (!isWsServiceConnected) {
