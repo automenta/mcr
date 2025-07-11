@@ -97,7 +97,7 @@ function App() {
           break;
         case 'reconnecting':
           setIsWsServiceConnected(false);
-          setWsConnectionStatus(`🟡 Reconnecting (attempt ${apiService.reconnectAttempts || 'N/A'})... ${statusEvent.reason || ''}`);
+          setWsConnectionStatus(`🟡 Reconnecting... ${statusEvent.reason || ''}`);
           break;
         case 'disconnected_explicit':
           setIsWsServiceConnected(false);
