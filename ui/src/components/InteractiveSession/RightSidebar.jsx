@@ -37,8 +37,13 @@ const RightSidebar = ({ knowledgeBase, isMcrSessionActive, sessionId, fetchCurre
   useEffect(() => {
     // Initializes the CodeMirror editor instance.
     if (editorRef.current && !viewRef.current && isMcrSessionActive) {
+      let docContent = editableKbContent;
+      if (typeof docContent !== 'string') {
+        console.warn("[RightSidebar] editableKbContent was not a string, stringifying for CodeMirror. Content:", docContent);
+        docContent = JSON.stringify(docContent, null, 2); // Pretty print for readability if it happens
+      }
       const state = EditorState.create({
-        doc: editableKbContent, // Initialize with current KB content.
+        doc: docContent, // Initialize with current KB content.
         extensions: [
           basicSetup, // Standard CodeMirror features.
           oneDark,    // Dark theme.

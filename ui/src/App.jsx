@@ -41,8 +41,17 @@ function App() {
     }
     if (message.type === 'kb_updated') {
       if (message.payload?.sessionId === sessionId) {
-        setCurrentKb(message.payload.fullKnowledgeBase || (message.payload.newFacts || []).join('\n'));
-        addMessageToHistory({type: 'system', text: `⚙️ KB updated remotely. New facts: ${message.payload.newFacts?.join(', ')}`});
+        let fullKb = message.payload.fullKnowledgeBase;
+        if (typeof fullKb === 'object' && fullKb !== null) {
+          // If it's an object, try to get a 'doc' property, otherwise stringify
+          fullKb = typeof fullKb.doc === 'string' ? fullKb.doc : JSON.stringify(fullKb);
+          addMessageToHistory({type: 'system', text: `ℹ️ Full KB data in 'kb_updated' received as object, converted to string.`});
+        }
+
+        const newFactsJoined = (message.payload.newFacts || []).join('\n');
+        // Prioritize fullKnowledgeBase if available and stringified, otherwise use newFacts.
+        setCurrentKb(fullKb || newFactsJoined);
+        addMessageToHistory({type: 'system', text: `⚙️ KB updated remotely. New facts: ${(message.payload.newFacts || []).join(', ')}`});
       }
     }
     if (message.type === 'tool_result' && message.payload?.success) {
@@ -195,7 +204,14 @@ function App() {
     try {
       const response = await apiService.invokeTool('session.get', { sessionId: sid });
       if (response.success && response.data) {
-        setCurrentKb(response.data.facts || 'KB data not found in session object.');
+        let kbData = response.data.facts;
+        if (typeof kbData === 'object' && kbData !== null) {
+          // If it's an object, try to get a 'doc' property, otherwise stringify
+          // This is a guess; ideally, the server sends a consistent string.
+          kbData = typeof kbData.doc === 'string' ? kbData.doc : JSON.stringify(kbData);
+          addMessageToHistory({type: 'system', text: `ℹ️ KB data received as object, converted to string.`});
+        }
+        setCurrentKb(kbData || 'KB data not found or is empty.'); // Ensure empty string if kbData is null/undefined after processing
       } else {
         setCurrentKb('⚠️ Failed to load KB.');
         addMessageToHistory({type: 'system', text: `⚠️ Error loading KB for session ${sid}: ${response.message}`});
