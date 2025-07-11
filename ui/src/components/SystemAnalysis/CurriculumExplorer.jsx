@@ -59,13 +59,26 @@ const CurriculumExplorer = () => {
           <h5>📚 Available Curricula</h5>
           <button onClick={fetchCurriculaList} disabled={isLoadingList}>🔄 Refresh List</button>
           {curriculaList.length > 0 ? (
-            <ul>
+            <ul style={{ listStyleType: 'none', paddingLeft: 0 }}>
               {curriculaList.map(cur => (
-                <li key={cur.id} onClick={() => fetchCurriculumDetails(cur.id)}
-                    style={{ cursor: 'pointer', fontWeight: selectedCurriculum?.id === cur.id ? 'bold' : 'normal', padding: '5px 0' }}>
-                  {cur.name} ({cur.caseCount} cases)
-                  <br />
-                  <small style={{color: '#777'}}>{cur.path}</small>
+                <li key={cur.id} style={{ fontWeight: selectedCurriculum?.id === cur.id ? 'bold' : 'normal', marginBottom: '5px' }}>
+                  <button
+                    onClick={() => fetchCurriculumDetails(cur.id)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: '5px', // Keep padding for click area
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      width: '100%', // Make button take full width of li
+                      color: 'inherit', // Inherit text color
+                      font: 'inherit' // Inherit font style
+                    }}
+                  >
+                    {cur.name} ({cur.caseCount} cases)
+                    <br />
+                    <small style={{color: '#777'}}>{cur.path}</small>
+                  </button>
                 </li>
               ))}
             </ul>

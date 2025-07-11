@@ -30,11 +30,14 @@ const PrologCodeViewer = ({
   const [copyStatus, setCopyStatus] = useState(''); // Feedback for copy action
 
   useEffect(() => {
-    if (editorRef.current && !viewRef.current) {
+    if (editorRef.current && !viewRef.current) { // Only create editor once
+      const initialDoc = isEditable ? (initialContent || '') : (code || '');
+      setCurrentCode(initialDoc); // Sync internal state with initial document
+
       const state = EditorState.create({
-        doc: currentCode,
+        doc: initialDoc,
         extensions: [
-          basicSetup, // Includes line numbers, history, etc.
+          basicSetup,
           EditorView.lineWrapping,
           oneDark,
           prolog(),
@@ -73,12 +76,19 @@ const PrologCodeViewer = ({
 
     // Cleanup
     return () => {
-      // Basic cleanup, though full CM6 cleanup with React strict mode can be tricky
-      // if (viewRef.current) { viewRef.current.destroy(); viewRef.current = null;}
+      // Basic cleanup: if the view was created, destroy it on unmount.
+      if (viewRef.current) {
+        viewRef.current.destroy();
+        viewRef.current = null;
+      }
     };
-  }, [isEditable, code, initialContent, onSave]); // Removed currentCode from dependencies
+  // Dependencies for re-creating the editor: if isEditable changes, or onSave callback changes,
+  // or if the initial content meant for the editor changes.
+  // `code` is for read-only display, `initialContent` for editable initial state.
+  }, [isEditable, initialContent, code, onSave]);
 
   // Update editor's readOnly state if isEditable prop changes dynamically
+  // This effect runs if the editor instance (viewRef.current) exists and isEditable changes.
   useEffect(() => {
     if (viewRef.current) {
       viewRef.current.dispatch({

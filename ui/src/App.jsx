@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'; // Removed useRef
+import React, { useState, useEffect, useCallback } from 'react'; // Added useCallback back
 import './App.css'; // Using App.css for main layout styles
 import apiService from './apiService';
 
@@ -17,6 +17,9 @@ import InteractiveSessionMode from './components/InteractiveSession/InteractiveS
 
 // CodeMirror related imports are also moved to the components that use them (PrologCodeViewer, RightSidebar)
 
+import AppHeader from './components/AppHeader';
+
+// import React, { useState, useEffect, useCallback } from 'react'; // This was the duplicate
 // --- Main App Component ---
 function App() {
   const [currentMode, setCurrentMode] = useState('interactive'); // 'interactive' or 'analysis'
@@ -28,9 +31,13 @@ function App() {
   const [isWsServiceConnected, setIsWsServiceConnected] = useState(false); // WebSocket service connection status
   const [wsConnectionStatus, setWsConnectionStatus] = useState('⏳ Initializing...');
 
-  const handleServerMessage = (message) => {
+  const addMessageToHistory = useCallback((message) => {
+    setChatHistory(prev => [...prev, message]);
+  }, []);
+
+  const handleServerMessage = useCallback((message) => {
     if (message.type === 'connection_ack') {
-      console.log("Connection ACK received from server:", message.message);
+      console.debug("[App] Connection ACK received:", message.message); // Changed to debug
     }
     if (message.type === 'kb_updated') {
       if (message.payload?.sessionId === sessionId) {
@@ -47,31 +54,83 @@ function App() {
             // addMessageToHistory({type: 'system', text: `✅ Assertion successful, waiting for KB update broadcast.`});
         }
     }
-  };
+  }, [sessionId, addMessageToHistory, setCurrentKb, setActiveStrategy]); // Added dependencies
+
+    // Fetches the globally (or default) active strategy.
+  const fetchGlobalActiveStrategy = useCallback(async () => {
+    if (!isWsServiceConnected) return; // Requires WS connection
+    try {
+        const response = await apiService.invokeTool('strategy.getActive');
+        if(response.success && response.data?.activeStrategyId) {
+            setActiveStrategy(response.data.activeStrategyId);
+        } else {
+            setActiveStrategy('N/A (error)');
+            // addMessageToHistory({type: 'system', text: `⚠️ Could not fetch active strategy: ${response.message}`});
+        }
+    } catch (error) {
+        setActiveStrategy(`❌ Error fetching strategy: ${error.message}`);
+        // addMessageToHistory({type: 'system', text: `❌ Exception fetching active strategy: ${error.message}`});
+    }
+  }, [isWsServiceConnected, setActiveStrategy]); // addMessageToHistory removed as it's not used for errors here now
 
   useEffect(() => {
+    // Listener for general server messages (kb_updated, tool_result, etc.)
     apiService.addMessageListener(handleServerMessage);
 
+    // Listener for connection status events from apiService
+    const handleConnectionStatus = (statusEvent) => {
+      console.debug('[App] Connection status event:', statusEvent); // Changed to debug
+      switch (statusEvent.status) {
+        case 'connected':
+          setIsWsServiceConnected(true);
+          setWsConnectionStatus('🟢 Connected');
+          fetchGlobalActiveStrategy(); // Fetch strategy once connected
+          break;
+        case 'reconnecting':
+          setIsWsServiceConnected(false);
+          setWsConnectionStatus(`🟡 Reconnecting (attempt ${apiService.reconnectAttempts || 'N/A'})... ${statusEvent.reason || ''}`);
+          break;
+        case 'disconnected_explicit':
+          setIsWsServiceConnected(false);
+          setWsConnectionStatus('⚪ Disconnected');
+          break;
+        case 'failed_max_attempts':
+          setIsWsServiceConnected(false);
+          setWsConnectionStatus(`🔴 Max reconnect attempts reached. ${statusEvent.message}`);
+          break;
+        case 'error': // Initial connection error
+          setIsWsServiceConnected(false);
+          setWsConnectionStatus(`🔴 Error: ${statusEvent.message}. Retrying...`); // "Retrying" because apiService handles it
+          break;
+        default:
+          setWsConnectionStatus(`❓ Unknown status: ${statusEvent.status}`);
+      }
+    };
+    apiService.addEventListener('connection_status', handleConnectionStatus);
+
+    // Initial connection attempt
     setWsConnectionStatus('🔌 Connecting...');
-    apiService.connect()
-      .then(() => {
-        setIsWsServiceConnected(true);
-        setWsConnectionStatus('🟢 Connected');
-        console.log("Successfully connected to WebSocket service.");
-        // Fetch global active strategy once WS is connected, not dependent on MCR session.
-        fetchGlobalActiveStrategy();
-      })
-      .catch(err => {
-        console.error("Initial auto-connect to WebSocket service failed:", err);
-        setIsWsServiceConnected(false);
-        setWsConnectionStatus(`🔴 Error: ${err.message || 'Failed to connect'}. Retrying...`);
-      });
+    apiService.connect().catch(err => {
+      // This catch is primarily for the *very first* connection attempt failing
+      // before onclose/onerror within apiService might trigger a reconnect sequence.
+      // The 'connection_status' listener will also pick up 'error' or 'reconnecting' states.
+      // So, this specific catch might be redundant if handleConnectionStatus covers initial errors well.
+      // However, it ensures an immediate UI update if the initial promise rejects.
+      console.error("Initial apiService.connect() promise rejected:", err);
+      setIsWsServiceConnected(false);
+      // wsConnectionStatus will likely be set by the 'error' or 'reconnecting' status event.
+      // If not, this is a fallback:
+      if (!wsConnectionStatus.startsWith('🔴 Error') && !wsConnectionStatus.startsWith('🟡 Reconnecting')) {
+         setWsConnectionStatus(`🔴 Initial Connect Failed: ${err.message}. Check console.`);
+      }
+    });
 
     return () => {
       apiService.removeMessageListener(handleServerMessage);
-      apiService.disconnect();
+      apiService.removeEventListener('connection_status', handleConnectionStatus);
+      apiService.disconnect(); // Explicitly disconnect on component unmount
     };
-  }, []);
+  }, [handleServerMessage, fetchGlobalActiveStrategy, wsConnectionStatus]); // Added dependencies
 
   const connectToSession = async (sidToConnect) => {
     if (!isWsServiceConnected) {
@@ -140,52 +199,33 @@ function App() {
     }
   };
 
-  // Fetches the globally (or default) active strategy.
-  const fetchGlobalActiveStrategy = async () => {
-    if (!isWsServiceConnected) return; // Requires WS connection
-    try {
-        const response = await apiService.invokeTool('strategy.getActive');
-        if(response.success && response.data?.activeStrategyId) {
-            setActiveStrategy(response.data.activeStrategyId);
-        } else {
-            setActiveStrategy('N/A (error)');
-            // addMessageToHistory({type: 'system', text: `⚠️ Could not fetch active strategy: ${response.message}`});
-        }
-    } catch (error) {
-        setActiveStrategy(`❌ Error fetching strategy: ${error.message}`);
-        // addMessageToHistory({type: 'system', text: `❌ Exception fetching active strategy: ${error.message}`});
-    }
-  };
-
-  const addMessageToHistory = (message) => {
-    setChatHistory(prev => [...prev, message]);
-  };
+  // const addMessageToHistory = (message) => { // This was also duplicated by the useCallback version earlier
+  //   setChatHistory(prev => [...prev, message]);
+  // };
+  // The duplicated fetchGlobalActiveStrategy was here. Removing it.
+  // The useCallback version defined earlier is the correct one.
 
   return (
     <>
-      <div className="app-header">
-        <div className="app-mode-switcher">
-          <button onClick={() => setCurrentMode('interactive')} disabled={currentMode === 'interactive'}>💬 Interactive Session</button>
-          <button onClick={() => setCurrentMode('analysis')} disabled={currentMode === 'analysis'}>📊 System Analysis</button>
-        </div>
-        <div className="ws-status" title={`WebSocket Connection: ${wsConnectionStatus}`}>
-          {wsConnectionStatus}
-          {!isWsServiceConnected && wsConnectionStatus.startsWith('🔴 Error') && (
-            <button onClick={() => {
-              setWsConnectionStatus('🔌 Connecting...');
-              apiService.connect().then(() => {
-                setIsWsServiceConnected(true);
-                setWsConnectionStatus('🟢 Connected');
-                fetchGlobalActiveStrategy();
-              }).catch(err => {
-                setWsConnectionStatus(`🔴 Error: ${err.message || 'Failed to connect'}. Retrying...`);
-              });
-            }} style={{marginLeft: '10px'}}>
-              🔄 Retry
-            </button>
-          )}
-        </div>
-      </div>
+      <AppHeader
+        currentMode={currentMode}
+        setCurrentMode={setCurrentMode}
+        wsConnectionStatus={wsConnectionStatus}
+        isWsServiceConnected={isWsServiceConnected}
+        onRetryConnect={() => {
+          setWsConnectionStatus('🔌 Connecting...');
+          apiService.connect().then(() => {
+            setIsWsServiceConnected(true);
+            setWsConnectionStatus('🟢 Connected');
+            fetchGlobalActiveStrategy(); // Refetch strategy on successful reconnect
+          }).catch(err => {
+            // The apiService itself will manage reconnect attempts and notify of max failures.
+            // App.jsx's useEffect for apiService listeners should update wsConnectionStatus for these.
+            // For an explicit retry click, we can show an immediate error.
+            setWsConnectionStatus(`🔴 Error: ${err.message || 'Failed to connect during retry'}.`);
+          });
+        }}
+      />
       {currentMode === 'interactive' ? (
         <InteractiveSessionMode
           sessionId={sessionId}
@@ -200,7 +240,7 @@ function App() {
           isWsServiceConnected={isWsServiceConnected}
           addMessageToHistory={addMessageToHistory}
           chatHistory={chatHistory}
-          fetchActiveStrategy={fetchGlobalActiveStrategy} // Pass global strategy fetcher
+          // fetchActiveStrategy={fetchGlobalActiveStrategy} // Removed as InteractiveSessionMode doesn't use it
           fetchCurrentKb={fetchCurrentKb}
         />
       ) : (

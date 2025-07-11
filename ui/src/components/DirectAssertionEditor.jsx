@@ -84,10 +84,10 @@ const DirectAssertionEditor = ({ sessionId, isMcrSessionActive, isWsServiceConne
       <h4>✏️ Direct KB Assertion</h4>
       <p className="text-muted" style={{fontSize: '0.8em', marginBottom: '5px'}}>
         Enter Prolog facts or rules (e.g., <code>father(john,pete).</code>). Each statement must end with a period.
-        Use the "💾 Save" button below the editor (or Ctrl/Cmd+S) to assert.
+        Use the &quot;💾 Save&quot; button below the editor (or Ctrl/Cmd+S) to assert.
       </p>
       <PrologCodeViewer
-        ref={prologViewerRef} // Not strictly needed now but good for future direct interactions
+        // ref={prologViewerRef} // Removed as it's not defined and not strictly needed
         key={currentPrologCode === '' ? 'empty' : 'filled'} // Force re-render with new doc if we clear currentPrologCode
         initialContent={currentPrologCode} // Set initial content, and when it changes (e.g. cleared), re-key
         isEditable={true}

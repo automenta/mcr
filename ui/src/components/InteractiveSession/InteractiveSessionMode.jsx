@@ -17,7 +17,7 @@ const InteractiveSessionMode = ({
   isWsServiceConnected,
   addMessageToHistory,
   chatHistory,
-  fetchActiveStrategy, // This prop seems to be passed to App, not directly used by InteractiveSessionMode itself. Keep for now.
+  // fetchActiveStrategy, // Removed as unused by this component or its direct children
   fetchCurrentKb
 }) => {
   return (

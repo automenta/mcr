@@ -1,6 +1,8 @@
 // ui/src/apiService.js
 const logger = {
-  log: (...args) => console.log('[ApiService]', ...args),
+  // Changed console.log to console.debug to comply with no-console rule (if debug is preferred over info)
+  // or could disable the rule for this line if .log is specifically desired for this service.
+  debug: (...args) => console.debug('[ApiService]', ...args),
   error: (...args) => console.error('[ApiService]', ...args),
   warn: (...args) => console.warn('[ApiService]', ...args),
 };
@@ -11,7 +13,9 @@ const MAX_RECONNECT_ATTEMPTS = 5;
 class ApiService {
   constructor() {
     this.socket = null;
-    this.messageListeners = new Set();
+    // Store listeners by event type. '*' for all messages.
+    // Example: { '*': [listener1, listener2], 'connection_status': [listener3] }
+    this.eventListeners = new Map();
     this.pendingMessages = new Map(); // Store { resolve, reject } for messages awaiting response
     this.reconnectInterval = DEFAULT_RECONNECT_INTERVAL;
     this.reconnectAttempts = 0;
@@ -30,33 +34,33 @@ class ApiService {
 
     return new Promise((resolve, reject) => {
       if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-        logger.log('Already connected.');
+        logger.debug('Already connected.');
         resolve();
         return;
       }
 
       if (this.socket && this.socket.readyState === WebSocket.CONNECTING) {
-        logger.log('Connection attempt already in progress.');
+        logger.debug('Connection attempt already in progress.');
         // Could potentially queue this promise to resolve with the ongoing attempt
         reject(new Error('Connection attempt already in progress.'));
         return;
       }
 
-      logger.log(`Attempting to connect to ${url}...`);
+      logger.debug(`Attempting to connect to ${url}...`);
       this.socket = new WebSocket(url);
 
       this.socket.onopen = () => {
-        logger.log('WebSocket connection established.');
+        logger.debug('WebSocket connection established.');
         this.reconnectAttempts = 0; // Reset on successful connection
-        // Notify listeners about the connection_ack or other initial messages
-        // The server sends a connection_ack, which will be handled by onmessage
+        this._notifyListeners('connection_status', { status: 'connected', url: this.serverUrl });
+        // The server might send a connection_ack, which will be handled by onmessage
         resolve();
       };
 
       this.socket.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          logger.log('Received message:', message);
+          logger.debug('Received message:', message);
 
           if (message.messageId && this.pendingMessages.has(message.messageId)) {
             const { resolve: resolvePromise, reject: rejectPromise } = this.pendingMessages.get(message.messageId);
@@ -68,27 +72,39 @@ class ApiService {
             this.pendingMessages.delete(message.messageId);
           }
 
-          this.messageListeners.forEach(listener => listener(message));
+          // Notify generic message listeners
+          this._notifyListeners('*', message);
+          // Notify listeners for specific message types if the message has a 'type'
+          if (message.type) {
+            this._notifyListeners(message.type, message);
+          }
+
         } catch (error) {
           logger.error('Error processing message or invalid JSON:', error, event.data);
         }
       };
 
-      this.socket.onerror = (error) => {
-        logger.error('WebSocket error:', error);
-        // Don't automatically try to reconnect here, onclose will handle it.
-        reject(error); // Reject the initial connect promise
+       this.socket.onerror = (errorEvent) => { // error is an Event, not an Error object
+        const errorMessage = errorEvent.message || 'WebSocket connection error during initial connect.';
+        logger.error('WebSocket error:', errorMessage, errorEvent);
+        // Don't automatically try to reconnect here, onclose will handle it for retries.
+        // For initial connect, this error means failure.
+        this._notifyListeners('connection_status', { status: 'error', message: errorMessage, event: errorEvent });
+        reject(new Error(errorMessage)); // Reject the initial connect promise with an Error object
       };
 
       this.socket.onclose = (event) => {
-        logger.log(`WebSocket connection closed. WasClean: ${event.wasClean}, Code: ${event.code}, Reason: '${event.reason}'`);
+        logger.debug(`WebSocket connection closed. WasClean: ${event.wasClean}, Code: ${event.code}, Reason: '${event.reason}'`);
         this.pendingMessages.forEach(({ reject: rejectPromise }) => {
           rejectPromise(new Error('WebSocket connection closed before response received.'));
         });
         this.pendingMessages.clear();
 
         if (!this.explicitlyClosed) {
+          this._notifyListeners('connection_status', { status: 'reconnecting', reason: event.reason, code: event.code });
           this.handleReconnect();
+        } else {
+          this._notifyListeners('connection_status', { status: 'disconnected_explicit', reason: event.reason, code: event.code });
         }
       };
     });
@@ -96,8 +112,9 @@ class ApiService {
 
   disconnect() {
     if (this.socket) {
-      logger.log('Disconnecting WebSocket.');
+      logger.debug('Disconnecting WebSocket.');
       this.explicitlyClosed = true;
+      // Note: onclose listener will fire after this, and then notify 'disconnected_explicit'
       this.socket.close();
     }
   }
@@ -105,10 +122,10 @@ class ApiService {
   handleReconnect() {
     if (this.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
       this.reconnectAttempts++;
-      logger.log(`Attempting to reconnect (${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+      logger.debug(`Attempting to reconnect (${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
       setTimeout(() => {
         if (this.explicitlyClosed) {
-          logger.log('WebSocket was explicitly closed during reconnect timeout. Aborting this reconnect attempt.');
+          logger.debug('WebSocket was explicitly closed during reconnect timeout. Aborting this reconnect attempt.');
           return;
         }
         this.connect(this.serverUrl).catch(err => {
@@ -122,7 +139,23 @@ class ApiService {
       // At this point, App.jsx's wsConnectionStatus will show the error from the last failed connect attempt.
       // If a more specific "Max attempts reached" message is desired in App.jsx,
       // apiService would need a way to communicate this state back (e.g., event, or a specific error type).
+      this._notifyListeners('connection_status', {
+        status: 'failed_max_attempts',
+        message: `Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Will not try again automatically.`,
+        attempts: MAX_RECONNECT_ATTEMPTS,
+      });
     }
+  }
+
+  _notifyListeners(eventType, data) {
+    const listeners = this.eventListeners.get(eventType) || [];
+    listeners.forEach(listener => {
+      try {
+        listener(data);
+      } catch (error) {
+        logger.error(`Error in listener for ${eventType}:`, error);
+      }
+    });
   }
 
   sendMessage(type, toolName, input = {}) {
@@ -163,7 +196,7 @@ class ApiService {
 
       try {
         this.socket.send(JSON.stringify(message));
-        logger.log('Sent message:', message);
+        logger.debug('Sent message:', message);
         this.pendingMessages.set(messageId, { resolve, reject });
       } catch (error) {
         logger.error('Error sending message:', error);
@@ -177,14 +210,32 @@ class ApiService {
     return this.sendMessage('tool_invoke', toolName, input);
   }
 
-  // Subscribe to all messages
-  addMessageListener(callback) {
-    this.messageListeners.add(callback);
+  // Generic event listener
+  addEventListener(eventType, callback) {
+    if (!this.eventListeners.has(eventType)) {
+      this.eventListeners.set(eventType, []);
+    }
+    this.eventListeners.get(eventType).push(callback);
   }
 
-  // Unsubscribe
+  removeEventListener(eventType, callback) {
+    const listeners = this.eventListeners.get(eventType);
+    if (listeners) {
+      const index = listeners.indexOf(callback);
+      if (index > -1) {
+        listeners.splice(index, 1);
+      }
+    }
+  }
+
+  // Kept for backward compatibility if any part of App.jsx specifically uses it.
+  // Consider refactoring App.jsx to use addEventListener('*', callback)
+  addMessageListener(callback) {
+    this.addEventListener('*', callback);
+  }
+
   removeMessageListener(callback) {
-    this.messageListeners.delete(callback);
+    this.removeEventListener('*', callback);
   }
 
   isConnected() {
