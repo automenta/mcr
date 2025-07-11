@@ -130,7 +130,7 @@ function App() {
       apiService.removeEventListener('connection_status', handleConnectionStatus);
       apiService.disconnect(); // Explicitly disconnect on component unmount
     };
-  }, [handleServerMessage, fetchGlobalActiveStrategy, wsConnectionStatus]); // Added dependencies
+  }, [handleServerMessage, fetchGlobalActiveStrategy]); // Removed wsConnectionStatus
 
   const connectToSession = async (sidToConnect) => {
     if (!isWsServiceConnected) {

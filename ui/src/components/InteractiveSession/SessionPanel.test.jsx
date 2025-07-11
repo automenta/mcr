@@ -82,12 +82,14 @@ describe('SessionPanel', () => {
     expect(mockDisconnectSession).toHaveBeenCalled();
   });
 
-  it('disables connect/disconnect buttons and input if WebSocket service is not connected', () => {
+  it('disables connect button and input if WS not connected AND not in MCR session', () => {
     // Test when not in MCR session
     render(<SessionPanel {...defaultProps} isWsServiceConnected={false} />);
     expect(screen.getByPlaceholderText('Session ID (optional)')).toBeDisabled();
     expect(screen.getByRole('button', { name: '🟢 Connect' })).toBeDisabled();
+  });
 
+  it('disables disconnect button and input if WS not connected AND in MCR session', () => {
     // Test when in MCR session
     render(
       <SessionPanel

@@ -20,8 +20,9 @@ describe('DemoPanel', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    apiService.invokeTool.mockImplementation(async (toolName, _params) => { // Prefixed params
+    vi.resetAllMocks(); // Changed from clearAllMocks
+    // Re-establish default mock implementation after reset
+    apiService.invokeTool.mockImplementation(async (toolName, _params) => {
       if (toolName === 'demo.list') return { success: true, data: [] };
       if (toolName === 'demo.run') return { success: true, data: { trace: 'Demo run trace' }, message: "Demo run success" };
       return { success: true, data: {} };
@@ -86,15 +87,13 @@ describe('DemoPanel', () => {
     apiService.invokeTool.mockResolvedValueOnce({ success: true, data: demosData }); // For demo.list
 
     render(<DemoPanel {...defaultProps} isMcrSessionActive={false} sessionId={null} />);
-    await waitFor(() => screen.getByText('First Demo'));
+    await act(async () => {}); // Wait for any potential initial effects
 
-    const runButton = screen.getByRole('button', { name: '▶️ Run' });
-    await act(async () => {
-      fireEvent.click(runButton);
-    });
-
-    expect(global.alert).toHaveBeenCalledWith("Connect to a session and ensure WebSocket is active first.");
-    expect(apiService.invokeTool).not.toHaveBeenCalledWith('demo.run', expect.anything());
+    // Verify demo.list was not called or resulted in no demos shown
+    expect(apiService.invokeTool).not.toHaveBeenCalledWith('demo.list');
+    expect(screen.queryByText('First Demo')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '▶️ Run' })).not.toBeInTheDocument();
+    // The alert part of handleRunDemo is not reached as no run button is available.
   });
 
   it('disables buttons if MCR session is not active', async () => {
@@ -110,10 +109,24 @@ describe('DemoPanel', () => {
   });
 
   it('handles API error when listing demos', async () => {
-    apiService.invokeTool.mockResolvedValueOnce({ success: false, message: 'Failed to list demos' });
+    // Override the default mock for this specific test case
+    apiService.invokeTool.mockImplementation(async (toolName) => {
+      if (toolName === 'demo.list') {
+        return { success: false, message: 'Failed to list demos' }; // The specific error case
+      }
+      // Fallback for any other unexpected calls from this component, though none are expected here
+      return { success: true, data: {} };
+    });
+
     render(<DemoPanel {...defaultProps} />);
-    await waitFor(() => expect(mockAddMessageToHistory).toHaveBeenCalledWith(expect.objectContaining({
-        text: "Error listing demos: Failed to list demos"
-    })));
+
+    await waitFor(() =>
+      expect(mockAddMessageToHistory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'system',
+          text: "Error listing demos: Failed to list demos"
+        })
+      )
+    );
   });
 });

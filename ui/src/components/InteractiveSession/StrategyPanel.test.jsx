@@ -18,7 +18,7 @@ vi.mock('../Modal', () => ({
 
 // Mock global alert
 global.alert = vi.fn();
-
+// Cache-busting comment
 describe('StrategyPanel', () => {
   const mockAddMessageToHistory = vi.fn();
   const mockSetActiveStrategy = vi.fn();
@@ -44,7 +44,9 @@ describe('StrategyPanel', () => {
     render(<StrategyPanel {...defaultProps} activeStrategy="current-active-strat" />);
     expect(screen.getByText('🛠️ Strategies')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '🔄 List Strategies' })).toBeInTheDocument();
-    expect(screen.getByText((content, _el) => content.startsWith('🎯 Active:') && content.includes('current-active-strat'))).toBeInTheDocument();
+    const activeStrategyDisplay = screen.getByText(/🎯 Active:/);
+    expect(activeStrategyDisplay).toBeInTheDocument();
+    expect(activeStrategyDisplay.querySelector('strong')).toHaveTextContent('current-active-strat');
   });
 
   it('lists strategies on mount if session is active', async () => {
@@ -79,7 +81,11 @@ describe('StrategyPanel', () => {
     await waitFor(() => expect(screen.getByTestId('modal-mock')).toBeInTheDocument());
     expect(screen.getByText('🛠️ Strategy: Strategy Alpha')).toBeInTheDocument();
     expect(screen.getByText(strategyData.description)).toBeInTheDocument();
-    expect(screen.getByText(JSON.stringify(strategyData.definition, null, 2))).toBeInTheDocument();
+
+    const modalContent = screen.getByTestId('modal-mock');
+    const preElement = modalContent.querySelector('pre');
+    expect(preElement).toBeInTheDocument();
+    expect(preElement.textContent).toBe(JSON.stringify(strategyData.definition, null, 2));
   });
 
   it('can set an active strategy', async () => {

@@ -58,7 +58,10 @@ describe('OntologyPanel', () => {
     render(<OntologyPanel {...defaultProps} isMcrSessionActive={false} />);
     await act(async () => {}); // Wait for any potential effects
     expect(apiService.invokeTool).not.toHaveBeenCalledWith('ontology.list', expect.anything());
-    expect(screen.getByText(/No ontologies found/i)).toBeInTheDocument(); // Assuming this message shows
+    // Check that the message for "active session but no ontologies" is NOT there
+    expect(screen.queryByText(/🤷 No ontologies found./i)).not.toBeInTheDocument();
+    // Also, check that buttons are disabled
+    expect(screen.getByRole('button', { name: '🔄 List Ontologies' })).toBeDisabled();
   });
 
   it('displays "No ontologies found" when list is empty and session active', async () => {
