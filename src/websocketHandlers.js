@@ -140,10 +140,11 @@ async function routeMessage(ws, parsedMessage) {
   }
 }
 
-function handleWebSocketConnection(ws) {
+function handleWebSocketConnection(ws, req) { // Added req parameter
   // Assign a correlation ID for this WebSocket connection for consistent logging
   // Prefer X-Correlation-ID from incoming request if available (e.g. via upgrade headers, though not standard for raw WS)
   // For now, generate one per connection.
+  // req is available here if needed for context (e.g. req.headers, req.url)
   ws.correlationId = `ws-conn-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   logger.info(`[WS-Handler][${ws.correlationId}] New WebSocket connection processing started.`);
 

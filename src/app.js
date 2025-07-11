@@ -67,27 +67,44 @@ app.get('*', (req, res, next) => {
 
 // WebSocket connection handling
 wss.on('connection', (ws, req) => { // 'req' is available here, contains upgrade request
-  // ws.correlationId is now set within handleWebSocketConnection,
-  // but we can use req.correlationId from the HTTP logger if it was an upgrade.
-  // However, raw WebSocket connections might not have gone through that logger.
-  // So, handleWebSocketConnection's own correlationId generation is more reliable.
-  const clientIp = req.socket.remoteAddress || req.headers['x-forwarded-for'];
-  logger.info(`New WebSocket connection established from IP: ${clientIp}.`);
-  handleWebSocketConnection(ws); // Delegate to the handler
+  let clientIp = 'unknown_ip';
+  let requestUrl = 'unknown_url';
 
-  // ws.on('message', (message) => { // This logic is now in handleWebSocketConnection
-  //   logger.info(`Received WebSocket message: ${message}`);
-  //   // Placeholder: Message routing logic will be added here
-  //   ws.send(`Echo: ${message}`); // Simple echo for now
-  // });
+  try {
+    // Safely access IP and URL
+    clientIp = req.socket?.remoteAddress || req.headers?.['x-forwarded-for'] || 'unknown_ip_fallback';
+    requestUrl = req?.url || 'unknown_url_fallback';
 
-  ws.on('close', () => {
-    logger.info('WebSocket connection closed.'); // This is also logged in handleWebSocketConnection with correlationId
-  });
+    logger.info(`[App WSS] Attempting to handle new WebSocket connection from IP: ${clientIp}. Request URL: ${requestUrl}`);
 
-  ws.on('error', (error) => {
-    logger.error('WebSocket error:', error); // This is also logged in handleWebSocketConnection with correlationId
-  });
+    // Optional: Log headers from the upgrade request for detailed debugging if needed
+    // logger.debug(`[App WSS] Upgrade Request Headers for ${clientIp}:`, req.headers);
+
+    // Delegate to the handler, passing req for potential future use or context
+    handleWebSocketConnection(ws, req);
+    logger.info(`[App WSS] Successfully delegated to handleWebSocketConnection for IP: ${clientIp}, URL: ${requestUrl}.`);
+
+  } catch (error) {
+    logger.error(`[App WSS] CRITICAL ERROR in wss.on('connection') handler for IP ${clientIp}, URL: ${requestUrl}: ${error.message}`, {
+      stack: error.stack,
+      clientIp: clientIp,
+      requestUrl: requestUrl
+    });
+    // If an error occurs here, the ws object might be in an unstable state.
+    // Try to close it gracefully if it's not already closed.
+    if (ws && ws.readyState !== WebSocket.CLOSED && ws.readyState !== WebSocket.CLOSING) {
+      logger.warn(`[App WSS] Attempting to terminate WebSocket due to error during connection setup for IP: ${clientIp}, URL: ${requestUrl}.`);
+      ws.terminate(); // Force close the WebSocket connection
+    }
+  }
+
+  // Note: Generic 'close' and 'error' handlers on 'ws' itself are usually set up
+  // within handleWebSocketConnection or by the 'ws' library.
+  // If handleWebSocketConnection is not reached, or if it fails to set them up,
+  // errors on this specific 'ws' instance might go unlogged here.
+  // However, the primary goal of this try-catch is to catch errors in *this* callback.
+  // Errors on the WebSocket connection *after* successful delegation
+  // should be handled by listeners attached in `handleWebSocketConnection`.
 });
 
 logger.info('WebSocket server set up.');
