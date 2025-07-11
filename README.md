@@ -129,8 +129,8 @@ npm install
 **2. Configure LLM:**
 Create a `.env` file in the project root (copy from `.env.example`) and add your chosen LLM provider API key and settings.
 
-**3. Build the MCR Workbench UI:**
-The MCR Workbench is a React application. You need to build its static assets.
+**3. Build the MCR Workbench UI (Production Mode):**
+The MCR Workbench is a React application. For production-like deployment, you need to build its static assets.
 
 ```bash
 cd ui
@@ -138,10 +138,10 @@ npm install
 npm run build
 cd ..
 ```
-This will create a `dist` folder inside the `ui` directory containing the built UI assets.
+This will create a `dist` folder inside the `ui` directory containing the built UI assets. **This step is mandatory for the MCR server to serve the UI as described below.**
 
-**4. Start the MCR Server:**
-The server now also serves the MCR Workbench UI.
+**4. Start the MCR Server (Serves Production UI Build):**
+Once the UI is built as described above, the MCR server can serve it.
 
 ```bash
 node mcr.js
@@ -153,6 +153,28 @@ Open your web browser and navigate to `http://localhost:8080` (or your configure
 You should see the MCR Workbench interface, which allows you to manage sessions, interact with the reasoner, and access system analysis tools.
 
 The previous CLI and TUI interfaces (`./cli.js`, `chat.js`) have been **removed** and their functionality is now integrated into the MCR Workbench.
+
+**Alternative: Running UI in Development Mode (Hot Reloading)**
+
+For UI development, you can run the Vite development server, which provides hot reloading. This requires running two processes simultaneously:
+
+1.  **Start the MCR Backend Server:**
+    Open a terminal, navigate to the project root, and run:
+    ```bash
+    node mcr.js
+    ```
+    This server will handle API requests (typically on `http://localhost:8080`).
+
+2.  **Start the Vite UI Development Server:**
+    Open a *separate* terminal, navigate to the `ui` directory, and run:
+    ```bash
+    cd ui
+    npm install # If you haven't already
+    npm run dev
+    ```
+    Vite will start a development server for the UI, usually on a different port (e.g., `http://localhost:5173` - check your terminal output). Access the MCR Workbench through this Vite URL in your browser. UI changes will update automatically.
+
+**Note:** The UI development server only serves the UI. The backend server (`node mcr.js`) must still be running for the UI to function correctly.
 
 ## 📦 Using MCR as a Package
 
@@ -359,22 +381,43 @@ const mcrService = require('model-context-reasoner/src/mcrService'); // Adjust p
 
 ## 🛠️ Development Setup and Installation
 
+This section covers setting up MCR for development, including running the backend server and the MCR Workbench UI.
+
 1.  **Clone the Repository**:
     ```bash
     git clone http://dumb.ai # Replace with the actual repository URL if different
     cd model-context-reasoner
     ```
 2.  **Install Server Dependencies**:
+    From the project root directory:
     ```bash
     npm install
     ```
-3.  **Install and Build UI Dependencies**:
-    ```bash
-    cd ui
-    npm install
-    npm run build
-    cd ..
-    ```
+3.  **Set up the MCR Workbench UI**:
+    The UI can be run in two modes:
+
+    *   **Production Mode (Served by `node mcr.js`):**
+        This involves building the static UI assets which are then served by the main MCR server.
+        ```bash
+        cd ui
+        npm install # Install UI-specific dependencies
+        npm run build # Build the static assets into ui/dist
+        cd ..
+        ```
+        After this, running `node mcr.js` from the project root will serve the UI.
+
+    *   **Development Mode (Using Vite Dev Server):**
+        This mode is ideal for UI development as it provides hot reloading.
+        - Ensure server dependencies are installed (Step 2).
+        - In a separate terminal, navigate to the `ui` directory:
+          ```bash
+          cd ui
+          npm install # If you haven't already
+          npm run dev
+          ```
+        - This will start the Vite development server (e.g., on `http://localhost:5173`).
+        - **Important:** The main MCR server (`node mcr.js`) must also be running in another terminal for the UI dev server to make API calls.
+
 4.  **Create `.env` file**:
     Copy `.env.example` to `.env` in the project root. Edit it to include your LLM API keys and any other necessary configurations. Refer to `.env.example` for all available options.
     **Important:** The MCR server performs configuration validation on startup. If you select an `MCR_LLM_PROVIDER` that requires an API key (e.g., "gemini", "openai", "anthropic"), you **must** provide the corresponding API key environment variable (e.g., `GEMINI_API_KEY`). Failure to do so will prevent the server from starting. Ollama, when run locally, typically does not require an API key.
