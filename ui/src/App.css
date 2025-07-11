@@ -12,9 +12,55 @@ body {
   color: #333;
 }
 
+/* App Header & Mode Switcher */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 10px; /* Reduced padding */
+  background-color: #333;
+  color: white;
+  height: 50px; /* Fixed height for the header */
+  box-sizing: border-box;
+}
+
+.app-mode-switcher button {
+  margin: 0 5px;
+  padding: 8px 12px; /* Slightly smaller buttons */
+  background-color: #555;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+.app-mode-switcher button:disabled {
+  background-color: #007bff;
+  color: white;
+  cursor: default;
+}
+
+.ws-status {
+  font-size: 0.85em;
+  padding: 6px 10px;
+  background-color: #444;
+  border-radius: 4px;
+  margin-left: auto; /* Pushes to the right if space allows */
+}
+.ws-status button {
+  padding: 4px 8px;
+  font-size: 0.9em;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  margin-left: 5px;
+}
+
+
 .app-container {
   display: flex;
-  height: 100vh;
+  height: calc(100vh - 50px); /* Full viewport height minus app-header height */
   width: 100vw;
   overflow: hidden; /* Prevent body scrollbars */
 }
@@ -144,6 +190,26 @@ body {
   font-size: 0.9em;
   text-align: center;
 }
+/* Demo Message Specific Styling */
+.demo-message {
+  border-left: 3px solid #ff9800; /* Orange border for demo messages */
+  padding-left: 10px;
+}
+.demo-log-item {
+  margin: 2px 0;
+  padding: 2px 5px;
+  font-size: 0.9em;
+  border-radius: 3px;
+}
+.demo-log-info { background-color: #e3f2fd; } /* Light blue for info */
+.demo-log-warn { background-color: #fff9c4; } /* Light yellow for warn */
+.demo-log-error { background-color: #ffcdd2; color: #c62828; } /* Light red for error */
+.demo-log-debug { background-color: #f5f5f5; color: #555; } /* Light grey for debug */
+.demo-log-item em { font-style: normal; font-weight: bold; }
+.demo-log-item pre {
+  max-height: 100px; /* Smaller max height for nested details */
+  font-size: 0.9em;
+}
 
 
 /* Generic UI elements in sidebars */
@@ -196,29 +262,6 @@ body {
   overflow-y: auto;
 }
 
-/* App Mode Switcher */
-.app-mode-switcher {
-  padding: 0.5rem 1rem;
-  background-color: #343a40;
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-}
-
-.app-mode-switcher button {
-  padding: 0.5rem 1rem;
-  font-size: 1em;
-  background-color: #6c757d;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.app-mode-switcher button:disabled {
-  background-color: #007bff;
-  cursor: default;
-}
 
 /* System Analysis Mode */
 .system-analysis-mode {
@@ -283,4 +326,50 @@ body {
 }
 .analysis-view-content th {
   background-color: #f0f0f0;
+}
+hr {
+  margin: 15px 0;
+  border: 0;
+  border-top: 1px solid #ccc;
+}
+.analysis-view-content pre {
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: #f9f9f9;
+  padding: 5px;
+  border: 1px solid #eee;
+  max-height: 200px;
+  overflow: auto;
+}
+.analysis-view-content details summary {
+  cursor: pointer;
+  color: #007bff;
+}
+.analysis-view-content button {
+  padding: 5px 10px;
+  margin-right: 5px;
+  cursor: pointer;
+}
+.analysis-view-content input[type="text"],
+.analysis-view-content input[type="number"] {
+  padding: 5px;
+  margin-right: 10px;
+}
+
+ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+li {
+  margin-bottom: 8px;
+  padding: 5px;
+  /* border: 1px solid #eee; */ /* Removed default border for li */
+  /* background-color: #fff; */ /* Removed default background for li */
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
 }

@@ -446,7 +446,7 @@ const SystemAnalysisMode = () => {
   );
 };
 
-const InteractiveSessionMode = ({ sessionId, setSessionId, activeStrategy, setActiveStrategy, currentKb, setCurrentKb, connectSession, disconnectSession, isConnected, addMessageToHistory, chatHistory, fetchActiveStrategy, fetchCurrentKb }) => {
+const InteractiveSessionMode = ({ sessionId, setSessionId, activeStrategy, setActiveStrategy, currentKb, setCurrentKb, connectSession, disconnectSession, isMcrSessionActive, isWsServiceConnected, addMessageToHistory, chatHistory, fetchActiveStrategy, fetchCurrentKb }) => {
   // This component now receives setActiveStrategy and setCurrentKb to allow LeftSidebar to update App's state
   return (
     <div className="app-container">
@@ -456,13 +456,14 @@ const InteractiveSessionMode = ({ sessionId, setSessionId, activeStrategy, setAc
         setActiveStrategy={setActiveStrategy} // Pass down
         connectSession={connectSession}
         disconnectSession={disconnectSession}
-        isConnected={isConnected}
+        isMcrSessionActive={isMcrSessionActive}
+        isWsServiceConnected={isWsServiceConnected} // Pass down
         addMessageToHistory={addMessageToHistory} // Pass down for demos
       />
       <div className="main-interaction-wrapper">
         <MainInteraction
             sessionId={sessionId}
-            isConnected={isConnected}
+            isMcrSessionActive={isMcrSessionActive}
             addMessageToHistory={addMessageToHistory}
         />
         <div className="chat-history-pane">
@@ -506,14 +507,14 @@ const InteractiveSessionMode = ({ sessionId, setSessionId, activeStrategy, setAc
             ))}
         </div>
       </div>
-      <RightSidebar knowledgeBase={currentKb} isConnected={isConnected} />
+      <RightSidebar knowledgeBase={currentKb} isMcrSessionActive={isMcrSessionActive} />
     </div>
   );
 };
 
 
 // --- Child Components of InteractiveSessionMode ---
-const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSession, disconnectSession, isConnected, addMessageToHistory }) => {
+const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSession, disconnectSession, isMcrSessionActive, isWsServiceConnected, addMessageToHistory }) => {
   const [ontologies, setOntologies] = useState([]);
   const [demos, setDemos] = useState([]);
   const [strategies, setStrategies] = useState([]);
@@ -521,14 +522,15 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
 
   useEffect(() => {
     setTempSessionId(sessionId || '');
-    if (isConnected) { // Auto-list demos if connected
+    if (isMcrSessionActive) { // Auto-list demos if MCR session is active
       handleListDemos();
     } else {
-      setDemos([]); // Clear demos if not connected
+      setDemos([]); // Clear demos if not connected to an MCR session
     }
-  }, [sessionId, isConnected]);
+  }, [sessionId, isMcrSessionActive]);
 
   const handleConnect = () => {
+    // connectSession internally checks for isWsServiceConnected
     if (tempSessionId.trim()) {
       connectSession(tempSessionId.trim());
     } else {
@@ -537,7 +539,7 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
   };
 
   const handleListDemos = async () => {
-    if (!isConnected) { alert("Connect to a session first."); return; }
+    if (!isMcrSessionActive || !isWsServiceConnected) { alert("Connect to a session and ensure WebSocket is active first."); return; }
     try {
       const response = await apiService.invokeTool('demo.list');
       if (response.success) {
@@ -553,7 +555,7 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
   };
 
   const handleRunDemo = async (demoId) => {
-    if (!isConnected || !sessionId) { alert("Connect to a session first."); return; }
+    if (!isMcrSessionActive || !sessionId || !isWsServiceConnected) { alert("Connect to a session and ensure WebSocket is active first."); return; }
     addMessageToHistory({ type: 'system', text: `Attempting to run demo: ${demoId}...` });
     try {
       const response = await apiService.invokeTool('demo.run', { demoId, sessionId });
@@ -582,7 +584,7 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
   };
 
   const listOntologies = async () => {
-    if (!isConnected) { alert("Connect to a session first."); return; }
+    if (!isMcrSessionActive || !isWsServiceConnected) { alert("Connect to a session and ensure WebSocket is active first."); return; }
     try {
       const response = await apiService.invokeTool('ontology.list', { includeRules: false });
       if (response.success) setOntologies(response.data || []);
@@ -591,7 +593,7 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
   };
 
   const loadOntologyToSession = async (ontologyName) => {
-    if (!isConnected || !sessionId) { alert("Connect to a session first."); return; }
+    if (!isMcrSessionActive || !sessionId || !isWsServiceConnected) { alert("Connect to a session and ensure WebSocket is active first."); return; }
     try {
       const ontResponse = await apiService.invokeTool('ontology.get', { name: ontologyName });
       if (ontResponse.success && ontResponse.data?.rules) {
@@ -615,7 +617,7 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
   };
 
   const listStrategies = async () => {
-    if (!isConnected) { alert("Connect to a session first."); return; }
+    if (!isMcrSessionActive || !isWsServiceConnected) { alert("Connect to a session and ensure WebSocket is active first."); return; }
     try {
       const response = await apiService.invokeTool('strategy.list');
       if (response.success) setStrategies(response.data || []);
@@ -624,7 +626,7 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
   };
 
   const handleSetStrategy = async (strategyId) => {
-    if (!isConnected) { alert("Connect to a session first."); return; }
+    if (!isMcrSessionActive || !isWsServiceConnected) { alert("Connect to a session and ensure WebSocket is active first."); return; }
     try {
       const response = await apiService.invokeTool('strategy.setActive', { strategyId });
       if (response.success) {
@@ -641,24 +643,27 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
       <h3>Pane 1: Config & Context</h3>
       <div>
         <h4>Session Management</h4>
-        <input type="text" value={tempSessionId} onChange={(e) => setTempSessionId(e.target.value)} placeholder="Session ID (optional)" disabled={isConnected}/>
-        {!isConnected ? <button onClick={handleConnect}>Connect/Create</button> : <button onClick={disconnectSession}>Disconnect</button>}
-        {isConnected && <p>Session: {sessionId}</p>}
+        <input type="text" value={tempSessionId} onChange={(e) => setTempSessionId(e.target.value)} placeholder="Session ID (optional)" disabled={isMcrSessionActive || !isWsServiceConnected}/>
+        {!isMcrSessionActive ?
+          <button onClick={handleConnect} disabled={!isWsServiceConnected}>Connect/Create</button> :
+          <button onClick={disconnectSession} disabled={!isWsServiceConnected}>Disconnect</button>
+        }
+        {isMcrSessionActive && <p>Session: {sessionId}</p>}
       </div> <hr />
       <div>
         <h4>Ontologies (Global)</h4>
-        <button onClick={listOntologies} disabled={!isConnected}>List Ontologies</button>
-        <ul>{ontologies.map(ont => <li key={ont.id || ont.name}>{ont.name} <button onClick={() => loadOntologyToSession(ont.name)} disabled={!isConnected}>Load</button></li>)}</ul>
+        <button onClick={listOntologies} disabled={!isMcrSessionActive || !isWsServiceConnected}>List Ontologies</button>
+        <ul>{ontologies.map(ont => <li key={ont.id || ont.name}>{ont.name} <button onClick={() => loadOntologyToSession(ont.name)} disabled={!isMcrSessionActive || !isWsServiceConnected}>Load</button></li>)}</ul>
       </div> <hr />
       <div>
         <h4>Demos</h4>
-        <button onClick={handleListDemos} disabled={!isConnected}>List Demos</button>
-        {demos.length === 0 && isConnected && <p>No demos found or loaded.</p>}
+        <button onClick={handleListDemos} disabled={!isMcrSessionActive || !isWsServiceConnected}>List Demos</button>
+        {demos.length === 0 && isMcrSessionActive && <p>No demos found or loaded.</p>}
         <ul>
           {demos.map(demo => (
             <li key={demo.id}>
               {demo.name} ({demo.id})
-              <button onClick={() => handleRunDemo(demo.id)} disabled={!isConnected || !sessionId} style={{marginLeft: '10px'}}>Run</button>
+              <button onClick={() => handleRunDemo(demo.id)} disabled={!isMcrSessionActive || !sessionId || !isWsServiceConnected} style={{marginLeft: '10px'}}>Run</button>
               <p style={{fontSize: '0.8em', margin: '2px 0 5px 10px'}}>{demo.description}</p>
             </li>
           ))}
@@ -666,20 +671,20 @@ const LeftSidebar = ({ sessionId, activeStrategy, setActiveStrategy, connectSess
       </div> <hr />
       <div>
         <h4>Strategies</h4>
-        <button onClick={listStrategies} disabled={!isConnected}>List Strategies</button>
+        <button onClick={listStrategies} disabled={!isMcrSessionActive || !isWsServiceConnected}>List Strategies</button>
         <p>Active: {activeStrategy || 'N/A'}</p>
-        <ul>{strategies.map(strat => <li key={strat.id || strat.name}>{strat.name} ({strat.id}) <button onClick={() => handleSetStrategy(strat.id)} disabled={!isConnected}>Set</button></li>)}</ul>
+        <ul>{strategies.map(strat => <li key={strat.id || strat.name}>{strat.name} ({strat.id}) <button onClick={() => handleSetStrategy(strat.id)} disabled={!isMcrSessionActive || !isWsServiceConnected}>Set</button></li>)}</ul>
       </div>
     </div>
   );
 };
 
-const MainInteraction = ({ sessionId, isConnected, addMessageToHistory }) => {
+const MainInteraction = ({ sessionId, isMcrSessionActive, addMessageToHistory }) => {
   const [inputText, setInputText] = useState('');
   const [interactionType, setInteractionType] = useState('query');
 
   const handleSubmit = async () => {
-    if (!inputText.trim() || !isConnected) return;
+    if (!inputText.trim() || !isMcrSessionActive) return; // Also relies on MCR session
     const toolName = interactionType === 'assert' ? 'session.assert' : 'session.query';
     const inputPayload = interactionType === 'assert'
       ? { sessionId, naturalLanguageText: inputText }
@@ -699,22 +704,22 @@ const MainInteraction = ({ sessionId, isConnected, addMessageToHistory }) => {
       <h3>Pane 2: Interaction (Chat REPL)</h3>
       {/* Chat history is now rendered in App by InteractiveSessionMode */}
       <div className="chat-input-area">
-        <textarea value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder={isConnected ? "Type assertion or query..." : "Connect session"} rows={3} disabled={!isConnected}/>
+        <textarea value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder={isMcrSessionActive ? "Type assertion or query..." : "Connect session"} rows={3} disabled={!isMcrSessionActive}/>
         <div>
-          <select value={interactionType} onChange={(e) => setInteractionType(e.target.value)} disabled={!isConnected}>
+          <select value={interactionType} onChange={(e) => setInteractionType(e.target.value)} disabled={!isMcrSessionActive}>
             <option value="query">Query</option> <option value="assert">Assert</option>
           </select>
-          <button onClick={handleSubmit} disabled={!isConnected || !inputText.trim()}>Send</button>
+          <button onClick={handleSubmit} disabled={!isMcrSessionActive || !inputText.trim()}>Send</button>
         </div>
       </div>
     </div>
   );
 };
 
-const RightSidebar = ({ knowledgeBase, isConnected }) => (
+const RightSidebar = ({ knowledgeBase, isMcrSessionActive }) => (
   <div className="sidebar right-sidebar">
     <h3>Pane 3: Live State Viewer</h3>
-    {isConnected ? <pre>{knowledgeBase || 'KB empty/not loaded.'}</pre> : <p>Connect to session.</p>}
+    {isMcrSessionActive ? <pre>{knowledgeBase || 'KB empty/not loaded.'}</pre> : <p>Connect to session.</p>}
   </div>
 );
 
@@ -728,13 +733,14 @@ function App() {
   const [activeStrategy, setActiveStrategy] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
   // const [serverMessages, setServerMessages] = useState([]); // For non-request/response messages like kb_updated
+  const [isWsServiceConnected, setIsWsServiceConnected] = useState(false);
+  const [wsConnectionStatus, setWsConnectionStatus] = useState('Initializing...'); // 'Initializing...', 'Connecting...', 'Connected', 'Error', 'Disconnected'
 
   const handleServerMessage = (message) => {
     // setServerMessages(prev => [...prev, message]); // Store all for debugging if needed
     if (message.type === 'connection_ack') {
-      // setIsConnected(true); // apiService.connect() promise handles this for initial connection
-      // This ack is from the WS server, not necessarily meaning an MCR session is active.
       console.log("Connection ACK received from server:", message.message);
+      // Actual connection status is managed by the connect promise and onclose/onerror handlers in apiService
     }
     if (message.type === 'kb_updated') {
       if (message.payload?.sessionId === sessionId) {
@@ -757,28 +763,55 @@ function App() {
 
   useEffect(() => {
     apiService.addMessageListener(handleServerMessage);
-    // Auto-connect to WebSocket service on load
+
+    // Listener for apiService's internal status changes (optional, if apiService emits them)
+    const handleWsStatusChange = (status) => {
+        // This would require apiService to have an event emitter for its states like 'connecting', 'connected', 'disconnected', 'error'
+        // For now, we'll manage based on connect() promise and errors.
+        // Example: if (status === 'connected') setIsWsServiceConnected(true);
+    };
+    // apiService.on('statusChange', handleWsStatusChange);
+
+    // With apiService.connect() now resetting `explicitlyClosed`,
+    // this useEffect will correctly establish a connection even in StrictMode.
+    // 1. (Strict Mode) Effect runs first time: connect() called.
+    // 2. (Strict Mode) Cleanup runs: disconnect() called (sets explicitlyClosed = true).
+    // 3. (Strict Mode) Effect runs second time: connect() called (resets explicitlyClosed = false, connects).
+    // This is the desired behavior for a persistent connection.
+
+    setWsConnectionStatus('Connecting...');
     apiService.connect()
       .then(() => {
-        setIsConnected(true); // Indicates WebSocket service is available
+        setIsWsServiceConnected(true);
+        setWsConnectionStatus('Connected');
         console.log("Successfully connected to WebSocket service.");
         fetchActiveStrategy(); // Fetch global active strategy once connected
       })
       .catch(err => {
-        console.error("Auto-connect to WebSocket service failed:", err);
-        setIsConnected(false); // Explicitly set to false if connect fails
-        alert("Failed to connect to MCR WebSocket service. Please ensure the server is running.");
+        console.error("Initial auto-connect to WebSocket service failed:", err);
+        setIsWsServiceConnected(false);
+        // The apiService will attempt reconnections. We can reflect this in status.
+        // The onclose event in apiService can also update a global status or emit an event.
+        setWsConnectionStatus(`Error: ${err.message || 'Failed to connect'}. Reconnecting...`);
+        // No alert here, apiService handles retries.
       });
 
     return () => {
       apiService.removeMessageListener(handleServerMessage);
+      // apiService.off('statusChange', handleWsStatusChange); // If using an event emitter
+
+      // This disconnect will run on component unmount.
+      // In StrictMode, it will run after the first effect execution.
+      // Since apiService.connect() now resets `explicitlyClosed`, the second
+      // effect execution in StrictMode will correctly re-establish the connection.
       apiService.disconnect();
     };
   }, []); // Empty dependency array: runs once on mount, cleans up on unmount
 
   const connectToSession = async (sidToConnect) => {
-    if (!isConnected) { // Check WebSocket service connection
+    if (!isWsServiceConnected) { // Check WebSocket service connection
         alert("WebSocket service not connected. Cannot manage sessions.");
+        setWsConnectionStatus('Error: WebSocket service not available');
         return;
     }
     try {
@@ -841,9 +874,29 @@ function App() {
 
   return (
     <>
-      <div className="app-mode-switcher">
-        <button onClick={() => setCurrentMode('interactive')} disabled={currentMode === 'interactive'}>Interactive Session</button>
-        <button onClick={() => setCurrentMode('analysis')} disabled={currentMode === 'analysis'}>System Analysis</button>
+      <div className="app-header">
+        <div className="app-mode-switcher">
+          <button onClick={() => setCurrentMode('interactive')} disabled={currentMode === 'interactive'}>Interactive Session</button>
+          <button onClick={() => setCurrentMode('analysis')} disabled={currentMode === 'analysis'}>System Analysis</button>
+        </div>
+        <div className="ws-status">
+          WebSocket: {wsConnectionStatus}
+          {!isWsServiceConnected && wsConnectionStatus.startsWith('Error') && (
+            <button onClick={() => {
+              setWsConnectionStatus('Connecting...');
+              apiService.connect().then(() => {
+                setIsWsServiceConnected(true);
+                setWsConnectionStatus('Connected');
+                fetchActiveStrategy();
+              }).catch(err => {
+                setWsConnectionStatus(`Error: ${err.message || 'Failed to connect'}. Retrying...`);
+                // apiService will retry automatically, but this provides immediate feedback
+              });
+            }} style={{marginLeft: '10px'}}>
+              Retry Connect
+            </button>
+          )}
+        </div>
       </div>
       {currentMode === 'interactive' ? (
         <InteractiveSessionMode
@@ -855,7 +908,8 @@ function App() {
           setCurrentKb={setCurrentKb} // Pass callback
           connectSession={connectToSession}
           disconnectSession={disconnectFromSession}
-          isConnected={!!sessionId} // Interactive mode's "isConnected" means session is active
+          isMcrSessionActive={!!sessionId} // Renamed for clarity
+          isWsServiceConnected={isWsServiceConnected} // Pass down WS service status
           addMessageToHistory={addMessageToHistory}
           chatHistory={chatHistory}
           fetchActiveStrategy={fetchActiveStrategy}

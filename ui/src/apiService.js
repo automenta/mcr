@@ -26,7 +26,7 @@ class ApiService {
 
   connect(url = 'ws://localhost:8080/ws') { // Default MCR server URL
     this.serverUrl = url;
-    this.explicitlyClosed = false;
+    this.explicitlyClosed = false; // Reset this flag on every explicit call to connect
 
     return new Promise((resolve, reject) => {
       if (this.socket && this.socket.readyState === WebSocket.OPEN) {
@@ -107,13 +107,21 @@ class ApiService {
       this.reconnectAttempts++;
       logger.log(`Attempting to reconnect (${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
       setTimeout(() => {
+        if (this.explicitlyClosed) {
+          logger.log('WebSocket was explicitly closed during reconnect timeout. Aborting this reconnect attempt.');
+          return;
+        }
         this.connect(this.serverUrl).catch(err => {
             logger.warn(`Reconnect attempt ${this.reconnectAttempts} failed:`, err.message);
-            // If connect itself fails (e.g. server definitively down), onclose will trigger handleReconnect again.
+            // If connect itself fails (e.g. server definitively down), onclose will trigger handleReconnect again,
+            // which will then increment reconnectAttempts and potentially hit the max.
         });
       }, this.reconnectInterval);
     } else {
       logger.error('Max reconnect attempts reached. Will not try again automatically.');
+      // At this point, App.jsx's wsConnectionStatus will show the error from the last failed connect attempt.
+      // If a more specific "Max attempts reached" message is desired in App.jsx,
+      // apiService would need a way to communicate this state back (e.g., event, or a specific error type).
     }
   }
 
