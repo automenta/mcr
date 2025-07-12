@@ -14,6 +14,8 @@ function App() {
   const [chatHistory, setChatHistory] = useState([]);
   const [isWsServiceConnected, setIsWsServiceConnected] = useState(false); // WebSocket service connection status
   const [wsConnectionStatus, setWsConnectionStatus] = useState('⏳ Initializing...');
+  const [demos, setDemos] = useState([]);
+  const [selectedDemo, setSelectedDemo] = useState('');
 
   const addMessageToHistory = useCallback((message) => {
     setChatHistory(prev => [...prev, message]);
@@ -54,6 +56,20 @@ function App() {
         setActiveStrategy(`❌ Error fetching strategy: ${error.message}`);
     }
   }, [isWsServiceConnected, setActiveStrategy]);
+
+  const fetchDemos = useCallback(async () => {
+    if (!isWsServiceConnected) return;
+    try {
+      const response = await apiService.invokeTool('demo.list');
+      if (response.success && Array.isArray(response.data)) {
+        setDemos(response.data);
+      } else {
+        addMessageToHistory({ type: 'system', text: `⚠️ Could not load demos: ${response.message}` });
+      }
+    } catch (error) {
+      addMessageToHistory({ type: 'system', text: `❌ Exception loading demos: ${error.message}` });
+    }
+  }, [isWsServiceConnected, addMessageToHistory]);
 
   useEffect(() => {
     apiService.addMessageListener(handleServerMessage);
@@ -102,8 +118,9 @@ function App() {
   useEffect(() => {
     if (isWsServiceConnected) {
       fetchGlobalActiveStrategy();
+      fetchDemos();
     }
-  }, [isWsServiceConnected, fetchGlobalActiveStrategy]);
+  }, [isWsServiceConnected, fetchGlobalActiveStrategy, fetchDemos]);
 
   const connectToSession = async (sidToConnect) => {
     if (!isWsServiceConnected) {
@@ -170,6 +187,26 @@ function App() {
     }
   };
 
+  const handleLoadDemo = async () => {
+    if (!selectedDemo || !sessionId) {
+      addMessageToHistory({ type: 'system', text: '⚠️ Please select a demo and ensure you are connected to a session.' });
+      return;
+    }
+    addMessageToHistory({ type: 'system', text: `🚀 Starting demo: ${selectedDemo}...` });
+    try {
+      const response = await apiService.invokeTool('demo.run', { demoId: selectedDemo, sessionId });
+      if (response.success) {
+        addMessageToHistory({ type: 'demo', messages: response.data.messages });
+        // After the demo runs, it's good practice to refresh the KB state from the server
+        fetchCurrentKb(sessionId);
+      } else {
+        addMessageToHistory({ type: 'system', text: `❌ Demo failed: ${response.message}` });
+      }
+    } catch (error) {
+      addMessageToHistory({ type: 'system', text: `❌ Exception running demo: ${error.message}` });
+    }
+  };
+
   return (
     <>
       <AppHeader
@@ -188,6 +225,10 @@ function App() {
         connectSession={connectToSession}
         disconnectSession={disconnectFromSession}
         isMcrSessionActive={isConnected}
+        demos={demos}
+        selectedDemo={selectedDemo}
+        setSelectedDemo={setSelectedDemo}
+        onLoadDemo={handleLoadDemo}
       />
       {currentMode === 'interactive' ? (
         <InteractiveSessionMode

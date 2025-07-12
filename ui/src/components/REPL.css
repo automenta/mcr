@@ -2,78 +2,125 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  background-color: var(--background-color);
 }
 
 .repl-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px;
-  border-bottom: 1px solid #ccc;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.repl-header h3 {
+  margin: 0;
 }
 
 .session-controls {
   display: flex;
   align-items: center;
-}
-
-.session-controls input {
-  margin: 0 5px;
+  gap: 10px;
 }
 
 .chat-history {
   flex-grow: 1;
   overflow-y: auto;
-  padding: 10px;
+  padding: 20px;
 }
 
 .message {
-  margin-bottom: 10px;
-  padding: 5px 10px;
+  margin-bottom: 15px;
+  padding: 10px;
   border-radius: 5px;
+  line-height: 1.6;
 }
 
 .message.user {
-  background-color: #e0f7fa;
-  align-self: flex-end;
+  background-color: var(--primary-color);
+  color: white;
+  text-align: right;
 }
 
 .message.server {
-  background-color: #f1f8e9;
-  align-self: flex-start;
+  background-color: #2a2a2a;
 }
 
 .message.system {
-  background-color: #fff9c4;
+  background-color: #2a2a2a;
   font-style: italic;
-  font-size: 0.9em;
   text-align: center;
+  color: #aaa;
 }
 
 .message.error {
-  background-color: #ffcdd2;
-  color: #c62828;
+  background-color: #ff4d4d;
+  color: white;
+}
+
+.message.demo {
+  background-color: #2a2a2a;
+  border: 1px solid var(--primary-color);
+  padding: 15px;
+}
+
+.demo-log-item {
+  margin: 10px 0;
+  padding: 10px;
+  border-radius: 3px;
+}
+
+.demo-log-info {
+  background-color: #3a3a3a;
+}
+
+.demo-log-success {
+  background-color: #3c5c3c;
+}
+
+.demo-log-warn {
+  background-color: #5c5c3c;
+}
+
+.demo-log-error {
+  background-color: #5c3c3c;
+}
+
+.demo-log-item pre {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #1a1a1a;
+  border: 1px solid var(--border-color);
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .input-area {
   display: flex;
-  padding: 10px;
-  border-top: 1px solid #ccc;
+  padding: 20px;
+  border-top: 1px solid var(--border-color);
 }
 
 .input-area input {
   flex-grow: 1;
-  padding: 5px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
+  margin-right: 10px;
+  padding: 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background-color: #2a2a2a;
+  color: var(--text-color);
 }
 
 .input-area button {
-  margin-left: 10px;
-  padding: 5px 10px;
-  border: none;
-  background-color: #007bff;
+  background-color: var(--primary-color);
   color: white;
-  border-radius: 5px;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 4px;
   cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.input-area button:hover {
+  background-color: var(--primary-hover-color);
 }

@@ -12,12 +12,33 @@ const AppHeader = ({
   connectSession,
   disconnectSession,
   isMcrSessionActive,
+  demos,
+  selectedDemo,
+  setSelectedDemo,
+  onLoadDemo,
 }) => {
   return (
     <header className="app-header">
       <div className="main-menu">
         <button onClick={() => setCurrentMode('interactive')}>Interactive</button>
         <button onClick={() => setCurrentMode('analysis')}>Analysis</button>
+      </div>
+      <div className="demo-loader">
+        <select
+          value={selectedDemo}
+          onChange={(e) => setSelectedDemo(e.target.value)}
+          disabled={!isMcrSessionActive}
+        >
+          <option value="">Select a Demo</option>
+          {demos.map((demo) => (
+            <option key={demo.id} value={demo.id}>
+              {demo.name}
+            </option>
+          ))}
+        </select>
+        <button onClick={onLoadDemo} disabled={!selectedDemo || !isMcrSessionActive}>
+          Load Demo
+        </button>
       </div>
       <div className="session-management">
         <span>{wsConnectionStatus}</span>

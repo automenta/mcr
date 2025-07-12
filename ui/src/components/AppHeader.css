@@ -2,24 +2,42 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px;
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
+  padding: 10px 20px;
+  background-color: var(--header-background);
+  border-bottom: 1px solid var(--border-color);
 }
 
-.main-menu button {
-  margin-right: 10px;
-}
-
+.main-menu,
+.demo-loader,
 .session-management {
   display: flex;
   align-items: center;
+  gap: 10px;
 }
 
-.session-management span {
-  margin-right: 10px;
+.main-menu button,
+.demo-loader button,
+.session-management button {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
 }
 
+.main-menu button:hover,
+.demo-loader button:hover,
+.session-management button:hover {
+  background-color: var(--primary-hover-color);
+}
+
+.demo-loader select,
 .session-management input {
-  margin: 0 5px;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background-color: var(--background-color);
+  color: var(--text-color);
 }

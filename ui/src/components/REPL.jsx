@@ -41,6 +41,33 @@ const REPL = ({
     }
   };
 
+  const renderMessage = (message, index) => {
+    switch (message.type) {
+      case 'user':
+        return <div key={index} className="message user">🧑 {message.text}</div>;
+      case 'server':
+        return <div key={index} className="message server">🤖 {message.text}</div>;
+      case 'system':
+        return <div key={index} className="message system">⚙️ {message.text}</div>;
+      case 'error':
+        return <div key={index} className="message error">🔥 {message.text}</div>;
+      case 'demo':
+        return (
+          <div key={index} className="message demo">
+            <h4>Demo Output</h4>
+            {message.messages.map((demoMsg, i) => (
+              <div key={i} className={`demo-log-item demo-log-${demoMsg.level}`}>
+                <strong>{demoMsg.level.toUpperCase()}</strong>: {demoMsg.message}
+                {demoMsg.data && <pre>{JSON.stringify(demoMsg.data, null, 2)}</pre>}
+              </div>
+            ))}
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="repl">
       <div className="repl-header">
@@ -61,15 +88,7 @@ const REPL = ({
         </div>
       </div>
       <div className="chat-history" ref={chatHistoryRef}>
-        {chatHistory.map((message, index) => (
-          <div key={index} className={`message ${message.type}`}>
-            {message.type === 'user' && '🧑 '}
-            {message.type === 'server' && '🤖 '}
-            {message.type === 'system' && '⚙️ '}
-            {message.type === 'error' && '🔥 '}
-            {message.text}
-          </div>
-        ))}
+        {chatHistory.map((message, index) => renderMessage(message, index))}
       </div>
       <div className="input-area">
         <input

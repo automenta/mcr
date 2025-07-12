@@ -1,5 +1,6 @@
 import React from 'react';
 import PrologCodeViewer from './PrologCodeViewer';
+import './KnowledgeBase.css';
 
 const KnowledgeBase = ({ currentKb }) => {
   return (
