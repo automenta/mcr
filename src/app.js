@@ -22,9 +22,9 @@ async function createServer() {
         wss.emit('connection', ws, request);
       });
     } else {
-      // Not a websocket request, so we can ignore it.
-      // This allows vite's websocket to work as expected.
-      // socket.destroy();
+      // If it's not our WebSocket path, destroy the socket to prevent hanging connections.
+      // Vite's own middleware should handle its upgrade requests separately.
+      socket.destroy();
     }
   });
 
