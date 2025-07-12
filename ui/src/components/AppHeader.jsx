@@ -1,39 +1,42 @@
-// ui/src/components/AppHeader.jsx
 import React from 'react';
+import './AppHeader.css';
 
-function AppHeader({
+const AppHeader = ({
   currentMode,
   setCurrentMode,
   wsConnectionStatus,
   isWsServiceConnected,
-  onRetryConnect, // Callback to initiate WS reconnection
-}) {
+  onRetryConnect,
+  sessionId,
+  setSessionId,
+  connectSession,
+  disconnectSession,
+  isMcrSessionActive,
+}) => {
   return (
-    <div className="app-header">
-      <div className="app-mode-switcher">
-        <button
-          onClick={() => setCurrentMode('interactive')}
-          disabled={currentMode === 'interactive'}
-        >
-          💬 Interactive Session
-        </button>
-        <button
-          onClick={() => setCurrentMode('analysis')}
-          disabled={currentMode === 'analysis'}
-        >
-          📊 System Analysis
-        </button>
+    <header className="app-header">
+      <div className="main-menu">
+        <button onClick={() => setCurrentMode('interactive')}>Interactive</button>
+        <button onClick={() => setCurrentMode('analysis')}>Analysis</button>
       </div>
-      <div className="ws-status" title={`WebSocket Connection: ${wsConnectionStatus}`}>
-        {wsConnectionStatus}
-        {!isWsServiceConnected && wsConnectionStatus?.startsWith('🔴 Error') && (
-          <button onClick={onRetryConnect} style={{ marginLeft: '10px' }}>
-            🔄 Retry
-          </button>
+      <div className="session-management">
+        <span>{wsConnectionStatus}</span>
+        {!isWsServiceConnected && <button onClick={onRetryConnect}>Retry</button>}
+        {isMcrSessionActive ? (
+          <button onClick={disconnectSession}>Disconnect</button>
+        ) : (
+          <button onClick={() => connectSession()}>New Session</button>
         )}
+        <input
+          type="text"
+          placeholder="Session ID"
+          value={sessionId || ''}
+          onChange={(e) => setSessionId(e.target.value)}
+        />
+        <button onClick={() => connectSession(sessionId)}>Connect</button>
       </div>
-    </div>
+    </header>
   );
-}
+};
 
 export default AppHeader;

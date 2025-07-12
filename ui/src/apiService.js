@@ -103,11 +103,12 @@ class ApiService {
   }
 
   disconnect() {
-    // logger.debug('[ApiService] Explicit disconnect() called.');
-    // this.explicitlyClosed = true;
-    // if (this.socket) {
-    //   this.socket.close();
-    // }
+    logger.debug('[ApiService] Explicit disconnect() called.');
+    this.explicitlyClosed = true;
+    if (this.socket) {
+      this.socket.close();
+    }
+    this.connectPromise = null;
   }
 
   _notifyListeners(eventType, data) {

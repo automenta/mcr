@@ -1,0 +1,25 @@
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.main-menu button {
+  margin-right: 10px;
+}
+
+.session-management {
+  display: flex;
+  align-items: center;
+}
+
+.session-management span {
+  margin-right: 10px;
+}
+
+.session-management input {
+  margin: 0 5px;
+}

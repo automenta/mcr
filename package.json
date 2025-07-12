@@ -82,6 +82,7 @@
     "langchain": "^0.3.29",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-split": "^2.0.14",
     "sqlite3": "^5.1.7",
     "tau-prolog": "^0.3.4",
     "uuid": "^11.1.0",
