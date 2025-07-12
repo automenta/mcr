@@ -12,8 +12,9 @@ const { errorHandlerMiddleware } = require('./errors');
 async function createServer() {
   const app = express();
   const httpServer = http.createServer(app);
-  const wss = new WebSocketServer({ noServer: true });
 
+
+  const wss = new WebSocketServer({ noServer: true });
   httpServer.on('upgrade', (request, socket, head) => {
     // Check if this is a request for the app's websocket
     if (request.url === '/ws') {
@@ -61,6 +62,8 @@ async function createServer() {
   wss.on('connection', (socket) => {
     handleWebSocketConnection(socket);
   });
+
+
   logger.info('[App] WebSocket server event handlers set up.');
 
   // Error handling middleware - should be last for the Express app

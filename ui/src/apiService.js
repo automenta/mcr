@@ -20,7 +20,7 @@ class ApiService {
     return `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   }
 
-  connect(url = window.MCR_WEBSOCKET_URL || 'ws://localhost:8081/ws') {
+  connect(url = window.MCR_WEBSOCKET_URL || 'ws://0.0.0.0:8080/ws') {
     if (this.connectPromise) {
       logger.debug('[ApiService] Connection attempt already in progress, returning existing promise.');
       return this.connectPromise;
@@ -103,11 +103,11 @@ class ApiService {
   }
 
   disconnect() {
-    logger.debug('[ApiService] Explicit disconnect() called.');
-    this.explicitlyClosed = true;
-    if (this.socket) {
-      this.socket.close();
-    }
+    // logger.debug('[ApiService] Explicit disconnect() called.');
+    // this.explicitlyClosed = true;
+    // if (this.socket) {
+    //   this.socket.close();
+    // }
   }
 
   _notifyListeners(eventType, data) {
