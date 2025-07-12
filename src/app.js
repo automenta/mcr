@@ -1,6 +1,6 @@
 const express = require('express');
 const http = require('http');
-const { Server: SocketIOServer } = require('socket.io'); // Renamed to avoid conflict
+const { WebSocketServer } = require('ws');
 const { handleWebSocketConnection } = require('./websocketHandlers');
 const path = require('path');
 
@@ -12,11 +12,21 @@ const { errorHandlerMiddleware } = require('./errors');
 async function createServer() {
   const app = express();
   const httpServer = http.createServer(app);
-  const io = new SocketIOServer(httpServer, {
-    cors: {
-      origin: '*', // Allow all origins for now
-    },
+  const wss = new WebSocketServer({ noServer: true });
+
+  httpServer.on('upgrade', (request, socket, head) => {
+    // Check if this is a request for the app's websocket
+    if (request.url === '/ws') {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    } else {
+      // Not a websocket request, so we can ignore it.
+      // This allows vite's websocket to work as expected.
+      // socket.destroy();
+    }
   });
+
 
   // Standard middleware
   app.use(express.json());
@@ -48,8 +58,8 @@ async function createServer() {
 
 
   // WebSocket connection handling
-  io.on('connection', (socket) => {
-    handleWebSocketConnection(socket, io);
+  wss.on('connection', (socket) => {
+    handleWebSocketConnection(socket);
   });
   logger.info('[App] WebSocket server event handlers set up.');
 

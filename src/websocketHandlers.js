@@ -27,38 +27,21 @@ async function routeMessage(socket, message) {
           if ((toolName === 'session.create' || toolName === 'session.get') && result.data?.id) {
             if (socket.sessionId !== result.data.id) {
               socket.sessionId = result.data.id;
-              socket.join(socket.sessionId);
               logger.info(`[WS-Handler][${correlationId}] WebSocket connection now associated with session: ${socket.sessionId}`);
             }
           }
         }
 
-        socket.emit('tool_result', {
+        socket.send(JSON.stringify({
+          type: 'tool_result',
           correlationId: correlationId,
           messageId: messageId,
           payload: result,
-        });
-
-        if (result.success && socket.sessionId &&
-            (toolName === 'session.assert' || toolName === 'session.assert_rules') &&
-            result.addedFacts && result.fullKnowledgeBase) {
-
-          const kbUpdateMessage = {
-            type: 'kb_updated',
-            payload: {
-              sessionId: socket.sessionId,
-              newFacts: result.addedFacts,
-              fullKnowledgeBase: result.fullKnowledgeBase,
-            }
-          };
-          
-          socket.to(socket.sessionId).emit('kb_updated', kbUpdateMessage);
-          logger.info(`[WS-Handler][${correlationId}] Sending kb_updated for session ${socket.sessionId}. Facts added: ${result.addedFacts.length}`);
-        }
-
+        }));
       } else {
         logger.warn(`[WS-Handler][${correlationId}] Unknown MCR tool: ${toolName}`, { messageId });
-        socket.emit('tool_result', {
+        socket.send(JSON.stringify({
+          type: 'tool_result',
           correlationId: correlationId,
           messageId: messageId,
           payload: {
@@ -66,14 +49,15 @@ async function routeMessage(socket, message) {
             error: ErrorCodes.UNKNOWN_TOOL,
             message: `Unknown tool: ${toolName}`,
           },
-        });
+        }));
       }
     } else if (toolName && (toolName.startsWith('mcp.') || message.action?.startsWith('mcp.'))) {
       logger.info(`[WS-Handler][${correlationId}] Forwarding to MCP handler. Action: ${toolName}`, { messageId });
       await handleMcpSocketMessage(socket, message);
     } else {
       logger.warn(`[WS-Handler][${correlationId}] Unrecognized message structure or missing tool/action. Type: '${type}', Tool/Action: '${toolName}'`, { parsedMessage: message });
-      socket.emit('error', {
+      socket.send(JSON.stringify({
+        type: 'error',
         correlationId: correlationId,
         messageId: messageId,
         payload: {
@@ -81,7 +65,7 @@ async function routeMessage(socket, message) {
           error: ErrorCodes.INVALID_MESSAGE_STRUCTURE,
           message: 'Unrecognized message structure, type, or missing tool/action.',
         },
-      });
+      }));
     }
   } catch (error) {
     logger.error(`[WS-Handler][${correlationId}] Error processing message for tool ${toolName}: ${error.message}`, {
@@ -89,7 +73,8 @@ async function routeMessage(socket, message) {
       messageId: messageId,
       toolName: toolName,
     });
-    socket.emit('tool_result', {
+    socket.send(JSON.stringify({
+      type: 'tool_result',
       correlationId: correlationId,
       messageId: messageId,
       payload: {
@@ -98,20 +83,20 @@ async function routeMessage(socket, message) {
         message: `Internal server error while processing tool '${toolName}'.`,
         details: error.message,
       },
-    });
+    }));
   }
 }
 
-function handleWebSocketConnection(socket /*, io */) { // io parameter removed as it's unused
+function handleWebSocketConnection(socket) {
   socket.correlationId = `ws-conn-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   logger.info(`[WS-Handler][${socket.correlationId}] New WebSocket connection processing started.`);
 
   socket.on('message', (message) => {
     logger.info(`[WS-Handler][${socket.correlationId}] Received raw message:`, message);
-    routeMessage(socket, message);
+    routeMessage(socket, JSON.parse(message));
   });
 
-  socket.on('disconnect', () => {
+  socket.on('close', () => {
     logger.info(`[WS-Handler][${socket.correlationId}] WebSocket connection closed.`);
   });
 
@@ -119,11 +104,11 @@ function handleWebSocketConnection(socket /*, io */) { // io parameter removed a
     logger.error(`[WS-Handler][${socket.correlationId}] WebSocket error:`, { error: error.message, stack: error.stack });
   });
 
-  socket.emit('connection_ack', {
+  socket.send(JSON.stringify({
     type: 'connection_ack',
     correlationId: socket.correlationId,
     message: 'WebSocket connection established with MCR server.'
-  });
+  }));
 }
 
 module.exports = {
