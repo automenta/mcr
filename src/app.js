@@ -1,10 +1,8 @@
-// new/src/app.js
 const express = require('express');
 const http = require('http');
 const { Server: SocketIOServer } = require('socket.io'); // Renamed to avoid conflict
 const { handleWebSocketConnection } = require('./websocketHandlers');
 const path = require('path');
-const fs = require('fs'); // Needed for checking directory existence
 
 // Assuming logger and errorHandlerMiddleware are accessible or passed in mcr.js
 // For standalone tool checking, we might need placeholders if not modifying mcr.js in this step
@@ -37,42 +35,17 @@ async function createServer() {
     next();
   });
 
-  if (process.env.NODE_ENV === 'development') {
-    logger.info('[App] Starting in development mode with Vite middleware.');
-    const vite = await import('vite'); // Dynamic import for ESM module
-    const viteDevServer = await vite.createServer({
-      configFile: path.resolve(__dirname, '..', 'ui', 'vite.config.js'),
-      root: path.resolve(__dirname, '..', 'ui'),
-      server: { middlewareMode: true },
-      appType: 'spa', // ensure Vite handles SPA routing in dev
-    });
-    app.use(viteDevServer.middlewares);
-    logger.info('[App] Vite development middleware attached.');
-  } else {
-    logger.info('[App] Starting in production mode, serving static UI assets.');
-    const uiBuildPath = path.resolve(__dirname, '..', 'dist', 'ui');
-    logger.info(`[App] Serving static UI from: ${uiBuildPath}`);
+  logger.info('[App] Starting in development mode with Vite middleware.');
+  const vite = await import('vite'); // Dynamic import for ESM module
+  const viteDevServer = await vite.createServer({
+    configFile: path.resolve(__dirname, '..', 'ui', 'vite.config.js'),
+    root: path.resolve(__dirname, '..', 'ui'),
+    server: { middlewareMode: true },
+    appType: 'spa', // ensure Vite handles SPA routing in dev
+  });
+  app.use(viteDevServer.middlewares);
+  logger.info('[App] Vite development middleware attached.');
 
-    if (fs.existsSync(uiBuildPath)) {
-      app.use(express.static(uiBuildPath));
-      // Fallback for SPAs: always serve index.html for non-api GET routes
-      app.get('*', (req, res, next) => {
-        if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.includes('.')) {
-          const indexPath = path.join(uiBuildPath, 'index.html');
-          res.sendFile(indexPath, (err) => {
-            if (err) {
-              logger.error(`[App] Error serving index.html for SPA fallback: ${err.message}`);
-              next(err);
-            }
-          });
-        } else {
-          next(); // Important to call next for non-SPA routes or non-GET requests
-        }
-      });
-    } else {
-      logger.warn(`[App] Production UI build path not found: ${uiBuildPath}. UI will not be served.`);
-    }
-  }
 
   // WebSocket connection handling
   io.on('connection', (socket) => {
@@ -84,7 +57,7 @@ async function createServer() {
   // Assuming errorHandlerMiddleware is defined and imported elsewhere (e.g. mcr.js or a utils file)
   // If not, this would need to be defined or imported:
   app.use(errorHandlerMiddleware);
-  logger.info('[App] Error handling middleware attached.');
+  logger.info('[App] Error-handling middleware attached.');
 
   return httpServer;
 }
