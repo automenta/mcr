@@ -1,5 +1,6 @@
 // src/tools.js
 const mcrService = require('./mcrService');
+const translationService = require('./translationService');
 const ontologyService = require('./ontologyService');
 const strategyManager = require('./strategyManager');
 const logger = require('./util/logger');
@@ -116,7 +117,14 @@ const mcrToolDefinitions = {
       if (!input?.sessionId || !input?.naturalLanguageQuestion) {
         return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'sessionId and naturalLanguageQuestion are required.' };
       }
-      return mcrService.explainQuery(input.sessionId, input.naturalLanguageQuestion);
+      return translationService.explainQuery(
+        input.sessionId,
+        input.naturalLanguageQuestion,
+        mcrService.getOperationalStrategyJson,
+        mcrService.getSession,
+        mcrService.getKnowledgeBase,
+        mcrService.getLexiconSummary
+      );
     },
   },
   'session.assert_rules': {
@@ -223,7 +231,12 @@ const mcrToolDefinitions = {
       if (!input?.naturalLanguageText) {
         return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'naturalLanguageText is required.' };
       }
-      return mcrService.translateNLToRulesDirect(input.naturalLanguageText, input.strategyId);
+      return translationService.translateNLToRulesDirect(
+        input.naturalLanguageText,
+        input.strategyId,
+        mcrService.getActiveStrategyId,
+        mcrService.getOperationalStrategyJson
+      );
     },
   },
   'translate.rulesToNl': {
@@ -232,7 +245,7 @@ const mcrToolDefinitions = {
       if (!input?.rules) {
         return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'rules are required.' };
       }
-      return mcrService.translateRulesToNLDirect(input.rules, input.style);
+      return translationService.translateRulesToNLDirect(input.rules, input.style);
     },
   },
 
