@@ -15,7 +15,6 @@ function App() {
   const [isWsServiceConnected, setIsWsServiceConnected] = useState(false); // WebSocket service connection status
   const [wsConnectionStatus, setWsConnectionStatus] = useState('⏳ Initializing...');
   const [demos, setDemos] = useState([]);
-  const [selectedDemo, setSelectedDemo] = useState('');
 
   const addMessageToHistory = useCallback((message) => {
     setChatHistory(prev => [...prev, message]);
@@ -187,16 +186,16 @@ function App() {
     }
   };
 
-  const handleLoadDemo = async () => {
-    if (!selectedDemo || !sessionId) {
+  const handleLoadDemo = async (demoId) => {
+    if (!demoId || !sessionId) {
       addMessageToHistory({ type: 'system', text: '⚠️ Please select a demo and ensure you are connected to a session.' });
       return;
     }
-    addMessageToHistory({ type: 'system', text: `🚀 Starting demo: ${selectedDemo}...` });
+    addMessageToHistory({ type: 'system', text: `🚀 Starting demo: ${demoId}...` });
     try {
-      const response = await apiService.invokeTool('demo.run', { demoId: selectedDemo, sessionId });
+      const response = await apiService.invokeTool('demo.run', { demoId, sessionId });
       if (response.success) {
-        addMessageToHistory({ type: 'demo', messages: response.data.messages });
+        addMessageTo_history({ type: 'demo', messages: response.data.messages });
         // After the demo runs, it's good practice to refresh the KB state from the server
         fetchCurrentKb(sessionId);
       } else {
@@ -208,7 +207,7 @@ function App() {
   };
 
   return (
-    <>
+    <div className="app-container">
       <AppHeader
         currentMode={currentMode}
         setCurrentMode={setCurrentMode}
@@ -226,30 +225,30 @@ function App() {
         disconnectSession={disconnectFromSession}
         isMcrSessionActive={isConnected}
         demos={demos}
-        selectedDemo={selectedDemo}
-        setSelectedDemo={setSelectedDemo}
         onLoadDemo={handleLoadDemo}
       />
-      {currentMode === 'interactive' ? (
-        <InteractiveSessionMode
-          sessionId={sessionId}
-          setSessionId={setSessionId}
-          activeStrategy={activeStrategy}
-          setActiveStrategy={setActiveStrategy}
-          currentKb={currentKb}
-          setCurrentKb={setCurrentKb}
-          connectSession={connectToSession}
-          disconnectSession={disconnectFromSession}
-          isMcrSessionActive={isConnected}
-          isWsServiceConnected={isWsServiceConnected}
-          addMessageToHistory={addMessageToHistory}
-          chatHistory={chatHistory}
-          fetchCurrentKb={fetchCurrentKb}
-        />
-      ) : (
-        <SystemAnalysisMode />
-      )}
-    </>
+      <main className="main-content">
+        {currentMode === 'interactive' ? (
+          <InteractiveSessionMode
+            sessionId={sessionId}
+            setSessionId={setSessionId}
+            activeStrategy={activeStrategy}
+            setActiveStrategy={setActiveStrategy}
+            currentKb={currentKb}
+            setCurrentKb={setCurrentKb}
+            connectSession={connectToSession}
+            disconnectSession={disconnectFromSession}
+            isMcrSessionActive={isConnected}
+            isWsServiceConnected={isWsServiceConnected}
+            addMessageToHistory={addMessageToHistory}
+            chatHistory={chatHistory}
+            fetchCurrentKb={fetchCurrentKb}
+          />
+        ) : (
+          <SystemAnalysisMode />
+        )}
+      </main>
+    </div>
   );
 }
 

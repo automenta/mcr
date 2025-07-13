@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-// import apiService from '../../apiService'; // Removed as it's not used directly
 import StrategyLeaderboard from './SystemAnalysis/StrategyLeaderboard';
 import StrategyDeepDive from './SystemAnalysis/StrategyDeepDive';
 import CurriculumExplorer from './SystemAnalysis/CurriculumExplorer';
 import EvolverControlPanel from './SystemAnalysis/EvolverControlPanel';
+import './SystemAnalysisMode.css';
 
 const SystemAnalysisMode = () => {
   const [currentAnalysisView, setCurrentAnalysisView] = useState('leaderboard'); // 'leaderboard', 'deepDive', 'curriculum', 'evolver'
@@ -31,12 +31,14 @@ const SystemAnalysisMode = () => {
 
   return (
     <div className="system-analysis-mode">
-      <h2>📊 MCR System Analysis</h2>
-      <nav className="analysis-nav">
-        <button onClick={() => { setSelectedStrategyIdForDeepDive(null); setCurrentAnalysisView('leaderboard');}} disabled={currentAnalysisView === 'leaderboard' && !selectedStrategyIdForDeepDive}>🏆 Leaderboard</button>
-        <button onClick={() => setCurrentAnalysisView('curriculum')} disabled={currentAnalysisView === 'curriculum'}>🎓 Curriculum</button>
-        <button onClick={() => setCurrentAnalysisView('evolver')} disabled={currentAnalysisView === 'evolver'}>🧬 Evolver</button>
-      </nav>
+      <div className="analysis-sidebar">
+        <h2>System Analysis</h2>
+        <nav className="analysis-nav">
+          <button onClick={() => { setSelectedStrategyIdForDeepDive(null); setCurrentAnalysisView('leaderboard');}} disabled={currentAnalysisView === 'leaderboard' && !selectedStrategyIdForDeepDive}>Leaderboard</button>
+          <button onClick={() => setCurrentAnalysisView('curriculum')} disabled={currentAnalysisView === 'curriculum'}>Curriculum</button>
+          <button onClick={() => setCurrentAnalysisView('evolver')} disabled={currentAnalysisView === 'evolver'}>Evolver</button>
+        </nav>
+      </div>
       <div className="analysis-view-content">
         {renderCurrentView()}
       </div>

@@ -1,22 +1,37 @@
 .knowledge-base {
-  background-color: var(--background-color);
-  color: var(--text-color);
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
   height: 100%;
+  background-color: var(--background-color);
 }
 
-.knowledge-base h3 {
-  margin-top: 0;
-  color: var(--primary-color);
+.kb-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 15px;
+  height: 40px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
-.knowledge-base pre {
-  background-color: #2a2a2a;
-  padding: 15px;
-  border-radius: 5px;
-  border: 1px solid var(--border-color);
-  white-space: pre-wrap;
-  word-break: break-all;
-  height: calc(100% - 60px);
+.kb-header h3 {
+  margin: 0;
+  font-size: 1.1em;
+}
+
+.kb-header button {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  font-size: 1em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kb-content {
+  flex-grow: 1;
   overflow-y: auto;
 }

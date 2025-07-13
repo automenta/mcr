@@ -1,21 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPaperPlane, faSync } from '@fortawesome/free-solid-svg-icons';
+import { faPaperPlane, faTrash } from '@fortawesome/free-solid-svg-icons';
 import apiService from '../apiService';
 import './REPL.css';
 
 const REPL = ({
   sessionId,
-  setSessionId,
   activeStrategy,
-  setActiveStrategy,
-  connectSession,
-  disconnectSession,
   isMcrSessionActive,
-  isWsServiceConnected,
   addMessageToHistory,
   chatHistory,
-  fetchCurrentKb,
+  setChatHistory,
 }) => {
   const [input, setInput] = useState('');
   const chatHistoryRef = useRef(null);
@@ -39,6 +34,10 @@ const REPL = ({
     } catch (error) {
       addMessageToHistory({ type: 'error', text: error.message });
     }
+  };
+
+  const handleClearHistory = () => {
+    setChatHistory([]);
   };
 
   const renderMessage = (message, index) => {
@@ -72,20 +71,14 @@ const REPL = ({
     <div className="repl">
       <div className="repl-header">
         <h3>REPL</h3>
-        <div className="session-controls">
-          {isMcrSessionActive ? (
-            <button onClick={disconnectSession}>Disconnect</button>
-          ) : (
-            <button onClick={() => connectSession()}>New Session</button>
-          )}
-          <input
-            type="text"
-            placeholder="Session ID"
-            value={sessionId || ''}
-            onChange={(e) => setSessionId(e.target.value)}
-          />
-          <button onClick={() => connectSession(sessionId)}>Connect</button>
+        <div className="repl-controls">
+          <button onClick={handleClearHistory} title="Clear chat history">
+            <FontAwesomeIcon icon={faTrash} />
+          </button>
         </div>
+      </div>
+      <div className="active-strategy">
+        Active Strategy: <span>{activeStrategy || 'N/A'}</span>
       </div>
       <div className="chat-history" ref={chatHistoryRef}>
         {chatHistory.map((message, index) => renderMessage(message, index))}
@@ -96,9 +89,10 @@ const REPL = ({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="Type your message..."
+          placeholder={isMcrSessionActive ? "Type your message..." : "Connect to a session to begin"}
+          disabled={!isMcrSessionActive}
         />
-        <button onClick={handleSend}>
+        <button onClick={handleSend} disabled={!isMcrSessionActive}>
           <FontAwesomeIcon icon={faPaperPlane} />
         </button>
       </div>

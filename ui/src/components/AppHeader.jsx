@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faBars, faTimes, faPlayCircle, faPlug, faServer, faVial } from '@fortawesome/free-solid-svg-icons';
 import './AppHeader.css';
 
 const AppHeader = ({
@@ -17,44 +19,73 @@ const AppHeader = ({
   setSelectedDemo,
   onLoadDemo,
 }) => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+  const handleDemoSelect = (demoId) => {
+    setSelectedDemo(demoId);
+    if (demoId) {
+      onLoadDemo(demoId);
+    }
+    setIsMenuOpen(false);
+  };
+
   return (
     <header className="app-header">
-      <div className="main-menu">
-        <button onClick={() => setCurrentMode('interactive')}>Interactive</button>
-        <button onClick={() => setCurrentMode('analysis')}>Analysis</button>
+      <div className="header-left">
+        <div className="logo">
+          <FontAwesomeIcon icon={faPlayCircle} /> MCR
+        </div>
+        <nav className="main-nav">
+          <button onClick={() => setCurrentMode('interactive')} className={currentMode === 'interactive' ? 'active' : ''}>
+            Interactive
+          </button>
+          <button onClick={() => setCurrentMode('analysis')} className={currentMode === 'analysis' ? 'active' : ''}>
+            Analysis
+          </button>
+        </nav>
       </div>
-      <div className="demo-loader">
-        <select
-          value={selectedDemo}
-          onChange={(e) => setSelectedDemo(e.target.value)}
-          disabled={!isMcrSessionActive}
-        >
-          <option value="">Select a Demo</option>
-          {demos.map((demo) => (
-            <option key={demo.id} value={demo.id}>
-              {demo.name}
-            </option>
-          ))}
-        </select>
-        <button onClick={onLoadDemo} disabled={!selectedDemo || !isMcrSessionActive}>
-          Load Demo
-        </button>
-      </div>
-      <div className="session-management">
-        <span>{wsConnectionStatus}</span>
-        {!isWsServiceConnected && <button onClick={onRetryConnect}>Retry</button>}
-        {isMcrSessionActive ? (
-          <button onClick={disconnectSession}>Disconnect</button>
-        ) : (
-          <button onClick={() => connectSession()}>New Session</button>
-        )}
-        <input
-          type="text"
-          placeholder="Session ID"
-          value={sessionId || ''}
-          onChange={(e) => setSessionId(e.target.value)}
-        />
-        <button onClick={() => connectSession(sessionId)}>Connect</button>
+
+      <div className="header-right">
+        <div className="session-controls">
+          <FontAwesomeIcon icon={faServer} title={wsConnectionStatus} className={`status-icon ${isWsServiceConnected ? 'connected' : 'disconnected'}`} />
+          <input
+            type="text"
+            placeholder="Session ID"
+            value={sessionId || ''}
+            onChange={(e) => setSessionId(e.target.value)}
+            className="session-input"
+          />
+          {isMcrSessionActive ? (
+            <button onClick={disconnectSession} className="session-button">Disconnect</button>
+          ) : (
+            <button onClick={() => connectSession(sessionId)} className="session-button">Connect</button>
+          )}
+          {!isMcrSessionActive && <button onClick={() => connectSession()} className="session-button">New</button>}
+        </div>
+
+        <div className="mobile-menu">
+          <button onClick={toggleMenu} className="menu-toggle">
+            <FontAwesomeIcon icon={isMenuOpen ? faTimes : faBars} />
+          </button>
+          {isMenuOpen && (
+            <div className="dropdown-menu">
+              <div className="dropdown-section">
+                <h3>
+                  <FontAwesomeIcon icon={faVial} /> Demos
+                </h3>
+                {demos.map((demo) => (
+                  <button key={demo.id} onClick={() => handleDemoSelect(demo.id)} disabled={!isMcrSessionActive}>
+                    {demo.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
