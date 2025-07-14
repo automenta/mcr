@@ -18,7 +18,6 @@ async function startServer() {
   logger.debug('[MCR Init] src/app (createServer) required.');
   logger.debug('[MCR Init] config required.');
 
-
   const PORT = config.server.port;
   const HOST = config.server.host;
 
@@ -61,7 +60,9 @@ async function startServer() {
     // Handle specific listen errors with friendly messages
     switch (error.code) {
       case 'EACCES':
-        logger.error(`[MCR Start] Error: Port ${PORT} requires elevated privileges.`);
+        logger.error(
+          `[MCR Start] Error: Port ${PORT} requires elevated privileges.`
+        );
         process.exit(1);
         break;
       case 'EADDRINUSE':
@@ -118,7 +119,7 @@ async function startServer() {
 
 // If this script is run directly, start the server
 if (require.main === module) {
-  startServer().catch(error => {
+  startServer().catch((error) => {
     // Use logger if available, otherwise console.error
     const logger = require('./src/util/logger'); // Re-require in this scope or ensure it's global
     logger.error('[MCR Critical] Failed to start server:', error);

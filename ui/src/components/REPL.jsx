@@ -53,15 +53,35 @@ const REPL = ({
   const renderMessage = (message, index) => {
     switch (message.type) {
       case 'user':
-        return <div key={index} className="message user">🧑 {message.text}</div>;
+        return (
+          <div key={index} className="message user">
+            🧑 {message.text}
+          </div>
+        );
       case 'server':
-        return <div key={index} className="message server">🤖 {message.text}</div>;
+        return (
+          <div key={index} className="message server">
+            🤖 {message.text}
+          </div>
+        );
       case 'llm':
-        return <div key={index} className="message llm">🧠 {message.text}</div>;
+        return (
+          <div key={index} className="message llm">
+            🧠 {message.text}
+          </div>
+        );
       case 'system':
-        return <div key={index} className="message system">⚙️ {message.text}</div>;
+        return (
+          <div key={index} className="message system">
+            ⚙️ {message.text}
+          </div>
+        );
       case 'error':
-        return <div key={index} className="message error">🔥 {message.text}</div>;
+        return (
+          <div key={index} className="message error">
+            🔥 {message.text}
+          </div>
+        );
       case 'demo':
         return (
           <div key={index} className="message demo">
@@ -69,15 +89,25 @@ const REPL = ({
             {message.messages.map((demoMsg, i) => {
               if (demoMsg.type === 'assertion') {
                 return (
-                  <div key={i} className={`demo-log-item demo-log-assertion ${demoMsg.status ? 'success' : 'failure'}`}>
-                    <strong>ASSERTION {demoMsg.status ? '✅' : '❌'}</strong>: {demoMsg.message}
+                  <div
+                    key={i}
+                    className={`demo-log-item demo-log-assertion ${demoMsg.status ? 'success' : 'failure'}`}
+                  >
+                    <strong>ASSERTION {demoMsg.status ? '✅' : '❌'}</strong>:{' '}
+                    {demoMsg.message}
                   </div>
                 );
               }
               return (
-                <div key={i} className={`demo-log-item demo-log-${demoMsg.level}`}>
-                  <strong>{demoMsg.level.toUpperCase()}</strong>: {demoMsg.message}
-                  {demoMsg.data && <pre>{JSON.stringify(demoMsg.data, null, 2)}</pre>}
+                <div
+                  key={i}
+                  className={`demo-log-item demo-log-${demoMsg.level}`}
+                >
+                  <strong>{demoMsg.level.toUpperCase()}</strong>:{' '}
+                  {demoMsg.message}
+                  {demoMsg.data && (
+                    <pre>{JSON.stringify(demoMsg.data, null, 2)}</pre>
+                  )}
                 </div>
               );
             })}
@@ -110,7 +140,11 @@ const REPL = ({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          placeholder={isMcrSessionActive ? "Type your message..." : "Connect to a session to begin"}
+          placeholder={
+            isMcrSessionActive
+              ? 'Type your message...'
+              : 'Connect to a session to begin'
+          }
           disabled={!isMcrSessionActive}
         />
         <button onClick={handleSend} disabled={!isMcrSessionActive}>

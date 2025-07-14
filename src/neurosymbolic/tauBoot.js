@@ -1,6 +1,6 @@
 import pl from 'tau-prolog';
 
-let session;                       // one Tau session per MCR session
+let session; // one Tau session per MCR session
 import { registerNeural } from './neuralPred.js';
 export function bootTau() {
   session = pl.create();

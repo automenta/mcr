@@ -4,32 +4,53 @@ import AssertionPanel from './AssertionPanel';
 import './KnowledgeBase.css';
 
 const KnowledgeBase = ({ sessionId, currentKb, addMessageToHistory }) => {
-  const assertions = currentKb ? currentKb.split('\n').filter(line => line.trim() !== '') : [];
+  const assertions = currentKb
+    ? currentKb.split('\n').filter((line) => line.trim() !== '')
+    : [];
 
   const handleRetract = async (assertionToRetract) => {
     if (!sessionId) {
-      addMessageToHistory({ type: 'system', text: '⚠️ Cannot retract: Not connected to a session.' });
+      addMessageToHistory({
+        type: 'system',
+        text: '⚠️ Cannot retract: Not connected to a session.',
+      });
       return;
     }
 
-    const currentAssertions = currentKb.split('\n').filter(line => line.trim() !== '');
-    const newKbContent = currentAssertions.filter(a => a !== assertionToRetract).join('\n');
+    const currentAssertions = currentKb
+      .split('\n')
+      .filter((line) => line.trim() !== '');
+    const newKbContent = currentAssertions
+      .filter((a) => a !== assertionToRetract)
+      .join('\n');
 
     try {
-      addMessageToHistory({ type: 'system', text: `Attempting to retract: ${assertionToRetract}` });
+      addMessageToHistory({
+        type: 'system',
+        text: `Attempting to retract: ${assertionToRetract}`,
+      });
       const response = await apiService.invokeTool('session.set_kb', {
         sessionId: sessionId,
         kbContent: newKbContent,
       });
 
       if (response.success) {
-        addMessageToHistory({ type: 'system', text: `✅ Retracted successfully.` });
+        addMessageToHistory({
+          type: 'system',
+          text: `✅ Retracted successfully.`,
+        });
         // The KB will be updated via the kb_updated websocket message, so no need to set it here.
       } else {
-        addMessageToHistory({ type: 'system', text: `❌ Failed to retract: ${response.message}` });
+        addMessageToHistory({
+          type: 'system',
+          text: `❌ Failed to retract: ${response.message}`,
+        });
       }
     } catch (error) {
-      addMessageToHistory({ type: 'system', text: `❌ Exception during retraction: ${error.message}` });
+      addMessageToHistory({
+        type: 'system',
+        text: `❌ Exception during retraction: ${error.message}`,
+      });
     }
   };
 

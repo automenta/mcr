@@ -38,7 +38,7 @@ describe('MCR Tool Definitions (src/tools.js)', () => {
     'demo.run',
   ];
 
-  coreToolsToTest.forEach(toolName => {
+  coreToolsToTest.forEach((toolName) => {
     describe(`Tool: ${toolName}`, () => {
       it('should exist in mcrToolDefinitions', () => {
         expect(mcrToolDefinitions[toolName]).toBeDefined();
@@ -46,7 +46,9 @@ describe('MCR Tool Definitions (src/tools.js)', () => {
 
       it('should have a non-empty description string', () => {
         expect(typeof mcrToolDefinitions[toolName]?.description).toBe('string');
-        expect(mcrToolDefinitions[toolName]?.description.length).toBeGreaterThan(0);
+        expect(
+          mcrToolDefinitions[toolName]?.description.length
+        ).toBeGreaterThan(0);
       });
 
       it('should have a handler function', () => {

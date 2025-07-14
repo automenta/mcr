@@ -5,7 +5,14 @@ const eslintPluginReact = require('eslint-plugin-react');
 
 module.exports = [
   {
-    ignores: ["dist/", "node_modules/", "coverage/", ".DS_Store", "*.log", "ui/coverage/"],
+    ignores: [
+      'dist/',
+      'node_modules/',
+      'coverage/',
+      '.DS_Store',
+      '*.log',
+      'ui/coverage/',
+    ],
   },
   js.configs.recommended,
   // Configuration for server-side JavaScript files (CommonJS)
@@ -25,7 +32,10 @@ module.exports = [
       },
     },
     rules: {
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       'no-console': 'off',
       'no-case-declarations': 'off',
     },
@@ -74,7 +84,10 @@ module.exports = [
       ...eslintPluginReact.configs.recommended.rules,
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off', // Keep this off as per original config
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       'no-console': 'off', // Consistent with server-side
     },
   },
@@ -86,13 +99,13 @@ module.exports = [
     // If specific Vitest ESLint plugin is used, it would go here.
     // For now, ensure browser and module context is set.
     languageOptions: {
-        globals: {
-            ...globals.jest, // Vitest is Jest-compatible
-            ...globals.node, // For test setup files if they use Node features
-        }
+      globals: {
+        ...globals.jest, // Vitest is Jest-compatible
+        ...globals.node, // For test setup files if they use Node features
+      },
     },
     rules: {
-        // any specific rules for UI tests
-    }
-  }
+      // any specific rules for UI tests
+    },
+  },
 ];

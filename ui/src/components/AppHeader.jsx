@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBars, faTimes, faPlayCircle, faPlug, faServer, faVial } from '@fortawesome/free-solid-svg-icons';
+import {
+  faBars,
+  faTimes,
+  faPlayCircle,
+  faPlug,
+  faServer,
+  faVial,
+} from '@fortawesome/free-solid-svg-icons';
 import './AppHeader.css';
 
 const AppHeader = ({
@@ -36,10 +43,16 @@ const AppHeader = ({
           <FontAwesomeIcon icon={faPlayCircle} /> MCR
         </div>
         <nav className="main-nav">
-          <button onClick={() => setCurrentMode('interactive')} className={currentMode === 'interactive' ? 'active' : ''}>
+          <button
+            onClick={() => setCurrentMode('interactive')}
+            className={currentMode === 'interactive' ? 'active' : ''}
+          >
             Interactive
           </button>
-          <button onClick={() => setCurrentMode('analysis')} className={currentMode === 'analysis' ? 'active' : ''}>
+          <button
+            onClick={() => setCurrentMode('analysis')}
+            className={currentMode === 'analysis' ? 'active' : ''}
+          >
             Analysis
           </button>
         </nav>
@@ -47,7 +60,11 @@ const AppHeader = ({
 
       <div className="header-right">
         <div className="session-controls">
-          <FontAwesomeIcon icon={faServer} title={wsConnectionStatus} className={`status-icon ${isWsServiceConnected ? 'connected' : 'disconnected'}`} />
+          <FontAwesomeIcon
+            icon={faServer}
+            title={wsConnectionStatus}
+            className={`status-icon ${isWsServiceConnected ? 'connected' : 'disconnected'}`}
+          />
           <input
             type="text"
             placeholder="Session ID"
@@ -56,11 +73,22 @@ const AppHeader = ({
             className="session-input"
           />
           {isMcrSessionActive ? (
-            <button onClick={disconnectSession} className="session-button">Disconnect</button>
+            <button onClick={disconnectSession} className="session-button">
+              Disconnect
+            </button>
           ) : (
-            <button onClick={() => connectSession(sessionId)} className="session-button">Connect</button>
+            <button
+              onClick={() => connectSession(sessionId)}
+              className="session-button"
+            >
+              Connect
+            </button>
           )}
-          {!isMcrSessionActive && <button onClick={() => connectSession()} className="session-button">New</button>}
+          {!isMcrSessionActive && (
+            <button onClick={() => connectSession()} className="session-button">
+              New
+            </button>
+          )}
         </div>
 
         <div className="mobile-menu">
@@ -78,14 +106,19 @@ const AppHeader = ({
                   onChange={(e) => handleDemoSelect(e.target.value)}
                   disabled={!isMcrSessionActive}
                 >
-                  <option value="" disabled>Select a demo</option>
+                  <option value="" disabled>
+                    Select a demo
+                  </option>
                   {demos.map((demo) => (
                     <option key={demo.id} value={demo.id}>
                       {demo.name}
                     </option>
                   ))}
                 </select>
-                <button onClick={() => onLoadDemo(selectedDemo)} disabled={!selectedDemo || !isMcrSessionActive}>
+                <button
+                  onClick={() => onLoadDemo(selectedDemo)}
+                  disabled={!selectedDemo || !isMcrSessionActive}
+                >
                   Load Demo
                 </button>
               </div>
