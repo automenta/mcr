@@ -1,77 +1,70 @@
-import React, { useState } from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTrash, faClipboard, faProjectDiagram } from '@fortawesome/free-solid-svg-icons';
-import apiService from '../apiService';
+import React from 'react';
+import PropTypes from 'prop-types';
+import AssertionPanel from './AssertionPanel';
 import './KnowledgeBase.css';
 
-const KnowledgeBase = ({ currentKb, sessionId }) => {
-  const [copyStatus, setCopyStatus] = useState('');
+const KnowledgeBase = ({ sessionId, currentKb, addMessageToHistory }) => {
+  const assertions = currentKb ? currentKb.split('\n').filter(line => line.trim() !== '') : [];
 
-  const parseKb = (kb) => {
-    if (!kb) return [];
-    return kb.split('\n').filter(line => line.trim() !== '' && !line.startsWith(':-'));
-  };
-
-  const assertions = parseKb(currentKb);
-
-  const handleCopyKb = () => {
-    if (navigator.clipboard && currentKb) {
-      navigator.clipboard.writeText(currentKb)
-        .then(() => {
-          setCopyStatus('Copied!');
-          setTimeout(() => setCopyStatus(''), 2000);
-        })
-        .catch(err => {
-          setCopyStatus('Failed!');
-          setTimeout(() => setCopyStatus(''), 2000);
-          console.error("Failed to copy KB:", err);
-        });
+  const handleRetract = async (assertionToRetract) => {
+    if (!sessionId) {
+      addMessageToHistory({ type: 'system', text: '⚠️ Cannot retract: Not connected to a session.' });
+      return;
     }
-  };
 
-  const handleDelete = async (assertion) => {
+    const currentAssertions = currentKb.split('\n').filter(line => line.trim() !== '');
+    const newKbContent = currentAssertions.filter(a => a !== assertionToRetract).join('\n');
+
     try {
-      await apiService.invokeTool('reason.retract', { sessionId, fact: assertion });
+      addMessageToHistory({ type: 'system', text: `Attempting to retract: ${assertionToRetract}` });
+      const response = await apiService.invokeTool('session.set_kb', {
+        sessionId: sessionId,
+        kbContent: newKbContent,
+      });
+
+      if (response.success) {
+        addMessageToHistory({ type: 'system', text: `✅ Retracted successfully.` });
+        // The KB will be updated via the kb_updated websocket message, so no need to set it here.
+      } else {
+        addMessageToHistory({ type: 'system', text: `❌ Failed to retract: ${response.message}` });
+      }
     } catch (error) {
-      console.error('Failed to retract assertion:', error);
+      addMessageToHistory({ type: 'system', text: `❌ Exception during retraction: ${error.message}` });
     }
   };
 
-  const handleRelated = (assertion) => {
-    alert(`Related assertions for: ${assertion}`);
+  const handleShowRelated = (assertion) => {
+    console.log(`Showing related for: ${assertion}`);
+    // Placeholder for future implementation
   };
 
   return (
     <div className="knowledge-base">
       <div className="kb-header">
         <h3>Knowledge Base</h3>
-        <button onClick={handleCopyKb} title="Copy full KB to clipboard">
-          <FontAwesomeIcon icon={faClipboard} /> {copyStatus}
-        </button>
       </div>
       <div className="kb-content">
         {assertions.length > 0 ? (
-          <ul className="assertion-list">
-            {assertions.map((assertion, index) => (
-              <li key={index} className="assertion-item">
-                <span className="assertion-text">{assertion}</span>
-                <div className="assertion-actions">
-                  <button onClick={() => handleRelated(assertion)} title="Show related">
-                    <FontAwesomeIcon icon={faProjectDiagram} />
-                  </button>
-                  <button onClick={() => handleDelete(assertion)} title="Retract assertion">
-                    <FontAwesomeIcon icon={faTrash} />
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          assertions.map((assertion, index) => (
+            <AssertionPanel
+              key={index}
+              assertion={assertion}
+              onRetract={handleRetract}
+              onShowRelated={handleShowRelated}
+            />
+          ))
         ) : (
-          <p>The Knowledge Base is empty.</p>
+          <div className="kb-empty-message">Knowledge Base is empty.</div>
         )}
       </div>
     </div>
   );
+};
+
+KnowledgeBase.propTypes = {
+  sessionId: PropTypes.string,
+  currentKb: PropTypes.string,
+  addMessageToHistory: PropTypes.func.isRequired,
 };
 
 export default KnowledgeBase;

@@ -28,7 +28,9 @@ function App() {
     if (message.type === 'kb_updated') {
       if (message.payload?.sessionId === sessionId) {
         let fullKb = message.payload.fullKnowledgeBase;
-        if (typeof fullKb === 'object' && fullKb !== null) {
+        if (Array.isArray(fullKb)) {
+          fullKb = fullKb.join('\n');
+        } else if (typeof fullKb === 'object' && fullKb !== null) {
           fullKb = typeof fullKb.doc === 'string' ? fullKb.doc : JSON.stringify(fullKb);
           addMessageToHistory({type: 'system', text: `ℹ️ Full KB data in 'kb_updated' received as object, converted to string.`});
         }
@@ -117,13 +119,13 @@ function App() {
 
   useEffect(() => {
     if (isWsServiceConnected) {
-      fetchGlobalActiveStrategy();
-      fetchDemos();
       if (!sessionId) {
         connectToSession(null);
       }
+      fetchGlobalActiveStrategy();
+      fetchDemos();
     }
-  }, [isWsServiceConnected, fetchGlobalActiveStrategy, fetchDemos, sessionId]);
+  }, [isWsServiceConnected, sessionId, fetchGlobalActiveStrategy, fetchDemos]);
 
   const connectToSession = async (sidToConnect) => {
     if (!isWsServiceConnected) {
@@ -175,7 +177,9 @@ function App() {
       const response = await apiService.invokeTool('session.get', { sessionId: sid });
       if (response.success && response.data) {
         let kbData = response.data.facts;
-        if (typeof kbData === 'object' && kbData !== null) {
+        if (Array.isArray(kbData)) {
+          kbData = kbData.join('\n');
+        } else if (typeof kbData === 'object' && kbData !== null) {
           kbData = typeof kbData.doc === 'string' ? kbData.doc : JSON.stringify(kbData);
           addMessageToHistory({type: 'system', text: `ℹ️ KB data received as object, converted to string.`});
         }

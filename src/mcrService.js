@@ -1208,6 +1208,8 @@ module.exports = {
   getPrompts,
   debugFormatPrompt,
   getAvailableStrategies: strategyManager.getAvailableStrategies,
+  listStrategies: strategyManager.getAvailableStrategies,
+  getActiveStrategy: getActiveStrategyId,
 
   /**
    * Sets (replaces) the entire knowledge base for a specific session.

@@ -2,21 +2,19 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPaperPlane, faTrash } from '@fortawesome/free-solid-svg-icons';
 import apiService from '../apiService';
-import StrategySelector from './StrategySelector';
-import MessageDetailsModal from './MessageDetailsModal';
 import './REPL.css';
 
 const REPL = ({
   sessionId,
+  activeStrategy,
+  setActiveStrategy,
   isMcrSessionActive,
   addMessageToHistory,
   chatHistory,
   setChatHistory,
-  activeStrategy,
-  setActiveStrategy,
 }) => {
   const [input, setInput] = useState('');
-  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [strategies, setStrategies] = useState([]);
   const chatHistoryRef = useRef(null);
 
   useEffect(() => {
@@ -24,6 +22,22 @@ const REPL = ({
       chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
     }
   }, [chatHistory]);
+
+  useEffect(() => {
+    const fetchStrategies = async () => {
+      try {
+        const response = await apiService.invokeTool('strategy.list');
+        if (response.success) {
+          setStrategies(response.data);
+        } else {
+          addMessageToHistory({ type: 'error', text: 'Failed to load strategies.' });
+        }
+      } catch (error) {
+        addMessageToHistory({ type: 'error', text: error.message });
+      }
+    };
+    fetchStrategies();
+  }, [addMessageToHistory]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -36,14 +50,29 @@ const REPL = ({
       });
       if (response.success) {
         if (response.answer) {
-          addMessageToHistory({ type: 'server', text: response.answer, ...response });
+          addMessageToHistory({ type: 'server', text: response.answer });
         } else if (response.response) {
-          addMessageToHistory({ type: 'llm', text: response.response, ...response });
+          addMessageToHistory({ type: 'llm', text: response.response });
         } else {
-          addMessageToHistory({ type: 'server', text: response.message, ...response });
+          addMessageToHistory({ type: 'server', text: response.message });
         }
       } else {
-        addMessageToHistory({ type: 'error', text: response.message, ...response });
+        addMessageToHistory({ type: 'error', text: response.message });
+      }
+    } catch (error) {
+      addMessageToHistory({ type: 'error', text: error.message });
+    }
+  };
+
+  const handleStrategyChange = async (e) => {
+    const newStrategy = e.target.value;
+    try {
+      const response = await apiService.invokeTool('strategy.setActive', { strategyId: newStrategy });
+      if (response.success) {
+        setActiveStrategy(newStrategy);
+        addMessageToHistory({ type: 'system', text: `Strategy set to ${newStrategy}` });
+      } else {
+        addMessageToHistory({ type: 'error', text: 'Failed to set strategy.' });
       }
     } catch (error) {
       addMessageToHistory({ type: 'error', text: error.message });
@@ -54,27 +83,48 @@ const REPL = ({
     setChatHistory([]);
   };
 
-  const handleMessageClick = (message) => {
-    setSelectedMessage(message);
-  };
-
   const renderMessage = (message, index) => {
-    const messageClass = `message ${message.type}`;
-    return (
-      <div key={index} className={messageClass} onClick={() => handleMessageClick(message)}>
-        {message.type === 'user' && '🧑'}
-        {message.type === 'server' && '🤖'}
-        {message.type === 'llm' && '🧠'}
-        {message.type === 'system' && '⚙️'}
-        {message.type === 'error' && '🔥'}
-        {message.text}
-      </div>
-    );
+    switch (message.type) {
+      case 'user':
+        return <div key={index} className="message user">🧑 {message.text}</div>;
+      case 'server':
+        return <div key={index} className="message server">🤖 {message.text}</div>;
+      case 'llm':
+        return <div key={index} className="message llm">🧠 {message.text}</div>;
+      case 'system':
+        return <div key={index} className="message system">⚙️ {message.text}</div>;
+      case 'error':
+        return <div key={index} className="message error">🔥 {message.text}</div>;
+      case 'demo':
+        return (
+          <div key={index} className="message demo">
+            <h4>Demo Output</h4>
+            {message.messages.map((demoMsg, i) => {
+              if (demoMsg.type === 'assertion') {
+                return (
+                  <div key={i} className={`demo-log-item demo-log-assertion ${demoMsg.status ? 'success' : 'failure'}`}>
+                    <strong>ASSERTION {demoMsg.status ? '✅' : '❌'}</strong>: {demoMsg.message}
+                  </div>
+                );
+              }
+              return (
+                <div key={i} className={`demo-log-item demo-log-${demoMsg.level}`}>
+                  <strong>{demoMsg.level.toUpperCase()}</strong>: {demoMsg.message}
+                  {demoMsg.data && <pre>{JSON.stringify(demoMsg.data, null, 2)}</pre>}
+                </div>
+              );
+            })}
+          </div>
+        );
+      default:
+        return null;
+    }
   };
 
   return (
     <div className="repl">
       <div className="repl-header">
+        <h3>REPL</h3>
         <div className="repl-controls">
           <button onClick={handleClearHistory} title="Clear chat history">
             <FontAwesomeIcon icon={faTrash} />
@@ -85,10 +135,13 @@ const REPL = ({
         {chatHistory.map((message, index) => renderMessage(message, index))}
       </div>
       <div className="input-area">
-        <StrategySelector
-          activeStrategy={activeStrategy}
-          setActiveStrategy={setActiveStrategy}
-        />
+        <select value={activeStrategy || ''} onChange={handleStrategyChange}>
+          {strategies.map((strategy) => (
+            <option key={strategy.id} value={strategy.id}>
+              {strategy.name}
+            </option>
+          ))}
+        </select>
         <input
           type="text"
           value={input}
@@ -101,10 +154,6 @@ const REPL = ({
           <FontAwesomeIcon icon={faPaperPlane} />
         </button>
       </div>
-      <MessageDetailsModal
-        message={selectedMessage}
-        onClose={() => setSelectedMessage(null)}
-      />
     </div>
   );
 };
