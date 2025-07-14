@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Split from 'react-split';
 import KnowledgeBase from './KnowledgeBase';
 import REPL from './REPL';
+import TauReplPane from './TauReplPane';
 import './InteractiveSessionMode.css';
 
 const InteractiveSessionMode = ({
@@ -19,6 +20,8 @@ const InteractiveSessionMode = ({
   chatHistory,
   fetchCurrentKb,
 }) => {
+  const [activeTab, setActiveTab] = useState('kb');
+
   return (
     <Split
       className="split"
@@ -43,7 +46,14 @@ const InteractiveSessionMode = ({
         />
       </div>
       <div className="kb-container">
-        <KnowledgeBase currentKb={currentKb} />
+        <div className="tab-buttons">
+          <button onClick={() => setActiveTab('kb')} className={activeTab === 'kb' ? 'active' : ''}>Knowledge Base</button>
+          <button onClick={() => setActiveTab('tau')} className={activeTab === 'tau' ? 'active' : ''}>Tau REPL</button>
+        </div>
+        <div className="tab-content">
+          {activeTab === 'kb' && <KnowledgeBase currentKb={currentKb} />}
+          {activeTab === 'tau' && <TauReplPane sessionId={sessionId} />}
+        </div>
       </div>
     </Split>
   );

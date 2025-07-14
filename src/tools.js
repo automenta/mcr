@@ -138,6 +138,38 @@ const mcrToolDefinitions = {
     },
   },
 
+  // Symbolic Exchange Tools
+  'symbolic.export': {
+    description: 'Exports solutions to a Prolog goal from a session.',
+    handler: async (input) => {
+      if (!input?.sessionId || !input?.goal) {
+        return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'sessionId and goal are required.' };
+      }
+      const session = await mcrService.getSession(input.sessionId);
+      if (!session) {
+        return { success: false, error: ErrorCodes.SESSION_NOT_FOUND, message: 'Session not found.' };
+      }
+      const { exportGoal } = require('./neurosymbolic/symbolicExchange.js');
+      const res = exportGoal(session.tau, input.goal);
+      return { success: true, data: res };
+    },
+  },
+  'symbolic.import': {
+    description: 'Imports Prolog clauses into a session.',
+    handler: async (input) => {
+        if (!input?.sessionId || !input?.clauses) {
+            return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'sessionId and clauses are required.' };
+        }
+        const session = await mcrService.getSession(input.sessionId);
+        if (!session) {
+            return { success: false, error: ErrorCodes.SESSION_NOT_FOUND, message: 'Session not found.' };
+        }
+        const { importClauses } = require('./neurosymbolic/symbolicExchange.js');
+        importClauses(session.tau, input.clauses);
+        return { success: true };
+    },
+  },
+
   // Ontology Management Tools
   'ontology.create': {
     description: 'Creates a new global ontology.',
