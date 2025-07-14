@@ -17,6 +17,7 @@
     "test:ui": "vitest run --root ui/",
     "test:ui-watch": "vitest --root ui/",
     "test:ui-browser": "vitest --ui --root ui/",
+    "dev:ui": "vite --root ui/",
     "build:ui": "vite build ui/",
     "preview:ui": "vite preview ui/",
     "format": "prettier --write .",
