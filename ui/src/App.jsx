@@ -11,6 +11,7 @@ function App() {
   const [sessionId, setSessionId] = useState(null);
   const [currentKb, setCurrentKb] = useState('');
   const [activeStrategy, setActiveStrategy] = useState(null);
+  const [strategies, setStrategies] = useState([]);
   const [chatHistory, setChatHistory] = useState([]);
   const [isWsServiceConnected, setIsWsServiceConnected] = useState(false); // WebSocket service connection status
   const [wsConnectionStatus, setWsConnectionStatus] = useState('⏳ Initializing...');
@@ -41,7 +42,21 @@ function App() {
             setActiveStrategy(message.payload.data.activeStrategyId);
         }
     }
-  }, [sessionId, addMessageToHistory, setCurrentKb, setActiveStrategy]);
+  }, [isWsServiceConnected, addMessageToHistory]);
+
+  const fetchStrategies = useCallback(async () => {
+    if (!isWsServiceConnected) return;
+    try {
+      const response = await apiService.invokeTool('strategy.list');
+      if (response.success && Array.isArray(response.data)) {
+        setStrategies(response.data);
+      } else {
+        addMessageToHistory({ type: 'system', text: `⚠️ Could not load strategies: ${response.message}` });
+      }
+    } catch (error) {
+      addMessageToHistory({ type: 'system', text: `❌ Exception loading strategies: ${error.message}` });
+    }
+  }, [isWsServiceConnected, addMessageToHistory]);
 
   const fetchGlobalActiveStrategy = useCallback(async () => {
     if (!isWsServiceConnected) return;
@@ -119,8 +134,12 @@ function App() {
     if (isWsServiceConnected) {
       fetchGlobalActiveStrategy();
       fetchDemos();
+      fetchStrategies();
+      if (!sessionId) {
+        connectToSession(null);
+      }
     }
-  }, [isWsServiceConnected, fetchGlobalActiveStrategy, fetchDemos]);
+  }, [isWsServiceConnected, fetchGlobalActiveStrategy, fetchDemos, fetchStrategies, sessionId]);
 
   const connectToSession = async (sidToConnect) => {
     if (!isWsServiceConnected) {
@@ -229,6 +248,7 @@ function App() {
         selectedDemo={selectedDemo}
         setSelectedDemo={setSelectedDemo}
         onLoadDemo={handleLoadDemo}
+        onClearChat={() => setChatHistory([])}
       />
       <main className="main-content">
         {currentMode === 'interactive' ? (
@@ -237,6 +257,7 @@ function App() {
             setSessionId={setSessionId}
             activeStrategy={activeStrategy}
             setActiveStrategy={setActiveStrategy}
+            strategies={strategies}
             currentKb={currentKb}
             setCurrentKb={setCurrentKb}
             connectSession={connectToSession}

@@ -18,6 +18,7 @@ const AppHeader = ({
   selectedDemo,
   setSelectedDemo,
   onLoadDemo,
+  onClearChat,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -61,6 +62,9 @@ const AppHeader = ({
             <button onClick={() => connectSession(sessionId)} className="session-button">Connect</button>
           )}
           {!isMcrSessionActive && <button onClick={() => connectSession()} className="session-button">New</button>}
+          <button onClick={onClearChat} title="Clear chat history" className="session-button">
+              Clear
+          </button>
         </div>
 
         <div className="mobile-menu">

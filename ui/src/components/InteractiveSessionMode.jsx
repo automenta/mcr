@@ -10,6 +10,7 @@ const InteractiveSessionMode = ({
   setSessionId,
   activeStrategy,
   setActiveStrategy,
+  strategies,
   currentKb,
   setCurrentKb,
   connectSession,
@@ -37,6 +38,7 @@ const InteractiveSessionMode = ({
           setSessionId={setSessionId}
           activeStrategy={activeStrategy}
           setActiveStrategy={setActiveStrategy}
+          strategies={strategies}
           connectSession={connectSession}
           disconnectSession={disconnectSession}
           isMcrSessionActive={isMcrSessionActive}
@@ -53,7 +55,7 @@ const InteractiveSessionMode = ({
           <button onClick={() => setActiveTab('tau')} className={activeTab === 'tau' ? 'active' : ''}>Tau REPL</button>
         </div>
         <div className="tab-content">
-          {activeTab === 'kb' && <KnowledgeBase currentKb={currentKb} />}
+          {activeTab === 'kb' && <KnowledgeBase currentKb={currentKb} sessionId={sessionId} />}
           {activeTab === 'tau' && <TauReplPane sessionId={sessionId} />}
         </div>
       </div>

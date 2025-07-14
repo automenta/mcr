@@ -1,24 +1,16 @@
-import React, { useState } from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faClipboard } from '@fortawesome/free-solid-svg-icons';
-import PrologCodeViewer from './PrologCodeViewer';
+import React from 'react';
+import AssertionPanel from './AssertionPanel';
+import apiService from '../apiService';
 import './KnowledgeBase.css';
 
-const KnowledgeBase = ({ currentKb }) => {
-  const [copyStatus, setCopyStatus] = useState('');
+const KnowledgeBase = ({ currentKb, sessionId }) => {
+  const assertions = currentKb.split('\n').filter(line => line.trim() !== '');
 
-  const handleCopyKb = () => {
-    if (navigator.clipboard && currentKb) {
-      navigator.clipboard.writeText(currentKb)
-        .then(() => {
-          setCopyStatus('Copied!');
-          setTimeout(() => setCopyStatus(''), 2000);
-        })
-        .catch(err => {
-          setCopyStatus('Failed!');
-          setTimeout(() => setCopyStatus(''), 2000);
-          console.error("Failed to copy KB:", err);
-        });
+  const handleRetract = async (assertion) => {
+    try {
+      await apiService.invokeTool('mcr.retract', { sessionId, assertion });
+    } catch (error) {
+      console.error('Failed to retract assertion:', error);
     }
   };
 
@@ -26,12 +18,15 @@ const KnowledgeBase = ({ currentKb }) => {
     <div className="knowledge-base">
       <div className="kb-header">
         <h3>Knowledge Base</h3>
-        <button onClick={handleCopyKb} title="Copy full KB to clipboard">
-          <FontAwesomeIcon icon={faClipboard} /> {copyStatus}
-        </button>
       </div>
       <div className="kb-content">
-        <PrologCodeViewer code={currentKb} />
+        {assertions.map((assertion, index) => (
+          <AssertionPanel
+            key={index}
+            assertion={assertion}
+            onRetract={() => handleRetract(assertion)}
+          />
+        ))}
       </div>
     </div>
   );

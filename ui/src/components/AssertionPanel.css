@@ -1,0 +1,26 @@
+.assertion-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 5px;
+}
+
+.assertion-label {
+  flex-grow: 1;
+}
+
+.assertion-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-left: 10px;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.assertion-actions button:hover {
+  color: #000;
+}

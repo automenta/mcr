@@ -1,18 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPaperPlane, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faPaperPlane } from '@fortawesome/free-solid-svg-icons';
 import apiService from '../apiService';
+import MessagePopup from './MessagePopup';
 import './REPL.css';
 
 const REPL = ({
   sessionId,
   activeStrategy,
+  setActiveStrategy,
+  strategies,
   isMcrSessionActive,
   addMessageToHistory,
   chatHistory,
-  setChatHistory,
 }) => {
   const [input, setInput] = useState('');
+  const [selectedMessage, setSelectedMessage] = useState(null);
   const chatHistoryRef = useRef(null);
 
   useEffect(() => {
@@ -29,6 +32,7 @@ const REPL = ({
       const response = await apiService.invokeTool('mcr.handle', {
         sessionId,
         naturalLanguageText: input,
+        activeStrategy,
       });
       if (response.success) {
         if (response.answer) {
@@ -46,60 +50,49 @@ const REPL = ({
     }
   };
 
-  const handleClearHistory = () => {
-    setChatHistory([]);
+  const handleMessageClick = (message) => {
+    setSelectedMessage(message);
   };
 
   const renderMessage = (message, index) => {
-    switch (message.type) {
-      case 'user':
-        return <div key={index} className="message user">🧑 {message.text}</div>;
-      case 'server':
-        return <div key={index} className="message server">🤖 {message.text}</div>;
-      case 'llm':
-        return <div key={index} className="message llm">🧠 {message.text}</div>;
-      case 'system':
-        return <div key={index} className="message system">⚙️ {message.text}</div>;
-      case 'error':
-        return <div key={index} className="message error">🔥 {message.text}</div>;
-      case 'demo':
-        return (
-          <div key={index} className="message demo">
-            <h4>Demo Output</h4>
-            {message.messages.map((demoMsg, i) => {
-              if (demoMsg.type === 'assertion') {
-                return (
-                  <div key={i} className={`demo-log-item demo-log-assertion ${demoMsg.status ? 'success' : 'failure'}`}>
-                    <strong>ASSERTION {demoMsg.status ? '✅' : '❌'}</strong>: {demoMsg.message}
-                  </div>
-                );
-              }
-              return (
-                <div key={i} className={`demo-log-item demo-log-${demoMsg.level}`}>
-                  <strong>{demoMsg.level.toUpperCase()}</strong>: {demoMsg.message}
-                  {demoMsg.data && <pre>{JSON.stringify(demoMsg.data, null, 2)}</pre>}
-                </div>
-              );
-            })}
-          </div>
-        );
-      default:
-        return null;
-    }
+    const messageClass = `message ${message.type}`;
+    const icon = {
+      user: '🧑',
+      server: '🤖',
+      llm: '🧠',
+      system: '⚙️',
+      error: '🔥',
+      demo: '🚀',
+    }[message.type];
+
+    return (
+      <div key={index} className={messageClass} onClick={() => handleMessageClick(message)}>
+        <span className="icon">{icon}</span>
+        <span className="text">{message.text}</span>
+      </div>
+    );
   };
 
   return (
     <div className="repl">
+        <MessagePopup message={selectedMessage} onClose={() => setSelectedMessage(null)} />
       <div className="repl-header">
-        <h3>REPL</h3>
         <div className="repl-controls">
-          <button onClick={handleClearHistory} title="Clear chat history">
-            <FontAwesomeIcon icon={faTrash} />
-          </button>
         </div>
       </div>
       <div className="active-strategy">
-        Active Strategy: <span>{activeStrategy || 'N/A'}</span>
+        <select
+            value={activeStrategy || ''}
+            onChange={(e) => setActiveStrategy(e.target.value)}
+            disabled={!isMcrSessionActive}
+        >
+            <option value="" disabled>Select a strategy</option>
+            {strategies.map((strategy) => (
+                <option key={strategy.id} value={strategy.id}>
+                    {strategy.name}
+                </option>
+            ))}
+        </select>
       </div>
       <div className="chat-history" ref={chatHistoryRef}>
         {chatHistory.map((message, index) => renderMessage(message, index))}
