@@ -119,8 +119,11 @@ function App() {
     if (isWsServiceConnected) {
       fetchGlobalActiveStrategy();
       fetchDemos();
+      if (!sessionId) {
+        connectToSession(null);
+      }
     }
-  }, [isWsServiceConnected, fetchGlobalActiveStrategy, fetchDemos]);
+  }, [isWsServiceConnected, fetchGlobalActiveStrategy, fetchDemos, sessionId]);
 
   const connectToSession = async (sidToConnect) => {
     if (!isWsServiceConnected) {

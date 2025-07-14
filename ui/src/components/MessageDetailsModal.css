@@ -1,0 +1,17 @@
+.message-details-modal .details-content {
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 15px;
+    margin-top: 10px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.message-details-modal p {
+    margin: 5px 0;
+}
+
+.message-details-modal strong {
+    color: #333;
+}
