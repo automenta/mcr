@@ -129,7 +129,6 @@ function App() {
 
   const connectToSession = async (sidToConnect) => {
     if (!isWsServiceConnected) {
-        addMessageToHistory({type: 'system', text: "⚠️ WebSocket service not connected. Cannot manage sessions."});
         setWsConnectionStatus('🔴 Error: WebSocket service not available');
         return;
     }
