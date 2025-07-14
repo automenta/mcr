@@ -58,7 +58,6 @@ const InteractiveSessionMode = ({
               sessionId={sessionId}
               currentKb={currentKb}
               addMessageToHistory={addMessageToHistory}
-              fetchCurrentKb={fetchCurrentKb}
             />
           }
           {activeTab === 'tau' && <TauReplPane sessionId={sessionId} />}

@@ -2,31 +2,34 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  margin-bottom: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--background-color-light);
+}
+
+.assertion-panel:last-child {
+  border-bottom: none;
 }
 
 .assertion-label {
-  font-family: monospace;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9em;
+  color: var(--text-color);
 }
 
-.assertion-actions .related-btn {
-  padding: 4px 8px;
-  border: 1px solid #007bff;
-  background-color: #007bff;
-  color: white;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-right: 5px;
+.assertion-buttons {
+  display: flex;
+  gap: 8px;
 }
 
-.assertion-actions .delete-btn {
-  padding: 4px 8px;
-  border: 1px solid #dc3545;
-  background-color: #dc3545;
-  color: white;
-  border-radius: 4px;
+.assertion-buttons button {
+  background: none;
+  border: none;
+  color: var(--text-color-muted);
   cursor: pointer;
+  font-size: 1em;
+}
+
+.assertion-buttons button:hover {
+  color: var(--primary-color);
 }

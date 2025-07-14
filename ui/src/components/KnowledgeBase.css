@@ -35,3 +35,9 @@
   flex-grow: 1;
   overflow-y: auto;
 }
+
+.kb-empty-message {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-color-muted);
+}
