@@ -27,10 +27,6 @@ const AppHeader = ({
 
   const handleDemoSelect = (demoId) => {
     setSelectedDemo(demoId);
-    if (demoId) {
-      onLoadDemo(demoId);
-    }
-    setIsMenuOpen(false);
   };
 
   return (
@@ -77,11 +73,21 @@ const AppHeader = ({
                 <h3>
                   <FontAwesomeIcon icon={faVial} /> Demos
                 </h3>
-                {demos.map((demo) => (
-                  <button key={demo.id} onClick={() => handleDemoSelect(demo.id)} disabled={!isMcrSessionActive}>
-                    {demo.name}
-                  </button>
-                ))}
+                <select
+                  value={selectedDemo || ''}
+                  onChange={(e) => handleDemoSelect(e.target.value)}
+                  disabled={!isMcrSessionActive}
+                >
+                  <option value="" disabled>Select a demo</option>
+                  {demos.map((demo) => (
+                    <option key={demo.id} value={demo.id}>
+                      {demo.name}
+                    </option>
+                  ))}
+                </select>
+                <button onClick={() => onLoadDemo(selectedDemo)} disabled={!selectedDemo || !isMcrSessionActive}>
+                  Load Demo
+                </button>
               </div>
             </div>
           )}

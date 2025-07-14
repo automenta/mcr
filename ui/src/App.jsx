@@ -15,6 +15,7 @@ function App() {
   const [isWsServiceConnected, setIsWsServiceConnected] = useState(false); // WebSocket service connection status
   const [wsConnectionStatus, setWsConnectionStatus] = useState('⏳ Initializing...');
   const [demos, setDemos] = useState([]);
+  const [selectedDemo, setSelectedDemo] = useState(null);
 
   const addMessageToHistory = useCallback((message) => {
     setChatHistory(prev => [...prev, message]);
@@ -195,7 +196,7 @@ function App() {
     try {
       const response = await apiService.invokeTool('demo.run', { demoId, sessionId });
       if (response.success) {
-        addMessageTo_history({ type: 'demo', messages: response.data.messages });
+        addMessageToHistory({ type: 'demo', messages: response.data.messages });
         // After the demo runs, it's good practice to refresh the KB state from the server
         fetchCurrentKb(sessionId);
       } else {
@@ -225,6 +226,8 @@ function App() {
         disconnectSession={disconnectFromSession}
         isMcrSessionActive={isConnected}
         demos={demos}
+        selectedDemo={selectedDemo}
+        setSelectedDemo={setSelectedDemo}
         onLoadDemo={handleLoadDemo}
       />
       <main className="main-content">
@@ -242,6 +245,7 @@ function App() {
             isWsServiceConnected={isWsServiceConnected}
             addMessageToHistory={addMessageToHistory}
             chatHistory={chatHistory}
+            setChatHistory={setChatHistory}
             fetchCurrentKb={fetchCurrentKb}
           />
         ) : (

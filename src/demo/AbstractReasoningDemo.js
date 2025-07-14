@@ -16,7 +16,6 @@ class AbstractReasoningDemo extends ExampleBase {
   async run() {
     this.dLog.step('Starting Abstract Reasoning Demo');
 
-    await this.createSession();
     if (!this.sessionId) {
       this.dLog.error('Demo cannot continue without a session.');
       return;

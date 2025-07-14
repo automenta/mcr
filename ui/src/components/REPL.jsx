@@ -54,12 +54,21 @@ const REPL = ({
         return (
           <div key={index} className="message demo">
             <h4>Demo Output</h4>
-            {message.messages.map((demoMsg, i) => (
-              <div key={i} className={`demo-log-item demo-log-${demoMsg.level}`}>
-                <strong>{demoMsg.level.toUpperCase()}</strong>: {demoMsg.message}
-                {demoMsg.data && <pre>{JSON.stringify(demoMsg.data, null, 2)}</pre>}
-              </div>
-            ))}
+            {message.messages.map((demoMsg, i) => {
+              if (demoMsg.type === 'assertion') {
+                return (
+                  <div key={i} className={`demo-log-item demo-log-assertion ${demoMsg.status ? 'success' : 'failure'}`}>
+                    <strong>ASSERTION {demoMsg.status ? '✅' : '❌'}</strong>: {demoMsg.message}
+                  </div>
+                );
+              }
+              return (
+                <div key={i} className={`demo-log-item demo-log-${demoMsg.level}`}>
+                  <strong>{demoMsg.level.toUpperCase()}</strong>: {demoMsg.message}
+                  {demoMsg.data && <pre>{JSON.stringify(demoMsg.data, null, 2)}</pre>}
+                </div>
+              );
+            })}
           </div>
         );
       default:

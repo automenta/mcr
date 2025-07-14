@@ -18,6 +18,7 @@ const InteractiveSessionMode = ({
   isWsServiceConnected,
   addMessageToHistory,
   chatHistory,
+  setChatHistory,
   fetchCurrentKb,
 }) => {
   const [activeTab, setActiveTab] = useState('kb');
@@ -43,6 +44,7 @@ const InteractiveSessionMode = ({
           addMessageToHistory={addMessageToHistory}
           chatHistory={chatHistory}
           fetchCurrentKb={fetchCurrentKb}
+          setChatHistory={setChatHistory}
         />
       </div>
       <div className="kb-container">
