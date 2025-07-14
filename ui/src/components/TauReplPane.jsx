@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as monaco from 'monaco-editor';
-import { ws } from '../api';
+import apiService from '../apiService';
 
 export default function TauReplPane({ sessionId }) {
   const editorRef = useRef();
@@ -9,7 +9,7 @@ export default function TauReplPane({ sessionId }) {
     ed.onKeyDown(e => {
       if (e.keyCode === 13 && e.ctrlKey) {
         const goal = ed.getValue();
-        ws.invoke('symbolic.export', { sessionId, goal })
+        apiService.invokeTool('symbolic.export', { sessionId, goal })
           .then(r => ed.setValue(ed.getValue() + '\n% ' + JSON.stringify(r.data)));
       }
     });

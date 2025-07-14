@@ -91,7 +91,8 @@
     "vite": "^7.0.3",
     "winston": "^3.0.0",
     "ws": "^8.18.0",
-    "yargs": "^18.0.0"
+    "yargs": "^18.0.0",
+    "monaco-editor": "^0.52.2"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",
