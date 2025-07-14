@@ -58,6 +58,24 @@ function addOptimizerLog(type, message) {
  */
 const mcrToolDefinitions = {
   // Session Management Tools
+  'mcr.handle': {
+    description: 'Handles a natural language string from the REPL, determining whether to assert or query.',
+    handler: async (input) => {
+      const { sessionId, naturalLanguageText } = input;
+      if (!sessionId || !naturalLanguageText) {
+        return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'sessionId and naturalLanguageText are required.' };
+      }
+
+      // Simple heuristic: if it ends with a question mark, it's a query.
+      if (naturalLanguageText.trim().endsWith('?')) {
+        logger.info(`[Tool:mcr.handle] Treating as a query: "${naturalLanguageText}"`);
+        return mcrService.querySessionWithNL(sessionId, naturalLanguageText, input.queryOptions);
+      } else {
+        logger.info(`[Tool:mcr.handle] Treating as an assertion: "${naturalLanguageText}"`);
+        return mcrService.assertNLToSession(sessionId, naturalLanguageText);
+      }
+    },
+  },
   'session.create': {
     description: 'Creates a new reasoning session.',
     handler: async (input) => {

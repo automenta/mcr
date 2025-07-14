@@ -28,7 +28,7 @@ const REPL = ({
     try {
       const response = await apiService.invokeTool('mcr.handle', {
         sessionId,
-        input,
+        naturalLanguageText: input,
       });
       addMessageToHistory({ type: 'server', text: response.message });
     } catch (error) {
