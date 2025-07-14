@@ -58,6 +58,16 @@ function addOptimizerLog(type, message) {
  */
 const mcrToolDefinitions = {
   // Session Management Tools
+  'llm.passthrough': {
+    description: 'Sends a natural language string directly to the LLM for a response.',
+    handler: async (input) => {
+      const { naturalLanguageText } = input;
+      if (!naturalLanguageText) {
+        return { success: false, error: ErrorCodes.INVALID_INPUT, message: 'naturalLanguageText is required.' };
+      }
+      return mcrService.llmPassthrough(naturalLanguageText);
+    },
+  },
   'mcr.handle': {
     description: 'Handles a natural language string from the REPL, determining whether to assert or query.',
     handler: async (input) => {

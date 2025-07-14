@@ -279,9 +279,9 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
         { costOfExecution }
       );
       return {
-        success: false,
+        success: true,
         message:
-          'Could not translate text into valid facts using the current strategy.',
+          'No facts were extracted from the input.',
         error: ErrorCodes.NO_FACTS_EXTRACTED,
         strategyId: currentStrategyId,
         cost: costOfExecution,
@@ -1094,11 +1094,77 @@ async function debugFormatPrompt(templateName, inputVariables) {
   }
 }
 
+async function llmPassthrough(naturalLanguageText) {
+  const operationId = `llmPassthrough-${Date.now()}`;
+  logger.info(
+    `[McrService] Enter llmPassthrough (OpID: ${operationId}). NL Text: "${naturalLanguageText}"`
+  );
+
+  try {
+    const llmPassthroughPrompt = getPromptTemplateByName('LLM_PASSTHROUGH');
+    if (!llmPassthroughPrompt) {
+      logger.error('[McrService] LLM_PASSTHROUGH prompt template not found.');
+      return {
+        success: false,
+        message: 'Internal error: LLM_PASSTHROUGH prompt template not found.',
+        error: ErrorCodes.PROMPT_TEMPLATE_NOT_FOUND,
+      };
+    }
+
+    const promptContext = { naturalLanguageText };
+    const llmPassthroughPromptUser = fillTemplate(
+      llmPassthroughPrompt.user,
+      promptContext
+    );
+
+    const llmResult = await llmService.generate(
+      llmPassthroughPrompt.system,
+      llmPassthroughPromptUser
+    );
+    let responseText = null;
+    if (llmResult && typeof llmResult.text === 'string') {
+      responseText = llmResult.text;
+    } else if (llmResult && llmResult.text === null) {
+      responseText = null;
+    }
+
+    if (
+      responseText === null ||
+      (typeof responseText === 'string' && responseText.trim() === '')
+    ) {
+      logger.warn(
+        `[McrService] Empty response generated for llmPassthrough. OpID: ${operationId}`
+      );
+      return {
+        success: false,
+        message: 'Failed to generate a response.',
+        error: ErrorCodes.LLM_EMPTY_RESPONSE,
+      };
+    }
+    logger.info(
+      `[McrService] Successfully generated response for llmPassthrough. OpID: ${operationId}. Response length: ${responseText.length}.`
+    );
+    return { success: true, response: responseText };
+  } catch (error) {
+    logger.error(
+      `[McrService] Error in llmPassthrough (OpID: ${operationId}): ${error.message}`,
+      { error: error.stack }
+    );
+    return {
+      success: false,
+      message: `Error during llmPassthrough: ${error.message}`,
+      error: error.code || 'LLM_PASSTHROUGH_FAILED',
+      details: error.message,
+    };
+  }
+}
+
 module.exports = {
   assertNLToSession,
   querySessionWithNL,
   setTranslationStrategy,
   getActiveStrategyId,
+  llmPassthrough,
   // Updated session management functions to use sessionStore and be async
   /**
    * Creates a new session.

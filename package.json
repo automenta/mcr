@@ -83,6 +83,7 @@
     "ink-text-input": "^6.0.0",
     "inquirer": "^8.2.0",
     "langchain": "^0.3.29",
+    "monaco-editor": "^0.52.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-split": "^2.0.14",
@@ -92,8 +93,7 @@
     "vite": "^7.0.3",
     "winston": "^3.0.0",
     "ws": "^8.18.0",
-    "yargs": "^18.0.0",
-    "monaco-editor": "^0.52.2"
+    "yargs": "^18.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.28.0",

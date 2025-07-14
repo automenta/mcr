@@ -30,7 +30,17 @@ const REPL = ({
         sessionId,
         naturalLanguageText: input,
       });
-      addMessageToHistory({ type: 'server', text: response.message });
+      if (response.success) {
+        if (response.answer) {
+          addMessageToHistory({ type: 'server', text: response.answer });
+        } else if (response.response) {
+          addMessageToHistory({ type: 'llm', text: response.response });
+        } else {
+          addMessageToHistory({ type: 'server', text: response.message });
+        }
+      } else {
+        addMessageToHistory({ type: 'error', text: response.message });
+      }
     } catch (error) {
       addMessageToHistory({ type: 'error', text: error.message });
     }
@@ -46,6 +56,8 @@ const REPL = ({
         return <div key={index} className="message user">🧑 {message.text}</div>;
       case 'server':
         return <div key={index} className="message server">🤖 {message.text}</div>;
+      case 'llm':
+        return <div key={index} className="message llm">🧠 {message.text}</div>;
       case 'system':
         return <div key={index} className="message system">⚙️ {message.text}</div>;
       case 'error':

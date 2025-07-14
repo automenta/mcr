@@ -1,5 +1,6 @@
 // src/demo/ExampleBase.js
 const mcrService = require('../mcrService'); // Adjusted path
+const mcrToolDefinitions = require('../tools');
 
 class ExampleBase {
   constructor(sessionId, logCollector) {
@@ -30,13 +31,27 @@ class ExampleBase {
 
   // createSession is not needed here as session is passed in.
 
+  async handleNL(naturalLanguageText) {
+    this.dLog.info('Handling NL', { text: naturalLanguageText });
+    const response = await mcrToolDefinitions['mcr.handle'].handler({
+      sessionId: this.sessionId,
+      naturalLanguageText,
+    });
+    if (response.success) {
+      this.dLog.success(`Handled: "${naturalLanguageText}".`);
+    } else {
+      this.dLog.error(`Failed to handle: "${naturalLanguageText}"`, response.message);
+    }
+    return response;
+  }
+
   async assertFact(naturalLanguageText, type = 'nl') {
     this.dLog.info('Asserting Fact', { text: naturalLanguageText, type });
     let response;
     if (type === 'prolog') {
       response = await mcrService.assertRawPrologToSession(this.sessionId, naturalLanguageText);
     } else {
-      response = await mcrService.assertNLToSession(this.sessionId, naturalLanguageText);
+      response = await this.handleNL(naturalLanguageText);
     }
     if (response.success) {
       this.dLog.success(`Asserted: "${naturalLanguageText}". Added: ${response.addedFacts?.length || 0} facts.`);
@@ -48,7 +63,7 @@ class ExampleBase {
 
   async query(naturalLanguageQuestion, queryOptions = {}) {
     this.dLog.info('Querying', { question: naturalLanguageQuestion, options: queryOptions });
-    const response = await mcrService.querySessionWithNL(this.sessionId, naturalLanguageQuestion, queryOptions);
+    const response = await this.handleNL(naturalLanguageQuestion);
     if (response.success) {
       this.dLog.mcrResponse('Answer', response.answer);
     } else {
