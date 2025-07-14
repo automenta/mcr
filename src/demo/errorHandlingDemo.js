@@ -1,6 +1,10 @@
-const { Example } = require('../../demo'); // Adjust path as necessary
+const ExampleBase = require('./ExampleBase'); // Use the new base class
 
-class ErrorHandlingDemo extends Example {
+class ErrorHandlingDemo extends ExampleBase {
+  // constructor(sessionId, logCollector) { // No constructor needed if just calling super
+  //   super(sessionId, logCollector);
+  // }
+
   getName() {
     return 'Error Handling';
   }
@@ -49,7 +53,9 @@ class ErrorHandlingDemo extends Example {
     }
 
     // Create a session for subsequent tests
-    await this.createSession();
+    // Session is now passed in constructor and available as this.sessionId
+    // The initial tests for invalid session ID are done using raw axios.
+    // For subsequent tests requiring a valid session, this.sessionId (if provided) will be used.
     if (!this.sessionId) {
       this.dLog.error(
         'Demo cannot continue without a session for further tests.'

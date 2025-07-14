@@ -279,9 +279,9 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
         { costOfExecution }
       );
       return {
-        success: false,
+        success: true,
         message:
-          'Could not translate text into valid facts using the current strategy.',
+          'No facts were extracted from the input.',
         error: ErrorCodes.NO_FACTS_EXTRACTED,
         strategyId: currentStrategyId,
         cost: costOfExecution,
@@ -314,6 +314,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
     // Use sessionStore and await the async call
     const addSuccess = await sessionStore.addFacts(sessionId, addedFacts);
     if (addSuccess) {
+        const fullKnowledgeBase = await sessionStore.getKnowledgeBase(sessionId);
       logger.info(
         `[McrService] Facts successfully added to session ${sessionId}. OpID: ${operationId}. Facts:`,
         { addedFacts, costOfExecution }
@@ -322,6 +323,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
         success: true,
         message: 'Facts asserted successfully.',
         addedFacts,
+          fullKnowledgeBase, // Include the full KB in the response
         strategyId: currentStrategyId,
         cost: costOfExecution,
       };
@@ -1092,11 +1094,77 @@ async function debugFormatPrompt(templateName, inputVariables) {
   }
 }
 
+async function llmPassthrough(naturalLanguageText) {
+  const operationId = `llmPassthrough-${Date.now()}`;
+  logger.info(
+    `[McrService] Enter llmPassthrough (OpID: ${operationId}). NL Text: "${naturalLanguageText}"`
+  );
+
+  try {
+    const llmPassthroughPrompt = getPromptTemplateByName('LLM_PASSTHROUGH');
+    if (!llmPassthroughPrompt) {
+      logger.error('[McrService] LLM_PASSTHROUGH prompt template not found.');
+      return {
+        success: false,
+        message: 'Internal error: LLM_PASSTHROUGH prompt template not found.',
+        error: ErrorCodes.PROMPT_TEMPLATE_NOT_FOUND,
+      };
+    }
+
+    const promptContext = { naturalLanguageText };
+    const llmPassthroughPromptUser = fillTemplate(
+      llmPassthroughPrompt.user,
+      promptContext
+    );
+
+    const llmResult = await llmService.generate(
+      llmPassthroughPrompt.system,
+      llmPassthroughPromptUser
+    );
+    let responseText = null;
+    if (llmResult && typeof llmResult.text === 'string') {
+      responseText = llmResult.text;
+    } else if (llmResult && llmResult.text === null) {
+      responseText = null;
+    }
+
+    if (
+      responseText === null ||
+      (typeof responseText === 'string' && responseText.trim() === '')
+    ) {
+      logger.warn(
+        `[McrService] Empty response generated for llmPassthrough. OpID: ${operationId}`
+      );
+      return {
+        success: false,
+        message: 'Failed to generate a response.',
+        error: ErrorCodes.LLM_EMPTY_RESPONSE,
+      };
+    }
+    logger.info(
+      `[McrService] Successfully generated response for llmPassthrough. OpID: ${operationId}. Response length: ${responseText.length}.`
+    );
+    return { success: true, response: responseText };
+  } catch (error) {
+    logger.error(
+      `[McrService] Error in llmPassthrough (OpID: ${operationId}): ${error.message}`,
+      { error: error.stack }
+    );
+    return {
+      success: false,
+      message: `Error during llmPassthrough: ${error.message}`,
+      error: error.code || 'LLM_PASSTHROUGH_FAILED',
+      details: error.message,
+    };
+  }
+}
+
 module.exports = {
   assertNLToSession,
   querySessionWithNL,
   setTranslationStrategy,
   getActiveStrategyId,
+  llmPassthrough,
   // Updated session management functions to use sessionStore and be async
   /**
    * Creates a new session.
@@ -1140,4 +1208,140 @@ module.exports = {
   getPrompts,
   debugFormatPrompt,
   getAvailableStrategies: strategyManager.getAvailableStrategies,
+
+  /**
+   * Sets (replaces) the entire knowledge base for a specific session.
+   * @param {string} sessionId - The ID of the session.
+   * @param {string} kbContent - The new content for the knowledge base.
+   * @returns {Promise<object>} An object indicating success or failure.
+   *                            Structure: `{ success: true, message: string, fullKnowledgeBase: string }`
+   *                            or `{ success: false, message: string, error: string, details?: string }`
+   */
+  setSessionKnowledgeBase: async (sessionId, kbContent) => {
+    const operationId = `setKB-${Date.now()}`;
+    logger.info(`[McrService] Enter setSessionKnowledgeBase for session ${sessionId}. OpID: ${operationId}. KB length: ${kbContent.length}`);
+
+    const sessionExists = await sessionStore.getSession(sessionId);
+    if (!sessionExists) {
+      logger.warn(`[McrService] Session ${sessionId} not found for setKnowledgeBase. OpID: ${operationId}`);
+      return { success: false, message: 'Session not found.', error: ErrorCodes.SESSION_NOT_FOUND };
+    }
+
+    try {
+      // Basic validation of KB content (e.g., ensure it's a string)
+      if (typeof kbContent !== 'string') {
+        logger.error(`[McrService] Invalid kbContent type for setKnowledgeBase. OpID: ${operationId}. Type: ${typeof kbContent}`);
+        return { success: false, message: 'Invalid knowledge base content: must be a string.', error: ErrorCodes.INVALID_KB_CONTENT };
+      }
+
+      // Optional: More sophisticated validation (e.g., Prolog syntax check) could be added here
+      // For now, we trust the input or let the reasoner handle malformed KBs later.
+      // const validationResult = await reasonerService.validateKnowledgeBase(kbContent);
+      // if (!validationResult.isValid) {
+      //   return { success: false, message: 'Invalid KB content.', error: ErrorCodes.INVALID_KB_SYNTAX, details: validationResult.error };
+      // }
+
+      const success = await sessionStore.setKnowledgeBase(sessionId, kbContent);
+      if (success) {
+        const fullKnowledgeBase = await sessionStore.getKnowledgeBase(sessionId); // Should be === kbContent
+        logger.info(`[McrService] Knowledge base for session ${sessionId} successfully replaced. OpID: ${operationId}`);
+        return {
+          success: true,
+          message: 'Knowledge base updated successfully.',
+          fullKnowledgeBase, // Send back the new KB state
+        };
+      } else {
+        // This case might be rare if getSession succeeded, but store might have internal errors
+        logger.error(`[McrService] Failed to set knowledge base in session store for session ${sessionId}. OpID: ${operationId}`);
+        return { success: false, message: 'Failed to update knowledge base in session store.', error: ErrorCodes.SESSION_SET_KB_FAILED };
+      }
+    } catch (error) {
+      logger.error(
+        `[McrService] Error setting knowledge base for session ${sessionId} (OpID: ${operationId}): ${error.message}`,
+        { stack: error.stack, details: error.details, errorCode: error.code }
+      );
+      return {
+        success: false,
+        message: `Error setting knowledge base: ${error.message}`,
+        error: error.code || ErrorCodes.SESSION_SET_KB_FAILED,
+        details: error.message,
+      };
+    }
+  },
+
+  /**
+   * Asserts raw Prolog facts/rules directly to a specific session's knowledge base.
+   * Optionally validates the Prolog before adding.
+   * @param {string} sessionId - The ID of the session.
+   * @param {string | string[]} rules - A string containing Prolog rules, or an array of rule strings.
+   * @param {boolean} [validate=true] - Whether to validate the Prolog syntax before asserting.
+   * @returns {Promise<object>} An object indicating success or failure, including added facts and full KB.
+   *                            Structure: `{ success: true, message: string, addedFacts: string[], fullKnowledgeBase: string }`
+   *                            or `{ success: false, message: string, error: string, details?: string }`
+   */
+  assertRawPrologToSession: async (sessionId, rules, validate = true) => {
+    const operationId = `assertRawProlog-${Date.now()}`;
+    logger.info(
+      `[McrService] Enter assertRawPrologToSession for session ${sessionId}. OpID: ${operationId}. Rules count/length: ${Array.isArray(rules) ? rules.length : rules.length}`
+    );
+
+    const sessionExists = await sessionStore.getSession(sessionId);
+    if (!sessionExists) {
+      logger.warn(`[McrService] Session ${sessionId} not found for raw Prolog assertion. OpID: ${operationId}`);
+      return { success: false, message: 'Session not found.', error: ErrorCodes.SESSION_NOT_FOUND };
+    }
+
+    const factsToAssert = Array.isArray(rules) ? rules : rules.split(/(?<=\.)\s*/).map(r => r.trim()).filter(r => r.length > 0);
+    if (factsToAssert.length === 0) {
+      logger.warn(`[McrService] No valid Prolog facts/rules provided to assert. OpID: ${operationId}`);
+      return { success: false, message: 'No valid Prolog facts/rules provided.', error: ErrorCodes.NO_FACTS_TO_ASSERT };
+    }
+
+    if (validate) {
+      for (const factString of factsToAssert) {
+        const validationResult = await reasonerService.validateKnowledgeBase(factString);
+        if (!validationResult.isValid) {
+          const validationErrorMsg = `Provided Prolog is invalid: "${factString}". Error: ${validationResult.error}`;
+          logger.error(`[McrService] Validation failed for provided Prolog. OpID: ${operationId}. Details: ${validationErrorMsg}`);
+          return {
+            success: false,
+            message: 'Failed to assert rules: Provided Prolog is invalid.',
+            error: ErrorCodes.INVALID_PROVIDED_PROLOG,
+            details: validationErrorMsg,
+          };
+        }
+      }
+      logger.info(`[McrService] All ${factsToAssert.length} provided Prolog snippets validated successfully. OpID: ${operationId}`);
+    }
+
+    try {
+      const addSuccess = await sessionStore.addFacts(sessionId, factsToAssert);
+      if (addSuccess) {
+        const fullKnowledgeBase = await sessionStore.getKnowledgeBase(sessionId);
+        logger.info(
+          `[McrService] Raw Prolog facts/rules successfully added to session ${sessionId}. OpID: ${operationId}. Count: ${factsToAssert.length}`
+        );
+        return {
+          success: true,
+          message: 'Raw Prolog facts/rules asserted successfully.',
+          addedFacts: factsToAssert, // Return the processed list of facts
+          fullKnowledgeBase,
+        };
+      } else {
+        logger.error(`[McrService] Failed to add raw Prolog to session ${sessionId} after validation/processing. OpID: ${operationId}`);
+        return { success: false, message: 'Failed to add raw Prolog to session store.', error: ErrorCodes.SESSION_ADD_FACTS_FAILED };
+      }
+    } catch (error) {
+      logger.error(
+        `[McrService] Error asserting raw Prolog to session ${sessionId} (OpID: ${operationId}): ${error.message}`,
+        { stack: error.stack, details: error.details, errorCode: error.code }
+      );
+      return {
+        success: false,
+        message: `Error during raw Prolog assertion: ${error.message}`,
+        error: error.code || ErrorCodes.ASSERT_RAW_PROLOG_FAILED,
+        details: error.message,
+      };
+    }
+  },
 };

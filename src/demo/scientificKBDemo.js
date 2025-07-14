@@ -1,6 +1,10 @@
-const { Example } = require('../../demo'); // Adjust path as necessary
+const ExampleBase = require('./ExampleBase'); // Use the new base class
 
-class ScientificKBDemo extends Example {
+class ScientificKBDemo extends ExampleBase {
+  // constructor(sessionId, logCollector) { // No constructor needed if just calling super
+  //   super(sessionId, logCollector);
+  // }
+
   getName() {
     return 'Scientific KB';
   }
@@ -12,9 +16,9 @@ class ScientificKBDemo extends Example {
   async run() {
     this.dLog.step('Starting Scientific KB Demo');
 
-    await this.createSession();
+    // Session is now passed in constructor and available as this.sessionId
     if (!this.sessionId) {
-      this.dLog.error('Demo cannot continue without a session.');
+      this.dLog.error('Demo cannot continue without a session ID provided at instantiation.');
       return;
     }
 

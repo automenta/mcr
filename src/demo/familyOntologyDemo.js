@@ -1,8 +1,12 @@
-const { Example } = require('../../demo'); // Adjust path as necessary
+const ExampleBase = require('./ExampleBase'); // Use the new base class
 const { readFileContentSafe } = require('./demoUtils'); // Import the utility
 const path = require('path');
 
-class FamilyOntologyDemo extends Example {
+class FamilyOntologyDemo extends ExampleBase {
+  // constructor(sessionId, logCollector) { // No constructor needed if just calling super
+  //   super(sessionId, logCollector);
+  // }
+
   getName() {
     return 'Family Ontology';
   }
@@ -14,9 +18,9 @@ class FamilyOntologyDemo extends Example {
   async run() {
     this.dLog.step('Starting Family Ontology Demo');
 
-    await this.createSession();
+    // Session is now passed in constructor and available as this.sessionId
     if (!this.sessionId) {
-      this.dLog.error('Demo cannot continue without a session.');
+      this.dLog.error('Demo cannot continue without a session ID provided at instantiation.');
       return;
     }
 

@@ -143,7 +143,7 @@ describe('MCR Service (mcrService.js)', () => {
 
       // More generic mock in beforeEach, specific tests will override
       llmService.generate.mockImplementation(
-        async (systemPrompt, _userPrompt) => {
+         async (systemPrompt /*, _userPrompt */) => { // _userPrompt commented out
           return {
             text: JSON.stringify({
               error: `Fallback mock in assertNLToSession for prompt: ${systemPrompt.substring(0, 50)}`,
@@ -243,9 +243,9 @@ describe('MCR Service (mcrService.js)', () => {
         }
       );
       const result = await mcrService.assertNLToSession(sessionId, nlText);
-      expect(result.success).toBe(false);
+      expect(result.success).toBe(true);
       expect(result.message).toBe(
-        'Could not translate text into valid facts using the current strategy.'
+        'No facts were extracted from the input.'
       );
       expect(result.error).toBe(ErrorCodes.NO_FACTS_EXTRACTED);
     });

@@ -24,24 +24,26 @@ This combination unlocks possibilities for more robust, explainable, and sophist
 
 ## 🔑 Core Concepts
 
-1.  **MCR as a Service ⚙️**: MCR runs as a background HTTP server, exposing its functionality via a RESTful API. Any application can integrate with it.
-2.  **Stateful Sessions 💾**: Clients create a `sessionId` to establish a persistent reasoning context. Each session contains:
-    *   **Knowledge Base (KB) 📚**: A collection of symbolic logic clauses (facts and rules, typically in Prolog) representing the state of knowledge within that session.
-3.  **LLM-Powered Translation 🗣️<->🧠**: MCR utilizes LLMs, guided by Translation Strategies, to translate between human language and formal logic.
-4.  **Translation Strategies 🧩**: Encapsulated, interchangeable components that define the complete logic for converting natural language into symbolic clauses (for assertions) or symbolic queries. Each strategy embodies a specific methodology, including its own prompts and processing steps. This design allows for empirical measurement, comparison, and evolution of different translation approaches.
-5.  **Structured Intermediate Representation (SIR) 🤖**: Some advanced Translation Strategies use an SIR (e.g., a JSON object) as an intermediate step. The LLM populates the SIR with the semantic meaning of a sentence, which is then programmatically and deterministically converted into the final symbolic syntax (e.g., Prolog). This mitigates LLM-induced syntax errors and improves reliability.
+1.  **MCR Workbench 🖥️**: MCR is primarily accessed and managed through the **MCR Workbench**, a comprehensive web-based user interface. This SPA (Single Page Application) provides modes for interactive reasoning sessions and system-level analysis and control.
+2.  **WebSocket-First API 🔌**: All core interactions with the MCR server happen via a WebSocket connection. This enables real-time communication, such as live updates to a session's Knowledge Base.
+3.  **Stateful Sessions 💾**: Users interact with MCR through sessions, identified by a `sessionId`. Each session maintains:
+    *   **Knowledge Base (KB) 📚**: A collection of symbolic logic clauses (facts and rules, typically in Prolog).
+4.  **LLM-Powered Translation 🗣️<->🧠**: MCR uses LLMs, guided by configurable Translation Strategies, to translate between natural language and formal logic.
+5.  **Translation Strategies 🧩**: These define the methodology for converting natural language into symbolic assertions or queries. They are designed to be interchangeable for comparison and evolution.
+6.  **Structured Intermediate Representation (SIR) 🤖**: Advanced strategies may use an SIR (e.g., JSON) as an intermediate step for more reliable translation to symbolic logic.
 
 ## 🚀 Features
 
-- **🧩 Modularity**: Structured into logical components (Config, Logger, LLM Service, Reasoner Service, API Handlers).
-- **🤖 Extensible LLM Support**: Supports multiple LLM providers (OpenAI, Gemini, Ollama, etc.), selectable via configuration. (Refer to `.env.example` for details).
-- **📚 Dynamic Lexicon Summary**: Automatically builds a lexicon of known predicates (name/arity) from asserted facts within a session. This summary is provided to the LLM during translation to improve consistency and accuracy in generating Prolog facts, rules, and queries. It helps the LLM prefer existing predicates and understand their usage.
-- **🛡️ Robust Error Handling**: Custom `ApiError` class and centralized error-handling.
-- **✅ Configuration Validation**: Checks for required API keys and settings on startup.
-- **📦 Dependency Management**: Uses `package.json` for Node.js dependencies.
-- **💬 Interactive TUI**: An Ink-based Terminal User Interface for chat, session management, and more.
-- **⚙️ CLI**: A command-line interface for server control, direct API interaction, demos, and a sandbox mode.
-- **📃 API**: A comprehensive RESTful API for programmatic integration.
+- **🧩 Modular Server**: Core logic is well-structured (Config, Logger, LLM Service, Reasoner Service, MCR Service, Tool Definitions).
+- **🤖 Extensible LLM Support**: Supports multiple LLM providers (OpenAI, Gemini, Ollama, etc.), selectable via configuration.
+- **📚 Dynamic Lexicon Summary**: (Functionality remains) Automatically builds a lexicon of known predicates from asserted facts to aid LLM translation.
+- **🛡️ Robust Error Handling**: Centralized error handling for WebSocket API calls.
+- **✅ Configuration Validation**: Validates essential configurations on server startup.
+- **📦 Dependency Management**: Uses `package.json`.
+- **🌐 MCR Workbench (UI)**: A React-based Single Page Application for all user interactions, replacing previous CLI/TUI tools. Features include:
+    -   **Interactive Session Mode**: Real-time chat, ontology loading, demo running, live KB view.
+    -   **System Analysis Mode**: Strategy performance dashboards, curriculum explorer, evolver controls.
+- **🕸️ WebSocket API**: A comprehensive API based on a `tool_invoke` / `tool_result` message pattern.
 
 ## 🏛️ System Architecture Diagram
 
@@ -114,7 +116,7 @@ graph TD
 
 ## 🏁 Quick Start
 
-This section guides you through getting MCR up and running quickly for development or local use. For using MCR as a published package in your own project, see the "📦 Using MCR as a Package" section below.
+This section guides you through getting MCR up and running quickly for development or local use.
 
 **1. Clone & Install (for Development):**
 
@@ -127,271 +129,301 @@ npm install
 **2. Configure LLM:**
 Create a `.env` file in the project root (copy from `.env.example`) and add your chosen LLM provider API key and settings.
 
-**3. Start the MCR Server:**
+**3. Build the MCR Workbench UI (Production Mode):**
+The MCR Workbench is a React application. For production-like deployment, you need to build its static assets.
+
+```bash
+cd ui
+npm install
+npm run build
+cd ..
+```
+This will create a `dist` folder inside the `ui` directory containing the built UI assets. **This step is mandatory for the MCR server to serve the UI as described below.**
+
+**4. Start the MCR Server (Serves Production UI Build):**
+Once the UI is built as described above, the MCR server can serve it.
 
 ```bash
 node mcr.js
-# OR using the CLI (from the project root):
-# ./cli.js start-server
 ```
+The server will start, typically on `http://localhost:8080` (or your configured `MCR_SERVER_PORT`).
 
-The server will start, typically on `http://localhost:8080`.
+**5. Access the MCR Workbench:**
+Open your web browser and navigate to `http://localhost:8080` (or your configured server address).
+You should see the MCR Workbench interface, which allows you to manage sessions, interact with the reasoner, and access system analysis tools.
 
-**4. Use the Interactive TUI Chat:**
-In another terminal, once the server is running (from the project root):
+The previous CLI and TUI interfaces (`./cli.js`, `chat.js`) have been **removed** and their functionality is now integrated into the MCR Workbench.
 
-```bash
-./cli.js chat
-```
+**Alternative: Running UI in Development Mode (Hot Reloading)**
 
-This launches the Ink-based TUI. Type `/help` for commands.
+For UI development, you can run the Vite development server, which provides hot reloading. This requires running two processes simultaneously:
 
-**5. Alternative Simple Chat (from the project root):**
+1.  **Start the MCR Backend Server:**
+    Open a terminal, navigate to the project root, and run:
+    ```bash
+    node mcr.js
+    ```
+    This server will handle API requests (typically on `http://localhost:8080`).
 
-```bash
-npm run chat
-# OR
-node chat.js
-```
+2.  **Start the Vite UI Development Server:**
+    Open a *separate* terminal, navigate to the `ui` directory, and run:
+    ```bash
+    cd ui
+    npm install # If you haven't already
+    npm run dev
+    ```
+    Vite will start a development server for the UI, usually on a different port (e.g., `http://localhost:5173` - check your terminal output). Access the MCR Workbench through this Vite URL in your browser. UI changes will update automatically.
 
-This runs a simpler inquirer-based chat interface.
+**Note:** The UI development server only serves the UI. The backend server (`node mcr.js`) must still be running for the UI to function correctly.
 
 ## 📦 Using MCR as a Package
 
-Once MCR is published, you can install it in your Node.js project:
+(This section might need updates if the package export strategy changes with the UI focus. For now, assuming the server is the primary export.)
 
+Once MCR is published, you can install it in your Node.js project:
 ```bash
 npm install model-context-reasoner
 ```
 
-After installation, MCR primarily provides two ways to be utilized:
-
-**1. Running the MCR Server:**
-The core functionality of MCR is delivered via its server. You can start it from your project's `node_modules` directory or using a script in your `package.json`.
-
+**Running the MCR Server (which includes the Workbench UI):**
+The primary way to use MCR is by running its server.
 - **From `node_modules`:**
-
   ```bash
   node ./node_modules/model-context-reasoner/mcr.js
   ```
-
-  Ensure you have a `.env` file configured in your project's root directory, or that the necessary environment variables (like `MCR_LLM_PROVIDER`, `OPENAI_API_KEY`, etc.) are set in your environment. MCR will look for a `.env` file in the current working directory from where `node` is executed.
-
-- **Using `npx` (recommended for easy execution):**
-  `npx` can execute package binaries. Since `mcr-cli` (which points to `cli.js`) is the registered binary for this package, you can use `npx mcr-cli <command>`. For example, to start the server:
-
-  ```bash
-  npx mcr-cli start-server
-  ```
-
-  Ensure any required `.env` file is present in the directory where you run this command.
+  Ensure you have a `.env` file configured in your project's root. The UI will be available at the configured server port.
 
 - **Via `package.json` script in your project:**
-  In your project's `package.json`:
   ```json
   "scripts": {
     "start-mcr": "node ./node_modules/model-context-reasoner/mcr.js"
   }
   ```
-  Then run:
-  ```bash
-  npm run start-mcr
-  ```
+  Then run: `npm run start-mcr`
 
-**2. Using the `mcr-cli` Command-Line Tool:**
-When you install the `model-context-reasoner` package, the `mcr-cli` command should become available in your environment (if `npm install -g` was used or if your local `node_modules/.bin` is in your PATH).
-
-```bash
-mcr-cli --help # See available commands
-mcr-cli start-server # Starts the MCR server
-mcr-cli chat # Starts the TUI chat (requires server to be running)
-mcr-cli status
-mcr-cli create-session
-# ... and other CLI commands
-```
-
-The `mcr-cli` will also respect the `.env` file in the directory from which it's run.
-
-**3. Programmatic API Interaction:**
-Once the MCR server is running (either started from a cloned MCR repository or from an installed package as described above), your application can interact with it programmatically by making HTTP requests to its REST API.
-
-Refer to the **🔌 API Reference** section below for details on available endpoints, request formats, and response structures. You can use any HTTP client library in your language of choice (e.g., `axios` or `node-fetch` for Node.js, `requests` for Python).
+**Programmatic API Interaction:**
+Once the MCR server is running, your application interacts with it via WebSockets.
+Refer to the **🔌 API Reference** section below for details.
 
 ## 🔌 API Reference
 
-The MCR service exposes a RESTful API for interaction.
+The MCR service has transitioned its core API to WebSockets. The server also serves the MCR Workbench UI.
 
-- **`POST /api/v1/sessions`**
-  - **Description:** Creates a new reasoning session.
-  - **Response Body:** `{ "id": "string" }` (Note: `sessionId` is often used in docs, but API returns `id`)
+### WebSocket API
 
-- **`POST /api/v1/sessions/{sessionId}/assert`**
-  - **Description:** Asserts new knowledge into the session's KB using the currently configured Translation Strategy.
-  - **Request Body:** `{ "text": "string" }`
-  - **Response Body (Success):** `{ "success": true, "message": "string", "addedFacts": ["string"], "strategyId": "string", "cost": { ... } }`
-  - **Response Body (Error):** `{ "success": false, "message": "string", "error": "string", "details": "string", "strategyId": "string", "cost": { ... } }`
+Connect to the WebSocket server at `ws://localhost:8080/ws` (or your configured `MCR_SERVER_HOST`:`MCR_SERVER_PORT`/ws). All messages are JSON strings.
 
-- **`POST /api/v1/sessions/{sessionId}/query`**
-  - **Description:** Poses a natural language query to the session's KB.
-  - **Request Body:** `{ "query": "string", "options": { "debug": boolean, "dynamicOntology": "string", "style": "string" } }`
-  - **Response Body (Success):** `{ "success": true, "answer": "string", "debugInfo": { ... } }`
-  - **Response Body (Error):** `{ "success": false, "message": "string", "debugInfo": { ... }, "error": "string", "details": "string", "strategyId": "string" }`
+**Key Message Types:**
 
-- **`PUT /api/v1/sessions/{sessionId}/kb`**
-  - **Description:** Directly overwrites the entire KB of a session. The new KB is validated before being saved.
-  - **Request Body:** `{ "knowledgeBase": "string" }`
-  - **Response Body:** `200 OK` or error object.
+1.  **Client to Server: `tool_invoke`**
+    Used to request an action from the server.
 
-- **`GET /api/v1/sessions/{sessionId}`**
-  - **Description:** Retrieves details for a specific session, including its KB and lexicon summary.
-  - **Response Body:** `{ "id": "string", "knowledgeBase": "string", "lexiconSummary": "string", "createdAt": "timestamp" }`
+    ```json
+    {
+      "type": "tool_invoke",
+      "messageId": "unique-client-generated-id", // For tracking responses
+      "payload": {
+        "tool_name": "namespace.verb", // e.g., "session.create", "ontology.list"
+        "input": { ... } // Arguments specific to the tool
+      }
+      // Optional: "headers": { "X-Correlation-ID": "client-corr-id" }
+      // (Note: server assigns its own correlationId to the WebSocket connection)
+    }
+    ```
 
-- **`DELETE /api/v1/sessions/{sessionId}`**
-  - **Description:** Deletes a specific session.
-  - **Response Body:** `204 No Content` or error object.
+2.  **Server to Client: `tool_result`**
+    The server's response to a `tool_invoke` message.
 
-- **`GET /api/v1/config/translation-strategy`**
-  - **Description:** Gets the currently active base translation strategy ID.
-  - **Response Body:** `{ "strategyId": "string" }`
+    ```json
+    {
+      "type": "tool_result",
+      "messageId": "echoed-client-generated-id", // Matches the request's messageId
+      "correlationId": "server-correlation-id-for-this-ws-connection",
+      "payload": {
+        "success": true_or_false,
+        // Tool-specific data, e.g.:
+        // "data": { ... },
+        // "message": "Descriptive message",
+        // "error": "ERROR_CODE_IF_FAILED",
+        // "details": "Error details if any",
+        // "addedFacts": ["fact1."], (for session.assert)
+        // "fullKnowledgeBase": "prolog string" (for session.assert)
+      }
+    }
+    ```
 
-- **`PUT /api/v1/config/translation-strategy`**
-  - **Description:** Sets the active base Translation Strategy for the system.
-  - **Request Body:** `{ "strategyId": "string" }`
-  - **Response Body:** `{ "success": true, "message": "string", "strategyId": "string" }` or error object.
+3.  **Server to Client: `kb_updated` (Push Message)**
+    Sent by the server when a session's Knowledge Base is updated (e.g., after a successful assertion).
 
-- **`GET /api/v1/strategies`**
-  - **Description:** Lists all available translation strategies.
-  - **Response Body:** `{ "strategies": [{ "id": "string", "name": "string", "description": "string" }, ...] }`
+    ```json
+    {
+      "type": "kb_updated",
+      "payload": {
+        "sessionId": "session-id-of-updated-kb",
+        "newFacts": ["fact1.", "fact2."], // Optional: facts that were just added
+        "fullKnowledgeBase": "prolog string of the complete KB"
+      }
+      // Optional: "correlationId" (server's WS connection ID),
+      // "messageId" (if server wants to make it trackable, usually not for pushes)
+    }
+    ```
 
-- **`POST /api/v1/translate/nl-to-rules`**
-  - **Description:** Translates natural language text directly into Prolog rules.
-  - **Request Body:** `{ "text": "string", "strategyId": "string" (optional) }`
-  - **Response Body (Success):** `{ "success": true, "rules": ["string"], "strategyId": "string" }`
+4.  **Server to Client: `connection_ack`**
+    Sent upon successful WebSocket connection.
+    ```json
+    {
+      "type": "connection_ack",
+      "correlationId": "server-correlation-id-for-this-ws-connection",
+      "message": "WebSocket connection established with MCR server."
+    }
+    ```
+---
 
-- **`POST /api/v1/translate/rules-to-nl`**
-  - **Description:** Translates Prolog rules directly into a natural language explanation.
-  - **Request Body:** `{ "rules": "string", "style": "string" (optional) }`
-  - **Response Body (Success):** `{ "success": true, "explanation": "string" }`
+**Available Tools (`tool_name` for `tool_invoke` messages):**
 
-- **`POST /api/v1/explain-query/{sessionId}`**
-  - **Description:** Explains a natural language question in the context of a session.
-  - **Request Body:** `{ "query": "string" }`
-  - **Response Body (Success):** `{ "success": true, "explanation": "string", "debugInfo": { ... } }`
+Refer to `src/tools.js` for the definitive list of tools and their expected `input` structure. Key tools include:
 
-- **`GET /api/v1/ontologies`**
-  - **Description:** Lists all available global ontologies.
-  - **Response Body:** `[{ "id": "string", "name": "string", "description": "string", "content"?: "string" (if includeContent=true) }, ...]`
+*   **Session Management:**
+    *   `session.create`: (Input: `{ "sessionId": "optional-id" }`) -> Creates/returns session.
+    *   `session.get`: (Input: `{ "sessionId": "id" }`) -> Returns session details (including KB).
+    *   `session.delete`: (Input: `{ "sessionId": "id" }`)
+    *   `session.assert`: (Input: `{ "sessionId": "id", "naturalLanguageText": "string" }`) -> Asserts NL, returns result including `addedFacts` and `fullKnowledgeBase`.
+    *   `session.assert_rules`: (Input: `{ "sessionId": "id", "rules": ["rule1.", "rule2."] or "rule1. rule2.", "validate": true/false }`) -> Asserts raw Prolog, returns result including `addedFacts` and `fullKnowledgeBase`.
+    *   `session.set_kb`: (Input: `{ "sessionId": "id", "kbContent": "full_prolog_kb_string" }`) -> Replaces session KB, returns `fullKnowledgeBase`.
+    *   `session.query`: (Input: `{ "sessionId": "id", "naturalLanguageQuestion": "string", "queryOptions": { ... } }`)
+    *   `session.explainQuery`: (Input: `{ "sessionId": "id", "naturalLanguageQuestion": "string" }`)
 
-- **`POST /api/v1/ontologies`**
-  - **Description:** Adds a new global ontology.
-  - **Request Body:** `{ "id": "string", "name": "string", "description": "string", "rules": "string" }`
-  - **Response Body:** `{ "success": true, "message": "string", "ontology": { ... } }`
+*   **Ontology Management:**
+    *   `ontology.create`: (Input: `{ "name": "string", "rules": "prolog string" }`)
+    *   `ontology.list`: (Input: `{ "includeRules": true/false }`)
+    *   `ontology.get`: (Input: `{ "name": "ontologyName" }`)
+    *   `ontology.update`: (Input: `{ "name": "ontologyName", "rules": "prolog string" }`)
+    *   `ontology.delete`: (Input: `{ "name": "ontologyName" }`)
 
-- **`GET /api/v1/ontologies/{ontologyId}`**
-  - **Description:** Retrieves a specific global ontology.
-  - **Response Body:** `{ "id": "string", "name": "string", "description": "string", "rules": "string" }`
+*   **Direct Translation:**
+    *   `translate.nlToRules`: (Input: `{ "naturalLanguageText": "string", "strategyId": "optional-string" }`)
+    *   `translate.rulesToNl`: (Input: `{ "rules": "prolog string", "style": "optional-string" }`)
 
-- **`PUT /api/v1/ontologies/{ontologyId}`**
-  - **Description:** Updates an existing global ontology.
-  - **Request Body:** `{ "name": "string" (optional), "description": "string" (optional), "rules": "string" (optional) }`
-  - **Response Body:** `{ "success": true, "message": "string", "ontology": { ... } }`
+*   **Strategy Management:**
+    *   `strategy.list`: (Input: `{}`)
+    *   `strategy.setActive`: (Input: `{ "strategyId": "string" }`)
+    *   `strategy.getActive`: (Input: `{}`)
 
-- **`DELETE /api/v1/ontologies/{ontologyId}`**
-  - **Description:** Deletes a global ontology.
-  - **Response Body:** `204 No Content` or error object.
+*   **Utility & Debugging:**
+    *   `utility.getPrompts`: (Input: `{}`)
+    *   `utility.debugFormatPrompt`: (Input: `{ "templateName": "string", "inputVariables": { ... } }`)
 
-- **`GET /api/v1/prompts`**
-  - **Description:** Retrieves all available prompt templates.
-  - **Response Body:** `{ "success": true, "prompts": { ... } }`
+*   **Analysis Tools (for System Analysis Mode, examples):**
+    *   `analysis.get_strategy_leaderboard`: (Input: `{}`) -> Returns mock performance data. (Implementation for real data from `performance_results.db` is TODO).
 
-- **`POST /api/v1/debug/format-prompt`**
-  - **Description:** Formats a specified prompt template with given input variables.
-  - **Request Body:** `{ "templateName": "string", "inputVariables": { ... } }`
-  - **Response Body (Success):** `{ "success": true, "templateName": "string", "rawTemplate": { ... }, "formattedUserPrompt": "string", "inputVariables": { ... } }`
+---
 
-_Note: Actual API responses for errors usually include `success: false`, `message`, and often an `error` code and `details`._
-_For session-related endpoints, if a session is not found, a 404 error with a JSON body like `{ "success": false, "message": "Session not found", "error": "SESSION_NOT_FOUND" }` is typical._
+### HTTP API Endpoints
 
-**Example (Node.js using `axios`):**
+With the move to a WebSocket-first architecture and the MCR Workbench serving as the UI, explicit HTTP API endpoints for MCR functionality have been removed. The Express server primarily serves the static UI assets and handles WebSocket upgrades. Standard health check endpoints might be added if required by deployment environments but are not part of the core MCR interaction API.
 
+---
+
+**Example (Node.js using `ws` library for WebSockets):**
 ```javascript
-const axios = require('axios');
+const WebSocket = require('ws');
 
-async function createMcrSession() {
-  try {
-    const response = await axios.post('http://localhost:8080/api/v1/sessions'); // Adjust URL if needed
-    console.log('Session created:', response.data);
-    return response.data.id;
-  } catch (error) {
-    console.error(
-      'Error creating MCR session:',
-      error.response ? error.response.data : error.message
-    );
+const ws = new WebSocket('ws://localhost:8080/ws'); // Adjust URL if needed
+
+ws.on('open', function open() {
+  console.log('Connected to MCR WebSocket server.');
+
+  // Example: Create a session
+  const createSessionMessage = {
+    type: 'tool_invoke',
+    messageId: `client-${Date.now()}`,
+    payload: {
+      tool_name: 'session.create',
+      input: {}
+    }
+  };
+  ws.send(JSON.stringify(createSessionMessage));
+});
+
+ws.on('message', function incoming(data) {
+  const message = JSON.parse(data.toString());
+  console.log('Received from server:', message);
+
+  if (message.type === 'tool_result' &&
+      message.payload?.success &&
+      message.payload?.data?.id && // Assuming session.create returns { success: true, data: { id: ... } }
+      message.messageId /* check against sent messageId if needed */ ) {
+    // Check based on original tool_name if messageId is not sufficient
+    // This requires tool_name to be echoed in response or manage client-side state
+    console.log('Session created with ID:', message.payload.data.id);
+  } else if (message.type === 'kb_updated') {
+    console.log('Knowledge base updated for session:', message.payload.sessionId);
+    console.log('Full KB:', message.payload.fullKnowledgeBase);
   }
-}
+  // Handle other responses based on message.type and message.payload
+});
 
-// createMcrSession(); // Example call
-```
+ws.on('error', function error(err) {
+  console.error('WebSocket error:', err);
+});
 
-**4. Direct Library Usage (Experimental/Advanced):**
-While the primary way to use MCR is via its server API, core functionalities can be imported directly if you are embedding MCR within a larger Node.js application and managing the MCR lifecycle yourself. This is an advanced use case.
-
-```javascript
-// main.js in your project
-const mcrService = require('model-context-reasoner/src/mcrService'); // Adjust path if needed after installation
-const config = require('model-context-reasoner/src/config'); // MCR's config
-const logger = require('model-context-reasoner/src/logger'); // MCR's logger
-
-async function useMcrDirectly() {
-  // Ensure MCR's config (e.g., .env variables) is loaded as MCR services depend on it.
-  // logger.info('MCR Config loaded by direct import:', config);
-
-  const sessionId = await mcrService.createSession();
-  if (!sessionId || !sessionId.id) {
-    logger.error('Failed to create session directly.');
-    return;
-  }
-  logger.info(`Directly created session: ${sessionId.id}`);
-
-  const assertResult = await mcrService.assertNLToSession(
-    sessionId.id,
-    'The sun is bright.'
-  );
-  logger.info('Direct assert result:', assertResult);
-
-  if (assertResult.success) {
-    const queryResult = await mcrService.querySessionWithNL(
-      sessionId.id,
-      'Is the sun bright?'
-    );
-    logger.info('Direct query result:', queryResult);
-  }
-}
-
-useMcrDirectly().catch((error) => {
-  logger.error('Error in direct MCR usage:', error);
+ws.on('close', function close() {
+  console.log('Disconnected from MCR WebSocket server.');
 });
 ```
 
-**Note:** Direct library usage requires careful setup of MCR's dependencies and configurations (like LLM providers, environment variables) within your host application. For most users, interacting with the MCR server via its API is the recommended and more robust approach.
+**Direct Library Usage (Experimental/Advanced):**
+(This section can largely remain, as `mcrService.js` is still available, but emphasize it's for deep embedding, not typical use.)
+```javascript
+// main.js in your project
+const mcrService = require('model-context-reasoner/src/mcrService'); // Adjust path if needed
+// ... rest of the example can stay similar ...
+```
 
 ## 🛠️ Development Setup and Installation
+
+This section covers setting up MCR for development, including running the backend server and the MCR Workbench UI.
 
 1.  **Clone the Repository**:
     ```bash
     git clone http://dumb.ai # Replace with the actual repository URL if different
-    cd model-context-reasoner # Or your chosen directory name
+    cd model-context-reasoner
     ```
-2.  **Install Dependencies**:
+2.  **Install Server Dependencies**:
+    From the project root directory:
     ```bash
     npm install
     ```
-3.  **Create `.env` file**:
+3.  **Set up the MCR Workbench UI**:
+    The UI can be run in two modes:
+
+    *   **Production Mode (Served by `node mcr.js`):**
+        This involves building the static UI assets which are then served by the main MCR server.
+        ```bash
+        cd ui
+        npm install # Install UI-specific dependencies
+        npm run build # Build the static assets into ui/dist
+        cd ..
+        ```
+        After this, running `node mcr.js` from the project root will serve the UI.
+
+    *   **Development Mode (Using Vite Dev Server):**
+        This mode is ideal for UI development as it provides hot reloading.
+        - Ensure server dependencies are installed (Step 2).
+        - In a separate terminal, navigate to the `ui` directory:
+          ```bash
+          cd ui
+          npm install # If you haven't already
+          npm run dev
+          ```
+        - This will start the Vite development server (e.g., on `http://localhost:5173`).
+    - **Important:** The main MCR server (`node mcr.js`) must also be running in another terminal for the UI dev server to make API calls. The UI dev server (Vite) will typically run on a port like `5173`, while the backend MCR server defaults to `8080`. The UI will attempt to connect to the WebSocket server at `ws://localhost:8080/ws` by default. If your MCR server is running on a different URL, you can set `window.MCR_WEBSOCKET_URL` in your browser's developer console before the UI loads, or by embedding a script in `ui/index.html` to define this global variable.
+
+4.  **Create `.env` file**:
     Copy `.env.example` to `.env` in the project root. Edit it to include your LLM API keys and any other necessary configurations. Refer to `.env.example` for all available options.
     **Important:** The MCR server performs configuration validation on startup. If you select an `MCR_LLM_PROVIDER` that requires an API key (e.g., "gemini", "openai", "anthropic"), you **must** provide the corresponding API key environment variable (e.g., `GEMINI_API_KEY`). Failure to do so will prevent the server from starting. Ollama, when run locally, typically does not require an API key.
 
     Example for OpenAI:
-
     ```dotenv
     # For OpenAI
     MCR_LLM_PROVIDER="openai"
@@ -399,96 +431,67 @@ useMcrDirectly().catch((error) => {
     # MCR_LLM_MODEL_OPENAI="gpt-4o" # Optional
     ```
 
-4.  **Run the MCR Server**:
+5.  **Run the MCR Server (includes serving the UI)**:
     ```bash
     node mcr.js
     ```
-    The server will log its status, including the active LLM provider and listening port.
+    The server will log its status. Access the MCR Workbench at `http://localhost:8080` (or your configured port).
+
+## 🧪 Testing
+
+MCR uses Jest for backend tests and Vitest for UI tests.
+
+-   **Run Backend Tests (Jest):**
+    From the project root:
+    ```bash
+    npm test
+    ```
+    This will run all tests located in the `tests/` directory.
+
+-   **Run UI Tests (Vitest):**
+    From the project root:
+    ```bash
+    npm run test:ui
+    ```
+    This will run all UI component and service tests located in the `ui/src/` directory. Watch mode and browser mode are also available:
+    ```bash
+    npm run test:ui-watch # For watch mode
+    npm run test:ui-browser # To run tests in a browser with Vitest UI
+    ```
 
 #### Debugging Configuration
 
-MCR uses an environment variable `MCR_DEBUG_LEVEL` to control the verbosity of debug information in API responses. This is useful for development and troubleshooting.
+MCR uses an environment variable `MCR_DEBUG_LEVEL` to control the verbosity of debug information in API responses (specifically within the `debugInfo` field of results from tools like `session.query` or `session.explainQuery`).
 
 - **`MCR_DEBUG_LEVEL`**: Set this in your `.env` file.
-  - `none` (Default): No detailed debug information is included in API responses. This is recommended for production.
-  - `basic`: Includes essential debug fields (like the generated Prolog query) and summaries of potentially large data (like knowledge base size).
-  - `verbose`: Includes full, detailed debug information in the `debugInfo` field of responses (e.g., full knowledge base snapshot, detailed LLM outputs for intermediate steps). **Use with caution, as this can expose large amounts of data and potentially sensitive information.**
+  - `none` (Default): No detailed debug information is included in API responses.
+  - `basic`: Includes essential debug fields (like the generated Prolog query).
+  - `verbose`: Includes full, detailed debug information. **Use with caution.**
 
-For specific endpoints like `POST /api/v1/sessions/:sessionId/query` and `POST /api/v1/sessions/:sessionId/explain-query`, clients can request debug information by including `"options": { "debug": true }` in the JSON request body.
-The actual detail level of the returned `debugInfo` object will still be governed by the server's `MCR_DEBUG_LEVEL` setting. For example, if `MCR_DEBUG_LEVEL` is "basic", sending `"debug": true` will yield basic debug info, not verbose. If `MCR_DEBUG_LEVEL` is "none", no `debugInfo` will be returned even if the client requests it.
+Clients can request debug information by including relevant flags in the `input` for specific tools (e.g., `"queryOptions": { "debug": true }` for `session.query`). The server's `MCR_DEBUG_LEVEL` ultimately governs the detail provided.
 
-## 💬 Interactive TUI (`./cli.js chat`)
+## 💬 MCR Workbench - Primary Interface
 
-The `./cli.js chat` command launches a comprehensive Ink-based Text User Interface. This is a rich interface for interacting with MCR.
+The MCR Workbench is the primary interface for interacting with the MCR system. It replaces the previous CLI and TUI tools. Access it by running the server (`node mcr.js`) and navigating to the server's address in your web browser.
 
-- **Automatically starts/uses MCR server.**
-- **Status Bar**: Displays session ID, server status, LLM info.
-- **Command System**: Use slash commands (e.g., `/help`, `/create-session`, `/assert <text>`, `/query <text>`).
-- **Interactive Output**: View responses from MCR and command outputs.
+**Features:**
+- **Interactive Session Mode:**
+    - Create and manage reasoning sessions.
+    - Chat-like interface for assertions and queries.
+    - Live view of the session's Knowledge Base.
+    - Load global ontologies into sessions.
+    - Manage and select translation strategies.
+    - (Future: Run predefined demos).
+- **System Analysis Mode:**
+    - View strategy performance leaderboards.
+    - Deep dive into individual strategy performance (TODO).
+    - Explore and manage evaluation curricula (TODO).
+    - Control and monitor the MCR Evolution Engine (TODO).
 
-**Key TUI Commands (type `/help` in TUI for a full list):**
-
-- `/help`: Show help.
-- `/create-session`: Create a new session.
-- `/assert <natural language text>`: Assert a fact.
-- `/query <natural language question>`: Ask a question.
-- `/exit`: Exit the TUI.
 
 ## 💻 CLI (`./cli.js`)
 
-MCR offers direct Command Line Interface (CLI) commands via `./cli.js` (or `mcr-cli` if linked after global installation or linking). Use `./cli.js --help` to see all commands.
-
-### Basic Usage Examples
-
-1.  **Start the MCR Server:**
-
-    ```bash
-    ./cli.js start-server
-    ```
-
-    (Ensure your `.env` file is configured, especially for LLM provider API keys.)
-
-2.  **Check Server Status (in another terminal):**
-
-    ```bash
-    ./cli.js status
-    ```
-
-3.  **Create a new session:**
-
-    ```bash
-    ./cli.js create-session
-    # Output will be something like: Session created: { id: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' }
-    ```
-
-4.  **Assert a fact to the session (replace `<sessionId>` with actual ID):**
-
-    ```bash
-    ./cli.js assert <sessionId> "The sky is blue."
-    ```
-
-5.  **Query the session:**
-
-    ```bash
-    ./cli.js query <sessionId> "What color is the sky?"
-    ```
-
-6.  **Launch Interactive Chat TUI (server must be running):**
-    ```bash
-    ./cli.js chat
-    ```
-
-### All Core CLI Commands Examples:
-
-- `./cli.js status`: Checks server status.
-- `./cli.js start-server`: Starts the MCR server.
-- `./cli.js create-session`: Creates a session and prints its ID.
-- `./cli.js assert <sessionId> "Fact"`: Asserts a fact.
-- `./cli.js query <sessionId> "Question?"`: Queries a session.
-- `./cli.js list-ontologies`: Lists global ontologies.
-- `./cli.js demo run <example-name>`: Runs predefined demonstrations. See below for more details.
-- `./cli.js sandbox`: Starts an interactive sandbox for experimenting with NL to Logic steps.
-- `./cli.js perf-dashboard`: Launches an interactive TUI to explore performance results and strategy evolution.
+The Command Line Interface (`./cli.js` and associated TUI `chat` and `perf-dashboard` commands) has been **deprecated and removed**. All its functionalities are intended to be covered and enhanced by the **MCR Workbench**.
 
 ## 🤖 MCR Evolution Engine
 
@@ -618,133 +621,21 @@ MCR's flexibility comes from its use of different Translation Strategies. These 
 
 The MCR system allows for these and other strategy types to be defined and managed, with the Evolution Engine working to find or create the most effective ones for different tasks.
 
-## 🧪 Enhanced Demo Runner (`node demo.js`)
+## 🧪 Demos
 
-A new enhanced demo runner (`demo.js`) is available to showcase various MCR capabilities and to help with debugging and telemetry gathering.
+Predefined demonstrations of MCR's capabilities can be run from the **MCR Workbench** (Interactive Session Mode -> Demos tab).
+(Note: Server-side tools `demo.list` and `demo.run`, and the UI implementation for listing and running demos are currently TODO items from the refactoring plan.)
 
-**Features:**
+The previous standalone demo runner (`demo.js`) has been removed.
 
-- **Multiple Examples:** Includes a range of examples from simple assertions to complex ontology-based reasoning and error handling scenarios.
-- **Command-Line Selection:** Specify which example to run.
-- **Detailed Logging:** Colorized and structured logs for all activities, API calls, and internal logic. Very useful for debugging.
-- **Assertions:** Examples can include assertions to test specific logic conditions.
+## 📊 Evaluation System & Performance Dashboard
 
-**How to Use:**
+The evaluation of translation strategies and exploration of performance results are now intended to be managed via the **MCR Workbench's System Analysis Mode**.
+- The **Strategy Leaderboard** view provides an overview of performance.
+- The **Strategy Deep Dive** view will allow detailed analysis of individual strategies (TODO).
+- The **Curriculum Explorer** view will allow management of evaluation cases (TODO).
 
-1.  **Ensure the MCR server is running:**
-
-    ```bash
-    node mcr.js
-    # OR
-    ./cli.js start-server
-    ```
-
-2.  **List available examples:**
-
-    ```bash
-    node demo.js --list
-    # or
-    node demo.js -l
-    ```
-
-    This will output a list of example keys and their descriptions.
-
-3.  **Run a specific example:**
-    Replace `[example-name]` with one of the keys obtained from the list.
-    ```bash
-    node demo.js [example-name]
-    ```
-    For example:
-    ```bash
-    node demo.js simple-assertions
-    node demo.js family-ontology
-    node demo.js scientific-kb
-    node demo.js error-handling
-    ```
-
-**Available Examples (as of this writing):**
-
-- `simple-assertions`: A basic demo asserting simple facts and querying them.
-- `family-ontology`: Demonstrates reasoning with a pre-loaded family ontology (`family.pl`).
-- `scientific-kb`: A demo asserting facts about a simple scientific domain (chemistry/physics) and querying them.
-- `error-handling`: Demonstrates how the system handles various error conditions and invalid inputs.
-
-**Adding New Examples:**
-
-1.  Create a new JavaScript file in the `src/demo/` directory (e.g., `myNewDemo.js`).
-2.  The file should export a class that extends the `Example` class (from `demo.js`).
-
-    ```javascript
-    // src/demo/myNewDemo.js
-    const { Example } = require('../../../demo'); // Adjust path if structure changes
-
-    class MyNewDemo extends Example {
-      getName() {
-        return 'My New Demo'; // User-friendly name
-      }
-
-      getDescription() {
-        return 'This is a description of my new demo.';
-      }
-
-      async run() {
-        this.dLog.heading(`Starting ${this.getName()}`);
-        // Your demo logic here
-        // Use this.createSession(), this.assertFact(), this.query(), this.assertCondition(), etc.
-        // All these methods use this.dLog for detailed logging.
-        await this.createSession();
-        await this.assertFact('My demo is working.');
-        const result = await this.query('Is my demo working?');
-        await this.assertCondition(
-          result && result.answer.includes('yes'),
-          'Demo works!',
-          'Demo failed!'
-        );
-        this.dLog.success('My New Demo completed!');
-      }
-    }
-    module.exports = MyNewDemo;
-    ```
-
-3.  The `demo.js` script will automatically discover any `*Demo.js` files in `src/demo/` that export a class extending `Example`. The command-line key for the demo will be derived from its `getName()` method (e.g., "My New Demo" becomes "my-new-demo").
-
-## 📊 Evaluation System (`src/evaluator.js`)
-
-MCR includes a comprehensive evaluation system to test the accuracy and performance of its translation strategies.
-
-**Purpose:**
-The evaluator runs a suite of test cases, each defining a natural language input, the expected Prolog translation, and (for queries) the expected natural language answer. It then compares the MCR's actual output against these expectations using various metrics.
-
-**Running the Evaluator:**
-Execute the script from the project root:
-
-```bash
-node src/evaluator.js [options]
-```
-
-**Command-Line Options:**
-
-- `--casesPath <path>` or `-p <path>`: Specifies the path to the directory containing evaluation case files (e.g., `src/evalCases`). Defaults to `src/evalCases`.
-- `--strategies <list>` or `-s <list>`: A comma-separated list of strategy names to run (e.g., `SIR-R1,Direct-S1`). If omitted, all available strategies are run.
-- `--tags <list>` or `-t <list>`: A comma-separated list of tags to filter evaluation cases. Only cases matching at least one specified tag will be run (e.g., `simple,rules,family-ontology`).
-
-**Example:**
-Run only `SIR-R1` strategy on cases tagged `family-ontology`:
-
-```bash
-node src/evaluator.js -s SIR-R1 -t family-ontology
-```
-
-**Metrics:**
-The evaluator uses several metrics to assess performance, including:
-
-- `exactMatchProlog`: Checks for an exact string match of the generated Prolog against the expected Prolog.
-- `prologStructureMatch`: A more lenient match that normalizes Prolog (e.g., removes comments, standardizes some whitespace) before comparison.
-- `exactMatchAnswer`: Checks for an exact string match of the generated natural language answer against the expected answer (for queries).
-- `semanticSimilarityAnswer`: Uses an LLM to compare the semantic meaning of the generated NL answer with the expected answer.
-
-**Output:**
-The evaluator prints a summary of results to the console and saves a detailed `evaluation-report.json` file in the project root.
+The previous standalone evaluator script (`src/evaluator.js`) and Performance Dashboard TUI (`perf-dashboard` CLI command) have been removed. The underlying `performance_results.db` is still used and will be queried by the new analysis tools.
 
 ## 🛠️ Utility Scripts for Development
 
@@ -792,50 +683,24 @@ MCR provides scripts to accelerate development and testing by leveraging LLMs to
 
 ## MCP Integration (for AI Clients like Claude Desktop)
 
-MCR can expose its capabilities as tools to AI clients supporting the Model Context Protocol (MCP), such as Anthropic's Claude Desktop.
+MCR can expose its capabilities as tools to AI clients supporting the Model Context Protocol (MCP). Communication for MCP is handled via the main WebSocket endpoint (`ws://localhost:8080/ws`).
 
-**Server Endpoint for MCP**: `GET /mcp/sse`
-This endpoint uses Server-Sent Events (SSE) for communication.
+The `src/mcpHandler.js` handles MCP-specific WebSocket messages. When an MCP client sends a message (e.g., `mcp.request_tools` or `mcp.invoke_tool`), it's routed to `mcpHandler.js`.
 
-**Available Tools via MCP**:
-
+**Available MCR Tools Exposed via MCP (managed by `mcrTools` in `mcpHandler.js`):**
+The `mcpHandler.js` defines a mapping from MCP tool names to MCR service functions. Common tools exposed include:
 - `create_reasoning_session`
-- `assert_facts_to_session`
-- `query_session`
-- `translate_nl_to_rules`
-- `translate_rules_to_nl`
+- `assert_facts_to_session` (maps to `mcrService.assertNLToSession`)
+- `query_session` (maps to `mcrService.querySessionWithNL`)
+- `translate_nl_to_rules` (maps to `mcrService.translateNLToRulesDirect`)
+- `translate_rules_to_nl` (maps to `mcrService.translateRulesToNLDirect`)
 
-**Configuring Claude Desktop**:
-To connect Claude Desktop to this MCR server:
+**Configuring an MCP Client (Example for Claude Desktop - if it supports WebSocket for MCP):**
+If the MCP client supports WebSocket connections for MCP:
+1. Update the client's configuration to point to the MCR WebSocket endpoint: `ws://localhost:8080/ws`.
+2. The client should then use MCP's WebSocket message protocol to interact with the tools listed above.
 
-1.  Locate your `claude_desktop_config.json` file (e.g., on macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`).
-2.  Add or update the `mcpServers` object:
-    ```json
-    {
-      "mcpServers": {
-        "mcr-local-server": {
-          // Choose any unique key
-          "type": "url",
-          "url": "http://localhost:8080/mcp/sse", // Adjust if MCR runs on a different port/host
-          "name": "MCR Local Reasoner", // Display name in Claude
-          "tool_configuration": {
-            "enabled": true,
-            "allowed_tools": [
-              "create_reasoning_session",
-              "assert_facts_to_session",
-              "query_session",
-              "translate_nl_to_rules",
-              "translate_rules_to_nl"
-            ]
-          }
-        }
-      }
-      // ... other existing configurations ...
-    }
-    ```
-3.  Restart Claude Desktop.
-
-Claude should then be able to discover and use the MCR tools.
+(Note: The previous `GET /mcp/sse` endpoint for Server-Sent Events is no longer the primary mechanism if MCP interaction is consolidated over WebSockets. If SSE is still strictly required by some MCP clients, that endpoint would need to be separately maintained or re-added to `src/app.js` outside the main MCR tool WebSocket flow.)
 
 ## Code Guidelines
 

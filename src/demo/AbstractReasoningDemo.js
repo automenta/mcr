@@ -1,6 +1,10 @@
-const { Example } = require('../../demo'); // Adjust path as necessary
+const ExampleBase = require('./ExampleBase'); // Use the new base class
 
-class AbstractReasoningDemo extends Example {
+class AbstractReasoningDemo extends ExampleBase {
+  // constructor(sessionId, logCollector) { // No constructor needed if just calling super
+  //   super(sessionId, logCollector);
+  // }
+
   getName() {
     return 'Abstract Reasoning';
   }
@@ -12,7 +16,6 @@ class AbstractReasoningDemo extends Example {
   async run() {
     this.dLog.step('Starting Abstract Reasoning Demo');
 
-    await this.createSession();
     if (!this.sessionId) {
       this.dLog.error('Demo cannot continue without a session.');
       return;

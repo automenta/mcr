@@ -1,0 +1,43 @@
+.knowledge-base {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--background-color);
+}
+
+.kb-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 15px;
+  height: 40px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.kb-header h3 {
+  margin: 0;
+  font-size: 1.1em;
+}
+
+.kb-header button {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  font-size: 1em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kb-content {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+.kb-empty-message {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-color-muted);
+}

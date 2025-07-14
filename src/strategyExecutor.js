@@ -628,6 +628,14 @@ class StrategyExecutor {
             );
             break;
 
+          case 'PrologRewrite':
+            const { runRewrite } = require('../neurosymbolic/prologRewrite.js');
+            const code = node.code;
+            const factsIn = executionState[node.input_variable];
+            const rewritten = runRewrite(code, factsIn);
+            output = rewritten;
+            break;
+
           case 'Conditional_Router': {
             if (!node.input_variable) {
               throw new MCRError(
