@@ -70,25 +70,7 @@ The server's response to a `tool_invoke` message.
 - `payload.message`: A human-readable message.
 - `payload.error` / `payload.details`: Provide information about errors if `success` is `false`.
 
-### 3. Server to Client: `kb_updated` (Push Message)
-
-Sent by the server to the client when a session's Knowledge Base (KB) has been updated (e.g., after a successful `session.assert` or `session.assert_rules` operation by that client).
-
-**Structure:**
-```json
-{
-  "type": "kb_updated",
-  "payload": {
-    "sessionId": "string (ID of the session whose KB was updated)",
-    "newFacts": ["fact1.", "fact2."], // Optional: Array of strings representing the facts/rules just added
-    "fullKnowledgeBase": "string (The complete, updated Knowledge Base as a Prolog string)"
-  }
-  // Optional: "correlationId" (server's WS connection ID)
-}
-```
-This message allows UIs like the MCR Workbench to update views (e.g., a live KB viewer) in real-time.
-
-### 4. Server to Client: `connection_ack`
+### 3. Server to Client: `connection_ack`
 
 Sent by the server immediately after a WebSocket connection is successfully established.
 
@@ -101,7 +83,7 @@ Sent by the server immediately after a WebSocket connection is successfully esta
 }
 ```
 
-### 5. Error Message (Generic)
+### 4. Error Message (Generic)
 If a message from the client is malformed (e.g., invalid JSON, missing critical fields like `messageId` or `type`), the server may respond with a generic error message.
 
 **Structure:**
@@ -124,6 +106,18 @@ The following tools can be invoked using the `tool_invoke` message type. The `in
 
 ---
 
+### General Tools
+
+-   **`llm.passthrough`**
+    -   Description: Sends a natural language string directly to the underlying Large Language Model for a direct, unmodified response. This is useful for tasks that don't require logical reasoning.
+    -   Input: `{ "naturalLanguageText": "Any text to send to the LLM" }`
+    -   Success Payload: `{ "success": true, "response": "The text response from the LLM" }`
+
+-   **`mcr.handle`**
+    -   Description: A smart handler for REPL-like interfaces. It automatically determines whether to treat the input as an assertion or a query based on a simple heuristic (e.g., ending with a "?").
+    -   Input: `{ "sessionId": "id", "naturalLanguageText": "Text to be handled" }`
+    -   Success Payload: The payload will be identical to the result of either `session.assert` or `session.query`, depending on the action taken.
+
 ### Session Management
 
 -   **`session.create`**
@@ -142,17 +136,17 @@ The following tools can be invoked using the `tool_invoke` message type. The `in
     -   Success Payload: `{ "success": true, "message": "Session deleted." }`
 
 -   **`session.assert`**
-    -   Description: Asserts a natural language statement to a session. The statement is translated into Prolog facts/rules using the session's active strategy and added to its KB.
+    -   Description: Asserts a natural language statement to a session. The statement is translated into Prolog facts/rules using the session's active strategy and added to its KB. The complete, updated knowledge base is returned upon success.
     -   Input: `{ "sessionId": "id", "naturalLanguageText": "NL statement" }`
     -   Success Payload: `{ "success": true, "message": "Facts asserted.", "addedFacts": ["prolog_fact1."], "fullKnowledgeBase": "complete_prolog_kb_string", "strategyId": "used_strategy_id", "cost": { ... } }`
 
 -   **`session.assert_rules`**
-    -   Description: Asserts raw Prolog rules directly into a session's KB.
+    -   Description: Asserts raw Prolog rules directly into a session's KB. The complete, updated knowledge base is returned upon success.
     -   Input: `{ "sessionId": "id", "rules": ["rule1.", "rule2."] or "rule1. rule2.", "validate": true_or_false (optional, default true) }`
     -   Success Payload: `{ "success": true, "message": "Rules asserted.", "addedFacts": ["rule1."], "fullKnowledgeBase": "complete_prolog_kb_string" }`
 
 -   **`session.set_kb`**
-    -   Description: Replaces the entire Knowledge Base for a session with the provided content.
+    -   Description: Replaces the entire Knowledge Base for a session with the provided content. The complete, updated knowledge base is returned upon success.
     -   Input: `{ "sessionId": "id", "kbContent": "full_prolog_kb_string" }`
     -   Success Payload: `{ "success": true, "message": "Knowledge base updated successfully.", "fullKnowledgeBase": "complete_prolog_kb_string" }`
 
@@ -167,6 +161,18 @@ The following tools can be invoked using the `tool_invoke` message type. The `in
     -   Success Payload: `{ "success": true, "explanation": "NL_explanation_string", "debugInfo": { ... }, "strategyId": "used_strategy_id", "cost": { ... } }`
 
 ---
+
+### Symbolic Exchange Tools
+
+-   **`symbolic.export`**
+    -   Description: Exports solutions to a Prolog goal from a session's knowledge base.
+    -   Input: `{ "sessionId": "id", "goal": "your_goal(X)." }`
+    -   Success Payload: `{ "success": true, "data": [...] }` (The data format depends on the solutions found)
+
+-   **`symbolic.import`**
+    -   Description: Imports raw Prolog clauses directly into a session's knowledge base.
+    -   Input: `{ "sessionId": "id", "clauses": ["clause1.", "clause2."] }`
+    -   Success Payload: `{ "success": true }`
 
 ### Ontology Management (Global Ontologies)
 
@@ -243,12 +249,65 @@ The following tools can be invoked using the `tool_invoke` message type. The `in
     -   Success Payload: `{ "success": true, "templateName": "...", "rawTemplate": { ... }, "formattedUserPrompt": "...", "inputVariables": { ... } }`
 
 ---
-### System Analysis Tools (Example)
+### System Analysis Tools
 
 -   **`analysis.get_strategy_leaderboard`**
-    -   Description: Retrieves aggregated performance data for strategies. (Currently returns mock data).
+    -   Description: Retrieves aggregated performance data for all evaluated strategies from the performance database.
     -   Input: `{}` (empty object)
-    -   Success Payload: `{ "success": true, "data": [{ "strategyId": "...", "strategyName": "...", "accuracy": 0.95, ... }, ...] }`
+    -   Success Payload: `{ "success": true, "data": [{ "strategyId": "...", "strategyName": "...", "evaluations": 10, "successRate": 0.9, "avgLatencyMs": 1500, "avgCost": 0.00123 }, ...] }`
+
+-   **`analysis.get_strategy_details`**
+    -   Description: Retrieves detailed performance data, including individual runs, for a specific strategy.
+    -   Input: `{ "strategyId": "sir-r1-query" }`
+    -   Success Payload: `{ "success": true, "data": { "strategyId": "...", "definition": {...}, "hash": "...", "summary": {...}, "runs": [...] } }`
+
+-   **`analysis.list_eval_curricula`**
+    -   Description: Lists all available evaluation curricula (files containing test cases).
+    -   Input: `{}` (empty object)
+    -   Success Payload: `{ "success": true, "data": [{ "id": "path/to/file.js", "name": "file.js", "path": "path/to/file.js", "caseCount": 5 }, ...] }`
+
+-   **`analysis.get_curriculum_details`**
+    -   Description: Retrieves the content (the actual test cases) of a specific curriculum file.
+    -   Input: `{ "curriculumId": "path/to/file.js" }`
+    -   Success Payload: `{ "success": true, "data": { "id": "...", "name": "...", "cases": [...] } }`
+
+---
+
+### Evolution Tools
+
+-   **`evolution.start_optimizer`**
+    -   Description: Starts the strategy evolution optimizer script as a background process on the server.
+    -   Input: `{ "options": { "iterations": 3, "runBootstrap": true } }` (All options are optional)
+    -   Success Payload: `{ "success": true, "message": "Optimizer started with PID 12345.", "data": { "pid": 12345 } }`
+
+-   **`evolution.get_status`**
+    -   Description: Gets the current status (running or idle) of the optimizer process.
+    -   Input: `{}` (empty object)
+    -   Success Payload: `{ "success": true, "data": { "status": "running", "pid": 12345 } }`
+
+-   **`evolution.stop_optimizer`**
+    -   Description: Stops the running optimizer process.
+    -   Input: `{}` (empty object)
+    -   Success Payload: `{ "success": true, "message": "Optimizer termination signal sent." }`
+
+-   **`evolution.get_optimizer_log`**
+    -   Description: Retrieves recent logs captured from the optimizer process.
+    -   Input: `{}` (empty object)
+    -   Success Payload: `{ "success": true, "data": { "logs": [{ "timestamp": "...", "type": "stdout", "message": "..." }, ...] } }`
+
+---
+
+### Demo Tools
+
+-   **`demo.list`**
+    -   Description: Lists all available predefined demos.
+    -   Input: `{}` (empty object)
+    -   Success Payload: `{ "success": true, "data": [{ "id": "familyOntologyDemo", "name": "...", "description": "..." }, ...] }`
+
+-   **`demo.run`**
+    -   Description: Runs a specific demo in a given session, returning captured logs from the demo run.
+    -   Input: `{ "demoId": "familyOntologyDemo", "sessionId": "id" }`
+    -   Success Payload: `{ "success": true, "data": { "demoId": "...", "messages": [...] } }`
 
 ---
 

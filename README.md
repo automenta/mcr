@@ -35,25 +35,28 @@ This combination unlocks possibilities for more robust, explainable, and sophist
 ## 🚀 Features
 
 - **🧩 Modular Server**: Core logic is well-structured (Config, Logger, LLM Service, Reasoner Service, MCR Service, Tool Definitions).
+- **💾 Persistent Sessions**: Supports both in-memory and file-based session storage, allowing knowledge bases to persist across server restarts. Configurable via `.env`.
 - **🤖 Extensible LLM Support**: Supports multiple LLM providers (OpenAI, Gemini, Ollama, etc.), selectable via configuration.
-- **📚 Dynamic Lexicon Summary**: (Functionality remains) Automatically builds a lexicon of known predicates from asserted facts to aid LLM translation.
+- **📚 Dynamic Lexicon Summary**: Automatically builds a lexicon of known predicates from asserted facts to aid LLM translation.
 - **🛡️ Robust Error Handling**: Centralized error handling for WebSocket API calls.
 - **✅ Configuration Validation**: Validates essential configurations on server startup.
-- **📦 Dependency Management**: Uses `package.json`.
 - **🌐 MCR Workbench (UI)**: A React-based Single Page Application for all user interactions, replacing previous CLI/TUI tools. Features include:
     -   **Interactive Session Mode**: Real-time chat, ontology loading, demo running, live KB view.
     -   **System Analysis Mode**: Strategy performance dashboards, curriculum explorer, evolver controls.
-- **🕸️ WebSocket API**: A comprehensive API based on a `tool_invoke` / `tool_result` message pattern.
+- **🕸️ Comprehensive WebSocket API**: A rich API based on a `tool_invoke` / `tool_result` message pattern, including:
+    -   High-level tools like `mcr.handle` for easy REPL integration.
+    -   Direct LLM access with `llm.passthrough`.
+    -   Symbolic import/export tools for fine-grained knowledge base manipulation.
 
 ## 🏛️ System Architecture Diagram
 
 The MCR is defined by a multi-layered, service-oriented architecture that promotes modularity and separation of concerns:
 
 -   **Presentation Layer:** Any user-facing application that consumes the MCR's API (e.g., GUI Workbench, CLI, API Client).
--   **API Layer:** Defines the formal contract for interacting with the MCR (e.g., RESTful HTTP endpoints). It is stateless and forwards requests to the Service Layer.
--   **Service Layer:** The core orchestrator (`MCR Service`). It manages the business logic of a request (e.g., "assert this text") by invoking the currently selected Translation Strategy and the necessary providers.
--   **Provider & Strategy Interfaces:** A set of abstract contracts that define the capabilities of key components like LLM Providers, Reasoner Providers, and Translation Strategies. This allows for pluggable implementations.
--   **Implementation Layer:** Concrete implementations of the interfaces (e.g., specific LLM providers like Ollama or Gemini, a Prolog Reasoner, and various Translation Strategy modules).
+-   **API Layer:** The WebSocket message handlers (`websocketHandlers.js`) define the formal contract for interacting with MCR.
+-   **Service Layer:** The core orchestrator (`mcrService.js`). It manages the business logic of a request (e.g., "assert this text") by invoking the currently selected Translation Strategy and the necessary providers. It also directly manages session state via a pluggable Session Store.
+-   **Provider & Strategy Interfaces:** A set of abstract contracts that define the capabilities of key components like LLM Providers, Reasoner Providers, Session Stores, and Translation Strategies. This allows for pluggable implementations.
+-   **Implementation Layer:** Concrete implementations of the interfaces (e.g., specific LLM providers like Ollama or Gemini, a Prolog Reasoner, various Translation Strategy modules, and Session Stores like `InMemorySessionStore` and `FileSessionStore`).
 
 The following diagram illustrates the main components of the MCR system, including the core reasoning services and the Evolution Engine:
 
@@ -83,12 +86,12 @@ graph TD
         MCR_Service -- Uses --> SEcore
         LLM[LLM Service]
         RS[Reasoner Service]
-        SMgr[Session Manager]
+        SS[Session Store]
         OS[Ontology Service]
 
         SEcore -- Uses --> LLM
         MCR_Service -- Uses --> RS
-        MCR_Service -- Uses --> SMgr
+        MCR_Service -- Manages --> SS
         MCR_Service -- Uses --> OS
 
         IR[Input Router]
@@ -96,7 +99,7 @@ graph TD
         IR -- Queries for Best Strategy --> PD
     end
 
-    CLI_API[CLI / API Clients] -- Interact --> MCR_Service
+    CLI_API[UI / API Clients] -- Interact --> MCR_Service
     EV -- Evaluates Strategies from --> SM
     EV -- Uses Eval Cases from --> EvalCasesDir
 
@@ -109,7 +112,7 @@ graph TD
     classDef db fill:#FFD700,stroke:#333,stroke-width:2px;
 
     class CO,SE,CG,EV,IR engine;
-    class MCR_Service,SM,SEcore,LLM,RS,SMgr,OS core;
+    class MCR_Service,SM,SEcore,LLM,RS,SS,OS core;
     class CLI_API external;
     class PD,EvalCasesDir,StrategiesDir db;
 ```
@@ -216,111 +219,61 @@ Connect to the WebSocket server at `ws://localhost:8080/ws` (or your configured 
 **Key Message Types:**
 
 1.  **Client to Server: `tool_invoke`**
-    Used to request an action from the server.
-
-    ```json
-    {
-      "type": "tool_invoke",
-      "messageId": "unique-client-generated-id", // For tracking responses
-      "payload": {
-        "tool_name": "namespace.verb", // e.g., "session.create", "ontology.list"
-        "input": { ... } // Arguments specific to the tool
-      }
-      // Optional: "headers": { "X-Correlation-ID": "client-corr-id" }
-      // (Note: server assigns its own correlationId to the WebSocket connection)
-    }
-    ```
+    -   Used to request an action from the server.
+    -   Structure: `{ "type": "tool_invoke", "messageId": "...", "payload": { "tool_name": "...", "input": {...} } }`
 
 2.  **Server to Client: `tool_result`**
-    The server's response to a `tool_invoke` message.
+    -   The server's response to a `tool_invoke` message.
+    -   The `payload` contains the result of the tool execution, including a `success` flag and tool-specific data. For operations that modify a session's knowledge base (`session.assert`, `session.assert_rules`, `session.set_kb`), the payload will also include the `fullKnowledgeBase`.
 
-    ```json
-    {
-      "type": "tool_result",
-      "messageId": "echoed-client-generated-id", // Matches the request's messageId
-      "correlationId": "server-correlation-id-for-this-ws-connection",
-      "payload": {
-        "success": true_or_false,
-        // Tool-specific data, e.g.:
-        // "data": { ... },
-        // "message": "Descriptive message",
-        // "error": "ERROR_CODE_IF_FAILED",
-        // "details": "Error details if any",
-        // "addedFacts": ["fact1."], (for session.assert)
-        // "fullKnowledgeBase": "prolog string" (for session.assert)
-      }
-    }
-    ```
+3.  **Server to Client: `connection_ack`**
+    -   Sent upon successful WebSocket connection, containing the server-assigned `correlationId`.
 
-3.  **Server to Client: `kb_updated` (Push Message)**
-    Sent by the server when a session's Knowledge Base is updated (e.g., after a successful assertion).
+For a complete and detailed breakdown of all message types and tool payloads, please refer to the **[WEBSOCKET_API.md](WEBSOCKET_API.md)** document.
 
-    ```json
-    {
-      "type": "kb_updated",
-      "payload": {
-        "sessionId": "session-id-of-updated-kb",
-        "newFacts": ["fact1.", "fact2."], // Optional: facts that were just added
-        "fullKnowledgeBase": "prolog string of the complete KB"
-      }
-      // Optional: "correlationId" (server's WS connection ID),
-      // "messageId" (if server wants to make it trackable, usually not for pushes)
-    }
-    ```
-
-4.  **Server to Client: `connection_ack`**
-    Sent upon successful WebSocket connection.
-    ```json
-    {
-      "type": "connection_ack",
-      "correlationId": "server-correlation-id-for-this-ws-connection",
-      "message": "WebSocket connection established with MCR server."
-    }
-    ```
 ---
 
-**Available Tools (`tool_name` for `tool_invoke` messages):**
+**Available Tools (`tool_name`):**
 
-Refer to `src/tools.js` for the definitive list of tools and their expected `input` structure. Key tools include:
+The API provides a rich set of tools. Below is a summary. For detailed `input` and `payload` structures, see **[WEBSOCKET_API.md](WEBSOCKET_API.md)**.
+
+*   **General Tools:**
+    *   `mcr.handle`: Smart handler for REPLs; auto-detects if input is an assertion or query.
+    *   `llm.passthrough`: Sends text directly to the underlying LLM, bypassing the reasoning engine.
 
 *   **Session Management:**
-    *   `session.create`: (Input: `{ "sessionId": "optional-id" }`) -> Creates/returns session.
-    *   `session.get`: (Input: `{ "sessionId": "id" }`) -> Returns session details (including KB).
-    *   `session.delete`: (Input: `{ "sessionId": "id" }`)
-    *   `session.assert`: (Input: `{ "sessionId": "id", "naturalLanguageText": "string" }`) -> Asserts NL, returns result including `addedFacts` and `fullKnowledgeBase`.
-    *   `session.assert_rules`: (Input: `{ "sessionId": "id", "rules": ["rule1.", "rule2."] or "rule1. rule2.", "validate": true/false }`) -> Asserts raw Prolog, returns result including `addedFacts` and `fullKnowledgeBase`.
-    *   `session.set_kb`: (Input: `{ "sessionId": "id", "kbContent": "full_prolog_kb_string" }`) -> Replaces session KB, returns `fullKnowledgeBase`.
-    *   `session.query`: (Input: `{ "sessionId": "id", "naturalLanguageQuestion": "string", "queryOptions": { ... } }`)
-    *   `session.explainQuery`: (Input: `{ "sessionId": "id", "naturalLanguageQuestion": "string" }`)
+    *   `session.create`, `session.get`, `session.delete`: Manage reasoning sessions.
+    *   `session.assert`: Asserts natural language into the knowledge base.
+    *   `session.assert_rules`: Asserts raw Prolog rules into the knowledge base.
+    *   `session.set_kb`: Replaces the entire knowledge base with new content.
+    *   `session.query`: Queries the knowledge base using natural language.
+    *   `session.explainQuery`: Explains how a query would be interpreted.
+
+*   **Symbolic Exchange:**
+    *   `symbolic.import`, `symbolic.export`: Tools for low-level import and export of Prolog clauses.
 
 *   **Ontology Management:**
-    *   `ontology.create`: (Input: `{ "name": "string", "rules": "prolog string" }`)
-    *   `ontology.list`: (Input: `{ "includeRules": true/false }`)
-    *   `ontology.get`: (Input: `{ "name": "ontologyName" }`)
-    *   `ontology.update`: (Input: `{ "name": "ontologyName", "rules": "prolog string" }`)
-    *   `ontology.delete`: (Input: `{ "name": "ontologyName" }`)
+    *   `ontology.create`, `ontology.list`, `ontology.get`, `ontology.update`, `ontology.delete`: Manage global ontologies.
 
 *   **Direct Translation:**
-    *   `translate.nlToRules`: (Input: `{ "naturalLanguageText": "string", "strategyId": "optional-string" }`)
-    *   `translate.rulesToNl`: (Input: `{ "rules": "prolog string", "style": "optional-string" }`)
+    *   `translate.nlToRules`, `translate.rulesToNl`: Translate between natural language and Prolog without affecting a session.
 
 *   **Strategy Management:**
-    *   `strategy.list`: (Input: `{}`)
-    *   `strategy.setActive`: (Input: `{ "strategyId": "string" }`)
-    *   `strategy.getActive`: (Input: `{}`)
+    *   `strategy.list`, `strategy.setActive`, `strategy.getActive`: Manage and inspect translation strategies.
+
+*   **System Analysis & Evolution:**
+    *   `analysis.*`: A suite of tools for inspecting performance data, strategy definitions, and evaluation curricula.
+    -   `evolution.*`: Tools to control the Evolution Engine, such as starting/stopping the optimizer and viewing its logs.
+    -   `demo.*`: Tools to list and run predefined demonstration scripts.
 
 *   **Utility & Debugging:**
-    *   `utility.getPrompts`: (Input: `{}`)
-    *   `utility.debugFormatPrompt`: (Input: `{ "templateName": "string", "inputVariables": { ... } }`)
-
-*   **Analysis Tools (for System Analysis Mode, examples):**
-    *   `analysis.get_strategy_leaderboard`: (Input: `{}`) -> Returns mock performance data. (Implementation for real data from `performance_results.db` is TODO).
+    *   `utility.getPrompts`, `utility.debugFormatPrompt`: Inspect and debug prompt templates.
 
 ---
 
 ### HTTP API Endpoints
 
-With the move to a WebSocket-first architecture and the MCR Workbench serving as the UI, explicit HTTP API endpoints for MCR functionality have been removed. The Express server primarily serves the static UI assets and handles WebSocket upgrades. Standard health check endpoints might be added if required by deployment environments but are not part of the core MCR interaction API.
+With the move to a WebSocket-first architecture, explicit HTTP API endpoints for MCR functionality have been removed. The server's primary role is to serve the MCR Workbench UI and handle WebSocket connections.
 
 ---
 
@@ -333,14 +286,11 @@ const ws = new WebSocket('ws://localhost:8080/ws'); // Adjust URL if needed
 ws.on('open', function open() {
   console.log('Connected to MCR WebSocket server.');
 
-  // Example: Create a session
+  // Example: Create a session and assert a fact
   const createSessionMessage = {
     type: 'tool_invoke',
-    messageId: `client-${Date.now()}`,
-    payload: {
-      tool_name: 'session.create',
-      input: {}
-    }
+    messageId: 'msg-1',
+    payload: { tool_name: 'session.create', input: {} }
   };
   ws.send(JSON.stringify(createSessionMessage));
 });
@@ -349,18 +299,27 @@ ws.on('message', function incoming(data) {
   const message = JSON.parse(data.toString());
   console.log('Received from server:', message);
 
-  if (message.type === 'tool_result' &&
-      message.payload?.success &&
-      message.payload?.data?.id && // Assuming session.create returns { success: true, data: { id: ... } }
-      message.messageId /* check against sent messageId if needed */ ) {
-    // Check based on original tool_name if messageId is not sufficient
-    // This requires tool_name to be echoed in response or manage client-side state
-    console.log('Session created with ID:', message.payload.data.id);
-  } else if (message.type === 'kb_updated') {
-    console.log('Knowledge base updated for session:', message.payload.sessionId);
-    console.log('Full KB:', message.payload.fullKnowledgeBase);
+  // Example flow: After session is created, assert a fact
+  if (message.type === 'tool_result' && message.messageId === 'msg-1' && message.payload?.success) {
+    const sessionId = message.payload.data.id;
+    console.log('Session created with ID:', sessionId);
+
+    const assertMessage = {
+      type: 'tool_invoke',
+      messageId: 'msg-2',
+      payload: {
+        tool_name: 'session.assert',
+        input: { sessionId: sessionId, naturalLanguageText: 'Socrates is a man.' }
+      }
+    };
+    ws.send(JSON.stringify(assertMessage));
   }
-  // Handle other responses based on message.type and message.payload
+
+  // Log the updated knowledge base after assertion
+  if (message.type === 'tool_result' && message.messageId === 'msg-2' && message.payload?.success) {
+    console.log('Assertion successful!');
+    console.log('Updated Knowledge Base:\n' + message.payload.fullKnowledgeBase);
+  }
 });
 
 ws.on('error', function error(err) {
@@ -419,16 +378,25 @@ This section covers setting up MCR for development, including running the backen
         - This will start the Vite development server (e.g., on `http://localhost:5173`).
     - **Important:** The main MCR server (`node mcr.js`) must also be running in another terminal for the UI dev server to make API calls. The UI dev server (Vite) will typically run on a port like `5173`, while the backend MCR server defaults to `8080`. The UI will attempt to connect to the WebSocket server at `ws://localhost:8080/ws` by default. If your MCR server is running on a different URL, you can set `window.MCR_WEBSOCKET_URL` in your browser's developer console before the UI loads, or by embedding a script in `ui/index.html` to define this global variable.
 
-4.  **Create `.env` file**:
-    Copy `.env.example` to `.env` in the project root. Edit it to include your LLM API keys and any other necessary configurations. Refer to `.env.example` for all available options.
-    **Important:** The MCR server performs configuration validation on startup. If you select an `MCR_LLM_PROVIDER` that requires an API key (e.g., "gemini", "openai", "anthropic"), you **must** provide the corresponding API key environment variable (e.g., `GEMINI_API_KEY`). Failure to do so will prevent the server from starting. Ollama, when run locally, typically does not require an API key.
+4.  **Create and Configure `.env` file**:
+    Copy `.env.example` to `.env` in the project root. Edit it to include your LLM API keys and other configurations. Refer to `.env.example` for all available options.
 
-    Example for OpenAI:
+    - **LLM Configuration (Mandatory):** The MCR server performs configuration validation on startup. If you select an `MCR_LLM_PROVIDER` that requires an API key (e.g., "gemini", "openai"), you **must** provide the corresponding API key environment variable (e.g., `GEMINI_API_KEY`). Failure to do so will prevent the server from starting.
+    - **Session Storage (Optional):** You can configure how session data is stored.
+      - `MCR_SESSION_STORE_TYPE`: Set to `file` to enable persistent, file-based session storage. Sessions will be saved in the `.sessions` directory and reloaded on restart.
+      - If omitted or set to `memory`, sessions will be stored in-memory and lost on restart.
+
+    Example `.env` configuration:
     ```dotenv
-    # For OpenAI
+    # --- LLM Configuration (Example for OpenAI) ---
     MCR_LLM_PROVIDER="openai"
     OPENAI_API_KEY="sk-..."
     # MCR_LLM_MODEL_OPENAI="gpt-4o" # Optional
+
+    # --- Session Storage Configuration ---
+    # For persistent sessions that survive restarts, use "file".
+    # For ephemeral sessions, use "memory" or omit this line.
+    MCR_SESSION_STORE_TYPE="file"
     ```
 
 5.  **Run the MCR Server (includes serving the UI)**:
@@ -522,10 +490,10 @@ The system is bootstrapped with functional, human-authored strategies, ensuring 
     - Analyzes performance data to identify weaknesses or gaps in the current curriculum.
     - Uses an LLM to generate new `EvaluationCase` objects targeting these areas. These are saved in `src/evalCases/generated/`.
 
-4.  **Input Router (`src/evolution/inputRouter.js`)**:
-    - Integrated into `mcrService.js` to select the optimal strategy for a given live input at runtime.
-    - Performs a quick classification of the input.
-    - Queries the `Performance Database` for the strategy with the best aggregate performance (metrics, cost, latency) for that input class and the current LLM.
+4.  **Input Router (`src/evolution/keywordInputRouter.js`)**:
+    - **Runtime Optimizer:** Integrated directly into `mcrService.js` to select the optimal strategy for a given live input *at the moment of execution*.
+    - **Data-Driven Decisions:** It performs a quick analysis of the input text (e.g., using keywords) to classify its intent. It then queries the `Performance Database` for the strategy that has historically performed the best (based on success metrics, cost, and latency) for that specific input class and the currently configured LLM.
+    - **Fallback Mechanism:** If the router cannot find a suitable specialized strategy, it falls back to the default configured strategy, ensuring robust operation.
 
 The Evolution Engine also supports:
 - **Benchmarking:** Standardized evaluation of strategies against a "golden dataset" of NL-to-Symbolic mappings, using metrics for syntactic accuracy, semantic correctness, and resource cost (latency, tokens).
