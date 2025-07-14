@@ -53,7 +53,7 @@ const InteractiveSessionMode = ({
           <button onClick={() => setActiveTab('tau')} className={activeTab === 'tau' ? 'active' : ''}>Tau REPL</button>
         </div>
         <div className="tab-content">
-          {activeTab === 'kb' && <KnowledgeBase currentKb={currentKb} />}
+          {activeTab === 'kb' && <KnowledgeBase sessionId={sessionId} currentKb={currentKb} fetchCurrentKb={fetchCurrentKb} />}
           {activeTab === 'tau' && <TauReplPane sessionId={sessionId} />}
         </div>
       </div>

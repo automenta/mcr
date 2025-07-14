@@ -1,0 +1,17 @@
+.assertion-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.assertion-label {
+  flex-grow: 1;
+}
+
+.assertion-actions button {
+  margin-left: 8px;
+}
