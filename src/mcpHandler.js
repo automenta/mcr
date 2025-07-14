@@ -226,7 +226,14 @@ const mcrTools = [
 } */
 
 // Function to send data over WebSocket
-function sendWebSocketMessage(ws, type, data, messageId, correlationId, invocation_id = 'N/A') {
+function sendWebSocketMessage(
+  ws,
+  type,
+  data,
+  messageId,
+  correlationId,
+  invocation_id = 'N/A'
+) {
   const payload = {
     type, // e.g., 'mcp.tools_updated', 'mcp.tool_result', 'mcp.tool_error'
     messageId, // Original messageId from client, or new one for server-initiated messages
@@ -243,8 +250,14 @@ function sendWebSocketMessage(ws, type, data, messageId, correlationId, invocati
 // This function will be called from websocketHandlers.js
 async function handleMcpSocketMessage(ws, parsedMessage) {
   const { action, payload, messageId, headers } = parsedMessage; // 'action' is the MCP message type like 'mcp.invoke_tool' or 'mcp.request_tools'
-  ws.correlationId = (headers && headers['x-correlation-id']) || ws.correlationId || `ws-mcp-${uuidv4()}`;
-  ws.clientId = (headers && headers['x-mcp-client-id']) || ws.clientId || `ws-client-${uuidv4().substring(0,8)}`;
+  ws.correlationId =
+    (headers && headers['x-correlation-id']) ||
+    ws.correlationId ||
+    `ws-mcp-${uuidv4()}`;
+  ws.clientId =
+    (headers && headers['x-mcp-client-id']) ||
+    ws.clientId ||
+    `ws-client-${uuidv4().substring(0, 8)}`;
 
   logger.info(
     `[MCP WS][${ws.clientId}][${ws.correlationId}] Received MCP message. Action: ${action}, MessageID: ${messageId}`,
@@ -269,15 +282,18 @@ async function handleMcpSocketMessage(ws, parsedMessage) {
       // The payload of 'mcp.invoke_tool' should be invokeMsg format: { tool_name, input, invocation_id }
       if (!payload || !payload.tool_name || !payload.invocation_id) {
         logger.warn(
-            `[MCP WS][${ws.clientId}][${ws.correlationId}] Invalid 'mcp.invoke_tool' message: missing tool_name or invocation_id. MessageID: ${messageId}`
+          `[MCP WS][${ws.clientId}][${ws.correlationId}] Invalid 'mcp.invoke_tool' message: missing tool_name or invocation_id. MessageID: ${messageId}`
         );
         sendWebSocketMessage(
-            ws,
-            'mcp.protocol_error',
-            { error: "Invalid 'mcp.invoke_tool' message: missing tool_name or invocation_id." },
-            messageId,
-            ws.correlationId,
-            payload.invocation_id || 'unknown_invocation'
+          ws,
+          'mcp.protocol_error',
+          {
+            error:
+              "Invalid 'mcp.invoke_tool' message: missing tool_name or invocation_id.",
+          },
+          messageId,
+          ws.correlationId,
+          payload.invocation_id || 'unknown_invocation'
         );
         return;
       }
@@ -302,7 +318,6 @@ async function handleMcpSocketMessage(ws, parsedMessage) {
       );
   }
 }
-
 
 async function handleToolInvocation(
   ws, // Changed from res

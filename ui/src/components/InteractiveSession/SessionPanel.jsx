@@ -8,7 +8,9 @@ const SessionPanel = ({
   isMcrSessionActive,
   isWsServiceConnected,
 }) => {
-  const [tempSessionIdInput, setTempSessionIdInput] = useState(initialSessionId || '');
+  const [tempSessionIdInput, setTempSessionIdInput] = useState(
+    initialSessionId || ''
+  );
 
   useEffect(() => {
     setTempSessionIdInput(initialSessionId || '');
@@ -25,7 +27,13 @@ const SessionPanel = ({
   return (
     <div>
       <h4>🔌 Session Management</h4>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          marginBottom: '0.5rem',
+        }}
+      >
         <input
           type="text"
           value={tempSessionIdInput}
@@ -35,16 +43,26 @@ const SessionPanel = ({
           style={{ flexGrow: 1, marginRight: '5px' }}
         />
         {!isMcrSessionActive ? (
-          <button onClick={handleConnect} disabled={!isWsServiceConnected} title="Connect or Create Session">
+          <button
+            onClick={handleConnect}
+            disabled={!isWsServiceConnected}
+            title="Connect or Create Session"
+          >
             🟢 Connect
           </button>
         ) : (
-          <button onClick={disconnectSession} disabled={!isWsServiceConnected} title="Disconnect Session">
+          <button
+            onClick={disconnectSession}
+            disabled={!isWsServiceConnected}
+            title="Disconnect Session"
+          >
             🔴 Disconnect
           </button>
         )}
       </div>
-      {isMcrSessionActive && initialSessionId && <p className="text-muted">🔑 Active Session: {initialSessionId}</p>}
+      {isMcrSessionActive && initialSessionId && (
+        <p className="text-muted">🔑 Active Session: {initialSessionId}</p>
+      )}
     </div>
   );
 };

@@ -20,13 +20,13 @@ const PrologCodeViewer = ({ code }) => {
           prolog(),
           EditorState.readOnly.of(true),
           EditorView.theme({
-            "&": {
-              height: "100%",
-              fontSize: "0.9em",
-              backgroundColor: "transparent",
+            '&': {
+              height: '100%',
+              fontSize: '0.9em',
+              backgroundColor: 'transparent',
             },
-            ".cm-scroller": { overflow: "auto" },
-            ".cm-gutters": { backgroundColor: "var(--background-color)"}
+            '.cm-scroller': { overflow: 'auto' },
+            '.cm-gutters': { backgroundColor: 'var(--background-color)' },
           }),
         ],
       });
@@ -34,7 +34,11 @@ const PrologCodeViewer = ({ code }) => {
       viewRef.current = view;
     } else if (viewRef.current) {
       viewRef.current.dispatch({
-        changes: { from: 0, to: viewRef.current.state.doc.length, insert: code || '' }
+        changes: {
+          from: 0,
+          to: viewRef.current.state.doc.length,
+          insert: code || '',
+        },
       });
     }
 

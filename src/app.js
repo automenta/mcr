@@ -13,7 +13,6 @@ async function createServer() {
   const app = express();
   const httpServer = http.createServer(app);
 
-
   const wss = new WebSocketServer({ noServer: true });
   httpServer.on('upgrade', (request, socket, head) => {
     // Check if this is a request for the app's websocket
@@ -28,19 +27,26 @@ async function createServer() {
     }
   });
 
-
   // Standard middleware
   app.use(express.json());
 
   // Request logging middleware
   app.use((req, res, next) => {
-    const correlationId = req.headers['x-correlation-id'] || `gen-${Date.now()}`;
+    const correlationId =
+      req.headers['x-correlation-id'] || `gen-${Date.now()}`;
     req.correlationId = correlationId;
     res.setHeader('X-Correlation-ID', correlationId);
     // Avoid logging every asset request from Vite dev server if too noisy
-    if (!req.path.startsWith('/@vite') && !req.path.startsWith('/node_modules')) {
+    if (
+      !req.path.startsWith('/@vite') &&
+      !req.path.startsWith('/node_modules')
+    ) {
       logger.http(`Request: ${req.method} ${req.path}`, {
-        correlationId, method: req.method, path: req.path, ip: req.ip, query: req.query,
+        correlationId,
+        method: req.method,
+        path: req.path,
+        ip: req.ip,
+        query: req.query,
       });
     }
     next();
@@ -57,12 +63,10 @@ async function createServer() {
   app.use(viteDevServer.middlewares);
   logger.info('[App] Vite development middleware attached.');
 
-
   // WebSocket connection handling
   wss.on('connection', (socket) => {
     handleWebSocketConnection(socket);
   });
-
 
   logger.info('[App] WebSocket server event handlers set up.');
 

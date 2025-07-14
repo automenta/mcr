@@ -13,49 +13,65 @@ function App() {
   const [activeStrategy, setActiveStrategy] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
   const [isWsServiceConnected, setIsWsServiceConnected] = useState(false); // WebSocket service connection status
-  const [wsConnectionStatus, setWsConnectionStatus] = useState('⏳ Initializing...');
+  const [wsConnectionStatus, setWsConnectionStatus] =
+    useState('⏳ Initializing...');
   const [demos, setDemos] = useState([]);
   const [selectedDemo, setSelectedDemo] = useState(null);
 
   const addMessageToHistory = useCallback((message) => {
-    setChatHistory(prev => [...prev, message]);
+    setChatHistory((prev) => [...prev, message]);
   }, []);
 
-  const handleServerMessage = useCallback((message) => {
-    if (message.type === 'connection_ack') {
-      console.debug("[App] Connection ACK received:", message.message);
-    }
-    if (message.type === 'kb_updated') {
-      if (message.payload?.sessionId === sessionId) {
-        let fullKb = message.payload.fullKnowledgeBase;
-        if (Array.isArray(fullKb)) {
-          fullKb = fullKb.join('\n');
-        } else if (typeof fullKb === 'object' && fullKb !== null) {
-          fullKb = typeof fullKb.doc === 'string' ? fullKb.doc : JSON.stringify(fullKb);
-          addMessageToHistory({type: 'system', text: `ℹ️ Full KB data in 'kb_updated' received as object, converted to string.`});
-        }
-        setCurrentKb(fullKb || '');
-        addMessageToHistory({type: 'system', text: `⚙️ KB updated remotely. New facts: ${(message.payload.newFacts || []).join(', ')}`});
+  const handleServerMessage = useCallback(
+    (message) => {
+      if (message.type === 'connection_ack') {
+        console.debug('[App] Connection ACK received:', message.message);
       }
-    }
-    if (message.type === 'tool_result' && message.payload?.success) {
-        if (message.payload?.data?.activeStrategyId && message.payload?.message?.includes("strategy set to")) {
-            setActiveStrategy(message.payload.data.activeStrategyId);
+      if (message.type === 'kb_updated') {
+        if (message.payload?.sessionId === sessionId) {
+          let fullKb = message.payload.fullKnowledgeBase;
+          if (Array.isArray(fullKb)) {
+            fullKb = fullKb.join('\n');
+          } else if (typeof fullKb === 'object' && fullKb !== null) {
+            fullKb =
+              typeof fullKb.doc === 'string'
+                ? fullKb.doc
+                : JSON.stringify(fullKb);
+            addMessageToHistory({
+              type: 'system',
+              text: `ℹ️ Full KB data in 'kb_updated' received as object, converted to string.`,
+            });
+          }
+          setCurrentKb(fullKb || '');
+          addMessageToHistory({
+            type: 'system',
+            text: `⚙️ KB updated remotely. New facts: ${(message.payload.newFacts || []).join(', ')}`,
+          });
         }
-    }
-  }, [sessionId, addMessageToHistory, setCurrentKb, setActiveStrategy]);
+      }
+      if (message.type === 'tool_result' && message.payload?.success) {
+        if (
+          message.payload?.data?.activeStrategyId &&
+          message.payload?.message?.includes('strategy set to')
+        ) {
+          setActiveStrategy(message.payload.data.activeStrategyId);
+        }
+      }
+    },
+    [sessionId, addMessageToHistory, setCurrentKb, setActiveStrategy]
+  );
 
   const fetchGlobalActiveStrategy = useCallback(async () => {
     if (!isWsServiceConnected) return;
     try {
-        const response = await apiService.invokeTool('strategy.getActive');
-        if(response.success && response.data?.activeStrategyId) {
-            setActiveStrategy(response.data.activeStrategyId);
-        } else {
-            setActiveStrategy('N/A (error)');
-        }
+      const response = await apiService.invokeTool('strategy.getActive');
+      if (response.success && response.data?.activeStrategyId) {
+        setActiveStrategy(response.data.activeStrategyId);
+      } else {
+        setActiveStrategy('N/A (error)');
+      }
     } catch (error) {
-        setActiveStrategy(`❌ Error fetching strategy: ${error.message}`);
+      setActiveStrategy(`❌ Error fetching strategy: ${error.message}`);
     }
   }, [isWsServiceConnected, setActiveStrategy]);
 
@@ -66,10 +82,16 @@ function App() {
       if (response.success && Array.isArray(response.data)) {
         setDemos(response.data);
       } else {
-        addMessageToHistory({ type: 'system', text: `⚠️ Could not load demos: ${response.message}` });
+        addMessageToHistory({
+          type: 'system',
+          text: `⚠️ Could not load demos: ${response.message}`,
+        });
       }
     } catch (error) {
-      addMessageToHistory({ type: 'system', text: `❌ Exception loading demos: ${error.message}` });
+      addMessageToHistory({
+        type: 'system',
+        text: `❌ Exception loading demos: ${error.message}`,
+      });
     }
   }, [isWsServiceConnected, addMessageToHistory]);
 
@@ -85,7 +107,9 @@ function App() {
           break;
         case 'reconnecting':
           setIsWsServiceConnected(false);
-          setWsConnectionStatus(`🟡 Reconnecting... ${statusEvent.reason || ''}`);
+          setWsConnectionStatus(
+            `🟡 Reconnecting... ${statusEvent.reason || ''}`
+          );
           break;
         case 'disconnected_explicit':
           setIsWsServiceConnected(false);
@@ -93,11 +117,15 @@ function App() {
           break;
         case 'failed_max_attempts':
           setIsWsServiceConnected(false);
-          setWsConnectionStatus(`🔴 Max reconnect attempts reached. ${statusEvent.message}`);
+          setWsConnectionStatus(
+            `🔴 Max reconnect attempts reached. ${statusEvent.message}`
+          );
           break;
         case 'error':
           setIsWsServiceConnected(false);
-          setWsConnectionStatus(`🔴 Error: ${statusEvent.message}. Retrying...`);
+          setWsConnectionStatus(
+            `🔴 Error: ${statusEvent.message}. Retrying...`
+          );
           break;
         default:
           setWsConnectionStatus(`❓ Unknown status: ${statusEvent.status}`);
@@ -106,13 +134,16 @@ function App() {
     apiService.addEventListener('connection_status', handleConnectionStatus);
 
     setWsConnectionStatus('🔌 Connecting...');
-    apiService.connect().catch(err => {
-      console.error("Initial apiService.connect() promise rejected:", err);
+    apiService.connect().catch((err) => {
+      console.error('Initial apiService.connect() promise rejected:', err);
     });
 
     return () => {
       apiService.removeMessageListener(handleServerMessage);
-      apiService.removeEventListener('connection_status', handleConnectionStatus);
+      apiService.removeEventListener(
+        'connection_status',
+        handleConnectionStatus
+      );
       apiService.disconnect();
     };
   }, [handleServerMessage]);
@@ -126,9 +157,12 @@ function App() {
 
   const connectToSession = async (sidToConnect) => {
     if (!isWsServiceConnected) {
-        addMessageToHistory({type: 'system', text: "⚠️ WebSocket service not connected. Cannot manage sessions."});
-        setWsConnectionStatus('🔴 Error: WebSocket service not available');
-        return;
+      addMessageToHistory({
+        type: 'system',
+        text: '⚠️ WebSocket service not connected. Cannot manage sessions.',
+      });
+      setWsConnectionStatus('🔴 Error: WebSocket service not available');
+      return;
     }
     try {
       let sessionToUse = sidToConnect;
@@ -136,32 +170,42 @@ function App() {
       if (!sessionToUse) {
         const createResponse = await apiService.invokeTool('session.create');
         if (createResponse.success && createResponse.data?.id) {
-            sessionToUse = createResponse.data.id;
-            systemMessageText = `✨ New session created: ${sessionToUse}`;
+          sessionToUse = createResponse.data.id;
+          systemMessageText = `✨ New session created: ${sessionToUse}`;
         } else {
-            throw new Error(createResponse.message || 'Failed to create session');
+          throw new Error(createResponse.message || 'Failed to create session');
         }
       } else {
-         const getResponse = await apiService.invokeTool('session.get', { sessionId: sessionToUse });
-         if (!getResponse.success) {
-            throw new Error(getResponse.message || `Failed to get session ${sessionToUse}`);
-         }
-         systemMessageText = `🔌 Connected to session: ${sessionToUse}`;
+        const getResponse = await apiService.invokeTool('session.get', {
+          sessionId: sessionToUse,
+        });
+        if (!getResponse.success) {
+          throw new Error(
+            getResponse.message || `Failed to get session ${sessionToUse}`
+          );
+        }
+        systemMessageText = `🔌 Connected to session: ${sessionToUse}`;
       }
       setSessionId(sessionToUse);
       setIsConnected(true);
-      addMessageToHistory({type: 'system', text: systemMessageText});
+      addMessageToHistory({ type: 'system', text: systemMessageText });
       fetchCurrentKb(sessionToUse);
       fetchGlobalActiveStrategy();
     } catch (error) {
-      addMessageToHistory({type: 'system', text: `❌ Error with session: ${error.message}`});
+      addMessageToHistory({
+        type: 'system',
+        text: `❌ Error with session: ${error.message}`,
+      });
       setSessionId(null);
       setIsConnected(false);
     }
   };
 
   const disconnectFromSession = () => {
-    addMessageToHistory({type: 'system', text: `🔌 UI disconnected from session: ${sessionId}`});
+    addMessageToHistory({
+      type: 'system',
+      text: `🔌 UI disconnected from session: ${sessionId}`,
+    });
     setSessionId(null);
     setIsConnected(false);
     setCurrentKb('');
@@ -171,43 +215,72 @@ function App() {
   const fetchCurrentKb = async (sid) => {
     if (!sid || !isWsServiceConnected) return;
     try {
-      const response = await apiService.invokeTool('session.get', { sessionId: sid });
+      const response = await apiService.invokeTool('session.get', {
+        sessionId: sid,
+      });
       if (response.success && response.data) {
         let kbData = response.data.facts;
         if (Array.isArray(kbData)) {
           kbData = kbData.join('\n');
         } else if (typeof kbData === 'object' && kbData !== null) {
-          kbData = typeof kbData.doc === 'string' ? kbData.doc : JSON.stringify(kbData);
-          addMessageToHistory({type: 'system', text: `ℹ️ KB data received as object, converted to string.`});
+          kbData =
+            typeof kbData.doc === 'string'
+              ? kbData.doc
+              : JSON.stringify(kbData);
+          addMessageToHistory({
+            type: 'system',
+            text: `ℹ️ KB data received as object, converted to string.`,
+          });
         }
         setCurrentKb(kbData || 'KB data not found or is empty.');
       } else {
         setCurrentKb('⚠️ Failed to load KB.');
-        addMessageToHistory({type: 'system', text: `⚠️ Error loading KB for session ${sid}: ${response.message}`});
+        addMessageToHistory({
+          type: 'system',
+          text: `⚠️ Error loading KB for session ${sid}: ${response.message}`,
+        });
       }
     } catch (error) {
-        setCurrentKb(`❌ Exception loading KB: ${error.message}`);
-        addMessageToHistory({type: 'system', text: `❌ Exception loading KB for session ${sid}: ${error.message}`});
+      setCurrentKb(`❌ Exception loading KB: ${error.message}`);
+      addMessageToHistory({
+        type: 'system',
+        text: `❌ Exception loading KB for session ${sid}: ${error.message}`,
+      });
     }
   };
 
   const handleLoadDemo = async (demoId) => {
     if (!demoId || !sessionId) {
-      addMessageToHistory({ type: 'system', text: '⚠️ Please select a demo and ensure you are connected to a session.' });
+      addMessageToHistory({
+        type: 'system',
+        text: '⚠️ Please select a demo and ensure you are connected to a session.',
+      });
       return;
     }
-    addMessageToHistory({ type: 'system', text: `🚀 Starting demo: ${demoId}...` });
+    addMessageToHistory({
+      type: 'system',
+      text: `🚀 Starting demo: ${demoId}...`,
+    });
     try {
-      const response = await apiService.invokeTool('demo.run', { demoId, sessionId });
+      const response = await apiService.invokeTool('demo.run', {
+        demoId,
+        sessionId,
+      });
       if (response.success) {
         addMessageToHistory({ type: 'demo', messages: response.data.messages });
         // After the demo runs, it's good practice to refresh the KB state from the server
         fetchCurrentKb(sessionId);
       } else {
-        addMessageToHistory({ type: 'system', text: `❌ Demo failed: ${response.message}` });
+        addMessageToHistory({
+          type: 'system',
+          text: `❌ Demo failed: ${response.message}`,
+        });
       }
     } catch (error) {
-      addMessageToHistory({ type: 'system', text: `❌ Exception running demo: ${error.message}` });
+      addMessageToHistory({
+        type: 'system',
+        text: `❌ Exception running demo: ${error.message}`,
+      });
     }
   };
 
@@ -220,8 +293,10 @@ function App() {
         isWsServiceConnected={isWsServiceConnected}
         onRetryConnect={() => {
           setWsConnectionStatus('🔌 Connecting...');
-          apiService.connect().catch(err => {
-            setWsConnectionStatus(`🔴 Error: ${err.message || 'Failed to connect during retry'}.`);
+          apiService.connect().catch((err) => {
+            setWsConnectionStatus(
+              `🔴 Error: ${err.message || 'Failed to connect during retry'}.`
+            );
           });
         }}
         sessionId={sessionId}

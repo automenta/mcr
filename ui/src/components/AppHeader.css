@@ -31,7 +31,9 @@
   padding: 10px 15px;
   cursor: pointer;
   font-size: 1em;
-  transition: color 0.3s, border-bottom 0.3s;
+  transition:
+    color 0.3s,
+    border-bottom 0.3s;
   border-bottom: 2px solid transparent;
 }
 

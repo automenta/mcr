@@ -22,17 +22,33 @@ describe('SessionPanel', () => {
 
   it('renders connect input and button when not in MCR session', () => {
     render(<SessionPanel {...defaultProps} />);
-    expect(screen.getByPlaceholderText('Session ID (optional)')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '🟢 Connect' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '🔴 Disconnect' })).not.toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('Session ID (optional)')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: '🟢 Connect' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: '🔴 Disconnect' })
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/Active Session:/)).not.toBeInTheDocument();
   });
 
   it('renders disconnect button and active session ID when in MCR session', () => {
-    render(<SessionPanel {...defaultProps} initialSessionId="sid-xyz" isMcrSessionActive={true} />);
+    render(
+      <SessionPanel
+        {...defaultProps}
+        initialSessionId="sid-xyz"
+        isMcrSessionActive={true}
+      />
+    );
     expect(screen.getByPlaceholderText('Session ID (optional)')).toBeDisabled();
-    expect(screen.getByRole('button', { name: '🔴 Disconnect' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '🟢 Connect' })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: '🔴 Disconnect' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: '🟢 Connect' })
+    ).not.toBeInTheDocument();
     expect(screen.getByText('🔑 Active Session: sid-xyz')).toBeInTheDocument();
   });
 
@@ -71,10 +87,17 @@ describe('SessionPanel', () => {
     expect(mockConnectSession).toHaveBeenCalledWith(); // connectSession() handles trimming or creating new
   });
 
-
   it('calls disconnectSession when disconnect button is clicked', async () => {
-    render(<SessionPanel {...defaultProps} initialSessionId="sid-xyz" isMcrSessionActive={true} />);
-    const disconnectButton = screen.getByRole('button', { name: '🔴 Disconnect' });
+    render(
+      <SessionPanel
+        {...defaultProps}
+        initialSessionId="sid-xyz"
+        isMcrSessionActive={true}
+      />
+    );
+    const disconnectButton = screen.getByRole('button', {
+      name: '🔴 Disconnect',
+    });
 
     await act(async () => {
       fireEvent.click(disconnectButton);
@@ -100,11 +123,15 @@ describe('SessionPanel', () => {
       />
     );
     expect(screen.getByPlaceholderText('Session ID (optional)')).toBeDisabled();
-    expect(screen.getByRole('button', { name: '🔴 Disconnect' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: '🔴 Disconnect' })
+    ).toBeDisabled();
   });
 
   it('updates input field when initialSessionId prop changes', () => {
-    const { rerender } = render(<SessionPanel {...defaultProps} initialSessionId="first-id" />);
+    const { rerender } = render(
+      <SessionPanel {...defaultProps} initialSessionId="first-id" />
+    );
     const input = screen.getByPlaceholderText('Session ID (optional)');
     expect(input.value).toBe('first-id');
 

@@ -3,11 +3,12 @@ import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
 // Mock WebSocket globally for all tests
-const WebSocketMock = vi.fn(function() {
+const WebSocketMock = vi.fn(function () {
   this.addEventListener = vi.fn();
   this.removeEventListener = vi.fn();
   this.send = vi.fn();
-  this.close = vi.fn(function() { // Mock close to update readyState and call onclose
+  this.close = vi.fn(function () {
+    // Mock close to update readyState and call onclose
     this.readyState = WebSocketMock.CLOSED;
     if (typeof this.onclose === 'function') {
       // Simulate a clean closure event object, ensuring 'target' is present
@@ -16,7 +17,7 @@ const WebSocketMock = vi.fn(function() {
         code: 1000,
         reason: 'Normal closure',
         type: 'close',
-        target: this // Add the WebSocket instance as the target
+        target: this, // Add the WebSocket instance as the target
       };
       this.onclose(event);
     }
@@ -83,11 +84,12 @@ const actualMockIoImplementation = (url, options) => {
       newMockSocket.disconnected = false;
       const connectListeners = newMockSocket.listeners.get('connect');
       if (connectListeners) {
-        connectListeners.forEach(cb => cb());
+        connectListeners.forEach((cb) => cb());
       }
       return newMockSocket;
     }),
-    disconnect: vi.fn(() => { // This is called by apiService.disconnect()
+    disconnect: vi.fn(() => {
+      // This is called by apiService.disconnect()
       // const oldConnectedState = newMockSocket.connected; // Not strictly needed if we always fire event
       newMockSocket.connected = false;
       newMockSocket.disconnected = true;
@@ -95,9 +97,9 @@ const actualMockIoImplementation = (url, options) => {
       // The apiService listens for this.
       const disconnectListeners = newMockSocket.listeners.get('disconnect');
       if (disconnectListeners) {
-          // socket.io provides a reason for disconnect. 'io client disconnect' is when client calls .disconnect()
-          // This reason is then checked by apiService to determine if it was an explicit client disconnect or other.
-          disconnectListeners.forEach(cb => cb('io client disconnect'));
+        // socket.io provides a reason for disconnect. 'io client disconnect' is when client calls .disconnect()
+        // This reason is then checked by apiService to determine if it was an explicit client disconnect or other.
+        disconnectListeners.forEach((cb) => cb('io client disconnect'));
       }
     }),
     _simulateServerEvent: (event, ...args) => {
@@ -105,14 +107,15 @@ const actualMockIoImplementation = (url, options) => {
       if (event === 'connect') {
         newMockSocket.connected = true;
         newMockSocket.disconnected = false;
-      } else if (event === 'disconnect') { // This would be for server-initiated disconnects
+      } else if (event === 'disconnect') {
+        // This would be for server-initiated disconnects
         newMockSocket.connected = false;
         newMockSocket.disconnected = true;
       }
       // Now, actually emit the event to listeners
       const eventListeners = newMockSocket.listeners.get(event);
       if (eventListeners) {
-        eventListeners.forEach(cb => cb(...args));
+        eventListeners.forEach((cb) => cb(...args));
       }
     },
     _simulateConnectError: (error) => {
@@ -121,19 +124,19 @@ const actualMockIoImplementation = (url, options) => {
       newMockSocket.disconnected = true;
       const errorListeners = newMockSocket.listeners.get('connect_error');
       if (errorListeners) {
-        errorListeners.forEach(cb => cb(error));
+        errorListeners.forEach((cb) => cb(error));
       }
     },
     _clearMock: () => {
       newMockSocket.connected = false;
       newMockSocket.disconnected = true;
       newMockSocket.listeners.clear();
-      ['on', 'off', 'emit', 'connect', 'disconnect'].forEach(method => {
+      ['on', 'off', 'emit', 'connect', 'disconnect'].forEach((method) => {
         if (newMockSocket[method].mockClear) {
           newMockSocket[method].mockClear();
         }
       });
-    }
+    },
   };
   currentMockSocketInstance = newMockSocket;
   return newMockSocket;

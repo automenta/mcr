@@ -4,9 +4,17 @@ import PrologCodeViewer from './PrologCodeViewer';
 
 // --- Direct KB Assertion Component ---
 // Uses PrologCodeViewer for consistent editor experience.
-const DirectAssertionEditor = ({ sessionId, isMcrSessionActive, isWsServiceConnected, addMessageToHistory }) => {
+const DirectAssertionEditor = ({
+  sessionId,
+  isMcrSessionActive,
+  isWsServiceConnected,
+  addMessageToHistory,
+}) => {
   const [currentPrologCode, setCurrentPrologCode] = useState('');
-  const [assertionStatus, setAssertionStatus] = useState({ message: '', type: '' });
+  const [assertionStatus, setAssertionStatus] = useState({
+    message: '',
+    type: '',
+  });
   // const prologViewerRef = useRef(); // Removed as it's not used
 
   // Callback for PrologCodeViewer's onSave, which we'll use as "Assert"
@@ -15,7 +23,8 @@ const DirectAssertionEditor = ({ sessionId, isMcrSessionActive, isWsServiceConne
     setAssertionStatus({ message: '', type: '' });
 
     if (!isMcrSessionActive || !sessionId || !isWsServiceConnected) {
-      const errorMsg = '⚠️ Cannot assert: No active MCR session or WebSocket connection.';
+      const errorMsg =
+        '⚠️ Cannot assert: No active MCR session or WebSocket connection.';
       addMessageToHistory({ type: 'system', text: errorMsg }); // Log to main chat.
       setAssertionStatus({ message: errorMsg, type: 'error' }); // Show local feedback.
       return;
@@ -75,16 +84,20 @@ const DirectAssertionEditor = ({ sessionId, isMcrSessionActive, isWsServiceConne
       const errorMsg = `❌ Exception asserting Prolog: ${error.message}`;
       addMessageToHistory({ type: 'system', text: errorMsg });
       setAssertionStatus({ message: errorMsg, type: 'error' });
-      console.error("Exception asserting Prolog:", error);
+      console.error('Exception asserting Prolog:', error);
     }
   };
 
   return (
     <div>
       <h4>✏️ Direct KB Assertion</h4>
-      <p className="text-muted" style={{fontSize: '0.8em', marginBottom: '5px'}}>
-        Enter Prolog facts or rules (e.g., <code>father(john,pete).</code>). Each statement must end with a period.
-        Use the &quot;💾 Save&quot; button below the editor (or Ctrl/Cmd+S) to assert.
+      <p
+        className="text-muted"
+        style={{ fontSize: '0.8em', marginBottom: '5px' }}
+      >
+        Enter Prolog facts or rules (e.g., <code>father(john,pete).</code>).
+        Each statement must end with a period. Use the &quot;💾 Save&quot;
+        button below the editor (or Ctrl/Cmd+S) to assert.
       </p>
       <PrologCodeViewer
         // ref={prologViewerRef} // Removed as it's not defined and not strictly needed
@@ -101,18 +114,26 @@ const DirectAssertionEditor = ({ sessionId, isMcrSessionActive, isWsServiceConne
       {/* The "Assert to KB" button is now part of PrologCodeViewer as "Save" */}
       {/* Display local status message for the assertion operation */}
       {assertionStatus.message && (
-        <p style={{
-          fontSize: '0.8em',
-          marginTop: '5px',
-          padding: '5px',
-          borderRadius: '3px',
-          backgroundColor: assertionStatus.type === 'error' ? 'rgba(248, 81, 73, 0.2)' :
-                             assertionStatus.type === 'success' ? 'rgba(63, 185, 80, 0.2)' :
-                             'rgba(88, 166, 255, 0.1)',
-          color: assertionStatus.type === 'error' ? '#ff817a' :
-                 assertionStatus.type === 'success' ? '#3fb950' :
-                 '#58a6ff'
-        }}>
+        <p
+          style={{
+            fontSize: '0.8em',
+            marginTop: '5px',
+            padding: '5px',
+            borderRadius: '3px',
+            backgroundColor:
+              assertionStatus.type === 'error'
+                ? 'rgba(248, 81, 73, 0.2)'
+                : assertionStatus.type === 'success'
+                  ? 'rgba(63, 185, 80, 0.2)'
+                  : 'rgba(88, 166, 255, 0.1)',
+            color:
+              assertionStatus.type === 'error'
+                ? '#ff817a'
+                : assertionStatus.type === 'success'
+                  ? '#3fb950'
+                  : '#58a6ff',
+          }}
+        >
           {assertionStatus.message}
         </p>
       )}

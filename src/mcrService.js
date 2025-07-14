@@ -280,8 +280,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
       );
       return {
         success: true,
-        message:
-          'No facts were extracted from the input.',
+        message: 'No facts were extracted from the input.',
         error: ErrorCodes.NO_FACTS_EXTRACTED,
         strategyId: currentStrategyId,
         cost: costOfExecution,
@@ -314,7 +313,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
     // Use sessionStore and await the async call
     const addSuccess = await sessionStore.addFacts(sessionId, addedFacts);
     if (addSuccess) {
-        const fullKnowledgeBase = await sessionStore.getKnowledgeBase(sessionId);
+      const fullKnowledgeBase = await sessionStore.getKnowledgeBase(sessionId);
       logger.info(
         `[McrService] Facts successfully added to session ${sessionId}. OpID: ${operationId}. Facts:`,
         { addedFacts, costOfExecution }
@@ -323,7 +322,7 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
         success: true,
         message: 'Facts asserted successfully.',
         addedFacts,
-          fullKnowledgeBase, // Include the full KB in the response
+        fullKnowledgeBase, // Include the full KB in the response
         strategyId: currentStrategyId,
         cost: costOfExecution,
       };
@@ -482,7 +481,11 @@ async function querySessionWithNL(
       debugInfo.ontologyErrorForReasoner = `Failed to load global ontologies for reasoner: ${ontError.message}`;
     }
 
-    if (dynamicOntology && typeof dynamicOntology === 'string' && dynamicOntology.trim() !== '') {
+    if (
+      dynamicOntology &&
+      typeof dynamicOntology === 'string' &&
+      dynamicOntology.trim() !== ''
+    ) {
       knowledgeBase += `\n% --- Dynamic RAG Ontology (Query-Specific) ---\n${dynamicOntology.trim()}`;
       debugInfo.dynamicOntologyProvided = true;
     }
@@ -521,7 +524,8 @@ async function querySessionWithNL(
       );
       return {
         success: false,
-        message: 'Failed to generate a natural language answer from query results.',
+        message:
+          'Failed to generate a natural language answer from query results.',
         debugInfo,
         error: ErrorCodes.LLM_EMPTY_RESPONSE,
         strategyId: currentStrategyId,
@@ -1219,19 +1223,33 @@ module.exports = {
    */
   setSessionKnowledgeBase: async (sessionId, kbContent) => {
     const operationId = `setKB-${Date.now()}`;
-    logger.info(`[McrService] Enter setSessionKnowledgeBase for session ${sessionId}. OpID: ${operationId}. KB length: ${kbContent.length}`);
+    logger.info(
+      `[McrService] Enter setSessionKnowledgeBase for session ${sessionId}. OpID: ${operationId}. KB length: ${kbContent.length}`
+    );
 
     const sessionExists = await sessionStore.getSession(sessionId);
     if (!sessionExists) {
-      logger.warn(`[McrService] Session ${sessionId} not found for setKnowledgeBase. OpID: ${operationId}`);
-      return { success: false, message: 'Session not found.', error: ErrorCodes.SESSION_NOT_FOUND };
+      logger.warn(
+        `[McrService] Session ${sessionId} not found for setKnowledgeBase. OpID: ${operationId}`
+      );
+      return {
+        success: false,
+        message: 'Session not found.',
+        error: ErrorCodes.SESSION_NOT_FOUND,
+      };
     }
 
     try {
       // Basic validation of KB content (e.g., ensure it's a string)
       if (typeof kbContent !== 'string') {
-        logger.error(`[McrService] Invalid kbContent type for setKnowledgeBase. OpID: ${operationId}. Type: ${typeof kbContent}`);
-        return { success: false, message: 'Invalid knowledge base content: must be a string.', error: ErrorCodes.INVALID_KB_CONTENT };
+        logger.error(
+          `[McrService] Invalid kbContent type for setKnowledgeBase. OpID: ${operationId}. Type: ${typeof kbContent}`
+        );
+        return {
+          success: false,
+          message: 'Invalid knowledge base content: must be a string.',
+          error: ErrorCodes.INVALID_KB_CONTENT,
+        };
       }
 
       // Optional: More sophisticated validation (e.g., Prolog syntax check) could be added here
@@ -1243,8 +1261,11 @@ module.exports = {
 
       const success = await sessionStore.setKnowledgeBase(sessionId, kbContent);
       if (success) {
-        const fullKnowledgeBase = await sessionStore.getKnowledgeBase(sessionId); // Should be === kbContent
-        logger.info(`[McrService] Knowledge base for session ${sessionId} successfully replaced. OpID: ${operationId}`);
+        const fullKnowledgeBase =
+          await sessionStore.getKnowledgeBase(sessionId); // Should be === kbContent
+        logger.info(
+          `[McrService] Knowledge base for session ${sessionId} successfully replaced. OpID: ${operationId}`
+        );
         return {
           success: true,
           message: 'Knowledge base updated successfully.',
@@ -1252,8 +1273,14 @@ module.exports = {
         };
       } else {
         // This case might be rare if getSession succeeded, but store might have internal errors
-        logger.error(`[McrService] Failed to set knowledge base in session store for session ${sessionId}. OpID: ${operationId}`);
-        return { success: false, message: 'Failed to update knowledge base in session store.', error: ErrorCodes.SESSION_SET_KB_FAILED };
+        logger.error(
+          `[McrService] Failed to set knowledge base in session store for session ${sessionId}. OpID: ${operationId}`
+        );
+        return {
+          success: false,
+          message: 'Failed to update knowledge base in session store.',
+          error: ErrorCodes.SESSION_SET_KB_FAILED,
+        };
       }
     } catch (error) {
       logger.error(
@@ -1287,22 +1314,42 @@ module.exports = {
 
     const sessionExists = await sessionStore.getSession(sessionId);
     if (!sessionExists) {
-      logger.warn(`[McrService] Session ${sessionId} not found for raw Prolog assertion. OpID: ${operationId}`);
-      return { success: false, message: 'Session not found.', error: ErrorCodes.SESSION_NOT_FOUND };
+      logger.warn(
+        `[McrService] Session ${sessionId} not found for raw Prolog assertion. OpID: ${operationId}`
+      );
+      return {
+        success: false,
+        message: 'Session not found.',
+        error: ErrorCodes.SESSION_NOT_FOUND,
+      };
     }
 
-    const factsToAssert = Array.isArray(rules) ? rules : rules.split(/(?<=\.)\s*/).map(r => r.trim()).filter(r => r.length > 0);
+    const factsToAssert = Array.isArray(rules)
+      ? rules
+      : rules
+          .split(/(?<=\.)\s*/)
+          .map((r) => r.trim())
+          .filter((r) => r.length > 0);
     if (factsToAssert.length === 0) {
-      logger.warn(`[McrService] No valid Prolog facts/rules provided to assert. OpID: ${operationId}`);
-      return { success: false, message: 'No valid Prolog facts/rules provided.', error: ErrorCodes.NO_FACTS_TO_ASSERT };
+      logger.warn(
+        `[McrService] No valid Prolog facts/rules provided to assert. OpID: ${operationId}`
+      );
+      return {
+        success: false,
+        message: 'No valid Prolog facts/rules provided.',
+        error: ErrorCodes.NO_FACTS_TO_ASSERT,
+      };
     }
 
     if (validate) {
       for (const factString of factsToAssert) {
-        const validationResult = await reasonerService.validateKnowledgeBase(factString);
+        const validationResult =
+          await reasonerService.validateKnowledgeBase(factString);
         if (!validationResult.isValid) {
           const validationErrorMsg = `Provided Prolog is invalid: "${factString}". Error: ${validationResult.error}`;
-          logger.error(`[McrService] Validation failed for provided Prolog. OpID: ${operationId}. Details: ${validationErrorMsg}`);
+          logger.error(
+            `[McrService] Validation failed for provided Prolog. OpID: ${operationId}. Details: ${validationErrorMsg}`
+          );
           return {
             success: false,
             message: 'Failed to assert rules: Provided Prolog is invalid.',
@@ -1311,13 +1358,16 @@ module.exports = {
           };
         }
       }
-      logger.info(`[McrService] All ${factsToAssert.length} provided Prolog snippets validated successfully. OpID: ${operationId}`);
+      logger.info(
+        `[McrService] All ${factsToAssert.length} provided Prolog snippets validated successfully. OpID: ${operationId}`
+      );
     }
 
     try {
       const addSuccess = await sessionStore.addFacts(sessionId, factsToAssert);
       if (addSuccess) {
-        const fullKnowledgeBase = await sessionStore.getKnowledgeBase(sessionId);
+        const fullKnowledgeBase =
+          await sessionStore.getKnowledgeBase(sessionId);
         logger.info(
           `[McrService] Raw Prolog facts/rules successfully added to session ${sessionId}. OpID: ${operationId}. Count: ${factsToAssert.length}`
         );
@@ -1328,8 +1378,14 @@ module.exports = {
           fullKnowledgeBase,
         };
       } else {
-        logger.error(`[McrService] Failed to add raw Prolog to session ${sessionId} after validation/processing. OpID: ${operationId}`);
-        return { success: false, message: 'Failed to add raw Prolog to session store.', error: ErrorCodes.SESSION_ADD_FACTS_FAILED };
+        logger.error(
+          `[McrService] Failed to add raw Prolog to session ${sessionId} after validation/processing. OpID: ${operationId}`
+        );
+        return {
+          success: false,
+          message: 'Failed to add raw Prolog to session store.',
+          error: ErrorCodes.SESSION_ADD_FACTS_FAILED,
+        };
       }
     } catch (error) {
       logger.error(

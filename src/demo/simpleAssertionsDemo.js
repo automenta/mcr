@@ -18,7 +18,9 @@ class SimpleAssertionsDemo extends ExampleBase {
 
     // Session is now passed in constructor and available as this.sessionId
     if (!this.sessionId) {
-      this.dLog.error('Demo cannot continue without a session ID provided at instantiation.');
+      this.dLog.error(
+        'Demo cannot continue without a session ID provided at instantiation.'
+      );
       return;
     }
 

@@ -143,7 +143,8 @@ describe('MCR Service (mcrService.js)', () => {
 
       // More generic mock in beforeEach, specific tests will override
       llmService.generate.mockImplementation(
-         async (systemPrompt /*, _userPrompt */) => { // _userPrompt commented out
+        async (systemPrompt /*, _userPrompt */) => {
+          // _userPrompt commented out
           return {
             text: JSON.stringify({
               error: `Fallback mock in assertNLToSession for prompt: ${systemPrompt.substring(0, 50)}`,
@@ -244,9 +245,7 @@ describe('MCR Service (mcrService.js)', () => {
       );
       const result = await mcrService.assertNLToSession(sessionId, nlText);
       expect(result.success).toBe(true);
-      expect(result.message).toBe(
-        'No facts were extracted from the input.'
-      );
+      expect(result.message).toBe('No facts were extracted from the input.');
       expect(result.error).toBe(ErrorCodes.NO_FACTS_EXTRACTED);
     });
 
@@ -511,7 +510,8 @@ describe('MCR Service (mcrService.js)', () => {
         goal: 'color(sky, Color).',
         children: [{ goal: 'is_blue(sky).', children: [] }],
       };
-      const explanationMock = 'The sky is blue because it was found to be blue.';
+      const explanationMock =
+        'The sky is blue because it was found to be blue.';
       reasonerService.executeQuery.mockResolvedValue({
         results: reasonerResults,
         trace: traceMock,
@@ -532,9 +532,13 @@ describe('MCR Service (mcrService.js)', () => {
         }
       );
 
-      const result = await mcrService.querySessionWithNL(sessionId, nlQuestion, {
-        trace: true,
-      });
+      const result = await mcrService.querySessionWithNL(
+        sessionId,
+        nlQuestion,
+        {
+          trace: true,
+        }
+      );
 
       expect(result.success).toBe(true);
       expect(result.answer).toBe(nlAnswer);

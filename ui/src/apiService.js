@@ -22,7 +22,9 @@ class ApiService {
 
   connect(url = window.MCR_WEBSOCKET_URL || 'ws://0.0.0.0:8080/ws') {
     if (this.connectPromise) {
-      logger.debug('[ApiService] Connection attempt already in progress, returning existing promise.');
+      logger.debug(
+        '[ApiService] Connection attempt already in progress, returning existing promise.'
+      );
       return this.connectPromise;
     }
 
@@ -37,7 +39,9 @@ class ApiService {
         return;
       }
 
-      logger.debug(`[ApiService] Attempting to connect to ${this.serverUrl}...`);
+      logger.debug(
+        `[ApiService] Attempting to connect to ${this.serverUrl}...`
+      );
       this.socket = new WebSocket(this.serverUrl);
 
       const clearPromise = () => {
@@ -46,7 +50,10 @@ class ApiService {
 
       this.socket.onopen = () => {
         logger.debug('[ApiService] WebSocket connection established.');
-        this._notifyListeners('connection_status', { status: 'connected', url: this.serverUrl });
+        this._notifyListeners('connection_status', {
+          status: 'connected',
+          url: this.serverUrl,
+        });
         clearPromise();
         resolve();
       };
@@ -60,7 +67,13 @@ class ApiService {
           if (message.payload?.success) {
             pending.resolve(message.payload);
           } else {
-            pending.reject(new Error(message.payload?.message || message.payload?.error || 'Tool invocation failed'));
+            pending.reject(
+              new Error(
+                message.payload?.message ||
+                  message.payload?.error ||
+                  'Tool invocation failed'
+              )
+            );
           }
           this.pendingMessages.delete(message.messageId);
         } else {
@@ -79,21 +92,33 @@ class ApiService {
       };
 
       this.socket.onclose = (event) => {
-        logger.debug(`[ApiService] WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason}`);
+        logger.debug(
+          `[ApiService] WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason}`
+        );
         this.pendingMessages.forEach(({ reject: rejectPromise }) => {
-          rejectPromise(new Error('WebSocket connection closed before response received.'));
+          rejectPromise(
+            new Error('WebSocket connection closed before response received.')
+          );
         });
         this.pendingMessages.clear();
 
         if (this.connectPromise) {
           clearPromise();
-          reject(new Error(`WebSocket closed before connection was established. Code: ${event.code}`));
+          reject(
+            new Error(
+              `WebSocket closed before connection was established. Code: ${event.code}`
+            )
+          );
         }
 
         if (this.explicitlyClosed) {
-          this._notifyListeners('connection_status', { status: 'disconnected_explicit' });
+          this._notifyListeners('connection_status', {
+            status: 'disconnected_explicit',
+          });
         } else {
-          this._notifyListeners('connection_status', { status: 'disconnected' });
+          this._notifyListeners('connection_status', {
+            status: 'disconnected',
+          });
         }
         this.socket = null;
       };
@@ -113,7 +138,7 @@ class ApiService {
 
   _notifyListeners(eventType, data) {
     const listeners = this.eventListeners.get(eventType) || [];
-    listeners.forEach(listener => {
+    listeners.forEach((listener) => {
       try {
         listener(data);
       } catch (error) {
@@ -122,7 +147,7 @@ class ApiService {
     });
 
     const genericListeners = this.eventListeners.get('*') || [];
-    genericListeners.forEach(listener => {
+    genericListeners.forEach((listener) => {
       try {
         listener({ type: eventType, payload: data });
       } catch (error) {

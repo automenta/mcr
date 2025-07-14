@@ -49,17 +49,27 @@ const InteractiveSessionMode = ({
       </div>
       <div className="kb-container">
         <div className="tab-buttons">
-          <button onClick={() => setActiveTab('kb')} className={activeTab === 'kb' ? 'active' : ''}>Knowledge Base</button>
-          <button onClick={() => setActiveTab('tau')} className={activeTab === 'tau' ? 'active' : ''}>Tau REPL</button>
+          <button
+            onClick={() => setActiveTab('kb')}
+            className={activeTab === 'kb' ? 'active' : ''}
+          >
+            Knowledge Base
+          </button>
+          <button
+            onClick={() => setActiveTab('tau')}
+            className={activeTab === 'tau' ? 'active' : ''}
+          >
+            Tau REPL
+          </button>
         </div>
         <div className="tab-content">
-          {activeTab === 'kb' &&
+          {activeTab === 'kb' && (
             <KnowledgeBase
               sessionId={sessionId}
               currentKb={currentKb}
               addMessageToHistory={addMessageToHistory}
             />
-          }
+          )}
           {activeTab === 'tau' && <TauReplPane sessionId={sessionId} />}
         </div>
       </div>

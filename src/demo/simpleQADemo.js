@@ -22,7 +22,10 @@ class SimpleQADemo extends ExampleBase {
     this.dLog.nl('Asserting Fact 1 (NL)', fact1_nl);
     let assertResult = await this.assertFact(fact1_nl); // Uses ExampleBase.assertFact
     if (!assertResult.success) {
-      this.dLog.error('Failed to assert Fact 1', assertResult.message || assertResult.error);
+      this.dLog.error(
+        'Failed to assert Fact 1',
+        assertResult.message || assertResult.error
+      );
       // Optionally, throw or return to stop the demo
       return;
     }
@@ -31,7 +34,10 @@ class SimpleQADemo extends ExampleBase {
     this.dLog.nl('Asserting Fact 2 (NL)', fact2_nl);
     assertResult = await this.assertFact(fact2_nl);
     if (!assertResult.success) {
-      this.dLog.error('Failed to assert Fact 2', assertResult.message || assertResult.error);
+      this.dLog.error(
+        'Failed to assert Fact 2',
+        assertResult.message || assertResult.error
+      );
       return;
     }
     this.dLog.success('Facts asserted successfully!');
@@ -42,7 +48,10 @@ class SimpleQADemo extends ExampleBase {
     this.dLog.nl('Query (NL)', query1_nl);
     const query1_response = await this.query(query1_nl, { debug: true }); // Uses ExampleBase.query
     if (!query1_response.success) {
-      this.dLog.error('Query 1 failed', query1_response.message || query1_response.error);
+      this.dLog.error(
+        'Query 1 failed',
+        query1_response.message || query1_response.error
+      );
       return;
     }
     // Logging of prolog query, results, and answer is handled by ExampleBase.query and dLog
@@ -57,11 +66,15 @@ class SimpleQADemo extends ExampleBase {
     this.dLog.nl('Query (NL)', query2_nl);
     const query2_response = await this.query(query2_nl); // No debug option
     if (!query2_response.success) {
-      this.dLog.error('Query 2 failed', query2_response.message || query2_response.error);
+      this.dLog.error(
+        'Query 2 failed',
+        query2_response.message || query2_response.error
+      );
       return;
     }
-    if (query2_response.debugInfo) { // Should not have debug if not requested, but check anyway
-        this.dLog.info('Debug Info for Query 2', query2_response.debugInfo);
+    if (query2_response.debugInfo) {
+      // Should not have debug if not requested, but check anyway
+      this.dLog.info('Debug Info for Query 2', query2_response.debugInfo);
     }
     this.dLog.success('Query 2 processed!');
 
