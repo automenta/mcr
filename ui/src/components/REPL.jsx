@@ -67,7 +67,7 @@ const REPL = ({
   const handleStrategyChange = async (e) => {
     const newStrategy = e.target.value;
     try {
-      const response = await apiService.invokeTool('strategy.set', { strategyId: newStrategy });
+      const response = await apiService.invokeTool('strategy.setActive', { strategyId: newStrategy });
       if (response.success) {
         setActiveStrategy(newStrategy);
         addMessageToHistory({ type: 'system', text: `Strategy set to ${newStrategy}` });

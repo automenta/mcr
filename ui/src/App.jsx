@@ -129,7 +129,6 @@ function App() {
 
   const connectToSession = async (sidToConnect) => {
     if (!isWsServiceConnected) {
-        setWsConnectionStatus('🔴 Error: WebSocket service not available');
         return;
     }
     try {
