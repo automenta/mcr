@@ -3,22 +3,26 @@
 Implement the consolidated UI in the existing `ui/` React app (Vite-based). Reuse components like SessionChat.jsx; add React Flow for GraphVisualizer, Framer Motion for animations, DruidJS for dimensionality reduction (embeddings viz). Focus on ergonomic, intuitive flows with progressive disclosure. Install deps via `npm install react-flow@12.7.0 framer-motion@12.23.5 druidjs tsnejs dagre elkjs recharts@2.12.7` in ui/. Use Tailwind for styling.
 
 #### Step 1: Setup Dependencies and Base Layout
+
 - In `ui/package.json`: Add dependencies above; update scripts if needed.
 - In `ui/src/App.jsx`: Refactor root layout—use flexbox: left sidebar (collapsible via state), central chat (70%), right panel (expandable via toggle). Add reasoning toggle button (brain icon, state: useReasoning, defaults false—hides graphs if off).
 - In `ui/src/components/Sidebar.jsx`: Create component with session list (fetch via WebSocket), context tabs (NL, Reasoning, KB, Evolution)—each renders GraphVisualizer with context-specific props. Add config toggles (e.g., enable LTN) syncing to backend via WS.
 - In `ui/src/components/ChatWindow.jsx`: Bubble list from session history; each bubble with expandable accordion (details via GraphVisualizer mini). Input bar: Textarea + send (Ctrl+Enter), slash command parser (e.g., /assert triggers KB op), mode toggle.
 
 #### Step 2: Implement GraphVisualizer Component
+
 - Add `ui/src/components/GraphVisualizer.jsx`: Use ReactFlowProvider; render ReactFlow with custom nodes/edges. Props: data (nodes/edges), nodeRenderer (fn returning CustomNode with params: color, size, shape via SVG/CSS, border), layout (string: 'grid'|'circular'|'tree'|'force'; use dagre for grid/tree, elkjs for force/circular; params obj for spacing/direction).
 - CustomNode: Div/SVG wrapper; apply params (e.g., `style={{backgroundColor: color, width: size, border: `${border.width}px ${border.style} ${border.color}`}}`, shape via clip-path or SVG paths).
 - Integrate animations: Wrap nodes/edges in motion.div (Framer Motion); e.g., `initial={{opacity: 0}} animate={{opacity: 1, transition: {delay: index * 0.1}}}` for staggered fade-in; hover: `whileHover={{scale: 1.05}}`.
 - Interactions: Enable draggable/zoomable via props; onNodeDragStop: Trigger WS query (e.g., infer relation); onNodeClick: Expand details/tooltip.
 
 #### Step 3: Add Embedding Visualization
-- Add `ui/src/utils/embeddingViz.js`: Fn generateEmbeddingBitmap(embedding, width=16, height=16, dim=2): Use DruidJS for reduction (e.g., const pca = new Druid.PCA(embedding); reduced = pca.transform(embedding, dim);) or fallback tsnejs. Map reduced to grid: Canvas 2D context, pixels colored by HSL (hue: value * 360, sat: 100, light: 50). Return dataURL for img/src or background.
+
+- Add `ui/src/utils/embeddingViz.js`: Fn generateEmbeddingBitmap(embedding, width=16, height=16, dim=2): Use DruidJS for reduction (e.g., const pca = new Druid.PCA(embedding); reduced = pca.transform(embedding, dim);) or fallback tsnejs. Map reduced to grid: Canvas 2D context, pixels colored by HSL (hue: value \* 360, sat: 100, light: 50). Return dataURL for img/src or background.
 - In GraphVisualizer: For nodes with embedding prop, set backgroundImage: `url(${generateEmbeddingBitmap(node.embedding)})` or inline <img> for icons. Downscale: Param size (e.g., 8x8 for thumbs). Animations: Hover color-shift (motion.animate hue rotation).
 
 #### Step 4: Unify Context Views with GraphVisualizer
+
 - In Sidebar tabs:
   - NL Context: Data: Messages as nodes (linear edges); layout: 'grid' {direction: 'vertical', spacing: 20}; renderer: Bubble shapes, color by sender.
   - Reasoning Context: Data: Steps as nodes (e.g., 'LLM' -> 'Validate'); layout: 'circular' {radius: 200}; renderer: Hex/circle, size by depth; animate pulse on active loops.
@@ -27,6 +31,7 @@ Implement the consolidated UI in the existing `ui/` React app (Vite-based). Reus
 - In ChatWindow: Inline mini-graphs in bubbles (e.g., for query response: <GraphVisualizer data={proofGraph} layout='tree' size='small'/>); expand on click to full panel.
 
 #### Step 5: Enhance Interactions and Flows
+
 - In ChatWindow input: Parse commands (regex for /assert|/query); auto-suggest buttons (e.g., if logic detected, "Enable graphs?").
 - Animations: Load: Staggered node fade; hover: Pulse + tooltip; drag: Spring physics (motion.useSpring); transitions: Layout morph (motion.LayoutGroup); errors: Ripple from node (motion.circle expand).
 - Onboarding: Use state for first-load; show banner with mini-graph preview, fade-out on interact.
@@ -34,13 +39,14 @@ Implement the consolidated UI in the existing `ui/` React app (Vite-based). Reus
 - Accessibility: Add ARIA (e.g., role='graph', labels on nodes); keyboard nav (focus + arrows); color-blind patterns (stripes over hues for bitmaps).
 
 #### Step 6: Integrate with Backend and Test
+
 - In relevant components: Use WebSocket hooks (existing or add useWebSocket) for real-time updates (e.g., on assert, update graph data, trigger animations).
 - In `ui/src/tests/`: Add GraphVisualizer.test.jsx (render with mock data, snapshot layouts); embeddingViz.test.js (mock reduction, check dataURL); interaction tests (simulate drag, assert WS call).
 - Update README in ui/: Add UI usage examples with screenshots.
 
 Ensure fallbacks (e.g., no embeddings: plain nodes). This completes the refactor, unifying views ergonomically.
 
-----
+---
 
 ### Refined Development Plan for Implementing Elegant Neurosymbolic MCR Redesign (Complete)
 

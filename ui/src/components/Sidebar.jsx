@@ -29,7 +29,10 @@ const Sidebar = ({ sessionId, useReasoning }) => {
     const newLtnState = !ltnEnabled;
     setLtnEnabled(newLtnState);
     try {
-      await apiService.invokeTool('config.set', { key: 'LTN_ENABLED', value: newLtnState });
+      await apiService.invokeTool('config.set', {
+        key: 'LTN_ENABLED',
+        value: newLtnState,
+      });
     } catch (error) {
       console.error('Error updating LTN config:', error);
       setLtnEnabled(!newLtnState);
@@ -90,9 +93,24 @@ const Sidebar = ({ sessionId, useReasoning }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <h3>Sessions</h3>
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0, overflowY: 'auto', flex: 1 }}>
+      <ul
+        style={{
+          listStyle: 'none',
+          padding: 0,
+          margin: 0,
+          overflowY: 'auto',
+          flex: 1,
+        }}
+      >
         {sessions.map((session) => (
-          <li key={session.id} style={{ padding: '0.5rem', borderBottom: '1px solid #eee', background: sessionId === session.id ? '#e0e0e0' : 'transparent' }}>
+          <li
+            key={session.id}
+            style={{
+              padding: '0.5rem',
+              borderBottom: '1px solid #eee',
+              background: sessionId === session.id ? '#e0e0e0' : 'transparent',
+            }}
+          >
             {session.id.substring(0, 8)}...
           </li>
         ))}
@@ -100,19 +118,41 @@ const Sidebar = ({ sessionId, useReasoning }) => {
       <hr />
       <h3>Context</h3>
       <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-        <button onClick={() => setActiveTab('nl')} disabled={!useReasoning}>NL</button>
-        <button onClick={() => setActiveTab('reasoning')} disabled={!useReasoning}>Reasoning</button>
-        <button onClick={() => setActiveTab('kb')} disabled={!useReasoning}>KB</button>
-        <button onClick={() => setActiveTab('evolution')} disabled={!useReasoning}>Evolution</button>
+        <button onClick={() => setActiveTab('nl')} disabled={!useReasoning}>
+          NL
+        </button>
+        <button
+          onClick={() => setActiveTab('reasoning')}
+          disabled={!useReasoning}
+        >
+          Reasoning
+        </button>
+        <button onClick={() => setActiveTab('kb')} disabled={!useReasoning}>
+          KB
+        </button>
+        <button
+          onClick={() => setActiveTab('evolution')}
+          disabled={!useReasoning}
+        >
+          Evolution
+        </button>
       </div>
       <div style={{ marginTop: '1rem', flex: 2, height: '300px' }}>
-        <GraphVisualizer data={graphData} layout={layout} layoutOptions={layoutOptions} />
+        <GraphVisualizer
+          data={graphData}
+          layout={layout}
+          layoutOptions={layoutOptions}
+        />
       </div>
       <hr />
       <h3>Config</h3>
       <div>
         <label>
-          <input type="checkbox" checked={ltnEnabled} onChange={handleToggleLtn} />
+          <input
+            type="checkbox"
+            checked={ltnEnabled}
+            onChange={handleToggleLtn}
+          />
           Enable LTN
         </label>
       </div>

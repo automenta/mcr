@@ -6,7 +6,11 @@ describe('embeddingViz', () => {
   });
 
   it('returns a data URL for a valid embedding', () => {
-    const embedding = [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
+    const embedding = [
+      [1, 2, 3],
+      [4, 5, 6],
+      [7, 8, 9],
+    ];
     const dataURL = generateEmbeddingBitmap(embedding);
     expect(dataURL).toContain('data:image/png;base64,');
   });

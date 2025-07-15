@@ -45,7 +45,11 @@ const AppHeader = ({
     <header className="app-header">
       <div className="header-left">
         <div className="logo">
-          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="menu-toggle" style={{marginRight: "10px"}}>
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="menu-toggle"
+            style={{ marginRight: '10px' }}
+          >
             <FontAwesomeIcon icon={isSidebarOpen ? faTimes : faBars} />
           </button>
           <FontAwesomeIcon icon={faPlayCircle} /> MCR
@@ -68,11 +72,11 @@ const AppHeader = ({
 
       <div className="header-right">
         <button
-            onClick={() => setUseReasoning(!useReasoning)}
-            className={`reasoning-toggle ${useReasoning ? 'active' : ''}`}
-            title="Toggle Reasoning Graphs"
+          onClick={() => setUseReasoning(!useReasoning)}
+          className={`reasoning-toggle ${useReasoning ? 'active' : ''}`}
+          title="Toggle Reasoning Graphs"
         >
-            <FontAwesomeIcon icon={faBrain} />
+          <FontAwesomeIcon icon={faBrain} />
         </button>
         <div className="session-controls">
           <FontAwesomeIcon

@@ -300,7 +300,11 @@ function App() {
   };
 
   return (
-<div className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }} role="application">
+    <div
+      className="app-container"
+      style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}
+      role="application"
+    >
       <AnimatePresence>
         {showOnboarding && (
           <motion.div
@@ -315,8 +319,13 @@ function App() {
             }}
             role="alert"
           >
-            Welcome to the new MCR! Toggle the brain icon to switch between pure LM mode and neuro-symbolic mode with graphs.
-            <button onClick={() => setShowOnboarding(false)} style={{ marginLeft: '1rem' }} aria-label="Dismiss onboarding message">
+            Welcome to the new MCR! Toggle the brain icon to switch between pure
+            LM mode and neuro-symbolic mode with graphs.
+            <button
+              onClick={() => setShowOnboarding(false)}
+              style={{ marginLeft: '1rem' }}
+              aria-label="Dismiss onboarding message"
+            >
               Dismiss
             </button>
           </motion.div>
@@ -351,7 +360,10 @@ function App() {
         isRightPanelOpen={isRightPanelOpen}
         setIsRightPanelOpen={setIsRightPanelOpen}
       />
-      <div className="main-content" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div
+        className="main-content"
+        style={{ display: 'flex', flex: 1, overflow: 'hidden' }}
+      >
         <AnimatePresence>
           {isSidebarOpen && (
             <motion.aside
@@ -367,14 +379,19 @@ function App() {
               role="complementary"
               aria-label="Sidebar with context views and configuration"
             >
-              <Sidebar
-                sessionId={sessionId}
-                useReasoning={useReasoning}
-              />
+              <Sidebar sessionId={sessionId} useReasoning={useReasoning} />
             </motion.aside>
           )}
         </AnimatePresence>
-        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }} role="main">
+        <main
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            background: '#fff',
+          }}
+          role="main"
+        >
           {currentMode === 'interactive' ? (
             <ChatWindow
               chatHistory={chatHistory}

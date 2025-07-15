@@ -15,8 +15,14 @@ const ChatBubble = ({ message, useReasoning }) => {
       layout
       className={`chat-bubble ${message.type}`}
     >
-      <div onClick={() => setIsExpanded(!isExpanded)} style={{ cursor: 'pointer' }}>
-        <strong>{message.type}:</strong> {typeof message.text === 'object' ? JSON.stringify(message.text) : message.text}
+      <div
+        onClick={() => setIsExpanded(!isExpanded)}
+        style={{ cursor: 'pointer' }}
+      >
+        <strong>{message.type}:</strong>{' '}
+        {typeof message.text === 'object'
+          ? JSON.stringify(message.text)
+          : message.text}
       </div>
       {message.actions && (
         <div className="chat-actions">
@@ -43,12 +49,23 @@ const ChatBubble = ({ message, useReasoning }) => {
   );
 };
 
-const ChatWindow = ({ chatHistory, setChatHistory, sessionId, isMcrSessionActive, addMessageToHistory, useReasoning, setUseReasoning }) => {
+const ChatWindow = ({
+  chatHistory,
+  setChatHistory,
+  sessionId,
+  isMcrSessionActive,
+  addMessageToHistory,
+  useReasoning,
+  setUseReasoning,
+}) => {
   const [inputValue, setInputValue] = useState('');
   const [suggestions, setSuggestions] = useState([]);
 
   const commands = [
-    { name: 'assert', description: 'Assert a new fact into the knowledge base.' },
+    {
+      name: 'assert',
+      description: 'Assert a new fact into the knowledge base.',
+    },
     { name: 'query', description: 'Query the knowledge base.' },
     { name: 'retract', description: 'Retract a fact from the knowledge base.' },
     { name: 'session.list', description: 'List all active sessions.' },
@@ -61,7 +78,9 @@ const ChatWindow = ({ chatHistory, setChatHistory, sessionId, isMcrSessionActive
     setInputValue(value);
     if (value.startsWith('/')) {
       const search = value.substring(1);
-      const filteredCommands = commands.filter((cmd) => cmd.name.startsWith(search));
+      const filteredCommands = commands.filter((cmd) =>
+        cmd.name.startsWith(search)
+      );
       setSuggestions(filteredCommands);
     } else {
       setSuggestions([]);
@@ -72,11 +91,13 @@ const ChatWindow = ({ chatHistory, setChatHistory, sessionId, isMcrSessionActive
     if (!inputValue.trim()) return;
 
     if (/\b(assert|query|retract)\b/i.test(inputValue) && !useReasoning) {
-        addMessageToHistory({
-            type: 'system',
-            text: 'Logic detected. Would you like to enable reasoning graphs?',
-            actions: [{ label: 'Enable Graphs', onClick: () => setUseReasoning(true) }]
-        });
+      addMessageToHistory({
+        type: 'system',
+        text: 'Logic detected. Would you like to enable reasoning graphs?',
+        actions: [
+          { label: 'Enable Graphs', onClick: () => setUseReasoning(true) },
+        ],
+      });
     }
 
     const message = {
@@ -89,24 +110,50 @@ const ChatWindow = ({ chatHistory, setChatHistory, sessionId, isMcrSessionActive
     if (inputValue.startsWith('/')) {
       const [command, ...args] = inputValue.substring(1).split(' ');
       try {
-        const response = await apiService.invokeTool(command, { sessionId, query: args.join(' ') });
-        addMessageToHistory({ type: 'system', text: `Command ${command} executed.` });
+        const response = await apiService.invokeTool(command, {
+          sessionId,
+          query: args.join(' '),
+        });
+        addMessageToHistory({
+          type: 'system',
+          text: `Command ${command} executed.`,
+        });
         if (response.data) {
-          addMessageToHistory({ type: 'system', text: JSON.stringify(response.data, null, 2), graph: response.data.graph });
+          addMessageToHistory({
+            type: 'system',
+            text: JSON.stringify(response.data, null, 2),
+            graph: response.data.graph,
+          });
         }
       } catch (error) {
-        addMessageToHistory({ type: 'system', text: `Error executing command: ${error.message}` });
+        addMessageToHistory({
+          type: 'system',
+          text: `Error executing command: ${error.message}`,
+        });
       }
     } else {
       try {
-        const response = await apiService.invokeTool('session.chat', { sessionId, query: inputValue });
+        const response = await apiService.invokeTool('session.chat', {
+          sessionId,
+          query: inputValue,
+        });
         if (response.success && response.data) {
-          addMessageToHistory({ type: 'assistant', text: response.data.response, graph: response.data.graph });
+          addMessageToHistory({
+            type: 'assistant',
+            text: response.data.response,
+            graph: response.data.graph,
+          });
         } else {
-          addMessageToHistory({ type: 'system', text: `Error: ${response.message}` });
+          addMessageToHistory({
+            type: 'system',
+            text: `Error: ${response.message}`,
+          });
         }
       } catch (error) {
-        addMessageToHistory({ type: 'system', text: `Error: ${error.message}` });
+        addMessageToHistory({
+          type: 'system',
+          text: `Error: ${error.message}`,
+        });
       }
     }
 
@@ -126,7 +173,11 @@ const ChatWindow = ({ chatHistory, setChatHistory, sessionId, isMcrSessionActive
         {suggestions.length > 0 && (
           <div className="suggestions-popup">
             {suggestions.map((cmd) => (
-              <div key={cmd.name} onClick={() => setInputValue(`/${cmd.name} `)} className="suggestion-item">
+              <div
+                key={cmd.name}
+                onClick={() => setInputValue(`/${cmd.name} `)}
+                className="suggestion-item"
+              >
                 <strong>/{cmd.name}</strong> - {cmd.description}
               </div>
             ))}
@@ -137,11 +188,11 @@ const ChatWindow = ({ chatHistory, setChatHistory, sessionId, isMcrSessionActive
             placeholder="Type a message or command..."
             value={inputValue}
             onChange={handleInputChange}
-            onKeyDown={(e) => e.ctrlKey && e.key === 'Enter' && handleSendMessage()}
+            onKeyDown={(e) =>
+              e.ctrlKey && e.key === 'Enter' && handleSendMessage()
+            }
           />
-          <button onClick={handleSendMessage}>
-            Send
-          </button>
+          <button onClick={handleSendMessage}>Send</button>
         </div>
       </div>
     </div>

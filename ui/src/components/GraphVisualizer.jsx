@@ -69,33 +69,32 @@ const getLayoutedElements = (nodes, edges, direction = 'TB') => {
   return { nodes, edges };
 };
 
-
 const GraphVisualizer = ({ data, layout = 'dagre' }) => {
-    const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(() => {
-        if (layout === 'dagre') {
-            return getLayoutedElements(data.nodes, data.edges);
-        }
-        return data;
-    }, [data.nodes, data.edges, layout]);
+  const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(() => {
+    if (layout === 'dagre') {
+      return getLayoutedElements(data.nodes, data.edges);
+    }
+    return data;
+  }, [data.nodes, data.edges, layout]);
 
-    const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState(layoutedEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(layoutedEdges);
 
-    return (
-        <ReactFlowProvider>
-            <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                nodeTypes={nodeTypes}
-                fitView
-            >
-                <Controls />
-                <Background />
-            </ReactFlow>
-        </ReactFlowProvider>
-    );
+  return (
+    <ReactFlowProvider>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        nodeTypes={nodeTypes}
+        fitView
+      >
+        <Controls />
+        <Background />
+      </ReactFlow>
+    </ReactFlowProvider>
+  );
 };
 
 export default GraphVisualizer;
