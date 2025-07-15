@@ -1,0 +1,217 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`GraphVisualizer > matches snapshot 1`] = `
+<DocumentFragment>
+  <div
+    class="react-flow"
+    data-testid="rf__wrapper"
+    style="width: 100%; height: 100%; overflow: hidden; position: relative; z-index: 0;"
+  >
+    <div
+      class="react-flow__renderer"
+      style="position: absolute; width: 100%; height: 100%; top: 0px; left: 0px; -webkit-tap-highlight-color: rgba(0, 0, 0, 0);"
+    >
+      <div
+        class="react-flow__pane"
+        style="position: absolute; width: 100%; height: 100%; top: 0px; left: 0px;"
+      >
+        <div
+          class="react-flow__viewport react-flow__container"
+          style="transform: translate(0px,0px) scale(1);"
+        >
+          <svg
+            class="react-flow__edges react-flow__container"
+            height="500"
+            style="z-index: 0;"
+            width="500"
+          >
+            <defs />
+            <g />
+          </svg>
+          <div
+            class="react-flow__edgelabel-renderer"
+          />
+          <div
+            class="react-flow__nodes"
+            style="position: absolute; width: 100%; height: 100%; top: 0px; left: 0px;"
+          >
+            <div
+              aria-describedby="react-flow__node-desc-1"
+              class="react-flow__node react-flow__node-default nopan selectable"
+              data-id="1"
+              data-testid="rf__node-1"
+              role="button"
+              style="z-index: 0; transform: translate(0px,0px); pointer-events: all; visibility: hidden; -webkit-tap-highlight-color: rgba(0, 0, 0, 0);"
+              tabindex="0"
+            >
+              <div
+                class="react-flow__handle react-flow__handle-top nodrag nopan target connectable connectablestart connectableend connectionindicator"
+                data-handlepos="top"
+                data-id="1-null-target"
+                data-nodeid="1"
+              />
+              Node 1
+              <div
+                class="react-flow__handle react-flow__handle-bottom nodrag nopan source connectable connectablestart connectableend connectionindicator"
+                data-handlepos="bottom"
+                data-id="1-null-source"
+                data-nodeid="1"
+              />
+            </div>
+            <div
+              aria-describedby="react-flow__node-desc-1"
+              class="react-flow__node react-flow__node-default nopan selectable"
+              data-id="2"
+              data-testid="rf__node-2"
+              role="button"
+              style="z-index: 0; transform: translate(0px,100px); pointer-events: all; visibility: hidden; -webkit-tap-highlight-color: rgba(0, 0, 0, 0);"
+              tabindex="0"
+            >
+              <div
+                class="react-flow__handle react-flow__handle-top nodrag nopan target connectable connectablestart connectableend connectionindicator"
+                data-handlepos="top"
+                data-id="2-null-target"
+                data-nodeid="2"
+              />
+              Node 2
+              <div
+                class="react-flow__handle react-flow__handle-bottom nodrag nopan source connectable connectablestart connectableend connectionindicator"
+                data-handlepos="bottom"
+                data-id="2-null-source"
+                data-nodeid="2"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      class="react-flow__panel react-flow__controls bottom left"
+      data-testid="rf__controls"
+      style="pointer-events: all;"
+    >
+      <button
+        aria-label="zoom in"
+        class="react-flow__controls-button react-flow__controls-zoomin"
+        title="zoom in"
+        type="button"
+      >
+        <svg
+          viewBox="0 0 32 32"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M32 18.133H18.133V32h-4.266V18.133H0v-4.266h13.867V0h4.266v13.867H32z"
+          />
+        </svg>
+      </button>
+      <button
+        aria-label="zoom out"
+        class="react-flow__controls-button react-flow__controls-zoomout"
+        title="zoom out"
+        type="button"
+      >
+        <svg
+          viewBox="0 0 32 5"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M0 0h32v4.2H0z"
+          />
+        </svg>
+      </button>
+      <button
+        aria-label="fit view"
+        class="react-flow__controls-button react-flow__controls-fitview"
+        title="fit view"
+        type="button"
+      >
+        <svg
+          viewBox="0 0 32 30"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M3.692 4.63c0-.53.4-.938.939-.938h5.215V0H4.708C2.13 0 0 2.054 0 4.63v5.216h3.692V4.631zM27.354 0h-5.2v3.692h5.17c.53 0 .984.4.984.939v5.215H32V4.631A4.624 4.624 0 0027.354 0zm.954 24.83c0 .532-.4.94-.939.94h-5.215v3.768h5.215c2.577 0 4.631-2.13 4.631-4.707v-5.139h-3.692v5.139zm-23.677.94c-.531 0-.939-.4-.939-.94v-5.138H0v5.139c0 2.577 2.13 4.707 4.708 4.707h5.138V25.77H4.631z"
+          />
+        </svg>
+      </button>
+      <button
+        aria-label="toggle interactivity"
+        class="react-flow__controls-button react-flow__controls-interactive"
+        title="toggle interactivity"
+        type="button"
+      >
+        <svg
+          viewBox="0 0 25 32"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M21.333 10.667H19.81V7.619C19.81 3.429 16.38 0 12.19 0c-4.114 1.828-1.37 2.133.305 2.438 1.676.305 4.42 2.59 4.42 5.181v3.048H3.047A3.056 3.056 0 000 13.714v15.238A3.056 3.056 0 003.048 32h18.285a3.056 3.056 0 003.048-3.048V13.714a3.056 3.056 0 00-3.048-3.047zM12.19 24.533a3.056 3.056 0 01-3.047-3.047 3.056 3.056 0 013.047-3.048 3.056 3.056 0 013.048 3.048 3.056 3.056 0 01-3.048 3.047z"
+          />
+        </svg>
+      </button>
+    </div>
+    <svg
+      class="react-flow__background"
+      data-testid="rf__background"
+      style="position: absolute; width: 100%; height: 100%; top: 0px; left: 0px;"
+    >
+      <pattern
+        height="20"
+        id="pattern-1undefined"
+        patternTransform="translate(-0.5,-0.5)"
+        patternUnits="userSpaceOnUse"
+        width="20"
+        x="0"
+        y="0"
+      >
+        <circle
+          cx="0.5"
+          cy="0.5"
+          fill="#91919a"
+          r="0.5"
+        />
+      </pattern>
+      <rect
+        fill="url(#pattern-1undefined)"
+        height="100%"
+        width="100%"
+        x="0"
+        y="0"
+      />
+    </svg>
+    <div
+      class="react-flow__panel react-flow__attribution bottom right"
+      data-message="Please only hide this attribution when you are subscribed to React Flow Pro: https://pro.reactflow.dev"
+      style="pointer-events: all;"
+    >
+      <a
+        aria-label="React Flow attribution"
+        href="https://reactflow.dev"
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        React Flow
+      </a>
+    </div>
+    <div
+      id="react-flow__node-desc-1"
+      style="display: none;"
+    >
+      Press enter or space to select a node.You can then use the arrow keys to move the node around. Press delete to remove it and escape to cancel.
+    </div>
+    <div
+      id="react-flow__edge-desc-1"
+      style="display: none;"
+    >
+      Press enter or space to select an edge. You can then press delete to remove it or escape to cancel.
+    </div>
+    <div
+      aria-atomic="true"
+      aria-live="assertive"
+      id="react-flow__aria-live-1"
+      style="position: absolute; width: 1px; height: 1px; margin: -1px; border: 0px; padding: 0px; overflow: hidden; clip: rect(0px, 0px, 0px, 0px); clip-path: inset(100%);"
+    />
+  </div>
+</DocumentFragment>
+`;

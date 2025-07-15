@@ -15,7 +15,7 @@
     "test:ui-watch": "vitest --root ui/",
     "test:ui-browser": "vitest --ui --root ui/",
     "dev:ui": "cd ui && vite",
-    "build:ui": "vite build ui/",
+    "build:ui": "vite build ui/ --emptyOutDir",
     "preview:ui": "vite preview ui/",
     "format": "prettier --write .",
     "lint": "eslint . --fix",

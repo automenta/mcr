@@ -17,6 +17,9 @@ export default defineConfig({
     // assetsDir: 'assets', // Default is 'assets'
     // sourcemap: true, // Enable for production debugging if needed
     base: '/', // Adjust if app is served from a sub-path like /ui/ in production
+    rollupOptions: {
+      external: ['@fortawesome/fontawesome-svg-core'],
+    },
   },
   test: {
     globals: true,

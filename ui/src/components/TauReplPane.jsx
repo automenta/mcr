@@ -6,7 +6,7 @@ export default function TauReplPane({ sessionId }) {
   const editorRef = useRef();
   useEffect(() => {
     const ed = monaco.editor.create(editorRef.current, { language: 'prolog' });
-    ed.onKeyDown((e) => {
+    const disposable = ed.onKeyDown((e) => {
       if (e.keyCode === 13 && e.ctrlKey) {
         const goal = ed.getValue();
         apiService
@@ -16,6 +16,11 @@ export default function TauReplPane({ sessionId }) {
           );
       }
     });
+
+    return () => {
+      disposable.dispose();
+      ed.dispose();
+    };
   }, [sessionId]);
   return <div ref={editorRef} style={{ height: 300 }} />;
 }
