@@ -1,7 +1,7 @@
 // src/evolution/optimizer.js
 const logger = require('../util/logger');
 const strategyManager = require('../strategyManager');
-const { Evaluator } = require('../evaluation/evaluator'); // Corrected path
+const { Evaluator } = require('../evaluation/metrics');
 const { initDb, closeDb } = require('../store/database');
 const mcrService = require('../mcrService');
 

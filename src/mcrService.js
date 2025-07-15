@@ -579,6 +579,7 @@ async function querySessionWithNL(
     const reasonerResult = await reasonerService.guidedDeduce(
       prologQuery,
       llmService,
+      embeddingBridge,
       session
     );
     const prologResults = reasonerResult.map(r => r.proof);

@@ -35,7 +35,9 @@ function initDb() {
           cost TEXT,             -- JSON object
           latency_ms INTEGER,
           timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-          raw_output TEXT
+          raw_output TEXT,
+          embedding_sim REAL,
+          prob_score REAL
         );
       `;
 
@@ -87,12 +89,14 @@ async function insertPerformanceResult(resultData) {
       cost,
       latency_ms,
       raw_output,
+      embedding_sim,
+      prob_score,
     } = resultData;
 
     const insertSql = `
       INSERT INTO performance_results
-      (strategy_hash, llm_model_id, example_id, metrics, cost, latency_ms, raw_output, timestamp)
-      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', 'utc'))
+      (strategy_hash, llm_model_id, example_id, metrics, cost, latency_ms, raw_output, timestamp, embedding_sim, prob_score)
+      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', 'utc'), ?, ?)
     `;
 
     // Ensure JSON objects are stringified
@@ -109,6 +113,8 @@ async function insertPerformanceResult(resultData) {
         costJson,
         latency_ms,
         raw_output,
+        embedding_sim,
+        prob_score,
       ],
       function (err) {
         // Use function() to access this.lastID

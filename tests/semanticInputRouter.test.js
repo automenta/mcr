@@ -20,6 +20,7 @@ describe('SemanticInputRouter', () => {
     };
     mockEmbeddingService = new EmbeddingService();
     semanticInputRouter = new SemanticInputRouter(mockDb, mockEmbeddingService);
+    logger.info.mockClear();
   });
 
   afterEach(() => {
@@ -42,12 +43,11 @@ describe('SemanticInputRouter', () => {
         [0.1, 0.2],
         [0.3, 0.4],
       ];
-      mockEmbeddingService.getEmbedding.mockResolvedValueOnce(mockArchetypeEmbeddings[0]);
-      mockEmbeddingService.getEmbedding.mockResolvedValueOnce(mockArchetypeEmbeddings[1]);
+      mockEmbeddingService.getEmbedding.mockResolvedValueOnce(mockArchetypeEmbeddings[0]).mockResolvedValueOnce(mockArchetypeEmbeddings[1]);
 
       await semanticInputRouter._initializeArchetypeEmbeddings();
 
-      expect(semanticInputRouter.archetypeEmbeddings.size).toBeGreaterThan(0);
+      expect(semanticInputRouter.archetypeEmbeddingsCache.size).toBeGreaterThan(0);
       expect(logger.info).toHaveBeenCalledWith(
         '[SemanticInputRouter] Archetype embeddings initialized and cached.'
       );
@@ -59,7 +59,7 @@ describe('SemanticInputRouter', () => {
         const mockArchetypeEmbeddings = new Map();
         mockArchetypeEmbeddings.set('definition_request', [0.1, 0.2, 0.3]);
         mockArchetypeEmbeddings.set('causal_assertion', [0.7, 0.8, 0.9]);
-        semanticInputRouter.archetypeEmbeddings = mockArchetypeEmbeddings;
+        semanticInputRouter.archetypeEmbeddingsCache = mockArchetypeEmbeddings;
     });
 
     it('should return the archetype ID with the highest cosine similarity', async () => {

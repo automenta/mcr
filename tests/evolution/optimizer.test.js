@@ -2,17 +2,16 @@
 
 const OptimizationCoordinator = require('../../src/evolution/optimizer');
 const mcrService = require('../../src/mcrService');
-const { Evaluator } = require('../../src/evaluation/evaluator');
+const { Evaluator } = require('../../src/evaluation/metrics');
 
 jest.mock('../../src/mcrService');
-jest.mock('../../src/evaluation/evaluator');
+jest.mock('../../src/evaluation/metrics');
 
 describe('Evolution Optimizer', () => {
   let optimizer;
 
   beforeEach(() => {
     optimizer = new OptimizationCoordinator();
-    Evaluator.mockClear();
     mcrService.createSession.mockResolvedValue({ id: 'test-session' });
     mcrService.deleteSession.mockResolvedValue(true);
     mcrService._refineLoop.mockResolvedValue({
@@ -32,7 +31,7 @@ describe('Evolution Optimizer', () => {
       const strategy = { id: 'test-strategy' };
       const inputCases = [{ nl: 'Test assertion.', expected: 'expected_fact.' }];
       const mockEvaluate = jest.fn().mockResolvedValue({ exactMatchProlog: 1 });
-      Evaluator.prototype.evaluate = mockEvaluate;
+      optimizer.evaluator = { evaluate: mockEvaluate };
 
 
       const results = await optimizer.optimizeInLoop(strategy, inputCases);

@@ -3,6 +3,7 @@ import StrategyLeaderboard from './SystemAnalysis/StrategyLeaderboard';
 import StrategyDeepDive from './SystemAnalysis/StrategyDeepDive';
 import CurriculumExplorer from './SystemAnalysis/CurriculumExplorer';
 import EvolverControlPanel from './SystemAnalysis/EvolverControlPanel';
+import HybridMetrics from './SystemAnalysis/HybridMetrics';
 import './SystemAnalysisMode.css';
 
 const SystemAnalysisMode = () => {
@@ -35,6 +36,8 @@ const SystemAnalysisMode = () => {
         return <CurriculumExplorer />;
       case 'evolver':
         return <EvolverControlPanel />;
+      case 'hybrid':
+        return <HybridMetrics />;
       default:
         return (
           <StrategyLeaderboard onSelectStrategy={handleNavigateToDeepDive} />
@@ -70,6 +73,12 @@ const SystemAnalysisMode = () => {
             disabled={currentAnalysisView === 'evolver'}
           >
             Evolver
+          </button>
+          <button
+            onClick={() => setCurrentAnalysisView('hybrid')}
+            disabled={currentAnalysisView === 'hybrid'}
+          >
+            Hybrid Metrics
           </button>
         </nav>
       </div>

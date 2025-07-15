@@ -1,18 +1,30 @@
 // tests/mcrService.test.js
 
+jest.mock('../src/store/InMemorySessionStore', () => {
+  return jest.fn().mockImplementation(() => {
+    return {
+      initialize: jest.fn().mockResolvedValue(undefined),
+      createSession: jest.fn(),
+      getSession: jest.fn(),
+      addFacts: jest.fn(),
+      getKnowledgeBase: jest.fn(),
+      getLexiconSummary: jest.fn(),
+      deleteSession: jest.fn(),
+    };
+  });
+});
+jest.mock('../src/llmService');
+jest.mock('../src/reasonerService');
+jest.mock('../src/ontologyService');
+jest.mock('../src/strategyManager');
+
 const mcrService = require('../src/mcrService');
 const llmService = require('../src/llmService');
 const reasonerService = require('../src/reasonerService');
-const sessionStore = require('../src/store/InMemorySessionStore');
+const InMemorySessionStore = require('../src/store/InMemorySessionStore');
 const ontologyService = require('../src/ontologyService');
 const strategyManager = require('../src/strategyManager');
 const { MCRError, ErrorCodes } = require('../src/errors');
-
-jest.mock('../src/llmService');
-jest.mock('../src/reasonerService');
-jest.mock('../src/store/InMemorySessionStore');
-jest.mock('../src/ontologyService');
-jest.mock('../src/strategyManager');
 
 describe('MCR Service (mcrService.js)', () => {
   let sessionId;
@@ -20,7 +32,7 @@ describe('MCR Service (mcrService.js)', () => {
 
   beforeEach(() => {
     sessionId = 'test-session-id';
-    mockSessionStoreInstance = new sessionStore();
+    mockSessionStoreInstance = new InMemorySessionStore();
     mcrService.sessionStore = mockSessionStoreInstance;
 
     llmService.generate.mockResolvedValue({ text: 'mock llm response' });
@@ -34,12 +46,14 @@ describe('MCR Service (mcrService.js)', () => {
     strategyManager.getStrategy.mockImplementation((id) => ({
       id,
       name: `Mock Strategy ${id}`,
-      execute: jest.fn().mockResolvedValue([]),
+      nodes: [],
+      edges: [],
     }));
     strategyManager.getOperationalStrategyJson.mockResolvedValue({
         id: 'mock-strategy',
         name: 'Mock Strategy',
-        execute: jest.fn().mockResolvedValue([]),
+        nodes: [],
+        edges: [],
     });
   });
 
@@ -51,11 +65,8 @@ describe('MCR Service (mcrService.js)', () => {
     it('should successfully assert a natural language statement using SIR-R1-Assert strategy', async () => {
         const nlText = 'The sky is blue.';
         const prologFact = 'is_blue(sky).';
-        strategyManager.getStrategy.mockReturnValue({
-            id: 'SIR-R1-Assert',
-            name: 'SIR-R1 Assert',
-            execute: jest.fn().mockResolvedValue([prologFact]),
-        });
+        const StrategyExecutor = require('../src/strategyExecutor');
+        jest.spyOn(StrategyExecutor.prototype, 'execute').mockResolvedValue([prologFact]);
 
         const result = await mcrService.assertNLToSession(sessionId, nlText, { useLoops: false });
         expect(result.success).toBe(true);
@@ -72,11 +83,9 @@ describe('MCR Service (mcrService.js)', () => {
     });
 
     it('should return NO_FACTS_EXTRACTED if strategy returns an empty array', async () => {
-        strategyManager.getStrategy.mockReturnValue({
-            id: 'test-strategy',
-            name: 'Test Strategy',
-            execute: jest.fn().mockResolvedValue([]),
-        });
+        const StrategyExecutor = require('../src/strategyExecutor');
+        jest.spyOn(StrategyExecutor.prototype, 'execute').mockResolvedValue([]);
+
         const result = await mcrService.assertNLToSession(sessionId, 'some text', { useLoops: false });
         expect(result.success).toBe(true);
         expect(result.message).toBe('No facts were extracted from the input.');
@@ -86,11 +95,8 @@ describe('MCR Service (mcrService.js)', () => {
     it('should return SESSION_ADD_FACTS_FAILED if sessionStore.addFacts returns false', async () => {
         const nlText = 'The sky is blue.';
         const prologFact = 'is_blue(sky).';
-        strategyManager.getStrategy.mockReturnValue({
-            id: 'SIR-R1-Assert',
-            name: 'SIR-R1 Assert',
-            execute: jest.fn().mockResolvedValue([prologFact]),
-        });
+        const StrategyExecutor = require('../src/strategyExecutor');
+        jest.spyOn(StrategyExecutor.prototype, 'execute').mockResolvedValue([prologFact]);
         mockSessionStoreInstance.addFacts.mockResolvedValue(false);
         const result = await mcrService.assertNLToSession(sessionId, nlText, { useLoops: false });
         expect(result.success).toBe(false);
@@ -105,16 +111,68 @@ describe('MCR Service (mcrService.js)', () => {
         const nlQuestion = 'Is the sky blue?';
         const prologQuery = 'is_blue(sky).';
         const nlAnswer = 'The sky is blue.';
-        strategyManager.getStrategy.mockReturnValue({
-            id: 'SIR-R1-Query',
-            name: 'SIR-R1 Query',
-            execute: jest.fn().mockResolvedValue(prologQuery),
-        });
+        const StrategyExecutor = require('../src/strategyExecutor');
+        jest.spyOn(StrategyExecutor.prototype, 'execute').mockResolvedValue(prologQuery);
         reasonerService.guidedDeduce.mockResolvedValue([{ proof: { answer: 'yes' }, probability: 1 }]);
         llmService.generate.mockResolvedValue({text: nlAnswer});
         const result = await mcrService.querySessionWithNL(sessionId, nlQuestion, { useLoops: false });
         expect(result.success).toBe(true);
         expect(result.answer).toBe(nlAnswer);
+    });
+  });
+
+  describe('Hybrid Session', () => {
+    it('should set embeddings when asserting a fact', async () => {
+        const nlText = 'The grass is green.';
+        const prologFact = 'is_green(grass).';
+        const embedding = [0.1, 0.2, 0.3];
+
+        const StrategyExecutor = require('../src/strategyExecutor');
+        jest.spyOn(StrategyExecutor.prototype, 'execute').mockResolvedValue([prologFact]);
+
+        const mcr = require('../src/mcrService');
+        mcr.embeddingBridge = {
+            encode: jest.fn().mockResolvedValue(embedding),
+        };
+        const session = {
+            id: sessionId,
+            facts: [],
+            embeddings: new Map(),
+            kbGraph: null,
+        };
+        mockSessionStoreInstance.getSession.mockResolvedValue(session);
+
+        await mcrService.assertNLToSession(sessionId, nlText, { useLoops: false });
+
+        expect(session.embeddings.get(prologFact)).toEqual(embedding);
+    });
+  });
+
+  describe('Refinement Loops', () => {
+    it('should converge after one refinement loop', async () => {
+        const nlText = 'The sun is hot.';
+        const wrongProlog = 'is_hot(moon).';
+        const correctProlog = 'is_hot(sun).';
+
+        const StrategyExecutor = require('../src/strategyExecutor');
+        const executeMock = jest.spyOn(StrategyExecutor.prototype, 'execute')
+            .mockResolvedValueOnce([wrongProlog])
+            .mockResolvedValueOnce([correctProlog]);
+
+        reasonerService.validateKnowledgeBase
+            .mockResolvedValueOnce({ isValid: false, error: 'Incorrect subject' })
+            .mockResolvedValueOnce({ isValid: true });
+
+        llmService.generate.mockResolvedValue({text: 'is_hot(sun).'});
+
+        const result = await mcrService.assertNLToSession(sessionId, nlText, { useLoops: true });
+
+        expect(result.success).toBe(true);
+        expect(result.addedFacts).toEqual([correctProlog]);
+        expect(result.loopIterations).toBe(2);
+        expect(result.loopConverged).toBe(true);
+
+        executeMock.mockRestore();
     });
   });
 });

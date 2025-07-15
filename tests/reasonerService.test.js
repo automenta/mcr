@@ -37,9 +37,7 @@ const llmService = require('../src/llmService');
 const EmbeddingBridge = require('../src/bridges/embeddingBridge');
 const config = require('../src/config');
 
-jest.mock('../src/llmService', () => ({
-  generate: jest.fn(),
-}));
+jest.mock('../src/llmService');
 
 jest.mock('../src/bridges/embeddingBridge');
 
@@ -50,6 +48,8 @@ describe('Reasoner Service', () => {
     mockEmbeddingBridge = new EmbeddingBridge();
     mockEmbeddingBridge.encode = jest.fn().mockResolvedValue([0.1, 0.2, 0.3]);
     mockEmbeddingBridge.similarity = jest.fn().mockResolvedValue(0.9);
+    llmService.generate.mockClear();
+    mockPrologReasonerExecuteQuery.mockClear();
   });
 
   afterEach(() => {
@@ -73,8 +73,8 @@ describe('Reasoner Service', () => {
         await reasonerService.probabilisticDeduce(clauses, query, threshold, mockEmbeddingBridge);
 
         expect(mockPrologReasonerExecuteQuery).toHaveBeenCalledWith(
-            'man(socrates).',
-            query,
+            'man(socrates). ',
+            query
         );
     });
   });
@@ -91,7 +91,7 @@ describe('Reasoner Service', () => {
       llmService.generate.mockResolvedValue({ text: 'mortal(socrates).' });
       mockPrologReasonerExecuteQuery.mockResolvedValue({ results: [{}] });
 
-      const results = await reasonerService.guidedDeduce(query, llmService, session);
+      const results = await reasonerService.guidedDeduce(query, llmService, mockEmbeddingBridge, session);
 
       expect(llmService.generate).toHaveBeenCalled();
       expect(results[0].probability).toBe(0.9);
@@ -99,11 +99,36 @@ describe('Reasoner Service', () => {
 
     it('should fall back to deterministic reasoning', async () => {
       llmService.generate.mockResolvedValue({ text: '' });
-      mockPrologReasonerExecuteQuery.mockResolvedValue({ results: [{}] });
+      mockPrologReasonerExecuteQuery.mockResolvedValue({ results: [{ a: 1}] });
 
-      const results = await reasonerService.guidedDeduce(query, llmService, session);
+      const results = await reasonerService.guidedDeduce(query, llmService, mockEmbeddingBridge, session);
 
       expect(results.every(r => r.probability === 1.0)).toBe(true);
+    });
+
+    it('should work with LTN probabilistic variant', async () => {
+        config.reasoner.type = 'ltn';
+
+        const clauses = [
+            { clause: 'man(socrates).', vector: [0.1, 0.2, 0.3] },
+            { clause: 'man(plato).', vector: [0.4, 0.5, 0.6] },
+        ];
+        const query = 'man(X).';
+        const threshold = 0.7;
+        mockEmbeddingBridge.similarity
+            .mockResolvedValueOnce(0.9)
+            .mockResolvedValueOnce(0.6);
+
+        mockPrologReasonerExecuteQuery.mockResolvedValue({ results: [{ X: 'socrates' }] });
+
+        await reasonerService.probabilisticDeduce(clauses, query, threshold, mockEmbeddingBridge);
+
+        expect(mockPrologReasonerExecuteQuery).toHaveBeenCalledWith(
+            'man(socrates). ',
+            query
+        );
+
+        config.reasoner.type = 'prolog';
     });
   });
 });
