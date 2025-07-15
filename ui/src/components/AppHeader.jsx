@@ -7,6 +7,7 @@ import {
   faPlug,
   faServer,
   faVial,
+  faBrain,
 } from '@fortawesome/free-solid-svg-icons';
 import './AppHeader.css';
 
@@ -25,6 +26,10 @@ const AppHeader = ({
   selectedDemo,
   setSelectedDemo,
   onLoadDemo,
+  useReasoning,
+  setUseReasoning,
+  isSidebarOpen,
+  setIsSidebarOpen,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -40,6 +45,9 @@ const AppHeader = ({
     <header className="app-header">
       <div className="header-left">
         <div className="logo">
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="menu-toggle" style={{marginRight: "10px"}}>
+            <FontAwesomeIcon icon={isSidebarOpen ? faTimes : faBars} />
+          </button>
           <FontAwesomeIcon icon={faPlayCircle} /> MCR
         </div>
         <nav className="main-nav">
@@ -59,6 +67,13 @@ const AppHeader = ({
       </div>
 
       <div className="header-right">
+        <button
+            onClick={() => setUseReasoning(!useReasoning)}
+            className={`reasoning-toggle ${useReasoning ? 'active' : ''}`}
+            title="Toggle Reasoning Graphs"
+        >
+            <FontAwesomeIcon icon={faBrain} />
+        </button>
         <div className="session-controls">
           <FontAwesomeIcon
             icon={faServer}

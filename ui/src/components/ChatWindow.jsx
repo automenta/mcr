@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import apiService from '../apiService';
-import GraphVisualizer from './GraphVisualizer';
 import { motion, AnimatePresence } from 'framer-motion';
+import './ChatWindow.css';
 
 const ChatBubble = ({ message }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -12,11 +12,20 @@ const ChatBubble = ({ message }) => {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       layout
-      style={{ border: '1px solid #eee', padding: '0.5rem', margin: '0.5rem 0', borderRadius: '5px' }}
+      className={`chat-bubble ${message.type}`}
     >
       <div onClick={() => setIsExpanded(!isExpanded)} style={{ cursor: 'pointer' }}>
         <strong>{message.type}:</strong> {typeof message.text === 'object' ? JSON.stringify(message.text) : message.text}
       </div>
+      {message.actions && (
+        <div className="chat-actions">
+          {message.actions.map((action, index) => (
+            <button key={index} onClick={action.onClick}>
+              {action.label}
+            </button>
+          ))}
+        </div>
+      )}
       <AnimatePresence>
         {isExpanded && (
           <motion.div
@@ -25,7 +34,7 @@ const ChatBubble = ({ message }) => {
             exit={{ opacity: 0, height: 0 }}
             style={{ marginTop: '0.5rem', overflow: 'hidden' }}
           >
-            <GraphVisualizer data={message.graph || { nodes: [], edges: [] }} layout="grid" size="small" />
+            {/* GraphVisualizer will go here */}
           </motion.div>
         )}
       </AnimatePresence>
@@ -60,6 +69,14 @@ const ChatWindow = ({ chatHistory, setChatHistory, sessionId, isMcrSessionActive
 
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
+
+    if (/\b(assert|query|retract)\b/i.test(inputValue) && !useReasoning) {
+        addMessageToHistory({
+            type: 'system',
+            text: 'Logic detected. Would you like to enable reasoning graphs?',
+            actions: [{ label: 'Enable Graphs', onClick: () => setUseReasoning(true) }]
+        });
+    }
 
     const message = {
       type: 'user',
@@ -96,35 +113,32 @@ const ChatWindow = ({ chatHistory, setChatHistory, sessionId, isMcrSessionActive
   };
 
   return (
-    <div style={{ flex: 1, padding: '1rem', display: 'flex', flexDirection: 'column' }}>
-      <h2>{useReasoning ? 'Neuro-Symbolic Chat' : 'Pure Language Model Chat'}</h2>
-      <div style={{ flex: 1, overflowY: 'scroll', border: '1px solid #ccc', padding: '1rem', marginBottom: '1rem' }}>
+    <div className="chat-window">
+      <div className="chat-history">
         <AnimatePresence>
           {chatHistory.map((msg, index) => (
             <ChatBubble key={index} message={msg} />
           ))}
         </AnimatePresence>
       </div>
-      <div style={{ position: 'relative' }}>
+      <div className="chat-input-area">
         {suggestions.length > 0 && (
-          <div style={{ border: '1px solid #ccc', borderRadius: '5px', padding: '0.5rem', background: 'white', position: 'absolute', bottom: '100%', left: 0, right: 0 }}>
+          <div className="suggestions-popup">
             {suggestions.map((cmd) => (
-              <div key={cmd.name} onClick={() => setInputValue(`/${cmd.name} `)} style={{ cursor: 'pointer', padding: '0.25rem' }}>
+              <div key={cmd.name} onClick={() => setInputValue(`/${cmd.name} `)} className="suggestion-item">
                 <strong>/{cmd.name}</strong> - {cmd.description}
               </div>
             ))}
           </div>
         )}
-        <div style={{ display: 'flex' }}>
-          <input
-            type="text"
+        <div className="input-bar">
+          <textarea
             placeholder="Type a message or command..."
-            style={{ flex: 1, padding: '0.5rem' }}
             value={inputValue}
             onChange={handleInputChange}
-            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+            onKeyDown={(e) => e.ctrlKey && e.key === 'Enter' && handleSendMessage()}
           />
-          <button onClick={handleSendMessage} style={{ padding: '0.5rem' }}>
+          <button onClick={handleSendMessage}>
             Send
           </button>
         </div>

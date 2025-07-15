@@ -348,8 +348,19 @@ function App() {
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
       />
-      <main className="main-content" style={{ display: 'flex' }}>
-        {useReasoning && isSidebarOpen && <Sidebar />}
+      <main className="main-content" style={{ display: 'flex', height: 'calc(100vh - 60px)' }}>
+        <AnimatePresence>
+          {isSidebarOpen && (
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: 250 }}
+              exit={{ width: 0 }}
+              style={{ overflow: 'hidden', borderRight: '1px solid #ccc' }}
+            >
+              <Sidebar />
+            </motion.div>
+          )}
+        </AnimatePresence>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           {currentMode === 'interactive' ? (
             <ChatWindow
@@ -364,11 +375,18 @@ function App() {
             <SystemAnalysisMode />
           )}
         </div>
-        {useReasoning && isRightPanelOpen && (
-          <div style={{ width: '300px', borderLeft: '1px solid #ccc' }}>
-            Right Panel
-          </div>
-        )}
+        <AnimatePresence>
+          {isRightPanelOpen && (
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: 300 }}
+              exit={{ width: 0 }}
+              style={{ overflow: 'hidden', borderLeft: '1px solid #ccc' }}
+            >
+              <div style={{ padding: '1rem' }}>Right Panel</div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );

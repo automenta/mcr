@@ -45,7 +45,6 @@ const mockEvolutionData = {
 const Sidebar = () => {
   const [sessions, setSessions] = useState([]);
   const [activeTab, setActiveTab] = useState('nl');
-  const [useLtn, setUseLtn] = useState(false);
 
   useEffect(() => {
     const fetchSessions = async () => {
@@ -62,57 +61,46 @@ const Sidebar = () => {
     fetchSessions();
   }, []);
 
-  const handleLtnToggle = async () => {
-    const newLtnState = !useLtn;
-    setUseLtn(newLtnState);
-    try {
-      await apiService.invokeTool('config.set', { key: 'USE_LTN', value: newLtnState });
-    } catch (error) {
-      console.error('Error setting LTN config:', error);
-    }
-  };
-
   const getTabData = () => {
     switch (activeTab) {
       case 'nl':
-        return mockNlData;
+        return { data: mockNlData, layout: 'grid' };
       case 'reasoning':
-        return mockReasoningData;
+        return { data: mockReasoningData, layout: 'dagre' };
       case 'kb':
-        return mockKbData;
+        return { data: mockKbData, layout: 'dagre' };
       case 'evolution':
-        return mockEvolutionData;
+        return { data: mockEvolutionData, layout: 'grid' };
       default:
-        return { nodes: [], edges: [] };
+        return { data: { nodes: [], edges: [] }, layout: 'grid' };
     }
   };
 
+  const { data, layout } = getTabData();
+
   return (
-    <div style={{ width: '250px', borderRight: '1px solid #ccc', padding: '1rem' }}>
+    <div style={{ width: '250px', borderRight: '1px solid #ccc', padding: '1rem', display: 'flex', flexDirection: 'column', height: '100%' }}>
       <h3>Sessions</h3>
-      <ul>
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0, overflowY: 'auto', flex: 1 }}>
         {sessions.map((session) => (
-          <li key={session.id}>{session.id}</li>
+          <li key={session.id} style={{ padding: '0.5rem', borderBottom: '1px solid #eee' }}>{session.id}</li>
         ))}
       </ul>
       <hr />
       <h3>Context</h3>
-      <div>
+      <div style={{ display: 'flex', justifyContent: 'space-around' }}>
         <button onClick={() => setActiveTab('nl')}>NL</button>
         <button onClick={() => setActiveTab('reasoning')}>Reasoning</button>
         <button onClick={() => setActiveTab('kb')}>KB</button>
         <button onClick={() => setActiveTab('evolution')}>Evolution</button>
       </div>
-      <div style={{ marginTop: '1rem', height: '300px' }}>
-        <GraphVisualizer data={getTabData()} layout="grid" size="small" />
+      <div style={{ marginTop: '1rem', flex: 2, height: '300px' }}>
+        <GraphVisualizer data={data} layout={layout} />
       </div>
       <hr />
       <h3>Config</h3>
       <div>
-        <label>
-          <input type="checkbox" checked={useLtn} onChange={handleLtnToggle} />
-          Enable LTN
-        </label>
+        {/* Config toggles will go here */}
       </div>
     </div>
   );
