@@ -13,6 +13,15 @@ const StrategyExecutor = require('./strategyExecutor');
 const { MCRError, ErrorCodes } = require('./errors');
 const KeywordInputRouter = require('./evolution/keywordInputRouter.js');
 const db = require('./store/database');
+const EmbeddingBridge = require('./bridges/embeddingBridge');
+const KnowledgeGraph = require('./bridges/kgBridge');
+
+const embeddingBridge = config.embeddingModel
+  ? new EmbeddingBridge()
+  : null;
+if (embeddingBridge) {
+  embeddingBridge.loadModel();
+}
 
 // Instantiate the session store based on configuration
 let sessionStore;
@@ -313,6 +322,27 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
     // Use sessionStore and await the async call
     const addSuccess = await sessionStore.addFacts(sessionId, addedFacts);
     if (addSuccess) {
+      const session = await sessionStore.getSession(sessionId);
+      if (embeddingBridge && session.embeddings) {
+        for (const fact of addedFacts) {
+          const embedding = await embeddingBridge.encode(fact);
+          session.embeddings.set(fact, embedding);
+        }
+      }
+      if (config.kgEnabled && session.kbGraph) {
+        for (const fact of addedFacts) {
+          // Simple parsing of fact to triple. This is a placeholder and will need to be improved.
+          const parts = fact.slice(0, -1).split(/[()]/);
+          if (parts.length >= 2) {
+            const predicate = parts[0];
+            const args = parts[1].split(',').map(s => s.trim());
+            if (args.length === 2) {
+              session.kbGraph.addTriple(args[0], predicate, args[1]);
+            }
+          }
+        }
+      }
+
       const fullKnowledgeBase = await sessionStore.getKnowledgeBase(sessionId);
       logger.info(
         `[McrService] Facts successfully added to session ${sessionId}. OpID: ${operationId}. Facts:`,

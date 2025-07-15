@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const logger = require('../util/logger');
 const ISessionStore = require('../interfaces/ISessionStore');
 const config = require('../config'); // To get the session file path
+const KnowledgeGraph = require('../bridges/kgBridge');
 
 class FileSessionStore extends ISessionStore {
   constructor() {
@@ -53,6 +54,18 @@ class FileSessionStore extends ISessionStore {
       if (sessionData.createdAt) {
         sessionData.createdAt = new Date(sessionData.createdAt);
       }
+      // Deserialize kbGraph
+      if (sessionData.kbGraph) {
+        const kb = new KnowledgeGraph();
+        kb.fromJSON(sessionData.kbGraph);
+        sessionData.kbGraph = kb;
+      }
+      // Deserialize embeddings
+      if (sessionData.embeddings && Array.isArray(sessionData.embeddings)) {
+        sessionData.embeddings = new Map(sessionData.embeddings);
+      } else {
+        sessionData.embeddings = new Map();
+      }
       return sessionData;
     } catch (error) {
       if (error.code === 'ENOENT') {
@@ -77,6 +90,14 @@ class FileSessionStore extends ISessionStore {
       // Ensure createdAt is stored in ISO string format
       if (dataToStore.createdAt instanceof Date) {
         dataToStore.createdAt = dataToStore.createdAt.toISOString();
+      }
+      // Serialize kbGraph
+      if (dataToStore.kbGraph) {
+        dataToStore.kbGraph = dataToStore.kbGraph.toJSON();
+      }
+      // Serialize embeddings
+      if (dataToStore.embeddings instanceof Map) {
+        dataToStore.embeddings = Array.from(dataToStore.embeddings.entries());
       }
       await fs.writeFile(
         filePath,
@@ -128,6 +149,8 @@ class FileSessionStore extends ISessionStore {
       createdAt: new Date(),
       facts: [],
       lexicon: new Set(),
+      embeddings: new Map(),
+      kbGraph: config.kgEnabled ? new KnowledgeGraph() : null,
     };
     await this._writeSessionFile(sessionId, session);
     logger.info(

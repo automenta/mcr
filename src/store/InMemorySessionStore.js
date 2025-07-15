@@ -2,6 +2,8 @@
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../util/logger');
 const ISessionStore = require('../interfaces/ISessionStore');
+const KnowledgeGraph = require('../bridges/kgBridge');
+const config = require('../config');
 
 // In-memory store for sessions.
 // Structure: { sessionId: { id: string, createdAt: Date, facts: string[], lexicon: Set<string> }, ... }
@@ -44,6 +46,8 @@ class InMemorySessionStore extends ISessionStore {
         createdAt: existingSession.createdAt,
         facts: [...existingSession.facts],
         lexicon: new Set(existingSession.lexicon), // Return a copy
+        embeddings: existingSession.embeddings,
+        kbGraph: existingSession.kbGraph,
       });
     }
     const session = {
@@ -51,6 +55,8 @@ class InMemorySessionStore extends ISessionStore {
       createdAt: new Date(),
       facts: [], // Stores Prolog facts as strings
       lexicon: new Set(), // Stores predicate/arity strings e.g., "is_color/2"
+      embeddings: new Map(),
+      kbGraph: config.kgEnabled ? new KnowledgeGraph() : null,
     };
     sessions[sessionId] = session;
     logger.info(`[InMemorySessionStore] Session created: ${sessionId}`);
@@ -60,6 +66,8 @@ class InMemorySessionStore extends ISessionStore {
       createdAt: session.createdAt,
       facts: [...session.facts],
       lexicon: new Set(session.lexicon),
+      embeddings: session.embeddings,
+      kbGraph: session.kbGraph,
     });
   }
 
@@ -80,6 +88,8 @@ class InMemorySessionStore extends ISessionStore {
       createdAt: session.createdAt,
       facts: [...session.facts],
       lexicon: new Set(session.lexicon), // Return a copy of the Set
+      embeddings: session.embeddings,
+      kbGraph: session.kbGraph,
     });
   }
 
