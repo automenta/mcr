@@ -128,11 +128,11 @@ async function listOntologies(includeRules = false) {
   await ensureOntologyDirExists(); // Ensure dir exists before trying to read
   try {
     const files = await fs.readdir(ONTOLOGY_DIR);
-    const ontologyFiles = files.filter((file) =>
+    const ontologyFiles = files.filter(file =>
       file.endsWith(ONTOLOGY_EXTENSION)
     );
     const ontologies = await Promise.all(
-      ontologyFiles.map(async (file) => {
+      ontologyFiles.map(async file => {
         const name = path.basename(file, ONTOLOGY_EXTENSION);
         if (includeRules) {
           const content = await getOntology(name); // Reuse getOntology to get rules

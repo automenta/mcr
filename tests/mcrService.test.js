@@ -63,7 +63,7 @@ describe('MCR Service (mcrService.js)', () => {
     ontologyService.getGlobalOntologyRulesAsString.mockResolvedValue(
       'mock ontology rules'
     );
-    strategyManager.getStrategy.mockImplementation((id) => ({
+    strategyManager.getStrategy.mockImplementation(id => ({
       id,
       name: `Mock Strategy ${id}`,
       nodes: [],

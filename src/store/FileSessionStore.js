@@ -194,7 +194,7 @@ class FileSessionStore extends ISessionStore {
     }
     if (
       !Array.isArray(newFacts) ||
-      !newFacts.every((f) => typeof f === 'string')
+      !newFacts.every(f => typeof f === 'string')
     ) {
       logger.warn(
         `[FileSessionStore] Cannot add facts: newFacts must be an array of strings. Session: ${sessionId}`
@@ -203,8 +203,8 @@ class FileSessionStore extends ISessionStore {
     }
 
     const validatedFacts = newFacts
-      .map((f) => String(f).trim())
-      .filter((f) => f.length > 0 && f.endsWith('.'));
+      .map(f => String(f).trim())
+      .filter(f => f.length > 0 && f.endsWith('.'));
 
     if (validatedFacts.length !== newFacts.length) {
       logger.warn(
@@ -224,7 +224,7 @@ class FileSessionStore extends ISessionStore {
 
   // Lexicon update logic (similar to InMemorySessionStore, but operates on the passed sessionData object)
   _updateLexiconWithFacts(sessionData, facts) {
-    facts.forEach((fact) => {
+    facts.forEach(fact => {
       const cleanFact = fact.replace(/%.*$/, '').trim();
       if (!cleanFact.endsWith('.')) return;
       let termToParse = cleanFact;

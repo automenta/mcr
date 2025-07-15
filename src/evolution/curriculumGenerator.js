@@ -68,10 +68,10 @@ class CurriculumGenerator {
 
       // Enrich with actual case details
       const allEvalCases = loadAllEvalCases(); // Load from default path `src/evalCases`
-      const evalCaseMap = new Map(allEvalCases.map((ec) => [ec.id, ec]));
+      const evalCaseMap = new Map(allEvalCases.map(ec => [ec.id, ec]));
 
       const enrichedCases = rows
-        .map((row) => {
+        .map(row => {
           const fullCase = evalCaseMap.get(row.example_id);
           if (fullCase) {
             return {
@@ -135,7 +135,7 @@ class CurriculumGenerator {
     }
 
     const domain = originalCase.tags
-      ? originalCase.tags.find((t) => t.startsWith('domain_')) || 'general'
+      ? originalCase.tags.find(t => t.startsWith('domain_')) || 'general'
       : 'general';
     const instructions = `Generate ${numVariations} variations of the following evaluation case.
 The variations should test the same underlying concept or knowledge but use different phrasing, complexity, or slightly altered scenarios.

@@ -72,7 +72,7 @@ async function probabilisticDeduce(clauses, query, threshold, embeddingBridge) {
   const queryVector = await embeddingBridge.encode(query);
 
   const weightedClauses = await Promise.all(
-    clauses.map(async (c) => {
+    clauses.map(async c => {
       const clauseVector = await embeddingBridge.encode(c.clause);
       const similarity = await embeddingBridge.similarity(
         queryVector,
@@ -82,9 +82,9 @@ async function probabilisticDeduce(clauses, query, threshold, embeddingBridge) {
     })
   );
 
-  const activeClauses = weightedClauses.filter((c) => c.weight >= threshold);
+  const activeClauses = weightedClauses.filter(c => c.weight >= threshold);
 
-  const knowledgeBase = activeClauses.map((c) => c.clause).join('\n');
+  const knowledgeBase = activeClauses.map(c => c.clause).join('\n');
   const provider = getProvider();
   if (provider.name.toLowerCase() !== 'prolog') {
     throw new Error(
@@ -105,7 +105,7 @@ async function guidedDeduce(query, llmService, embeddingBridge, session) {
     'hypothesize.system',
     `Based on the query "${query}" and the knowledge base, generate potential answers.`
   );
-  const hypotheses = hypothesesResponse.text.split('\n').map((h) => h.trim());
+  const hypotheses = hypothesesResponse.text.split('\n').map(h => h.trim());
 
   // 2. Symbolic prove on top ranks
   const results = [];
@@ -134,7 +134,7 @@ async function guidedDeduce(query, llmService, embeddingBridge, session) {
       query
     );
     if (deterministicResult.results) {
-      return deterministicResult.results.map((r) => ({
+      return deterministicResult.results.map(r => ({
         ...r,
         probability: 1.0,
       }));

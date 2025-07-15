@@ -124,7 +124,7 @@ describe('Reasoner Service', () => {
         mockEmbeddingBridge,
         session
       );
-      expect(results.every((r) => r.probability === 1.0)).toBe(true);
+      expect(results.every(r => r.probability === 1.0)).toBe(true);
     });
 
     it('should work with LTN probabilistic variant', async () => {

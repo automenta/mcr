@@ -17,7 +17,7 @@ class ExampleBase {
 
     // Simplified dLog that uses the collector
     this.dLog = {
-      step: (text) =>
+      step: text =>
         this.logCollector({ type: 'log', level: 'step', message: text }),
       info: (label, data) =>
         this.logCollector({
@@ -43,7 +43,7 @@ class ExampleBase {
           level: 'mcr',
           message: `${label}: ${text}`,
         }),
-      success: (text) =>
+      success: text =>
         this.logCollector({ type: 'log', level: 'success', message: text }),
       error: (text, details) =>
         this.logCollector({
@@ -58,7 +58,7 @@ class ExampleBase {
           status: status,
           message: message,
         }),
-      cleanup: (text) =>
+      cleanup: text =>
         this.logCollector({ type: 'log', level: 'cleanup', message: text }),
       divider: (char = '-', length = 60) =>
         this.logCollector({

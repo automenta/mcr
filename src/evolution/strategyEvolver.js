@@ -30,7 +30,7 @@ class StrategyEvolver {
     }
     // For now, select the first LLM_Call node
     const llmNode = strategyJson.nodes.find(
-      (node) => node.type === 'LLM_Call' && node.prompt_template_name
+      node => node.type === 'LLM_Call' && node.prompt_template_name
     );
     if (!llmNode) {
       logger.warn(
@@ -102,10 +102,10 @@ class StrategyEvolver {
       // This is a temporary workaround. Ideally, this logic is closer to evaluation case data.
       const { loadAllEvalCases } = require('../evalCases/baseEvals'); // Temporary direct import
       const allEvalCases = loadAllEvalCases(); // Loads all cases from configured paths
-      const evalCaseMap = new Map(allEvalCases.map((ec) => [ec.id, ec]));
+      const evalCaseMap = new Map(allEvalCases.map(ec => [ec.id, ec]));
 
       const enrichedExamples = rows
-        .map((row) => {
+        .map(row => {
           const evalCase = evalCaseMap.get(row.example_id);
           if (evalCase) {
             return {
@@ -257,7 +257,7 @@ Do NOT wrap the rewritten prompt in markdown code blocks. Output only the raw te
       .digest('hex'); // Track lineage
 
     const nodeToUpdate = newStrategy.nodes.find(
-      (node) => node.id === targetNodeId
+      node => node.id === targetNodeId
     );
     if (!nodeToUpdate) {
       logger.error(

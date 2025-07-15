@@ -53,7 +53,7 @@ function formatTrace(termNode, session) {
   }
 
   const children =
-    termNode.children?.map((child) => formatTrace(child, session)) || [];
+    termNode.children?.map(child => formatTrace(child, session)) || [];
 
   return {
     goal: formattedGoal,
@@ -98,7 +98,7 @@ async function executeQuery(knowledgeBase, query, options = {}) {
               );
               function processNextAnswer() {
                 session.answer({
-                  success: (answer) => {
+                  success: answer => {
                     if (
                       answer === false ||
                       (prolog.type &&
@@ -130,7 +130,7 @@ async function executeQuery(knowledgeBase, query, options = {}) {
                     }
                     processNextAnswer();
                   },
-                  error: (err) => {
+                  error: err => {
                     logger.error(
                       `[PrologReasoner] Error processing answer for query "${query}": ${err}`
                     );
@@ -158,7 +158,7 @@ async function executeQuery(knowledgeBase, query, options = {}) {
               }
               processNextAnswer();
             },
-            error: (err) => {
+            error: err => {
               logger.error(
                 `[PrologReasoner] Prolog syntax error or issue in query "${query}": ${err}`
               );
@@ -166,7 +166,7 @@ async function executeQuery(knowledgeBase, query, options = {}) {
             },
           });
         },
-        error: (err) => {
+        error: err => {
           logger.error(
             `[PrologReasoner] Syntax error or issue consulting knowledgeBase: ${err}`
           );
@@ -207,10 +207,10 @@ async function validateKnowledgeBase(knowledgeBase) {
     }
 
     if (!consultError) {
-      const consultPromise = new Promise((resolveConsult) => {
+      const consultPromise = new Promise(resolveConsult => {
         session.consult(knowledgeBase, {
           success: () => resolveConsult(null),
-          error: (err) => resolveConsult(err),
+          error: err => resolveConsult(err),
         });
       });
       consultError = await consultPromise;

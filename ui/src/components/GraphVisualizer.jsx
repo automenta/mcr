@@ -41,17 +41,17 @@ const getLayoutedElements = (nodes, edges, direction = 'TB') => {
   const isHorizontal = direction === 'LR';
   dagreGraph.setGraph({ rankdir: direction });
 
-  nodes.forEach((node) => {
+  nodes.forEach(node => {
     dagreGraph.setNode(node.id, { width: 150, height: 50 });
   });
 
-  edges.forEach((edge) => {
+  edges.forEach(edge => {
     dagreGraph.setEdge(edge.source, edge.target);
   });
 
   dagre.layout(dagreGraph);
 
-  nodes.forEach((node) => {
+  nodes.forEach(node => {
     const nodeWithPosition = dagreGraph.node(node.id);
     node.targetPosition = isHorizontal ? 'left' : 'top';
     node.sourcePosition = isHorizontal ? 'right' : 'bottom';

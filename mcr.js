@@ -77,7 +77,7 @@ async function startServer() {
     logger.info('---------------------');
   });
 
-  server.on('error', (error) => {
+  server.on('error', error => {
     if (error.syscall !== 'listen') {
       throw error;
     }
@@ -124,7 +124,7 @@ async function startServer() {
   });
 
   // Handle uncaught exceptions
-  process.on('uncaughtException', (error) => {
+  process.on('uncaughtException', error => {
     logger.error('Uncaught Exception:', error);
     // Application specific logging, shutdown, or other logic here
     // It's often recommended to gracefully shut down the server on uncaught exceptions
@@ -143,7 +143,7 @@ async function startServer() {
 
 // If this script is run directly, start the server
 if (require.main === module) {
-  startServer().catch((error) => {
+  startServer().catch(error => {
     // Use logger if available, otherwise console.error
     const logger = require('./src/util/logger'); // Re-require in this scope or ensure it's global
     logger.error('[MCR Critical] Failed to start server:', error);

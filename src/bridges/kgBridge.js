@@ -16,18 +16,18 @@ class KnowledgeGraph {
     let edges = this.graph.edges();
 
     if (subj) {
-      edges = edges.filter((edge) => this.graph.source(edge) === subj);
+      edges = edges.filter(edge => this.graph.source(edge) === subj);
     }
     if (pred) {
       edges = edges.filter(
-        (edge) => this.graph.getEdgeAttribute(edge, 'label') === pred
+        edge => this.graph.getEdgeAttribute(edge, 'label') === pred
       );
     }
     if (obj) {
-      edges = edges.filter((edge) => this.graph.target(edge) === obj);
+      edges = edges.filter(edge => this.graph.target(edge) === obj);
     }
 
-    return edges.map((edge) => ({
+    return edges.map(edge => ({
       subj: this.graph.source(edge),
       pred: this.graph.getEdgeAttribute(edge, 'label'),
       obj: this.graph.target(edge),

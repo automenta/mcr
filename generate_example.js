@@ -139,7 +139,7 @@ if (require.main === module) {
     argv.instructions,
     argv.provider,
     argv.model
-  ).catch((error) => {
+  ).catch(error => {
     logger.error(`An error occurred in ${SCRIPT_NAME}: ${error.message}`);
     process.exit(1);
   });

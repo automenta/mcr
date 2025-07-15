@@ -73,12 +73,12 @@ const ChatWindow = ({
     { name: 'strategy.getActive', description: 'Get the active strategy.' },
   ];
 
-  const handleInputChange = (e) => {
+  const handleInputChange = e => {
     const value = e.target.value;
     setInputValue(value);
     if (value.startsWith('/')) {
       const search = value.substring(1);
-      const filteredCommands = commands.filter((cmd) =>
+      const filteredCommands = commands.filter(cmd =>
         cmd.name.startsWith(search)
       );
       setSuggestions(filteredCommands);
@@ -172,7 +172,7 @@ const ChatWindow = ({
       <div className="chat-input-area">
         {suggestions.length > 0 && (
           <div className="suggestions-popup">
-            {suggestions.map((cmd) => (
+            {suggestions.map(cmd => (
               <div
                 key={cmd.name}
                 onClick={() => setInputValue(`/${cmd.name} `)}
@@ -188,7 +188,7 @@ const ChatWindow = ({
             placeholder="Type a message or command..."
             value={inputValue}
             onChange={handleInputChange}
-            onKeyDown={(e) =>
+            onKeyDown={e =>
               e.ctrlKey && e.key === 'Enter' && handleSendMessage()
             }
           />

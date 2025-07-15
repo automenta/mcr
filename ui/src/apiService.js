@@ -58,7 +58,7 @@ class ApiService {
         resolve();
       };
 
-      this.socket.onmessage = (event) => {
+      this.socket.onmessage = event => {
         const message = JSON.parse(event.data);
         logger.debug('Received message:', message);
 
@@ -82,7 +82,7 @@ class ApiService {
         }
       };
 
-      this.socket.onerror = (error) => {
+      this.socket.onerror = error => {
         logger.error('[ApiService] WebSocket error:', error);
         this._notifyListeners('error', error);
         if (this.connectPromise) {
@@ -91,7 +91,7 @@ class ApiService {
         }
       };
 
-      this.socket.onclose = (event) => {
+      this.socket.onclose = event => {
         logger.debug(
           `[ApiService] WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason}`
         );
@@ -138,7 +138,7 @@ class ApiService {
 
   _notifyListeners(eventType, data) {
     const listeners = this.eventListeners.get(eventType) || [];
-    listeners.forEach((listener) => {
+    listeners.forEach(listener => {
       try {
         listener(data);
       } catch (error) {
@@ -147,7 +147,7 @@ class ApiService {
     });
 
     const genericListeners = this.eventListeners.get('*') || [];
-    genericListeners.forEach((listener) => {
+    genericListeners.forEach(listener => {
       try {
         listener({ type: eventType, payload: data });
       } catch (error) {

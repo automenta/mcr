@@ -179,7 +179,7 @@ class OptimizationCoordinator {
     const results = [];
     for (const inputCase of inputCases) {
       const loopResult = await mcrService._refineLoop(
-        async (input) => {
+        async input => {
           const res = await mcrService.assertNLToSession(session.id, input);
           return res.addedFacts;
         },

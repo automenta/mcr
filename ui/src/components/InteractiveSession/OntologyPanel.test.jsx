@@ -57,7 +57,7 @@ describe('OntologyPanel', () => {
   it('renders the panel title and list button, and handles mount effects', async () => {
     // Ensure listOntologies mock is in place for the mount effect,
     // providing some data so the component updates.
-    apiService.invokeTool.mockImplementation(async (toolName) => {
+    apiService.invokeTool.mockImplementation(async toolName => {
       if (toolName === 'ontology.list')
         return {
           success: true,
@@ -84,7 +84,7 @@ describe('OntologyPanel', () => {
 
   it('lists ontologies on mount if session is active', async () => {
     const ontologiesData = [{ id: 'family', name: 'FamilyOntology' }];
-    apiService.invokeTool.mockImplementation(async (toolName) =>
+    apiService.invokeTool.mockImplementation(async toolName =>
       toolName === 'ontology.list'
         ? { success: true, data: ontologiesData }
         : { success: true, data: {} }

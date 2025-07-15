@@ -38,7 +38,7 @@ class StrategyManager {
       }
 
       const files = fs.readdirSync(STRATEGIES_DIR_JSON);
-      files.forEach((file) => {
+      files.forEach(file => {
         if (file.endsWith('.json')) {
           const strategyPath = path.join(STRATEGIES_DIR_JSON, file);
           try {
@@ -155,7 +155,7 @@ class StrategyManager {
    * @returns {Array<{id: string, name: string}>}
    */
   getAvailableStrategies() {
-    return Array.from(this.strategies.values()).map((s) => ({
+    return Array.from(this.strategies.values()).map(s => ({
       id: s.id,
       name: s.name,
     }));

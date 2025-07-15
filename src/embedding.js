@@ -102,12 +102,12 @@ class Embedding {
    * @returns {Promise<EmbeddingVector[]>} The embedding vectors.
    */
   async getEmbeddings(texts) {
-    if (!Array.isArray(texts) || !texts.every((t) => typeof t === 'string')) {
+    if (!Array.isArray(texts) || !texts.every(t => typeof t === 'string')) {
       throw new Error('Invalid input: texts must be an array of strings.');
     }
 
     if (!this.embeddingProvider) {
-      return Promise.all(texts.map((text) => this._getMockEmbedding(text)));
+      return Promise.all(texts.map(text => this._getMockEmbedding(text)));
     }
 
     try {
@@ -135,7 +135,7 @@ class Embedding {
         ((vector[i % this.embeddingDimension] + text.charCodeAt(i)) % 256) /
         255; // Normalize
     }
-    if (vector.some(isNaN) || vector.some((v) => !isFinite(v))) {
+    if (vector.some(isNaN) || vector.some(v => !isFinite(v))) {
       logger.warn(
         `[EmbeddingService] Could not generate a valid mock embedding for text: "${text}". Returning zero vector.`
       );

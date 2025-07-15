@@ -78,7 +78,7 @@ class SemanticInputRouter {
     logger.info('[SemanticInputRouter] Initializing archetype embeddings...');
     this.archetypeEmbeddingsCache = new Map();
     try {
-      const descriptions = inputArchetypes.map((arch) => arch.description);
+      const descriptions = inputArchetypes.map(arch => arch.description);
       const embeddings =
         await this.embeddingService.getEmbeddings(descriptions);
 

@@ -62,7 +62,7 @@ class KeywordInputRouter {
         'could',
         'would',
         'should',
-      ].some((kw) => nlLower.startsWith(kw) || nlLower.includes(` ${kw} `))
+      ].some(kw => nlLower.startsWith(kw) || nlLower.includes(` ${kw} `))
     ) {
       const logText =
         naturalLanguageText.length > 50

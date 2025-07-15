@@ -47,7 +47,7 @@ describe('Evaluator Metrics', () => {
       const expectedArray = ['fact(a).', 'rule(B):-body(B).'];
       const normalizedResult = metrics.normalizeProlog(prologArray);
       expect(normalizedResult).toEqual(
-        expectedArray.map((s) => s.replace(/\s*([(),.:-])\s*/g, '$1'))
+        expectedArray.map(s => s.replace(/\s*([(),.:-])\s*/g, '$1'))
       );
     });
 

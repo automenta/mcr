@@ -23,7 +23,7 @@ const { MCRError, ErrorCodes } = require('./errors');
  */
 function convertSirToProlog(sirJson, strategyName = 'UnknownStrategy') {
   const clauses = [];
-  const formatTerm = (term) => {
+  const formatTerm = term => {
     if (
       !term ||
       typeof term.predicate !== 'string' ||
@@ -40,7 +40,7 @@ function convertSirToProlog(sirJson, strategyName = 'UnknownStrategy') {
       predicateToFormat = `'${predicateToFormat.replace(/'/g, "''")}'`;
     }
 
-    const formatArgument = (arg) => {
+    const formatArgument = arg => {
       if (Array.isArray(arg)) {
         const formattedListArgs = arg.map(formatArgument).join(',');
         return `[${formattedListArgs}]`;
@@ -65,7 +65,7 @@ function convertSirToProlog(sirJson, strategyName = 'UnknownStrategy') {
     return `${predicateToFormat}(${formattedArgs.join(',')})`;
   };
 
-  const processSingleSirItem = (item) => {
+  const processSingleSirItem = item => {
     if (item.statementType === 'fact' && item.fact) {
       let clause = formatTerm(item.fact);
       if (item.fact.isNegative) {
@@ -84,7 +84,7 @@ function convertSirToProlog(sirJson, strategyName = 'UnknownStrategy') {
         clauses.push(`${headStr}.`);
       } else {
         const bodyStr = item.rule.body
-          .map((bodyTerm) => {
+          .map(bodyTerm => {
             let term = formatTerm(bodyTerm);
             if (bodyTerm.isNegative) {
               // Handle isNegative property for body terms
@@ -133,7 +133,7 @@ function convertSirToProlog(sirJson, strategyName = 'UnknownStrategy') {
 function convertLfToProlog(lfJson, strategyName = 'UnknownStrategy') {
   const clauses = [];
 
-  const formatLfArgument = (arg) => {
+  const formatLfArgument = arg => {
     if (!arg || !arg.type) {
       throw new MCRError(
         ErrorCodes.INVALID_LF_STRUCTURE,
@@ -203,7 +203,7 @@ function convertLfToProlog(lfJson, strategyName = 'UnknownStrategy') {
     }
   };
 
-  const formatLfTerm = (term) => {
+  const formatLfTerm = term => {
     if (
       !term ||
       typeof term.predicate !== 'string' ||
@@ -230,7 +230,7 @@ function convertLfToProlog(lfJson, strategyName = 'UnknownStrategy') {
     return result;
   };
 
-  const processSingleLfItem = (item) => {
+  const processSingleLfItem = item => {
     if (!item || !item.type) {
       logger.warn(
         `[${strategyName}] Invalid LF item structure, missing type: ${JSON.stringify(item)}`
@@ -313,9 +313,9 @@ class StrategyExecutor {
       );
     }
     this.strategy = strategyJson;
-    this.nodeMap = new Map(strategyJson.nodes.map((node) => [node.id, node]));
+    this.nodeMap = new Map(strategyJson.nodes.map(node => [node.id, node]));
     this.adjacencyMap = new Map();
-    strategyJson.edges.forEach((edge) => {
+    strategyJson.edges.forEach(edge => {
       if (!this.adjacencyMap.has(edge.from)) {
         this.adjacencyMap.set(edge.from, []);
       }
@@ -328,9 +328,9 @@ class StrategyExecutor {
   }
 
   _findStartNode() {
-    const targetNodeIds = new Set(this.strategy.edges.map((edge) => edge.to));
+    const targetNodeIds = new Set(this.strategy.edges.map(edge => edge.to));
     const startNodes = this.strategy.nodes.filter(
-      (node) => !targetNodeIds.has(node.id)
+      node => !targetNodeIds.has(node.id)
     );
     if (startNodes.length === 0) {
       throw new MCRError(
@@ -552,8 +552,8 @@ class StrategyExecutor {
             const delimiter = node.delimiter || '\n'; // Default to newline
             output = stringToSplit
               .split(delimiter)
-              .map((s) => s.trim())
-              .filter((s) => s.length > 0);
+              .map(s => s.trim())
+              .filter(s => s.length > 0);
             logger.debug(
               `[StrategyExecutor] Node ${node.id}: String splitting completed. Array size: ${output.length}`
             );
@@ -751,7 +751,7 @@ class StrategyExecutor {
         // Standard way to queue next nodes, unless it's a Conditional_Router which handles its own branching.
         if (node.type !== 'Conditional_Router') {
           const nextNodeIds = this.adjacencyMap.get(currentNodeId) || [];
-          nextNodeIds.forEach((nextNodeId) => {
+          nextNodeIds.forEach(nextNodeId => {
             if (!visited.has(nextNodeId) && !queue.includes(nextNodeId)) {
               queue.push(nextNodeId);
             }
@@ -777,8 +777,8 @@ class StrategyExecutor {
 
     if (visited.size !== this.strategy.nodes.length) {
       const unvisitedNodes = this.strategy.nodes
-        .filter((n) => !visited.has(n.id))
-        .map((n) => n.id);
+        .filter(n => !visited.has(n.id))
+        .map(n => n.id);
       logger.warn(
         `[StrategyExecutor] Strategy ${this.strategy.id} execution completed, but not all nodes were visited. Unvisited: ${unvisitedNodes.join(', ')}. This might be normal for conditional graphs.`
       );

@@ -102,7 +102,7 @@ const Sidebar = ({ sessionId, useReasoning }) => {
           flex: 1,
         }}
       >
-        {sessions.map((session) => (
+        {sessions.map(session => (
           <li
             key={session.id}
             style={{

@@ -37,7 +37,7 @@ const AppHeader = ({
     setIsMenuOpen(!isMenuOpen);
   };
 
-  const handleDemoSelect = (demoId) => {
+  const handleDemoSelect = demoId => {
     setSelectedDemo(demoId);
   };
 
@@ -88,7 +88,7 @@ const AppHeader = ({
             type="text"
             placeholder="Session ID"
             value={sessionId || ''}
-            onChange={(e) => setSessionId(e.target.value)}
+            onChange={e => setSessionId(e.target.value)}
             className="session-input"
           />
           {isMcrSessionActive ? (
@@ -122,13 +122,13 @@ const AppHeader = ({
                 </h3>
                 <select
                   value={selectedDemo || ''}
-                  onChange={(e) => handleDemoSelect(e.target.value)}
+                  onChange={e => handleDemoSelect(e.target.value)}
                   disabled={!isMcrSessionActive}
                 >
                   <option value="" disabled>
                     Select a demo
                   </option>
-                  {demos.map((demo) => (
+                  {demos.map(demo => (
                     <option key={demo.id} value={demo.id}>
                       {demo.name}
                     </option>

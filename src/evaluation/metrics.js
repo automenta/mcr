@@ -3,7 +3,7 @@ const logger = require('../util/logger'); // Assuming logger is accessible via .
 const { fillTemplate, getPromptTemplateByName } = require('../prompts'); // Assuming prompts is accessible
 
 // Helper for normalizeProlog, kept internal to this module
-const normalizeSingleProlog = (code) => {
+const normalizeSingleProlog = code => {
   if (typeof code !== 'string') return code;
   // Remove comments
   let norm = code.replace(/%.*?\n/g, '\n').replace(/%.*?$/, '');
@@ -30,7 +30,7 @@ const metrics = {
     return actualAnswer.trim() === expectedAnswer.trim();
   },
 
-  normalizeProlog: (prologCode) => {
+  normalizeProlog: prologCode => {
     if (Array.isArray(prologCode)) {
       return prologCode.map(normalizeSingleProlog);
     }

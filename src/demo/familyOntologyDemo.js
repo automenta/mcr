@@ -126,7 +126,7 @@ class FamilyOntologyDemo extends ExampleBase {
         // Ensure answer is a string
         let conditionMet = false;
         if (Array.isArray(item.expected)) {
-          conditionMet = item.expected.every((exp) =>
+          conditionMet = item.expected.every(exp =>
             result.answer.toLowerCase().includes(exp.toLowerCase())
           );
           await this.assertCondition(

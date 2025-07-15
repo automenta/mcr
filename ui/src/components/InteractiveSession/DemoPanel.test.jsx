@@ -54,7 +54,7 @@ describe('DemoPanel', () => {
     const demosData = [
       { id: 'demo1', name: 'First Demo', description: 'A cool demo.' },
     ];
-    apiService.invokeTool.mockImplementation(async (toolName) =>
+    apiService.invokeTool.mockImplementation(async toolName =>
       toolName === 'demo.list'
         ? { success: true, data: demosData }
         : { success: true, data: {} }
@@ -170,7 +170,7 @@ describe('DemoPanel', () => {
 
   it('handles API error when listing demos', async () => {
     // Override the default mock for this specific test case
-    apiService.invokeTool.mockImplementation(async (toolName) => {
+    apiService.invokeTool.mockImplementation(async toolName => {
       if (toolName === 'demo.list') {
         return { success: false, message: 'Failed to list demos' }; // The specific error case
       }

@@ -119,7 +119,7 @@ class ScientificKBDemo extends ExampleBase {
       let failureMessage = '';
 
       if (Array.isArray(item.expected)) {
-        conditionMet = item.expected.every((exp) =>
+        conditionMet = item.expected.every(exp =>
           answerLower.includes(exp.toLowerCase())
         );
         const expectedStr = `[${item.expected.join(', ')}]`;

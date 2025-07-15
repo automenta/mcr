@@ -39,7 +39,7 @@ describe('MCR Tool Definitions (src/tools.js)', () => {
     'demo.run',
   ];
 
-  coreToolsToTest.forEach((toolName) => {
+  coreToolsToTest.forEach(toolName => {
     describe(`Tool: ${toolName}`, () => {
       it('should exist in mcrToolDefinitions', () => {
         expect(mcrToolDefinitions[toolName]).toBeDefined();

@@ -162,8 +162,8 @@ const REPL = ({
         <input
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleSend()}
           placeholder={
             isMcrSessionActive
               ? 'Type your message...'
@@ -180,7 +180,7 @@ const REPL = ({
           <input
             type="checkbox"
             checked={useLoops}
-            onChange={(e) => setUseLoops(e.target.checked)}
+            onChange={e => setUseLoops(e.target.checked)}
           />
           Use Loops
         </label>
@@ -188,7 +188,7 @@ const REPL = ({
           <input
             type="checkbox"
             checked={embed}
-            onChange={(e) => setEmbed(e.target.checked)}
+            onChange={e => setEmbed(e.target.checked)}
           />
           Use Embeddings
         </label>

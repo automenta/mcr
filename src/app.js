@@ -17,7 +17,7 @@ async function createServer() {
   httpServer.on('upgrade', (request, socket, head) => {
     // Check if this is a request for the app's websocket
     if (request.url === '/ws') {
-      wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.handleUpgrade(request, socket, head, ws => {
         wss.emit('connection', ws, request);
       });
     } else {
@@ -64,7 +64,7 @@ async function createServer() {
   logger.info('[App] Vite development middleware attached.');
 
   // WebSocket connection handling
-  wss.on('connection', (socket) => {
+  wss.on('connection', socket => {
     handleWebSocketConnection(socket);
   });
 

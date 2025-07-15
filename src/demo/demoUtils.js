@@ -2,8 +2,8 @@
 const chalk = require('chalk');
 
 const demoLogger = {
-  heading: (text) => console.log(`\n🚀 ${chalk.bold.blue(text)}`),
-  step: (text) => console.log(`\n➡️  ${chalk.bold(text)}`),
+  heading: text => console.log(`\n🚀 ${chalk.bold.blue(text)}`),
+  step: text => console.log(`\n➡️  ${chalk.bold(text)}`),
   info: (label, data) => {
     const dataString =
       typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
@@ -28,7 +28,7 @@ const demoLogger = {
   },
   mcrResponse: (label, text) =>
     console.log(`   🤖 ${chalk.green(label)}: ${text}`),
-  success: (text) => console.log(`   ✅ ${chalk.green(text)}`),
+  success: text => console.log(`   ✅ ${chalk.green(text)}`),
   error: (text, details) => {
     console.error(`   ❌ ${chalk.red.bold('Error:')} ${chalk.red(text)}`);
     if (details) {
@@ -53,12 +53,12 @@ const demoLogger = {
       );
     }
   },
-  cleanup: (text) => console.log(`   🧹 ${chalk.dim(text)}`), // Dim/Gray
+  cleanup: text => console.log(`   🧹 ${chalk.dim(text)}`), // Dim/Gray
   divider: (char = '-', length = 60) =>
     console.log('\n' + chalk.gray(char.repeat(length))),
 };
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const fs = require('fs'); // For readFileContentSafe
 const path = require('path'); // For readFileContentSafe

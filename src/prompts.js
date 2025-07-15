@@ -46,7 +46,7 @@ function fillTemplate(template, variables) {
 const prompts = {};
 const promptsDir = path.join(__dirname, '../prompts'); // Corrected path relative to src/
 
-fs.readdirSync(promptsDir).forEach((file) => {
+fs.readdirSync(promptsDir).forEach(file => {
   if (file.endsWith('.js')) {
     const promptName = path.basename(file, '.js');
     prompts[promptName] = require(path.join(promptsDir, file));

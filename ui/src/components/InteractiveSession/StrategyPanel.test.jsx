@@ -72,7 +72,7 @@ describe('StrategyPanel', () => {
     const strategiesData = [
       { id: 's1', name: 'Strategy Alpha', description: 'Alpha desc' },
     ];
-    apiService.invokeTool.mockImplementation(async (toolName) =>
+    apiService.invokeTool.mockImplementation(async toolName =>
       toolName === 'strategy.list'
         ? { success: true, data: strategiesData }
         : { success: true, data: {} }

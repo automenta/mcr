@@ -58,7 +58,7 @@ const StrategyPanel = ({
     }
   }, [isMcrSessionActive, isWsServiceConnected, sessionId, listStrategies]); // Added listStrategies
 
-  const viewStrategy = (strategy) => {
+  const viewStrategy = strategy => {
     setSelectedStrategyContent({
       name: strategy.name,
       description: strategy.description,
@@ -67,7 +67,7 @@ const StrategyPanel = ({
     setIsStrategyModalOpen(true);
   };
 
-  const handleSetStrategy = async (strategyId) => {
+  const handleSetStrategy = async strategyId => {
     if (!isMcrSessionActive || !isWsServiceConnected) {
       alert('Connect to a session and ensure WebSocket is active first.');
       return;
@@ -114,7 +114,7 @@ const StrategyPanel = ({
         <p className="text-muted">🤷 No strategies found.</p>
       )}
       <ul>
-        {strategies.map((strat) => (
+        {strategies.map(strat => (
           <li
             key={strat.id || strat.name}
             className={`strategy-item ${activeStrategy === strat.id ? 'active-strategy' : ''}`}

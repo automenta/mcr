@@ -40,7 +40,7 @@ if (storeType === 'file') {
 }
 
 // Initialize the selected session store
-sessionStore.initialize().catch((error) => {
+sessionStore.initialize().catch(error => {
   logger.error(
     '[McrService] Critical error: Failed to initialize session store. Further operations may fail.',
     error
@@ -395,7 +395,7 @@ async function assertNLToSession(sessionId, naturalLanguageText, options = {}) {
 
     if (
       !Array.isArray(addedFacts) ||
-      !addedFacts.every((f) => typeof f === 'string')
+      !addedFacts.every(f => typeof f === 'string')
     ) {
       throw new MCRError(
         ErrorCodes.STRATEGY_INVALID_OUTPUT,
@@ -426,7 +426,7 @@ async function assertNLToSession(sessionId, naturalLanguageText, options = {}) {
           const parts = fact.slice(0, -1).split(/[()]/);
           if (parts.length >= 2) {
             const predicate = parts[0];
-            const args = parts[1].split(',').map((s) => s.trim());
+            const args = parts[1].split(',').map(s => s.trim());
             if (args.length === 2) {
               session.kbGraph.addTriple(args[0], predicate, args[1]);
             }
@@ -526,7 +526,7 @@ async function querySessionWithNL(
       (await ontologyService.getGlobalOntologyRulesAsString()) || '';
     const lexiconSummary = await sessionStore.getLexiconSummary(sessionId);
 
-    const nlToQueryOperation = async (nlInput) => {
+    const nlToQueryOperation = async nlInput => {
       const strategyContext = {
         naturalLanguageQuestion: nlInput,
         existingFacts,
@@ -579,14 +579,14 @@ async function querySessionWithNL(
       embeddingBridge,
       session
     );
-    const prologResults = reasonerResult.map((r) => r.proof);
-    const probabilities = reasonerResult.map((r) => r.probability);
+    const prologResults = reasonerResult.map(r => r.proof);
+    const probabilities = reasonerResult.map(r => r.probability);
     const proofTrace = null; // guidedDeduce does not currently support tracing
     debugInfo.prologResultsJSON = JSON.stringify(prologResults);
     debugInfo.probabilities = probabilities;
 
     // Phase 3: Logic to NL (Answer Generation)
-    const logicToNlOperation = async (symbolicResultStr) => {
+    const logicToNlOperation = async symbolicResultStr => {
       const promptContext = {
         naturalLanguageQuestion,
         prologResultsJSON: symbolicResultStr,
@@ -732,7 +732,7 @@ async function translateNLToRulesDirect(naturalLanguageText, strategyIdToUse) {
 
     if (
       !Array.isArray(prologRules) ||
-      !prologRules.every((r) => typeof r === 'string')
+      !prologRules.every(r => typeof r === 'string')
     ) {
       logger.error(
         `[McrService] Strategy "${currentStrategyId}" execution for direct translation did not return an array of strings. OpID: ${operationId}. Output: ${JSON.stringify(prologRules)}`
@@ -948,7 +948,7 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
       const globalOntologies = await ontologyService.listOntologies(true);
       if (globalOntologies && globalOntologies.length > 0) {
         contextOntologyRulesForQueryTranslation = globalOntologies
-          .map((ont) => ont.rules)
+          .map(ont => ont.rules)
           .join('\n');
       }
     } catch (ontError) {
@@ -1003,7 +1003,7 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
         await ontologyService.listOntologies(true);
       if (ontologiesForExplainPrompt && ontologiesForExplainPrompt.length > 0) {
         explainPromptOntologyRules = ontologiesForExplainPrompt
-          .map((ont) => ont.rules)
+          .map(ont => ont.rules)
           .join('\n');
       }
     } catch (ontErrorForExplain) {
@@ -1257,7 +1257,7 @@ module.exports = {
    * @param {string} [sessionId] - Optional. The ID for the session. If not provided, a new one will be generated.
    * @returns {Promise<object>} The created session object. Refer to ISessionStore.createSession for details.
    */
-  createSession: async (sessionId) => {
+  createSession: async sessionId => {
     // Ensure it's async and can take an optional sessionId
     return sessionStore.createSession(sessionId);
   },
@@ -1266,7 +1266,7 @@ module.exports = {
    * @param {string} sessionId - The ID of the session.
    * @returns {Promise<object|null>} The session object or null if not found. Refer to ISessionStore.getSession for details.
    */
-  getSession: async (sessionId) => {
+  getSession: async sessionId => {
     // Ensure it's async
     return sessionStore.getSession(sessionId);
   },
@@ -1275,7 +1275,7 @@ module.exports = {
    * @param {string} sessionId - The ID of the session to delete.
    * @returns {Promise<boolean>} True if the session was deleted, false if not found. Refer to ISessionStore.deleteSession for details.
    */
-  deleteSession: async (sessionId) => {
+  deleteSession: async sessionId => {
     // Ensure it's async
     return sessionStore.deleteSession(sessionId);
   },
@@ -1284,7 +1284,7 @@ module.exports = {
    * @param {string} sessionId - The ID of the session.
    * @returns {Promise<string|null>} A string representing the lexicon summary or null if session not found. Refer to ISessionStore.getLexiconSummary for details.
    */
-  getLexiconSummary: async (sessionId) => {
+  getLexiconSummary: async sessionId => {
     // Ensure it's async
     return sessionStore.getLexiconSummary(sessionId);
   },
@@ -1410,8 +1410,8 @@ module.exports = {
       ? rules
       : rules
           .split(/(?<=\.)\s*/)
-          .map((r) => r.trim())
-          .filter((r) => r.length > 0);
+          .map(r => r.trim())
+          .filter(r => r.length > 0);
     if (factsToAssert.length === 0) {
       logger.warn(
         `[McrService] No valid Prolog facts/rules provided to assert. OpID: ${operationId}`

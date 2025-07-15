@@ -16,7 +16,7 @@ function initDb() {
       return resolve(db);
     }
 
-    db = new sqlite3.Database(DB_PATH, (err) => {
+    db = new sqlite3.Database(DB_PATH, err => {
       if (err) {
         logger.error('Error connecting to SQLite database:', err.message);
         db = null; // Reset db instance on connection error
@@ -41,13 +41,13 @@ function initDb() {
         );
       `;
 
-      db.run(createTableSql, (err) => {
+      db.run(createTableSql, err => {
         if (err) {
           logger.error(
             'Error creating performance_results table:',
             err.message
           );
-          db.close((closeErr) => {
+          db.close(closeErr => {
             if (closeErr)
               logger.error(
                 'Error closing DB after table creation failure:',
@@ -136,7 +136,7 @@ async function insertPerformanceResult(resultData) {
 function closeDb() {
   return new Promise((resolve, reject) => {
     if (db) {
-      db.close((err) => {
+      db.close(err => {
         if (err) {
           logger.error('Error closing the database connection:', err.message);
           return reject(err);

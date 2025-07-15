@@ -65,7 +65,7 @@ const mcrToolDefinitions = {
   'llm.passthrough': {
     description:
       'Sends a natural language string directly to the LLM for a response.',
-    handler: async (input) => {
+    handler: async input => {
       const { naturalLanguageText } = input;
       if (!naturalLanguageText) {
         return {
@@ -80,7 +80,7 @@ const mcrToolDefinitions = {
   'mcr.handle': {
     description:
       'Handles a natural language string from the REPL, determining whether to assert or query.',
-    handler: async (input) => {
+    handler: async input => {
       const { sessionId, naturalLanguageText } = input;
       if (!sessionId || !naturalLanguageText) {
         return {
@@ -110,7 +110,7 @@ const mcrToolDefinitions = {
   },
   'session.create': {
     description: 'Creates a new reasoning session.',
-    handler: async (input) => {
+    handler: async input => {
       const sessionId = input?.sessionId;
       const session = await mcrService.createSession(sessionId);
       return { success: true, data: session };
@@ -118,7 +118,7 @@ const mcrToolDefinitions = {
   },
   'session.get': {
     description: 'Retrieves a session by its ID.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.sessionId) {
         return {
           success: false,
@@ -139,7 +139,7 @@ const mcrToolDefinitions = {
   },
   'session.delete': {
     description: 'Deletes a session.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.sessionId) {
         return {
           success: false,
@@ -163,7 +163,7 @@ const mcrToolDefinitions = {
   },
   'session.assert': {
     description: 'Asserts NL facts into a session.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.sessionId || !input?.naturalLanguageText) {
         return {
           success: false,
@@ -185,7 +185,7 @@ const mcrToolDefinitions = {
   },
   'session.query': {
     description: 'Queries a session with an NL question.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.sessionId || !input?.naturalLanguageQuestion) {
         return {
           success: false,
@@ -208,7 +208,7 @@ const mcrToolDefinitions = {
   },
   'session.explainQuery': {
     description: 'Explains an NL query in the context of a session.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.sessionId || !input?.naturalLanguageQuestion) {
         return {
           success: false,
@@ -224,7 +224,7 @@ const mcrToolDefinitions = {
   },
   'session.assert_rules': {
     description: 'Asserts raw Prolog rules directly into a session.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.sessionId || !input?.rules) {
         return {
           success: false,
@@ -242,7 +242,7 @@ const mcrToolDefinitions = {
   'session.set_kb': {
     description:
       'Replaces the entire Knowledge Base for a session with the provided content.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.sessionId || typeof input?.kbContent !== 'string') {
         // kbContent can be an empty string
         return {
@@ -261,7 +261,7 @@ const mcrToolDefinitions = {
   // Symbolic Exchange Tools
   'symbolic.export': {
     description: 'Exports solutions to a Prolog goal from a session.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.sessionId || !input?.goal) {
         return {
           success: false,
@@ -284,7 +284,7 @@ const mcrToolDefinitions = {
   },
   'symbolic.import': {
     description: 'Imports Prolog clauses into a session.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.sessionId || !input?.clauses) {
         return {
           success: false,
@@ -309,7 +309,7 @@ const mcrToolDefinitions = {
   // Ontology Management Tools
   'ontology.create': {
     description: 'Creates a new global ontology.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.name || !input?.rules) {
         return {
           success: false,
@@ -337,7 +337,7 @@ const mcrToolDefinitions = {
   },
   'ontology.list': {
     description: 'Lists all available global ontologies.',
-    handler: async (input) => {
+    handler: async input => {
       const includeRules = input?.includeRules === true;
       try {
         const ontologies = await ontologyService.listOntologies(includeRules);
@@ -354,7 +354,7 @@ const mcrToolDefinitions = {
   },
   'ontology.get': {
     description: 'Retrieves a specific global ontology by name.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.name) {
         return {
           success: false,
@@ -387,7 +387,7 @@ const mcrToolDefinitions = {
   },
   'ontology.update': {
     description: 'Updates an existing global ontology.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.name || !input?.rules) {
         return {
           success: false,
@@ -416,7 +416,7 @@ const mcrToolDefinitions = {
   },
   'ontology.delete': {
     description: 'Deletes a global ontology.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.name) {
         return {
           success: false,
@@ -444,7 +444,7 @@ const mcrToolDefinitions = {
   // Direct Translation Tools
   'translate.nlToRules': {
     description: 'Translates NL text directly to Prolog rules.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.naturalLanguageText) {
         return {
           success: false,
@@ -460,7 +460,7 @@ const mcrToolDefinitions = {
   },
   'translate.rulesToNl': {
     description: 'Translates Prolog rules directly to an NL explanation.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.rules) {
         return {
           success: false,
@@ -482,7 +482,7 @@ const mcrToolDefinitions = {
   },
   'strategy.setActive': {
     description: 'Sets the active base translation strategy.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.strategyId) {
         return {
           success: false,
@@ -528,7 +528,7 @@ const mcrToolDefinitions = {
   'utility.debugFormatPrompt': {
     description:
       'Formats a prompt template with given variables for debugging.',
-    handler: async (input) => {
+    handler: async input => {
       if (!input?.templateName || !input?.inputVariables) {
         return {
           success: false,
@@ -570,7 +570,7 @@ const mcrToolDefinitions = {
           FROM performance_results GROUP BY strategy_hash`;
         const rows = await queryPerformanceResults(query);
         const leaderboardData = rows
-          .map((row) => {
+          .map(row => {
             const details = strategyDetailsMap.get(row.strategy_hash);
             return {
               strategyId: details ? details.id : 'unknown_strategy_id',
@@ -590,7 +590,7 @@ const mcrToolDefinitions = {
                   : null,
             };
           })
-          .filter((entry) => entry.strategyId !== 'unknown_strategy_id');
+          .filter(entry => entry.strategyId !== 'unknown_strategy_id');
         return { success: true, data: leaderboardData };
       } catch (error) {
         logger.error(
@@ -607,7 +607,7 @@ const mcrToolDefinitions = {
   },
   'analysis.get_strategy_details': {
     description: 'Retrieves detailed performance data for a specific strategy.',
-    handler: async (input) => {
+    handler: async input => {
       const { strategyId } = input;
       if (!strategyId) {
         return {
@@ -633,7 +633,7 @@ const mcrToolDefinitions = {
           'SELECT * FROM performance_results WHERE strategy_hash = ? ORDER BY timestamp DESC',
           [strategyHash]
         );
-        const processedRuns = performanceRuns.map((run) => ({
+        const processedRuns = performanceRuns.map(run => ({
           ...run,
           metrics:
             typeof run.metrics === 'string'
@@ -643,7 +643,7 @@ const mcrToolDefinitions = {
         }));
         let totalLatency = 0,
           successfulRuns = 0;
-        processedRuns.forEach((run) => {
+        processedRuns.forEach(run => {
           totalLatency += run.latency_ms;
           if (run.metrics?.exactMatchProlog === 1) successfulRuns++;
         });
@@ -740,7 +740,7 @@ const mcrToolDefinitions = {
   },
   'analysis.get_curriculum_details': {
     description: 'Retrieves the content of a specific curriculum file.',
-    handler: async (input) => {
+    handler: async input => {
       const { curriculumId } = input;
       if (!curriculumId) {
         return {
@@ -800,7 +800,7 @@ const mcrToolDefinitions = {
   // Evolution Tools
   'evolution.start_optimizer': {
     description: 'Starts the strategy evolution optimizer script.',
-    handler: async (input) => {
+    handler: async input => {
       if (optimizerProcess) {
         return {
           success: false,
@@ -822,13 +822,13 @@ const mcrToolDefinitions = {
       optimizerProcess = spawn('node', [scriptPath, ...args], {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
-      optimizerProcess.stdout.on('data', (data) =>
+      optimizerProcess.stdout.on('data', data =>
         addOptimizerLog('stdout', data.toString())
       );
-      optimizerProcess.stderr.on('data', (data) =>
+      optimizerProcess.stderr.on('data', data =>
         addOptimizerLog('stderr', data.toString())
       );
-      optimizerProcess.on('error', (err) => {
+      optimizerProcess.on('error', err => {
         addOptimizerLog('error', `Optimizer process error: ${err.message}`);
         logger.error(`[OptimizerRuntime] Error: ${err.message}`, {
           stack: err.stack,
@@ -845,7 +845,7 @@ const mcrToolDefinitions = {
         );
         optimizerProcess = null;
       });
-      await new Promise((resolve) => setTimeout(resolve, 100)); // Allow fast fail
+      await new Promise(resolve => setTimeout(resolve, 100)); // Allow fast fail
       if (optimizerProcess?.pid) {
         addOptimizerLog(
           'status',
@@ -981,7 +981,7 @@ const mcrToolDefinitions = {
   },
   'demo.run': {
     description: 'Runs a specific demo.',
-    handler: async (input) => {
+    handler: async input => {
       const { demoId, sessionId } = input;
       if (!demoId || !sessionId) {
         return {
@@ -999,7 +999,7 @@ const mcrToolDefinitions = {
         };
       }
       const capturedLogs = [];
-      const logCollector = (logEntry) => capturedLogs.push(logEntry);
+      const logCollector = logEntry => capturedLogs.push(logEntry);
       try {
         const DemoClass = require(demoFilePath);
         if (typeof DemoClass !== 'function' || !DemoClass.prototype?.run) {

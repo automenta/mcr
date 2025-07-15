@@ -11,7 +11,7 @@ const SystemAnalysisMode = () => {
   const [selectedStrategyIdForDeepDive, setSelectedStrategyIdForDeepDive] =
     useState(null);
 
-  const handleNavigateToDeepDive = (strategyId) => {
+  const handleNavigateToDeepDive = strategyId => {
     setSelectedStrategyIdForDeepDive(strategyId);
     setCurrentAnalysisView('deepDive');
   };

@@ -6,12 +6,12 @@ export default function TauReplPane({ sessionId }) {
   const editorRef = useRef();
   useEffect(() => {
     const ed = monaco.editor.create(editorRef.current, { language: 'prolog' });
-    const disposable = ed.onKeyDown((e) => {
+    const disposable = ed.onKeyDown(e => {
       if (e.keyCode === 13 && e.ctrlKey) {
         const goal = ed.getValue();
         apiService
           .invokeTool('symbolic.export', { sessionId, goal })
-          .then((r) =>
+          .then(r =>
             ed.setValue(ed.getValue() + '\n% ' + JSON.stringify(r.data))
           );
       }

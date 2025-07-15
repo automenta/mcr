@@ -5,10 +5,10 @@ import './KnowledgeBase.css';
 
 const KnowledgeBase = ({ sessionId, currentKb, addMessageToHistory }) => {
   const assertions = currentKb
-    ? currentKb.split('\n').filter((line) => line.trim() !== '')
+    ? currentKb.split('\n').filter(line => line.trim() !== '')
     : [];
 
-  const handleRetract = async (assertionToRetract) => {
+  const handleRetract = async assertionToRetract => {
     if (!sessionId) {
       addMessageToHistory({
         type: 'system',
@@ -19,9 +19,9 @@ const KnowledgeBase = ({ sessionId, currentKb, addMessageToHistory }) => {
 
     const currentAssertions = currentKb
       .split('\n')
-      .filter((line) => line.trim() !== '');
+      .filter(line => line.trim() !== '');
     const newKbContent = currentAssertions
-      .filter((a) => a !== assertionToRetract)
+      .filter(a => a !== assertionToRetract)
       .join('\n');
 
     try {
@@ -54,7 +54,7 @@ const KnowledgeBase = ({ sessionId, currentKb, addMessageToHistory }) => {
     }
   };
 
-  const handleShowRelated = (assertion) => {
+  const handleShowRelated = assertion => {
     console.log(`Showing related for: ${assertion}`);
     // Placeholder for future implementation
   };

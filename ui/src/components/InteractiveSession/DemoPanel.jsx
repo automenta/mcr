@@ -44,7 +44,7 @@ const DemoPanel = ({
     }
   }, [isMcrSessionActive, isWsServiceConnected, sessionId, handleListDemos]); // Added handleListDemos
 
-  const handleRunDemo = async (demoId) => {
+  const handleRunDemo = async demoId => {
     if (!isMcrSessionActive || !sessionId || !isWsServiceConnected) {
       // Using alert for immediate user feedback as this is a direct action button.
       // System messages via addMessageToHistory are also good but might be missed.
@@ -100,7 +100,7 @@ const DemoPanel = ({
         </p>
       )}
       <ul>
-        {demos.map((demo) => (
+        {demos.map(demo => (
           <li key={demo.id}>
             <div
               style={{

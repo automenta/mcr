@@ -73,7 +73,7 @@ async function routeMessage(socket, message) {
           };
         }
 
-        const refineOperation = async (input) => {
+        const refineOperation = async input => {
           // This is a simplified operation for demonstration.
           // A real implementation would have more complex logic based on the refineType.
           return mcrService.assertNLToSession(sessionId, input);
@@ -197,7 +197,7 @@ function handleWebSocketConnection(socket) {
     `[WS-Handler][${socket.correlationId}] New WebSocket connection processing started.`
   );
 
-  socket.on('message', (message) => {
+  socket.on('message', message => {
     logger.info(
       `[WS-Handler][${socket.correlationId}] Received raw message:`,
       message
@@ -211,7 +211,7 @@ function handleWebSocketConnection(socket) {
     );
   });
 
-  socket.on('error', (error) => {
+  socket.on('error', error => {
     logger.error(`[WS-Handler][${socket.correlationId}] WebSocket error:`, {
       error: error.message,
       stack: error.stack,

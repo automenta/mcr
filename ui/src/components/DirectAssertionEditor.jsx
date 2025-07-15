@@ -18,7 +18,7 @@ const DirectAssertionEditor = ({
   // const prologViewerRef = useRef(); // Removed as it's not used
 
   // Callback for PrologCodeViewer's onSave, which we'll use as "Assert"
-  const handleAssertToKb = async (codeToAssert) => {
+  const handleAssertToKb = async codeToAssert => {
     setCurrentPrologCode(codeToAssert); // Keep local state in sync if needed, or rely on viewer's internal state
     setAssertionStatus({ message: '', type: '' });
 

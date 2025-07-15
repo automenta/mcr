@@ -1,7 +1,7 @@
 import TSNE from 'tsne-js';
 
 // Custom PCA implementation
-const PCA = (matrix) => {
+const PCA = matrix => {
   if (!matrix || matrix.length === 0 || !matrix[0] || matrix[0].length === 0) {
     return { transform: () => [] };
   }
@@ -19,7 +19,7 @@ const PCA = (matrix) => {
   }
 
   // Step 2: Center the data
-  const centered = matrix.map((row) => row.map((val, j) => val - mean[j]));
+  const centered = matrix.map(row => row.map((val, j) => val - mean[j]));
 
   // Step 3: Calculate the covariance matrix
   const covariance = new Array(cols).fill(0).map(() => new Array(cols).fill(0));
@@ -36,7 +36,7 @@ const PCA = (matrix) => {
   // A proper implementation would calculate eigenvectors and eigenvalues here.
   // For this placeholder, we'll just return the first 'dim' dimensions of the centered data.
   const transform = (data, dim) => {
-    return data.map((row) => row.slice(0, dim));
+    return data.map(row => row.slice(0, dim));
   };
 
   return { transform: (data, dim) => transform(centered, dim) };

@@ -83,7 +83,7 @@ const SessionPanel = ({
         <input
           type="text"
           value={tempSessionIdInput}
-          onChange={(e) => setTempSessionIdInput(e.target.value)}
+          onChange={e => setTempSessionIdInput(e.target.value)}
           placeholder="Session ID (optional)"
           disabled={isMcrSessionActive || !isWsServiceConnected}
           style={{ flexGrow: 1, marginRight: '5px' }}

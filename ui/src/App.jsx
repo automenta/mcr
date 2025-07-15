@@ -33,12 +33,12 @@ function App() {
     }
   }, []);
 
-  const addMessageToHistory = useCallback((message) => {
-    setChatHistory((prev) => [...prev, message]);
+  const addMessageToHistory = useCallback(message => {
+    setChatHistory(prev => [...prev, message]);
   }, []);
 
   const handleServerMessage = useCallback(
-    (message) => {
+    message => {
       if (message.type === 'connection_ack') {
         console.debug('[App] Connection ACK received:', message.message);
       }
@@ -113,7 +113,7 @@ function App() {
   useEffect(() => {
     apiService.addMessageListener(handleServerMessage);
 
-    const handleConnectionStatus = (statusEvent) => {
+    const handleConnectionStatus = statusEvent => {
       console.debug('[App] Connection status event:', statusEvent);
       switch (statusEvent.status) {
         case 'connected':
@@ -149,7 +149,7 @@ function App() {
     apiService.addEventListener('connection_status', handleConnectionStatus);
 
     setWsConnectionStatus('🔌 Connecting...');
-    apiService.connect().catch((err) => {
+    apiService.connect().catch(err => {
       console.error('Initial apiService.connect() promise rejected:', err);
     });
 
@@ -170,7 +170,7 @@ function App() {
     }
   }, [isWsServiceConnected, fetchGlobalActiveStrategy, fetchDemos]);
 
-  const connectToSession = async (sidToConnect) => {
+  const connectToSession = async sidToConnect => {
     if (!isWsServiceConnected) {
       addMessageToHistory({
         type: 'system',
@@ -227,7 +227,7 @@ function App() {
     setChatHistory([]);
   };
 
-  const fetchCurrentKb = async (sid) => {
+  const fetchCurrentKb = async sid => {
     if (!sid || !isWsServiceConnected) return;
     try {
       const response = await apiService.invokeTool('session.get', {
@@ -264,7 +264,7 @@ function App() {
     }
   };
 
-  const handleLoadDemo = async (demoId) => {
+  const handleLoadDemo = async demoId => {
     if (!demoId || !sessionId) {
       addMessageToHistory({
         type: 'system',
@@ -338,7 +338,7 @@ function App() {
         isWsServiceConnected={isWsServiceConnected}
         onRetryConnect={() => {
           setWsConnectionStatus('🔌 Connecting...');
-          apiService.connect().catch((err) => {
+          apiService.connect().catch(err => {
             setWsConnectionStatus(
               `🔴 Error: ${err.message || 'Failed to connect during retry'}.`
             );

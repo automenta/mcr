@@ -14,7 +14,7 @@ class EmbeddingBridge {
       console.error('Failed to load the sentence encoder model:', error);
       // Fallback to a zero-vector or handle appropriately
       this.model = {
-        embed: async (texts) => tf.zeros([texts.length, 512]),
+        embed: async texts => tf.zeros([texts.length, 512]),
       };
     }
   }

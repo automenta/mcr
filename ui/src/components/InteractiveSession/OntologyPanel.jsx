@@ -60,7 +60,7 @@ const OntologyPanel = ({
     }
   }, [isMcrSessionActive, isWsServiceConnected, sessionId, listOntologies]); // Added listOntologies
 
-  const viewOntology = async (ontologyName) => {
+  const viewOntology = async ontologyName => {
     if (!isMcrSessionActive || !isWsServiceConnected) {
       addMessageToHistory({
         type: 'system',
@@ -93,7 +93,7 @@ const OntologyPanel = ({
     }
   };
 
-  const loadOntologyToSession = async (ontologyName) => {
+  const loadOntologyToSession = async ontologyName => {
     if (!isMcrSessionActive || !sessionId || !isWsServiceConnected) {
       addMessageToHistory({
         type: 'system',
@@ -157,7 +157,7 @@ const OntologyPanel = ({
         </p>
       )}
       <ul>
-        {ontologies.map((ont) => (
+        {ontologies.map(ont => (
           <li
             key={ont.id || ont.name}
             style={{
