@@ -13,6 +13,30 @@ async function startServer() {
   const logger = require('./src/util/logger');
   logger.info('[MCR Init] Initializing MCR server...');
 
+  if (config.embedding.model) {
+    try {
+      const tf = require('@tensorflow/tfjs-node');
+      logger.info('[MCR Init] TensorFlow.js backend initialized.');
+    } catch (error) {
+      logger.error(
+        '[MCR Init] Failed to load @tensorflow/tfjs-node. Embedding features will be disabled.',
+        error
+      );
+    }
+  }
+
+  if (config.kg.enabled) {
+    try {
+      const graphology = require('graphology');
+      logger.info('[MCR Init] Graphology library loaded.');
+    } catch (error) {
+      logger.error(
+        '[MCR Init] Failed to load graphology. Knowledge Graph features will be disabled.',
+        error
+      );
+    }
+  }
+
   const createHttpServer = require('./src/app'); // This is now an async function
 
   logger.debug('[MCR Init] src/app (createServer) required.');

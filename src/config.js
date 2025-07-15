@@ -42,6 +42,14 @@ const config = {
       // Tau-Prolog is embedded, so no specific paths needed for it usually
       // Add any specific prolog config here if necessary
     },
+    type: process.env.REASONER_TYPE || 'prolog',
+    ltnThreshold: parseFloat(process.env.LTN_THRESHOLD) || 0.7,
+  },
+  embedding: {
+    model: process.env.EMBEDDING_MODEL || 'all-MiniLM-L6-v2',
+  },
+  kg: {
+    enabled: process.env.KG_ENABLED === 'true',
   },
   ontology: {
     directory:
@@ -104,6 +112,18 @@ function validateConfig() {
     }
   }
   // Add more validation for other providers or specific settings as needed.
+
+  if (config.reasoner.type === 'ltn') {
+    if (
+      typeof config.reasoner.ltnThreshold !== 'number' ||
+      config.reasoner.ltnThreshold < 0 ||
+      config.reasoner.ltnThreshold > 1
+    ) {
+      throw new Error(
+        'Configuration Error: REASONER_TYPE is "ltn" but LTN_THRESHOLD is not a float between 0 and 1.'
+      );
+    }
+  }
 
   // Validate debugLevel
   const validDebugLevels = ['none', 'basic', 'verbose'];
