@@ -4,6 +4,7 @@ import { faPaperPlane, faTrash } from '@fortawesome/free-solid-svg-icons';
 import apiService from '../apiService';
 import './REPL.css';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import CycleViz from './CycleViz';
 
 const REPL = ({
   sessionId,
@@ -67,30 +68,7 @@ const REPL = ({
         return (
           <div key={index} className="message server">
             🤖 {message.text}
-            {message.debugInfo && (
-              <div className="debug-info">
-                {message.debugInfo.loopInfo && (
-                  <p>
-                    Loop Iterations: {message.debugInfo.loopInfo.nlToLogicLoopIterations}
-                  </p>
-                )}
-                {message.debugInfo.probabilities && (
-                  <div>
-                    <p>Probabilities:</p>
-                    <ResponsiveContainer width="100%" height={100}>
-                      <BarChart data={message.debugInfo.probabilities.map((p, i) => ({ name: `H${i}`, probability: p }))}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="probability" fill="#8884d8" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </div>
-            )}
+            {message.debugInfo && <CycleViz debugInfo={message.debugInfo} />}
           </div>
         );
       case 'llm':

@@ -3,7 +3,6 @@ import Split from 'react-split';
 import KnowledgeBase from './KnowledgeBase';
 import REPL from './REPL';
 import TauReplPane from './TauReplPane';
-import CycleViz from './CycleViz';
 import './InteractiveSessionMode.css';
 
 const InteractiveSessionMode = ({
@@ -23,7 +22,6 @@ const InteractiveSessionMode = ({
   fetchCurrentKb,
 }) => {
   const [activeTab, setActiveTab] = useState('kb');
-  const [showCycleViz, setShowCycleViz] = useState(false);
 
   return (
     <Split
@@ -63,9 +61,6 @@ const InteractiveSessionMode = ({
           >
             Tau REPL
           </button>
-          <button onClick={() => setShowCycleViz(!showCycleViz)}>
-            {showCycleViz ? 'Hide' : 'Show'} Cycle Viz
-          </button>
         </div>
         <div className="tab-content">
           {activeTab === 'kb' && (
@@ -77,7 +72,6 @@ const InteractiveSessionMode = ({
           )}
           {activeTab === 'tau' && <TauReplPane sessionId={sessionId} />}
         </div>
-        {showCycleViz && <CycleViz />}
       </div>
     </Split>
   );
