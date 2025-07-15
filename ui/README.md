@@ -1,12 +1,20 @@
-# React + Vite
+# MCR Chat-Based UI
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is a React-based UI for the Model-Context-Reasoner (MCR). It provides a chat-based interface for interacting with the MCR, as well as visualizations for the different contexts (NL, Reasoning, KB, Evolution).
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Chat-based interaction:** Interact with the MCR using natural language.
+- **Slash commands:** Use slash commands for specific actions (e.g., `/assert`, `/query`).
+- **Context visualization:** Visualize the different contexts (NL, Reasoning, KB, Evolution) as graphs.
+- **Embedding visualization:** Node embeddings are visualized as bitmaps in the graph nodes.
+- **Pure LM mode:** A "pure LM" mode is available for interacting with the language model without the reasoning components.
+- **Onboarding:** A simple onboarding banner is shown to new users.
 
-## Expanding the ESLint configuration
+## How to use
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+1. Start the MCR backend.
+2. Start the UI development server: `npm run dev:ui`
+3. Open the UI in your browser.
+
+You can then connect to a session and start interacting with the MCR. Use the sidebar to switch between different context views and to configure the MCR.

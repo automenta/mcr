@@ -4,6 +4,9 @@ import apiService from './apiService';
 import AppHeader from './components/AppHeader';
 import InteractiveSessionMode from './components/InteractiveSessionMode';
 import SystemAnalysisMode from './components/SystemAnalysisMode';
+import Sidebar from './components/Sidebar';
+import ChatWindow from './components/ChatWindow';
+import { motion, AnimatePresence } from 'framer-motion';
 
 function App() {
   const [currentMode, setCurrentMode] = useState('interactive'); // 'interactive' or 'analysis'
@@ -17,6 +20,18 @@ function App() {
     useState('⏳ Initializing...');
   const [demos, setDemos] = useState([]);
   const [selectedDemo, setSelectedDemo] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
+  const [useReasoning, setUseReasoning] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    const isFirstLoad = !localStorage.getItem('hasVisited');
+    if (isFirstLoad) {
+      setShowOnboarding(true);
+      localStorage.setItem('hasVisited', 'true');
+    }
+  }, []);
 
   const addMessageToHistory = useCallback((message) => {
     setChatHistory((prev) => [...prev, message]);
@@ -286,6 +301,26 @@ function App() {
 
   return (
     <div className="app-container">
+      <AnimatePresence>
+        {showOnboarding && (
+          <motion.div
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            style={{
+              background: '#333',
+              color: 'white',
+              padding: '1rem',
+              textAlign: 'center',
+            }}
+          >
+            Welcome to the new MCR!
+            <button onClick={() => setShowOnboarding(false)} style={{ marginLeft: '1rem' }}>
+              Dismiss
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <AppHeader
         currentMode={currentMode}
         setCurrentMode={setCurrentMode}
@@ -308,27 +343,31 @@ function App() {
         selectedDemo={selectedDemo}
         setSelectedDemo={setSelectedDemo}
         onLoadDemo={handleLoadDemo}
+        useReasoning={useReasoning}
+        setUseReasoning={setUseReasoning}
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
       />
-      <main className="main-content">
-        {currentMode === 'interactive' ? (
-          <InteractiveSessionMode
-            sessionId={sessionId}
-            setSessionId={setSessionId}
-            activeStrategy={activeStrategy}
-            setActiveStrategy={setActiveStrategy}
-            currentKb={currentKb}
-            setCurrentKb={setCurrentKb}
-            connectSession={connectToSession}
-            disconnectSession={disconnectFromSession}
-            isMcrSessionActive={isConnected}
-            isWsServiceConnected={isWsServiceConnected}
-            addMessageToHistory={addMessageToHistory}
-            chatHistory={chatHistory}
-            setChatHistory={setChatHistory}
-            fetchCurrentKb={fetchCurrentKb}
-          />
-        ) : (
-          <SystemAnalysisMode />
+      <main className="main-content" style={{ display: 'flex' }}>
+        {useReasoning && isSidebarOpen && <Sidebar />}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {currentMode === 'interactive' ? (
+            <ChatWindow
+              chatHistory={chatHistory}
+              setChatHistory={setChatHistory}
+              sessionId={sessionId}
+              isMcrSessionActive={isConnected}
+              addMessageToHistory={addMessageToHistory}
+              useReasoning={useReasoning}
+            />
+          ) : (
+            <SystemAnalysisMode />
+          )}
+        </div>
+        {useReasoning && isRightPanelOpen && (
+          <div style={{ width: '300px', borderLeft: '1px solid #ccc' }}>
+            Right Panel
+          </div>
         )}
       </main>
     </div>
