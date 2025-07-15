@@ -1,14 +1,9 @@
 const KeywordInputRouter = require('../src/evolution/keywordInputRouter.js');
-const logger = require('../src/util/logger');
 const { MCRError, ErrorCodes } = require('../src/errors');
 
 // Mock logger to prevent console output during tests and allow assertions
-jest.mock('../src/util/logger', () => ({
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  debug: jest.fn(),
-}));
+jest.mock('../src/util/logger');
+const logger = require('../src/util/logger');
 
 describe('KeywordInputRouter', () => {
   let mockDb;
@@ -16,10 +11,7 @@ describe('KeywordInputRouter', () => {
 
   beforeEach(() => {
     // Reset mocks before each test
-    logger.info.mockClear();
-    logger.warn.mockClear();
-    logger.error.mockClear();
-    logger.debug.mockClear();
+    jest.clearAllMocks();
 
     mockDb = {
       queryPerformanceResults: jest.fn(),

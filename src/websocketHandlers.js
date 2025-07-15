@@ -74,6 +74,40 @@ async function routeMessage(socket, message) {
           })
         );
       }
+    } else if (toolName === 'hybrid.refine') {
+      logger.info(
+        `[WS-Handler][${correlationId}] Invoking hybrid.refine tool.`,
+        { input: inputPayload }
+      );
+      // Placeholder for hybrid.refine logic
+      socket.send(
+        JSON.stringify({
+          type: 'tool_result',
+          correlationId: correlationId,
+          messageId: messageId,
+          payload: {
+            success: true,
+            message: 'hybrid.refine tool invoked, but not yet implemented.',
+          },
+        })
+      );
+    } else if (toolName === 'kg.query') {
+      logger.info(
+        `[WS-Handler][${correlationId}] Invoking kg.query tool.`,
+        { input: inputPayload }
+      );
+      // Placeholder for kg.query logic
+      socket.send(
+        JSON.stringify({
+          type: 'tool_result',
+          correlationId: correlationId,
+          messageId: messageId,
+          payload: {
+            success: true,
+            message: 'kg.query tool invoked, but not yet implemented.',
+          },
+        })
+      );
     } else if (
       toolName &&
       (toolName.startsWith('mcp.') || message.action?.startsWith('mcp.'))

@@ -10,6 +10,13 @@ const { initDb, closeDb } = require('../store/database'); // DB_PATH removed
 // const StrategyEvolver = require('./strategyEvolver');
 // const CurriculumGenerator = require('./curriculumGenerator');
 
+const mcrService = {
+  _refineLoop: async (input) => {
+    console.log('Refining input:', input);
+    return { refined: input, embedding_sim: Math.random(), prob_score: Math.random() };
+  }
+};
+
 class OptimizationCoordinator {
   constructor(config = {}) {
     this.config = config;
@@ -59,12 +66,15 @@ class OptimizationCoordinator {
         // Find strategies that have at least one non-passing exactMatchProlog metric
         // and have been run on at least one example.
         // We also need to get the strategy definition later, so strategy_hash is key.
+        // DB schema change: ALTER TABLE performance_results ADD COLUMN embedding_sim REAL;
+        // DB schema change: ALTER TABLE performance_results ADD COLUMN prob_score REAL;
         const query = `
-                    SELECT strategy_hash, AVG(json_extract(metrics, '$.exactMatchProlog')) as avg_exactMatchProlog
+                    SELECT strategy_hash, AVG(json_extract(metrics, '$.exactMatchProlog')) as avg_exactMatchProlog,
+                    AVG(embedding_sim) as avg_embedding_sim, AVG(prob_score) as avg_prob_score
                     FROM performance_results
                     WHERE json_extract(metrics, '$.exactMatchProlog') IS NOT NULL
                     GROUP BY strategy_hash
-                    ORDER BY avg_exactMatchProlog ASC
+                    ORDER BY avg_exactMatchProlog ASC, avg_prob_score DESC
                     LIMIT 1;
                 `;
         // Alternative: Count failures
@@ -250,6 +260,17 @@ class OptimizationCoordinator {
       // Reload strategies again to remove the temporary one from manager's list if it's not persisted by evolver
       strategyManager.loadStrategies();
     }
+  }
+
+  async optimizeInLoop(strategy, inputCases) {
+    logger.info(`[Optimizer] Optimizing strategy in loop: ${strategy.id}`);
+    const results = [];
+    for (const inputCase of inputCases) {
+      const { refined, embedding_sim, prob_score } = await mcrService._refineLoop(inputCase);
+      // evaluation logic here...
+      results.push({ refined, embedding_sim, prob_score });
+    }
+    return results;
   }
 
   async runIteration() {

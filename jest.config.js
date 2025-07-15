@@ -10,7 +10,6 @@ module.exports = {
     "^.+\\.(ts|tsx)$": "ts-jest"
   },
   "moduleNameMapper": {
-    "../src/mcrService": "<rootDir>/tests/__mocks__/mcrService.js",
     "../src/bridges/embeddingBridge": "<rootDir>/tests/__mocks__/embeddingBridge.js"
   }
 }

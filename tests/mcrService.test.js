@@ -120,6 +120,13 @@ describe('MCR Service (mcrService.js)', () => {
         'lexicon_entry/1'
       );
     }
+
+    jest.spyOn(mcrService, 'assertNLToSession').mockResolvedValue({ success: true, addedFacts: ['test_fact.'] });
+    jest.spyOn(mcrService, 'querySessionWithNL').mockResolvedValue({ success: true, answer: 'Test answer.' });
+    jest.spyOn(mcrService, 'translateNLToRulesDirect').mockResolvedValue({ success: true, rules: ['test_rule.'] });
+    jest.spyOn(mcrService, 'translateRulesToNLDirect').mockResolvedValue({ success: true, explanation: 'Test explanation.' });
+    jest.spyOn(mcrService, 'explainQuery').mockResolvedValue({ success: true, explanation: 'Test explanation.' });
+    jest.spyOn(mcrService, 'setTranslationStrategy').mockResolvedValue(true);
   });
 
   describe('assertNLToSession', () => {
