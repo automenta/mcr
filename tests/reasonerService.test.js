@@ -191,3 +191,67 @@ describe('ReasonerService (Prolog Provider)', () => {
     // which is now mocked at the prologReasoner.js level.
   });
 });
+
+const llmService = require('../src/llmService');
+const embeddingBridge = require('../src/bridges/embeddingBridge');
+const config = require('../src/config');
+
+jest.mock('../src/llmService', () => ({
+  generate: jest.fn(),
+}));
+
+jest.mock('../src/bridges/embeddingBridge', () => ({
+  embed: jest.fn(),
+  similarity: jest.fn(),
+}));
+
+describe('Reasoner Service', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('guidedDeduce', () => {
+    const query = 'mortal(socrates).';
+    const knowledgeBase = 'man(socrates). mortal(X) :- man(X).';
+
+    it('should use LLM to generate hypotheses', async () => {
+      config.reasoner.guidance = 'llm';
+      llmService.generate.mockResolvedValueOnce('hypothesis1. hypothesis2.');
+
+      await reasonerService.guidedDeduce(query, knowledgeBase);
+
+      expect(llmService.generate).toHaveBeenCalled();
+    });
+
+    it('should use embeddings to rank hypotheses', async () => {
+      config.reasoner.guidance = 'embedding';
+      embeddingBridge.embed.mockResolvedValue([0.1, 0.2, 0.3]);
+      embeddingBridge.similarity.mockReturnValue(0.9);
+
+      await reasonerService.guidedDeduce(query, knowledgeBase, { hypotheses: ['hypothesis1', 'hypothesis2'] });
+
+      expect(embeddingBridge.embed).toHaveBeenCalledWith(query);
+      expect(embeddingBridge.embed).toHaveBeenCalledWith('hypothesis1');
+      expect(embeddingBridge.embed).toHaveBeenCalledWith('hypothesis2');
+      expect(embeddingBridge.similarity).toHaveBeenCalledTimes(2);
+    });
+
+    it('should return probabilistic results with LTN', async () => {
+        config.reasoner.type = 'ltn';
+        config.reasoner.ltn = { threshold: 0.7 };
+
+        const results = await reasonerService.guidedDeduce(query, knowledgeBase);
+
+        expect(results.every(r => r.probability >= 0.7)).toBe(true);
+    });
+
+    it('should fall back to deterministic reasoning', async () => {
+        config.reasoner.guidance = null;
+        config.reasoner.type = 'prolog';
+
+        const results = await reasonerService.guidedDeduce(query, knowledgeBase);
+
+        expect(results.every(r => r.probability === 1.0)).toBe(true);
+    });
+  });
+});

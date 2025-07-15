@@ -37,6 +37,10 @@ This combination unlocks possibilities for more robust, explainable, and sophist
 - **🧩 Modular Server**: Core logic is well-structured (Config, Logger, LLM Service, Reasoner Service, MCR Service, Tool Definitions).
 - **💾 Persistent Sessions**: Supports both in-memory and file-based session storage, allowing knowledge bases to persist across server restarts. Configurable via `.env`.
 - **🤖 Extensible LLM Support**: Supports multiple LLM providers (OpenAI, Gemini, Ollama, etc.), selectable via configuration.
+- **🧠 Neurosymbolic Capabilities**:
+    - **Bidirectional Refinement Loops**: Automatically refines translations between natural language and logic for improved accuracy and consistency.
+    - **Embeddings and Knowledge Graph Integration**: Enriches reasoning with semantic context from embeddings and structured knowledge from a graph database.
+    - **Guided Probabilistic Reasoning**: Combines neural guidance with symbolic deduction to produce probabilistic answers.
 - **📚 Dynamic Lexicon Summary**: Automatically builds a lexicon of known predicates from asserted facts to aid LLM translation.
 - **🛡️ Robust Error Handling**: Centralized error handling for WebSocket API calls.
 - **✅ Configuration Validation**: Validates essential configurations on server startup.
@@ -397,6 +401,12 @@ This section covers setting up MCR for development, including running the backen
     # For persistent sessions that survive restarts, use "file".
     # For ephemeral sessions, use "memory" or omit this line.
     MCR_SESSION_STORE_TYPE="file"
+
+    # --- Neurosymbolic Configuration ---
+    REASONER_TYPE="ltn" # 'prolog' or 'ltn'
+    EMBEDDING_MODEL="all-MiniLM-L6-v2" # Optional
+    KG_ENABLED=true # Optional
+    LTN_THRESHOLD=0.7 # Required if REASONER_TYPE is 'ltn'
     ```
 
 5.  **Run the MCR Server (includes serving the UI)**:
