@@ -576,13 +576,16 @@ async function querySessionWithNL(
       debugInfo.dynamicOntologyProvided = true;
     }
 
-    const reasonerResult = await reasonerService.executeQuery(
-      knowledgeBase,
+    const reasonerResult = await reasonerService.guidedDeduce(
       prologQuery,
-      { trace }
+      llmService,
+      session
     );
-    const { results: prologResults, trace: proofTrace } = reasonerResult;
+    const prologResults = reasonerResult.map(r => r.proof);
+    const probabilities = reasonerResult.map(r => r.probability);
+    const proofTrace = null; // guidedDeduce does not currently support tracing
     debugInfo.prologResultsJSON = JSON.stringify(prologResults);
+    debugInfo.probabilities = probabilities;
 
     // Phase 3: Logic to NL (Answer Generation)
     const logicToNlOperation = async (symbolicResultStr) => {

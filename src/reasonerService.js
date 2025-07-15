@@ -86,6 +86,43 @@ async function probabilisticDeduce(clauses, query, threshold) {
     return await provider.executeQuery(knowledgeBase, query);
 }
 
+async function guidedDeduce(query, llm, session) {
+    const provider = getProvider();
+    const { embeddingBridge } = session;
+
+    // 1. Neural guide (simplified)
+    const hypotheses = await llm.generate(
+        'hypothesize.system',
+        `Based on the query "${query}", generate potential answers.`,
+    );
+
+    // 2. Symbolic prove on top ranks
+    const rankedHypotheses = hypotheses.text.split('\n').map(h => h.trim());
+    const results = [];
+
+    for (const hypothesis of rankedHypotheses) {
+        const result = await provider.executeQuery(session.knowledgeBase, hypothesis);
+        if (result.results.length > 0) {
+            // 3. Probabilistic score
+            const probability = (session.embeddingBridge && result.results[0].embedding)
+                ? await embeddingBridge.similarity(
+                    await embeddingBridge.encode(query),
+                    result.results[0].embedding,
+                )
+                : 0.9; // Fallback probability
+            results.push({ proof: result.results[0], probability });
+        }
+    }
+
+    // Fallback to deterministic if no results
+    if (results.length === 0) {
+        const deterministicResult = await provider.executeQuery(session.knowledgeBase, query);
+        return deterministicResult.results.map(r => ({ ...r, probability: 1.0 }));
+    }
+
+    return results;
+}
+
 async function validateKnowledgeBase(knowledgeBase) {
   const provider = getProvider();
   if (!provider || typeof provider.validate !== 'function') {
@@ -112,4 +149,5 @@ module.exports = {
   executeQuery,
   validateKnowledgeBase,
   probabilisticDeduce,
+  guidedDeduce,
 };

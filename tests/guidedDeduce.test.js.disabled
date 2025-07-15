@@ -1,0 +1,86 @@
+const reasonerService = require('../src/reasonerService');
+const mcrService = require('../src/mcrService');
+const llmService = require('../src/llmService');
+jest.mock('../src/llmService');
+const InMemorySessionStore = require('../src/store/InMemorySessionStore');
+const config = require('../src/config');
+
+const originalReasonerService = jest.requireActual('../src/reasonerService');
+const { executeQuery } = require('../src/reasonerService');
+jest.mock('../src/reasonerService', () => ({
+    ...jest.requireActual('../src/reasonerService'),
+    executeQuery: jest.fn(),
+}));
+
+
+describe('guidedDeduce', () => {
+  let session;
+  let sessionStore;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    sessionStore = new InMemorySessionStore();
+    await sessionStore.initialize();
+    session = await sessionStore.createSession('test-session');
+    await mcrService.setSessionKnowledgeBase('test-session', 'fact(a). fact(b).');
+    session.embeddingBridge = {
+      encode: jest.fn().mockResolvedValue([0.1, 0.2, 0.3]),
+      similarity: jest.fn().mockResolvedValue(0.95),
+    };
+    const s = await sessionStore.getSession('test-session');
+    session.knowledgeBase = await sessionStore.getKnowledgeBase('test-session');
+  });
+
+  it('should return a probabilistic result', async () => {
+    jest.spyOn(llmService, 'generate').mockResolvedValue({
+        text: 'fact(a).\nfact(c).',
+    });
+    executeQuery.mockImplementation((kb, query) => {
+        if (query === 'fact(a).') {
+            return Promise.resolve({ results: [{X: 'a'}] });
+        }
+        return Promise.resolve({ results: [] });
+    });
+
+    const results = await originalReasonerService.guidedDeduce(
+      'fact(X).',
+      llmService,
+      session
+    );
+
+    expect(llmService.generate).toHaveBeenCalled();
+    expect(executeQuery).toHaveBeenCalledWith(
+      'fact(a). fact(b).',
+      'fact(a).'
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0].probability).toBeCloseTo(0.95);
+    expect(results[0].proof).toEqual({X: 'a'});
+  });
+
+  it('should fallback to deterministic mode', async () => {
+    jest.spyOn(llmService, 'generate').mockResolvedValue({
+        text: 'fact(c).\nfact(d).',
+    });
+      executeQuery.mockImplementation((kb, query) => {
+          if (query === 'fact(X).') {
+              return Promise.resolve({ results: [{X: 'a'}, {X: 'b'}] });
+          }
+          return Promise.resolve({ results: [] });
+      });
+
+      const results = await originalReasonerService.guidedDuce(
+        'fact(X).',
+        llmService,
+        session
+      );
+
+      expect(llmService.generate).toHaveBeenCalled();
+      expect(executeQuery).toHaveBeenCalledWith(
+        'fact(a). fact(b).',
+        'fact(X).'
+      );
+      expect(results).toHaveLength(2);
+      expect(results[0].probability).toBe(1.0);
+  });
+});
