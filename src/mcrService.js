@@ -115,7 +115,11 @@ async function getOperationalStrategyJson(operationType, naturalLanguageText) {
       strategyJson =
         strategyManager.getStrategy(baseStrategyId) ||
         strategyManager.getDefaultStrategy();
-      logger.info(`[McrService] Using fallback strategy: "${strategyJson.id}"`);
+      if (strategyJson) {
+        logger.info(`[McrService] Using fallback strategy: "${strategyJson.id}"`);
+      } else {
+        logger.error(`[McrService] Failed to initialize with a default assertion strategy. Base ID: "${baseStrategyId}". Error: ${e}`);
+      }
     }
   }
   return strategyJson;

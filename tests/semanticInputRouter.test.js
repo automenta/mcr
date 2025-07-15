@@ -9,6 +9,7 @@ jest.mock('../src/embedding', () => {
     return jest.fn().mockImplementation(() => {
         return {
             getEmbedding: jest.fn().mockResolvedValue([0.1, 0.2, 0.3]),
+            getEmbeddings: jest.fn().mockResolvedValue([[0.1, 0.2, 0.3]]),
             generate: jest.fn().mockResolvedValue([0.1, 0.2, 0.3]),
         };
     });
@@ -16,7 +17,9 @@ jest.mock('../src/embedding', () => {
 jest.mock('../src/store/database');
 jest.mock('../src/util/logger');
 
-const semanticArchetypes = require('../src/evolution/semanticArchetypes');
+const {
+  inputArchetypes: semanticArchetypes,
+} = require('../src/evolution/semanticArchetypes');
 
 describe('SemanticInputRouter', () => {
   let semanticInputRouter;
@@ -45,13 +48,12 @@ describe('SemanticInputRouter', () => {
 
   describe('_initializeArchetypeEmbeddings', () => {
     it('should fetch and cache embeddings for all archetypes', async () => {
-        mockEmbeddingService.generate.mockResolvedValue([0.1,0.2,0.3]);
+        const embeddings = semanticArchetypes.map(() => [0.1, 0.2, 0.3]);
+        mockEmbeddingService.getEmbeddings.mockResolvedValue(embeddings);
       await semanticInputRouter._initializeArchetypeEmbeddings();
-      expect(mockEmbeddingService.generate).toHaveBeenCalled();
+      expect(mockEmbeddingService.getEmbeddings).toHaveBeenCalled();
       expect(semanticInputRouter.archetypeEmbeddingsCache).not.toBeNull();
-      expect(
-        Object.keys(semanticInputRouter.archetypeEmbeddingsCache).length
-      ).toBe(Object.keys(semanticArchetypes).length);
+      expect(semanticInputRouter.archetypeEmbeddingsCache.size).toBe(semanticArchetypes.length);
     });
   });
 

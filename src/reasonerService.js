@@ -73,13 +73,13 @@ async function probabilisticDeduce(clauses, query, threshold, embeddingBridge) {
 
     const weightedClauses = await Promise.all(clauses.map(async (c) => {
         const clauseVector = await embeddingBridge.encode(c.clause);
-        const similarity = embeddingBridge.similarity(queryVector, clauseVector);
+        const similarity = await embeddingBridge.similarity(queryVector, clauseVector);
         return {...c, weight: similarity};
     }));
 
     const activeClauses = weightedClauses.filter(c => c.weight >= threshold);
 
-    const knowledgeBase = activeClauses.map(c => c.clause).join(' ');
+    const knowledgeBase = activeClauses.map(c => c.clause).join('\n');
     const provider = getProvider();
     if (provider.name.toLowerCase() !== 'prolog') {
         throw new Error("Probabilistic deduce currently relies on the Prolog reasoner.");
@@ -122,7 +122,10 @@ async function guidedDeduce(query, llmService, embeddingBridge, session) {
     // Fallback to deterministic if no results
     if (results.length === 0) {
         const deterministicResult = await provider.executeQuery(session.knowledgeBase, query);
-        return deterministicResult.results.map(r => ({ ...r, probability: 1.0 }));
+        if (deterministicResult.results) {
+            return deterministicResult.results.map(r => ({ ...r, probability: 1.0 }));
+        }
+        return [];
     }
 
     return results;

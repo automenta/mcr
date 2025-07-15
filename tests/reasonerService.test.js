@@ -99,10 +99,14 @@ describe('Reasoner Service', () => {
 
     it('should fall back to deterministic reasoning', async () => {
       llmService.generate.mockResolvedValue({ text: '' });
-      mockPrologReasonerExecuteQuery.mockResolvedValue({ results: [{ a: 1}] });
+      mockPrologReasonerExecuteQuery.mockImplementation((kb, q) => {
+        if (q === '') {
+          return Promise.resolve({ results: [] });
+        }
+        return Promise.resolve({ results: [{ a: 1 }] });
+      });
 
       const results = await reasonerService.guidedDeduce(query, llmService, mockEmbeddingBridge, session);
-
       expect(results.every(r => r.probability === 1.0)).toBe(true);
     });
 

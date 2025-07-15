@@ -20,10 +20,10 @@ jest.mock('../src/ontologyService', () => ({
 }));
 jest.mock('../src/strategyManager', () => ({
     getStrategy: jest.fn(),
+    getDefaultStrategy: jest.fn(),
     getOperationalStrategyJson: jest.fn(),
 }));
 
-const mcrService = require('../src/mcrService');
 const llmService = require('../src/llmService');
 const reasonerService = require('../src/reasonerService');
 const InMemorySessionStore = require('../src/store/InMemorySessionStore');
@@ -34,8 +34,11 @@ const { MCRError, ErrorCodes } = require('../src/errors');
 describe('MCR Service (mcrService.js)', () => {
   let sessionId;
   let mockSessionStoreInstance;
+  let mcrService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    jest.resetModules();
+    mcrService = require('../src/mcrService');
     sessionId = 'test-session-id';
     mockSessionStoreInstance = new InMemorySessionStore();
     mcrService.sessionStore = mockSessionStoreInstance;
@@ -43,7 +46,15 @@ describe('MCR Service (mcrService.js)', () => {
     llmService.generate.mockResolvedValue({ text: 'mock llm response' });
     reasonerService.executeQuery.mockResolvedValue({ results: [] });
     reasonerService.validateKnowledgeBase.mockResolvedValue({ isValid: true });
-    mockSessionStoreInstance.getSession.mockResolvedValue({ id: sessionId, facts: [] });
+
+    const session = {
+        id: sessionId,
+        facts: [],
+        embeddings: new Map(),
+        kbGraph: null,
+    };
+    mockSessionStoreInstance.createSession.mockResolvedValue(session);
+    mockSessionStoreInstance.getSession.mockResolvedValue(session);
     mockSessionStoreInstance.getKnowledgeBase.mockResolvedValue('');
     mockSessionStoreInstance.getLexiconSummary.mockResolvedValue('mock lexicon');
     mockSessionStoreInstance.addFacts.mockResolvedValue(true);
@@ -54,12 +65,20 @@ describe('MCR Service (mcrService.js)', () => {
       nodes: [],
       edges: [],
     }));
-    mcrService.getOperationalStrategyJson = jest.fn().mockResolvedValue({
+    strategyManager.getDefaultStrategy.mockReturnValue({
+        id: 'default-strategy',
+        name: 'Default Mock Strategy',
+        nodes: [],
+        edges: [],
+    });
+    strategyManager.getOperationalStrategyJson.mockResolvedValue({
         id: 'mock-strategy',
         name: 'Mock Strategy',
         nodes: [],
         edges: [],
     });
+
+    await mcrService.createSession(sessionId);
   });
 
   afterEach(() => {
