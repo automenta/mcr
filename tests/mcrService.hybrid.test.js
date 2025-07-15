@@ -45,11 +45,20 @@ describe('MCR Service Hybrid Functionality', () => {
     llmService.generate.mockResolvedValue({ text: 'mock llm response' });
     reasonerService.executeQuery.mockResolvedValue({ results: [] });
     reasonerService.validateKnowledgeBase.mockResolvedValue({ isValid: true });
-    mockSessionStoreInstance.getSession.mockResolvedValue({
-      id: sessionId,
-      facts: [],
-      embeddings: new Map(),
-      kbGraph: { addTriple: jest.fn() },
+    mockSessionStoreInstance.getSession.mockImplementation(async (sessionId) => {
+      if (sessions[sessionId]) {
+        return {
+          ...sessions[sessionId],
+          embeddings: new Map(),
+          kbGraph: { addTriple: jest.fn() },
+        };
+      }
+      return {
+        id: sessionId,
+        facts: [],
+        embeddings: new Map(),
+        kbGraph: { addTriple: jest.fn() },
+      };
     });
     mockSessionStoreInstance.getKnowledgeBase.mockResolvedValue('');
     mockSessionStoreInstance.getLexiconSummary.mockResolvedValue(

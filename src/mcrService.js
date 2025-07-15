@@ -119,7 +119,7 @@ async function getOperationalStrategyJson(operationType, naturalLanguageText) {
         );
       } else {
         logger.error(
-          `[McrService] Failed to initialize with a default assertion strategy. Base ID: "${baseStrategyId}". Error: ${e}`
+          `[McrService] Failed to initialize with a default assertion strategy. Base ID: "${baseStrategyId}". Error: ${error}`
         );
       }
     }

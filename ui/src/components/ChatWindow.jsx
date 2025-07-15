@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import apiService from '../apiService';
 import { motion, AnimatePresence } from 'framer-motion';
+import GraphVisualizer from './GraphVisualizer';
 import './ChatWindow.css';
 
-const ChatBubble = ({ message }) => {
+const ChatBubble = ({ message, useReasoning }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
@@ -27,14 +28,14 @@ const ChatBubble = ({ message }) => {
         </div>
       )}
       <AnimatePresence>
-        {isExpanded && (
+        {isExpanded && useReasoning && message.graph && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            style={{ marginTop: '0.5rem', overflow: 'hidden' }}
+            style={{ marginTop: '0.5rem', overflow: 'hidden', height: '200px' }}
           >
-            {/* GraphVisualizer will go here */}
+            <GraphVisualizer data={message.graph} layout="dagre" size="small" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -42,7 +43,7 @@ const ChatBubble = ({ message }) => {
   );
 };
 
-const ChatWindow = ({ chatHistory, setChatHistory, sessionId, isMcrSessionActive, addMessageToHistory, useReasoning }) => {
+const ChatWindow = ({ chatHistory, setChatHistory, sessionId, isMcrSessionActive, addMessageToHistory, useReasoning, setUseReasoning }) => {
   const [inputValue, setInputValue] = useState('');
   const [suggestions, setSuggestions] = useState([]);
 
@@ -117,7 +118,7 @@ const ChatWindow = ({ chatHistory, setChatHistory, sessionId, isMcrSessionActive
       <div className="chat-history">
         <AnimatePresence>
           {chatHistory.map((msg, index) => (
-            <ChatBubble key={index} message={msg} />
+            <ChatBubble key={index} message={msg} useReasoning={useReasoning} />
           ))}
         </AnimatePresence>
       </div>

@@ -187,7 +187,7 @@ class OptimizationCoordinator {
         { session, embeddingBridge: mcrService.embeddingBridge }
       );
 
-      const metrics = await this.evaluator.evaluator.evaluate(
+      const metrics = await this.evaluator.evaluate(
         loopResult.result,
         inputCase.expected
       );

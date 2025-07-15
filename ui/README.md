@@ -11,6 +11,14 @@ This is a React-based UI for the Model-Context-Reasoner (MCR). It provides a cha
 - **Pure LM mode:** A "pure LM" mode is available for interacting with the language model without the reasoning components.
 - **Onboarding:** A simple onboarding banner is shown to new users.
 
+## Screenshots
+
+[Screenshot of the main UI]
+
+[Screenshot of the sidebar with the context views]
+
+[Screenshot of a chat bubble with a mini-graph]
+
 ## How to use
 
 1. Start the MCR backend.

@@ -300,7 +300,7 @@ function App() {
   };
 
   return (
-    <div className="app-container">
+<div className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }} role="application">
       <AnimatePresence>
         {showOnboarding && (
           <motion.div
@@ -313,9 +313,10 @@ function App() {
               padding: '1rem',
               textAlign: 'center',
             }}
+            role="alert"
           >
-            Welcome to the new MCR!
-            <button onClick={() => setShowOnboarding(false)} style={{ marginLeft: '1rem' }}>
+            Welcome to the new MCR! Toggle the brain icon to switch between pure LM mode and neuro-symbolic mode with graphs.
+            <button onClick={() => setShowOnboarding(false)} style={{ marginLeft: '1rem' }} aria-label="Dismiss onboarding message">
               Dismiss
             </button>
           </motion.div>
@@ -347,21 +348,33 @@ function App() {
         setUseReasoning={setUseReasoning}
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
+        isRightPanelOpen={isRightPanelOpen}
+        setIsRightPanelOpen={setIsRightPanelOpen}
       />
-      <main className="main-content" style={{ display: 'flex', height: 'calc(100vh - 60px)' }}>
+      <div className="main-content" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <AnimatePresence>
           {isSidebarOpen && (
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: 250 }}
-              exit={{ width: 0 }}
-              style={{ overflow: 'hidden', borderRight: '1px solid #ccc' }}
+            <motion.aside
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: '20%', opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              style={{
+                overflow: 'auto',
+                borderRight: '1px solid #ccc',
+                background: '#f7f7f7',
+                padding: '1rem',
+              }}
+              role="complementary"
+              aria-label="Sidebar with context views and configuration"
             >
-              <Sidebar />
-            </motion.div>
+              <Sidebar
+                sessionId={sessionId}
+                useReasoning={useReasoning}
+              />
+            </motion.aside>
           )}
         </AnimatePresence>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fff' }} role="main">
           {currentMode === 'interactive' ? (
             <ChatWindow
               chatHistory={chatHistory}
@@ -370,24 +383,32 @@ function App() {
               isMcrSessionActive={isConnected}
               addMessageToHistory={addMessageToHistory}
               useReasoning={useReasoning}
+              setUseReasoning={setUseReasoning}
             />
           ) : (
             <SystemAnalysisMode />
           )}
-        </div>
+        </main>
         <AnimatePresence>
           {isRightPanelOpen && (
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: 300 }}
-              exit={{ width: 0 }}
-              style={{ overflow: 'hidden', borderLeft: '1px solid #ccc' }}
+            <motion.aside
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: '25%', opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              style={{
+                overflow: 'auto',
+                borderLeft: '1px solid #ccc',
+                background: '#f7f7f7',
+                padding: '1rem',
+              }}
+              role="complementary"
+              aria-label="Right panel"
             >
-              <div style={{ padding: '1rem' }}>Right Panel</div>
-            </motion.div>
+              <div>Right Panel Content</div>
+            </motion.aside>
           )}
         </AnimatePresence>
-      </main>
+      </div>
     </div>
   );
 }

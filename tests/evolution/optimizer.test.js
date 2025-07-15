@@ -47,7 +47,7 @@ describe('Evolution Optimizer', () => {
 
       expect(mcrService.createSession).toHaveBeenCalled();
       expect(mcrService._refineLoop).toHaveBeenCalled();
-      expect(mockEvaluate).toHaveBeenCalledWith(
+      expect(optimizer.evaluator.evaluate).toHaveBeenCalledWith(
         ['refined_fact.'],
         'expected_fact.'
       );
