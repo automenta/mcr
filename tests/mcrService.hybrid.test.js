@@ -16,11 +16,11 @@ jest.mock('../src/store/InMemorySessionStore', () => {
 jest.mock('../src/llmService');
 jest.mock('../src/reasonerService');
 jest.mock('../src/ontologyService', () => ({
-    getGlobalOntologyRulesAsString: jest.fn(),
+  getGlobalOntologyRulesAsString: jest.fn(),
 }));
 jest.mock('../src/strategyManager', () => ({
-    getStrategy: jest.fn(),
-    getOperationalStrategyJson: jest.fn(),
+  getStrategy: jest.fn(),
+  getOperationalStrategyJson: jest.fn(),
 }));
 jest.mock('../src/strategyExecutor');
 
@@ -45,11 +45,20 @@ describe('MCR Service Hybrid Functionality', () => {
     llmService.generate.mockResolvedValue({ text: 'mock llm response' });
     reasonerService.executeQuery.mockResolvedValue({ results: [] });
     reasonerService.validateKnowledgeBase.mockResolvedValue({ isValid: true });
-    mockSessionStoreInstance.getSession.mockResolvedValue({ id: sessionId, facts: [], embeddings: new Map(), kbGraph: { addTriple: jest.fn()} });
+    mockSessionStoreInstance.getSession.mockResolvedValue({
+      id: sessionId,
+      facts: [],
+      embeddings: new Map(),
+      kbGraph: { addTriple: jest.fn() },
+    });
     mockSessionStoreInstance.getKnowledgeBase.mockResolvedValue('');
-    mockSessionStoreInstance.getLexiconSummary.mockResolvedValue('mock lexicon');
+    mockSessionStoreInstance.getLexiconSummary.mockResolvedValue(
+      'mock lexicon'
+    );
     mockSessionStoreInstance.addFacts.mockResolvedValue(true);
-    ontologyService.getGlobalOntologyRulesAsString.mockResolvedValue('mock ontology rules');
+    ontologyService.getGlobalOntologyRulesAsString.mockResolvedValue(
+      'mock ontology rules'
+    );
     strategyManager.getStrategy.mockImplementation((id) => ({
       id,
       name: `Mock Strategy ${id}`,
@@ -57,10 +66,10 @@ describe('MCR Service Hybrid Functionality', () => {
       edges: [],
     }));
     mcrService.getOperationalStrategyJson = jest.fn().mockResolvedValue({
-        id: 'mock-strategy',
-        name: 'Mock Strategy',
-        nodes: [],
-        edges: [],
+      id: 'mock-strategy',
+      name: 'Mock Strategy',
+      nodes: [],
+      edges: [],
     });
   });
 
@@ -76,7 +85,7 @@ describe('MCR Service Hybrid Functionality', () => {
       StrategyExecutor.prototype.execute.mockResolvedValue([prologFact]);
       const mcr = require('../src/mcrService');
       mcr.embeddingBridge = {
-          encode: jest.fn().mockResolvedValue(embedding),
+        encode: jest.fn().mockResolvedValue(embedding),
       };
 
       await mcrService.assertNLToSession(sessionId, nlText);
@@ -85,64 +94,78 @@ describe('MCR Service Hybrid Functionality', () => {
     });
 
     it('should add triples to knowledge graph on assertion', async () => {
-        const nlText = 'Socrates is a man.';
-        const prologFact = 'man(socrates).';
-        StrategyExecutor.prototype.execute.mockResolvedValue([prologFact]);
+      const nlText = 'Socrates is a man.';
+      const prologFact = 'man(socrates).';
+      StrategyExecutor.prototype.execute.mockResolvedValue([prologFact]);
 
-        await mcrService.assertNLToSession(sessionId, nlText);
-        const session = await mcrService.getSession(sessionId);
-        expect(session.kbGraph).not.toBeNull();
+      await mcrService.assertNLToSession(sessionId, nlText);
+      const session = await mcrService.getSession(sessionId);
+      expect(session.kbGraph).not.toBeNull();
     });
   });
 
   describe('Refinement Loops', () => {
     it('should use refinement loop for assertions', async () => {
-        const nlText = 'This is a test assertion.';
-        const initialProlog = 'initial_fact.';
-        const refinedProlog = 'refined_fact.';
+      const nlText = 'This is a test assertion.';
+      const initialProlog = 'initial_fact.';
+      const refinedProlog = 'refined_fact.';
 
-        StrategyExecutor.prototype.execute
-            .mockResolvedValueOnce([initialProlog])
-            .mockResolvedValueOnce([refinedProlog]);
+      StrategyExecutor.prototype.execute
+        .mockResolvedValueOnce([initialProlog])
+        .mockResolvedValueOnce([refinedProlog]);
 
-        reasonerService.validateKnowledgeBase
-            .mockResolvedValueOnce({ isValid: false, error: 'Initial fact is wrong' })
-            .mockResolvedValueOnce({ isValid: true });
+      reasonerService.validateKnowledgeBase
+        .mockResolvedValueOnce({
+          isValid: false,
+          error: 'Initial fact is wrong',
+        })
+        .mockResolvedValueOnce({ isValid: true });
 
-        llmService.generate.mockResolvedValue({ text: refinedProlog });
+      llmService.generate.mockResolvedValue({ text: refinedProlog });
 
-        const result = await mcrService.assertNLToSession(sessionId, nlText, { useLoops: true });
+      const result = await mcrService.assertNLToSession(sessionId, nlText, {
+        useLoops: true,
+      });
 
-        expect(result.success).toBe(true);
-        expect(result.addedFacts).toEqual([refinedProlog]);
-        expect(StrategyExecutor.prototype.execute).toHaveBeenCalledTimes(2);
+      expect(result.success).toBe(true);
+      expect(result.addedFacts).toEqual([refinedProlog]);
+      expect(StrategyExecutor.prototype.execute).toHaveBeenCalledTimes(2);
     });
 
     it('should use refinement loop for queries', async () => {
-        const nlQuestion = 'What is the test?';
-        const initialQuery = 'test_query(X).';
-        const refinedQuery = 'refined_query(X).';
-        const finalAnswer = 'Test Answer';
+      const nlQuestion = 'What is the test?';
+      const initialQuery = 'test_query(X).';
+      const refinedQuery = 'refined_query(X).';
+      const finalAnswer = 'Test Answer';
 
-        StrategyExecutor.prototype.execute
-            .mockResolvedValueOnce(initialQuery)
-            .mockResolvedValueOnce(refinedQuery);
+      StrategyExecutor.prototype.execute
+        .mockResolvedValueOnce(initialQuery)
+        .mockResolvedValueOnce(refinedQuery);
 
-        reasonerService.validateKnowledgeBase
-            .mockResolvedValueOnce({ isValid: false, error: 'Initial query is wrong' })
-            .mockResolvedValueOnce({ isValid: true });
+      reasonerService.validateKnowledgeBase
+        .mockResolvedValueOnce({
+          isValid: false,
+          error: 'Initial query is wrong',
+        })
+        .mockResolvedValueOnce({ isValid: true });
 
-        llmService.generate
-            .mockResolvedValueOnce({ text: refinedQuery }) // Refinement
-            .mockResolvedValueOnce({ text: finalAnswer }); // Final answer
+      llmService.generate
+        .mockResolvedValueOnce({ text: refinedQuery }) // Refinement
+        .mockResolvedValueOnce({ text: finalAnswer }); // Final answer
 
-        reasonerService.guidedDeduce.mockResolvedValue([{ proof: { answer: 'yes' }, probability: 1 }]);
+      reasonerService.guidedDeduce.mockResolvedValue([
+        { proof: { answer: 'yes' }, probability: 1 },
+      ]);
 
-        const result = await mcrService.querySessionWithNL(sessionId, nlQuestion, { useLoops: true });
+      const result = await mcrService.querySessionWithNL(
+        sessionId,
+        nlQuestion,
+        { useLoops: true }
+      );
 
-        expect(result.success).toBe(true);
-        expect(result.answer).toBe('Test Answer');
-        expect(StrategyExecutor.prototype.execute).toHaveBeenCalledTimes(2);
+      expect(result.success).toBe(true);
+      expect(result.answer).toBe('Test Answer');
+      expect(StrategyExecutor.prototype.execute).toHaveBeenCalledTimes(2);
     });
   });
 });

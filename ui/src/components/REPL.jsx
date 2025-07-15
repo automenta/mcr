@@ -3,7 +3,16 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPaperPlane, faTrash } from '@fortawesome/free-solid-svg-icons';
 import apiService from '../apiService';
 import './REPL.css';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 import CycleViz from './CycleViz';
 
 const REPL = ({
@@ -38,11 +47,19 @@ const REPL = ({
       });
       if (response.success) {
         if (response.answer) {
-          addMessageToHistory({ type: 'server', text: response.answer, debugInfo: response.debugInfo });
+          addMessageToHistory({
+            type: 'server',
+            text: response.answer,
+            debugInfo: response.debugInfo,
+          });
         } else if (response.response) {
           addMessageToHistory({ type: 'llm', text: response.response });
         } else {
-          addMessageToHistory({ type: 'server', text: response.message, debugInfo: response.debugInfo });
+          addMessageToHistory({
+            type: 'server',
+            text: response.message,
+            debugInfo: response.debugInfo,
+          });
         }
       } else {
         addMessageToHistory({ type: 'error', text: response.message });

@@ -6,7 +6,9 @@ const HybridMetrics = ({ metrics }) => {
   }
 
   return (
-    <div style={{ marginTop: '1rem', padding: '0.5rem', border: '1px solid #ccc' }}>
+    <div
+      style={{ marginTop: '1rem', padding: '0.5rem', border: '1px solid #ccc' }}
+    >
       <h5>Hybrid Metrics</h5>
       <div>
         <h6>Embedding Similarity</h6>

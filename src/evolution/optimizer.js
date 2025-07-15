@@ -189,7 +189,7 @@ class OptimizationCoordinator {
 
       const metrics = await this.evaluator.evaluator.evaluate(
         loopResult.result,
-        inputCase.expected,
+        inputCase.expected
       );
 
       results.push({

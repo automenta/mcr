@@ -59,69 +59,67 @@ async function routeMessage(socket, message) {
         );
       } else if (toolName === 'hybrid.refine') {
         logger.info(
-            `[WS-Handler][${correlationId}] Invoking hybrid.refine tool.`,
-            { input: inputPayload }
+          `[WS-Handler][${correlationId}] Invoking hybrid.refine tool.`,
+          { input: inputPayload }
         );
 
         const { sessionId, type: refineType, data } = inputPayload;
         const session = await mcrService.getSession(sessionId);
         if (!session) {
-            return {
-                success: false,
-                message: 'Session not found.',
-                error: ErrorCodes.SESSION_NOT_FOUND,
-            };
+          return {
+            success: false,
+            message: 'Session not found.',
+            error: ErrorCodes.SESSION_NOT_FOUND,
+          };
         }
 
         const refineOperation = async (input) => {
-            // This is a simplified operation for demonstration.
-            // A real implementation would have more complex logic based on the refineType.
-            return mcrService.assertNLToSession(sessionId, input);
+          // This is a simplified operation for demonstration.
+          // A real implementation would have more complex logic based on the refineType.
+          return mcrService.assertNLToSession(sessionId, input);
         };
 
-        const loopResult = await mcrService._refineLoop(
-            refineOperation,
-            data,
-            { session, embeddingBridge: mcrService.embeddingBridge },
-        );
+        const loopResult = await mcrService._refineLoop(refineOperation, data, {
+          session,
+          embeddingBridge: mcrService.embeddingBridge,
+        });
 
         socket.send(
-            JSON.stringify({
-                type: 'tool_result',
-                correlationId: correlationId,
-                messageId: messageId,
-                payload: {
-                    success: true,
-                    data: loopResult,
-                },
-            })
+          JSON.stringify({
+            type: 'tool_result',
+            correlationId: correlationId,
+            messageId: messageId,
+            payload: {
+              success: true,
+              data: loopResult,
+            },
+          })
         );
       } else if (toolName === 'kg.query') {
-          logger.info(
-              `[WS-Handler][${correlationId}] Invoking kg.query tool.`,
-              { input: inputPayload }
-          );
-          const { sessionId, query } = inputPayload;
-          const session = await mcrService.getSession(sessionId);
-          if (!session || !session.kbGraph) {
-              return {
-                  success: false,
-                  message: 'Knowledge graph not enabled for this session.',
-                  error: ErrorCodes.KG_NOT_ENABLED,
-              };
-          }
-          const results = session.kbGraph.queryTriples(query);
-          socket.send(
-              JSON.stringify({
-                  type: 'tool_result',
-                  correlationId: correlationId,
-                  messageId: messageId,
-                  payload: {
-                      success: true,
-                      data: results,
-                  },
-              })
-          );
+        logger.info(`[WS-Handler][${correlationId}] Invoking kg.query tool.`, {
+          input: inputPayload,
+        });
+        const { sessionId, query } = inputPayload;
+        const session = await mcrService.getSession(sessionId);
+        if (!session || !session.kbGraph) {
+          return {
+            success: false,
+            message: 'Knowledge graph not enabled for this session.',
+            error: ErrorCodes.KG_NOT_ENABLED,
+          };
+        }
+        const results = session.kbGraph.queryTriples(query);
+        socket.send(
+          JSON.stringify({
+            type: 'tool_result',
+            correlationId: correlationId,
+            messageId: messageId,
+            payload: {
+              success: true,
+              data: results,
+            },
+          })
+        );
       } else {
         logger.warn(
           `[WS-Handler][${correlationId}] Unknown MCR tool: ${toolName}`,

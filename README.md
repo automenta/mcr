@@ -27,7 +27,7 @@ This combination unlocks possibilities for more robust, explainable, and sophist
 1.  **MCR Workbench 🖥️**: MCR is primarily accessed and managed through the **MCR Workbench**, a comprehensive web-based user interface. This SPA (Single Page Application) provides modes for interactive reasoning sessions and system-level analysis and control.
 2.  **WebSocket-First API 🔌**: All core interactions with the MCR server happen via a WebSocket connection. This enables real-time communication, such as live updates to a session's Knowledge Base.
 3.  **Stateful Sessions 💾**: Users interact with MCR through sessions, identified by a `sessionId`. Each session maintains:
-    *   **Knowledge Base (KB) 📚**: A collection of symbolic logic clauses (facts and rules, typically in Prolog).
+    - **Knowledge Base (KB) 📚**: A collection of symbolic logic clauses (facts and rules, typically in Prolog).
 4.  **LLM-Powered Translation 🗣️<->🧠**: MCR uses LLMs, guided by configurable Translation Strategies, to translate between natural language and formal logic.
 5.  **Translation Strategies 🧩**: These define the methodology for converting natural language into symbolic assertions or queries. They are designed to be interchangeable for comparison and evolution.
 6.  **Structured Intermediate Representation (SIR) 🤖**: Advanced strategies may use an SIR (e.g., JSON) as an intermediate step for more reliable translation to symbolic logic.
@@ -38,29 +38,29 @@ This combination unlocks possibilities for more robust, explainable, and sophist
 - **💾 Persistent Sessions**: Supports both in-memory and file-based session storage, allowing knowledge bases to persist across server restarts. Configurable via `.env`.
 - **🤖 Extensible LLM Support**: Supports multiple LLM providers (OpenAI, Gemini, Ollama, etc.), selectable via configuration.
 - **🧠 Neurosymbolic Capabilities**:
-    - **Bidirectional Refinement Loops**: Automatically refines translations between natural language and logic for improved accuracy and consistency.
-    - **Embeddings and Knowledge Graph Integration**: Enriches reasoning with semantic context from embeddings and structured knowledge from a graph database.
-    - **Guided Probabilistic Reasoning**: Combines neural guidance with symbolic deduction to produce probabilistic answers.
+  - **Bidirectional Refinement Loops**: Automatically refines translations between natural language and logic for improved accuracy and consistency.
+  - **Embeddings and Knowledge Graph Integration**: Enriches reasoning with semantic context from embeddings and structured knowledge from a graph database.
+  - **Guided Probabilistic Reasoning**: Combines neural guidance with symbolic deduction to produce probabilistic answers.
 - **📚 Dynamic Lexicon Summary**: Automatically builds a lexicon of known predicates from asserted facts to aid LLM translation.
 - **🛡️ Robust Error Handling**: Centralized error handling for WebSocket API calls.
 - **✅ Configuration Validation**: Validates essential configurations on server startup.
 - **🌐 MCR Workbench (UI)**: A React-based Single Page Application for all user interactions, replacing previous CLI/TUI tools. Features include:
-    -   **Interactive Session Mode**: Real-time chat, ontology loading, demo running, live KB view.
-    -   **System Analysis Mode**: Strategy performance dashboards, curriculum explorer, evolver controls.
+  - **Interactive Session Mode**: Real-time chat, ontology loading, demo running, live KB view.
+  - **System Analysis Mode**: Strategy performance dashboards, curriculum explorer, evolver controls.
 - **🕸️ Comprehensive WebSocket API**: A rich API based on a `tool_invoke` / `tool_result` message pattern, including:
-    -   High-level tools like `mcr.handle` for easy REPL integration.
-    -   Direct LLM access with `llm.passthrough`.
-    -   Symbolic import/export tools for fine-grained knowledge base manipulation.
+  - High-level tools like `mcr.handle` for easy REPL integration.
+  - Direct LLM access with `llm.passthrough`.
+  - Symbolic import/export tools for fine-grained knowledge base manipulation.
 
 ## 🏛️ System Architecture Diagram
 
 The MCR is defined by a multi-layered, service-oriented architecture that promotes modularity and separation of concerns:
 
--   **Presentation Layer:** Any user-facing application that consumes the MCR's API (e.g., GUI Workbench, CLI, API Client).
--   **API Layer:** The WebSocket message handlers (`websocketHandlers.js`) define the formal contract for interacting with MCR.
--   **Service Layer:** The core orchestrator (`mcrService.js`). It manages the business logic of a request (e.g., "assert this text") by invoking the currently selected Translation Strategy and the necessary providers. It also directly manages session state via a pluggable Session Store.
--   **Provider & Strategy Interfaces:** A set of abstract contracts that define the capabilities of key components like LLM Providers, Reasoner Providers, Session Stores, and Translation Strategies. This allows for pluggable implementations.
--   **Implementation Layer:** Concrete implementations of the interfaces (e.g., specific LLM providers like Ollama or Gemini, a Prolog Reasoner, various Translation Strategy modules, and Session Stores like `InMemorySessionStore` and `FileSessionStore`).
+- **Presentation Layer:** Any user-facing application that consumes the MCR's API (e.g., GUI Workbench, CLI, API Client).
+- **API Layer:** The WebSocket message handlers (`websocketHandlers.js`) define the formal contract for interacting with MCR.
+- **Service Layer:** The core orchestrator (`mcrService.js`). It manages the business logic of a request (e.g., "assert this text") by invoking the currently selected Translation Strategy and the necessary providers. It also directly manages session state via a pluggable Session Store.
+- **Provider & Strategy Interfaces:** A set of abstract contracts that define the capabilities of key components like LLM Providers, Reasoner Providers, Session Stores, and Translation Strategies. This allows for pluggable implementations.
+- **Implementation Layer:** Concrete implementations of the interfaces (e.g., specific LLM providers like Ollama or Gemini, a Prolog Reasoner, various Translation Strategy modules, and Session Stores like `InMemorySessionStore` and `FileSessionStore`).
 
 The following diagram illustrates the main components of the MCR system, including the core reasoning services and the Evolution Engine:
 
@@ -145,6 +145,7 @@ npm install
 npm run build
 cd ..
 ```
+
 This will create a `dist` folder inside the `ui` directory containing the built UI assets. **This step is mandatory for the MCR server to serve the UI as described below.**
 
 **4. Start the MCR Server (Serves Production UI Build):**
@@ -153,6 +154,7 @@ Once the UI is built as described above, the MCR server can serve it.
 ```bash
 node mcr.js
 ```
+
 The server will start, typically on `http://localhost:8080` (or your configured `MCR_SERVER_PORT`).
 
 **5. Access the MCR Workbench:**
@@ -167,13 +169,15 @@ For UI development, you can run the Vite development server, which provides hot 
 
 1.  **Start the MCR Backend Server:**
     Open a terminal, navigate to the project root, and run:
+
     ```bash
     node mcr.js
     ```
+
     This server will handle API requests (typically on `http://localhost:8080`).
 
 2.  **Start the Vite UI Development Server:**
-    Open a *separate* terminal, navigate to the `ui` directory, and run:
+    Open a _separate_ terminal, navigate to the `ui` directory, and run:
     ```bash
     cd ui
     npm install # If you haven't already
@@ -188,16 +192,20 @@ For UI development, you can run the Vite development server, which provides hot 
 (This section might need updates if the package export strategy changes with the UI focus. For now, assuming the server is the primary export.)
 
 Once MCR is published, you can install it in your Node.js project:
+
 ```bash
 npm install model-context-reasoner
 ```
 
 **Running the MCR Server (which includes the Workbench UI):**
 The primary way to use MCR is by running its server.
+
 - **From `node_modules`:**
+
   ```bash
   node ./node_modules/model-context-reasoner/mcr.js
   ```
+
   Ensure you have a `.env` file configured in your project's root. The UI will be available at the configured server port.
 
 - **Via `package.json` script in your project:**
@@ -223,15 +231,15 @@ Connect to the WebSocket server at `ws://localhost:8080/ws` (or your configured 
 **Key Message Types:**
 
 1.  **Client to Server: `tool_invoke`**
-    -   Used to request an action from the server.
-    -   Structure: `{ "type": "tool_invoke", "messageId": "...", "payload": { "tool_name": "...", "input": {...} } }`
+    - Used to request an action from the server.
+    - Structure: `{ "type": "tool_invoke", "messageId": "...", "payload": { "tool_name": "...", "input": {...} } }`
 
 2.  **Server to Client: `tool_result`**
-    -   The server's response to a `tool_invoke` message.
-    -   The `payload` contains the result of the tool execution, including a `success` flag and tool-specific data. For operations that modify a session's knowledge base (`session.assert`, `session.assert_rules`, `session.set_kb`), the payload will also include the `fullKnowledgeBase`.
+    - The server's response to a `tool_invoke` message.
+    - The `payload` contains the result of the tool execution, including a `success` flag and tool-specific data. For operations that modify a session's knowledge base (`session.assert`, `session.assert_rules`, `session.set_kb`), the payload will also include the `fullKnowledgeBase`.
 
 3.  **Server to Client: `connection_ack`**
-    -   Sent upon successful WebSocket connection, containing the server-assigned `correlationId`.
+    - Sent upon successful WebSocket connection, containing the server-assigned `correlationId`.
 
 For a complete and detailed breakdown of all message types and tool payloads, please refer to the **[WEBSOCKET_API.md](WEBSOCKET_API.md)** document.
 
@@ -241,37 +249,37 @@ For a complete and detailed breakdown of all message types and tool payloads, pl
 
 The API provides a rich set of tools. Below is a summary. For detailed `input` and `payload` structures, see **[WEBSOCKET_API.md](WEBSOCKET_API.md)**.
 
-*   **General Tools:**
-    *   `mcr.handle`: Smart handler for REPLs; auto-detects if input is an assertion or query.
-    *   `llm.passthrough`: Sends text directly to the underlying LLM, bypassing the reasoning engine.
+- **General Tools:**
+  - `mcr.handle`: Smart handler for REPLs; auto-detects if input is an assertion or query.
+  - `llm.passthrough`: Sends text directly to the underlying LLM, bypassing the reasoning engine.
 
-*   **Session Management:**
-    *   `session.create`, `session.get`, `session.delete`: Manage reasoning sessions.
-    *   `session.assert`: Asserts natural language into the knowledge base.
-    *   `session.assert_rules`: Asserts raw Prolog rules into the knowledge base.
-    *   `session.set_kb`: Replaces the entire knowledge base with new content.
-    *   `session.query`: Queries the knowledge base using natural language.
-    *   `session.explainQuery`: Explains how a query would be interpreted.
+- **Session Management:**
+  - `session.create`, `session.get`, `session.delete`: Manage reasoning sessions.
+  - `session.assert`: Asserts natural language into the knowledge base.
+  - `session.assert_rules`: Asserts raw Prolog rules into the knowledge base.
+  - `session.set_kb`: Replaces the entire knowledge base with new content.
+  - `session.query`: Queries the knowledge base using natural language.
+  - `session.explainQuery`: Explains how a query would be interpreted.
 
-*   **Symbolic Exchange:**
-    *   `symbolic.import`, `symbolic.export`: Tools for low-level import and export of Prolog clauses.
+- **Symbolic Exchange:**
+  - `symbolic.import`, `symbolic.export`: Tools for low-level import and export of Prolog clauses.
 
-*   **Ontology Management:**
-    *   `ontology.create`, `ontology.list`, `ontology.get`, `ontology.update`, `ontology.delete`: Manage global ontologies.
+- **Ontology Management:**
+  - `ontology.create`, `ontology.list`, `ontology.get`, `ontology.update`, `ontology.delete`: Manage global ontologies.
 
-*   **Direct Translation:**
-    *   `translate.nlToRules`, `translate.rulesToNl`: Translate between natural language and Prolog without affecting a session.
+- **Direct Translation:**
+  - `translate.nlToRules`, `translate.rulesToNl`: Translate between natural language and Prolog without affecting a session.
 
-*   **Strategy Management:**
-    *   `strategy.list`, `strategy.setActive`, `strategy.getActive`: Manage and inspect translation strategies.
+- **Strategy Management:**
+  - `strategy.list`, `strategy.setActive`, `strategy.getActive`: Manage and inspect translation strategies.
 
-*   **System Analysis & Evolution:**
-    *   `analysis.*`: A suite of tools for inspecting performance data, strategy definitions, and evaluation curricula.
-    -   `evolution.*`: Tools to control the Evolution Engine, such as starting/stopping the optimizer and viewing its logs.
-    -   `demo.*`: Tools to list and run predefined demonstration scripts.
+- **System Analysis & Evolution:**
+  - `analysis.*`: A suite of tools for inspecting performance data, strategy definitions, and evaluation curricula.
+  * `evolution.*`: Tools to control the Evolution Engine, such as starting/stopping the optimizer and viewing its logs.
+  * `demo.*`: Tools to list and run predefined demonstration scripts.
 
-*   **Utility & Debugging:**
-    *   `utility.getPrompts`, `utility.debugFormatPrompt`: Inspect and debug prompt templates.
+- **Utility & Debugging:**
+  - `utility.getPrompts`, `utility.debugFormatPrompt`: Inspect and debug prompt templates.
 
 ---
 
@@ -282,6 +290,7 @@ With the move to a WebSocket-first architecture, explicit HTTP API endpoints for
 ---
 
 **Example (Node.js using `ws` library for WebSockets):**
+
 ```javascript
 const WebSocket = require('ws');
 
@@ -294,7 +303,7 @@ ws.on('open', function open() {
   const createSessionMessage = {
     type: 'tool_invoke',
     messageId: 'msg-1',
-    payload: { tool_name: 'session.create', input: {} }
+    payload: { tool_name: 'session.create', input: {} },
   };
   ws.send(JSON.stringify(createSessionMessage));
 });
@@ -304,7 +313,11 @@ ws.on('message', function incoming(data) {
   console.log('Received from server:', message);
 
   // Example flow: After session is created, assert a fact
-  if (message.type === 'tool_result' && message.messageId === 'msg-1' && message.payload?.success) {
+  if (
+    message.type === 'tool_result' &&
+    message.messageId === 'msg-1' &&
+    message.payload?.success
+  ) {
     const sessionId = message.payload.data.id;
     console.log('Session created with ID:', sessionId);
 
@@ -313,16 +326,25 @@ ws.on('message', function incoming(data) {
       messageId: 'msg-2',
       payload: {
         tool_name: 'session.assert',
-        input: { sessionId: sessionId, naturalLanguageText: 'Socrates is a man.' }
-      }
+        input: {
+          sessionId: sessionId,
+          naturalLanguageText: 'Socrates is a man.',
+        },
+      },
     };
     ws.send(JSON.stringify(assertMessage));
   }
 
   // Log the updated knowledge base after assertion
-  if (message.type === 'tool_result' && message.messageId === 'msg-2' && message.payload?.success) {
+  if (
+    message.type === 'tool_result' &&
+    message.messageId === 'msg-2' &&
+    message.payload?.success
+  ) {
     console.log('Assertion successful!');
-    console.log('Updated Knowledge Base:\n' + message.payload.fullKnowledgeBase);
+    console.log(
+      'Updated Knowledge Base:\n' + message.payload.fullKnowledgeBase
+    );
   }
 });
 
@@ -337,6 +359,7 @@ ws.on('close', function close() {
 
 **Direct Library Usage (Experimental/Advanced):**
 (This section can largely remain, as `mcrService.js` is still available, but emphasize it's for deep embedding, not typical use.)
+
 ```javascript
 // main.js in your project
 const mcrService = require('model-context-reasoner/src/mcrService'); // Adjust path if needed
@@ -359,38 +382,39 @@ This section covers setting up MCR for development, including running the backen
     ```
 3.  **Set up the MCR Workbench UI**:
     The UI can be run in two modes:
+    - **Production Mode (Served by `node mcr.js`):**
+      This involves building the static UI assets which are then served by the main MCR server.
 
-    *   **Production Mode (Served by `node mcr.js`):**
-        This involves building the static UI assets which are then served by the main MCR server.
+      ```bash
+      cd ui
+      npm install # Install UI-specific dependencies
+      npm run build # Build the static assets into ui/dist
+      cd ..
+      ```
+
+      After this, running `node mcr.js` from the project root will serve the UI.
+
+    - **Development Mode (Using Vite Dev Server):**
+      This mode is ideal for UI development as it provides hot reloading.
+      - Ensure server dependencies are installed (Step 2).
+      - In a separate terminal, navigate to the `ui` directory:
         ```bash
         cd ui
-        npm install # Install UI-specific dependencies
-        npm run build # Build the static assets into ui/dist
-        cd ..
+        npm install # If you haven't already
+        npm run dev
         ```
-        After this, running `node mcr.js` from the project root will serve the UI.
-
-    *   **Development Mode (Using Vite Dev Server):**
-        This mode is ideal for UI development as it provides hot reloading.
-        - Ensure server dependencies are installed (Step 2).
-        - In a separate terminal, navigate to the `ui` directory:
-          ```bash
-          cd ui
-          npm install # If you haven't already
-          npm run dev
-          ```
-        - This will start the Vite development server (e.g., on `http://localhost:5173`).
-    - **Important:** The main MCR server (`node mcr.js`) must also be running in another terminal for the UI dev server to make API calls. The UI dev server (Vite) will typically run on a port like `5173`, while the backend MCR server defaults to `8080`. The UI will attempt to connect to the WebSocket server at `ws://localhost:8080/ws` by default. If your MCR server is running on a different URL, you can set `window.MCR_WEBSOCKET_URL` in your browser's developer console before the UI loads, or by embedding a script in `ui/index.html` to define this global variable.
+      - This will start the Vite development server (e.g., on `http://localhost:5173`).
+    * **Important:** The main MCR server (`node mcr.js`) must also be running in another terminal for the UI dev server to make API calls. The UI dev server (Vite) will typically run on a port like `5173`, while the backend MCR server defaults to `8080`. The UI will attempt to connect to the WebSocket server at `ws://localhost:8080/ws` by default. If your MCR server is running on a different URL, you can set `window.MCR_WEBSOCKET_URL` in your browser's developer console before the UI loads, or by embedding a script in `ui/index.html` to define this global variable.
 
 4.  **Create and Configure `.env` file**:
     Copy `.env.example` to `.env` in the project root. Edit it to include your LLM API keys and other configurations. Refer to `.env.example` for all available options.
-
     - **LLM Configuration (Mandatory):** The MCR server performs configuration validation on startup. If you select an `MCR_LLM_PROVIDER` that requires an API key (e.g., "gemini", "openai"), you **must** provide the corresponding API key environment variable (e.g., `GEMINI_API_KEY`). Failure to do so will prevent the server from starting.
     - **Session Storage (Optional):** You can configure how session data is stored.
       - `MCR_SESSION_STORE_TYPE`: Set to `file` to enable persistent, file-based session storage. Sessions will be saved in the `.sessions` directory and reloaded on restart.
       - If omitted or set to `memory`, sessions will be stored in-memory and lost on restart.
 
     Example `.env` configuration:
+
     ```dotenv
     # --- LLM Configuration (Example for OpenAI) ---
     MCR_LLM_PROVIDER="openai"
@@ -419,23 +443,25 @@ This section covers setting up MCR for development, including running the backen
 
 MCR uses Jest for backend tests and Vitest for UI tests.
 
--   **Run Backend Tests (Jest):**
-    From the project root:
-    ```bash
-    npm test
-    ```
-    This will run all tests located in the `tests/` directory.
+- **Run Backend Tests (Jest):**
+  From the project root:
 
--   **Run UI Tests (Vitest):**
-    From the project root:
-    ```bash
-    npm run test:ui
-    ```
-    This will run all UI component and service tests located in the `ui/src/` directory. Watch mode and browser mode are also available:
-    ```bash
-    npm run test:ui-watch # For watch mode
-    npm run test:ui-browser # To run tests in a browser with Vitest UI
-    ```
+  ```bash
+  npm test
+  ```
+
+  This will run all tests located in the `tests/` directory.
+
+- **Run UI Tests (Vitest):**
+  From the project root:
+  ```bash
+  npm run test:ui
+  ```
+  This will run all UI component and service tests located in the `ui/src/` directory. Watch mode and browser mode are also available:
+  ```bash
+  npm run test:ui-watch # For watch mode
+  npm run test:ui-browser # To run tests in a browser with Vitest UI
+  ```
 
 #### Debugging Configuration
 
@@ -453,19 +479,19 @@ Clients can request debug information by including relevant flags in the `input`
 The MCR Workbench is the primary interface for interacting with the MCR system. It replaces the previous CLI and TUI tools. Access it by running the server (`node mcr.js`) and navigating to the server's address in your web browser.
 
 **Features:**
-- **Interactive Session Mode:**
-    - Create and manage reasoning sessions.
-    - Chat-like interface for assertions and queries.
-    - Live view of the session's Knowledge Base.
-    - Load global ontologies into sessions.
-    - Manage and select translation strategies.
-    - (Future: Run predefined demos).
-- **System Analysis Mode:**
-    - View strategy performance leaderboards.
-    - Deep dive into individual strategy performance (TODO).
-    - Explore and manage evaluation curricula (TODO).
-    - Control and monitor the MCR Evolution Engine (TODO).
 
+- **Interactive Session Mode:**
+  - Create and manage reasoning sessions.
+  - Chat-like interface for assertions and queries.
+  - Live view of the session's Knowledge Base.
+  - Load global ontologies into sessions.
+  - Manage and select translation strategies.
+  - (Future: Run predefined demos).
+- **System Analysis Mode:**
+  - View strategy performance leaderboards.
+  - Deep dive into individual strategy performance (TODO).
+  - Explore and manage evaluation curricula (TODO).
+  - Control and monitor the MCR Evolution Engine (TODO).
 
 ## 💻 CLI (`./cli.js`)
 
@@ -501,11 +527,12 @@ The system is bootstrapped with functional, human-authored strategies, ensuring 
     - Uses an LLM to generate new `EvaluationCase` objects targeting these areas. These are saved in `src/evalCases/generated/`.
 
 4.  **Input Router (`src/evolution/keywordInputRouter.js`)**:
-    - **Runtime Optimizer:** Integrated directly into `mcrService.js` to select the optimal strategy for a given live input *at the moment of execution*.
+    - **Runtime Optimizer:** Integrated directly into `mcrService.js` to select the optimal strategy for a given live input _at the moment of execution_.
     - **Data-Driven Decisions:** It performs a quick analysis of the input text (e.g., using keywords) to classify its intent. It then queries the `Performance Database` for the strategy that has historically performed the best (based on success metrics, cost, and latency) for that specific input class and the currently configured LLM.
     - **Fallback Mechanism:** If the router cannot find a suitable specialized strategy, it falls back to the default configured strategy, ensuring robust operation.
 
 The Evolution Engine also supports:
+
 - **Benchmarking:** Standardized evaluation of strategies against a "golden dataset" of NL-to-Symbolic mappings, using metrics for syntactic accuracy, semantic correctness, and resource cost (latency, tokens).
 - **Automated Optimization:** The system facilitates an automated loop where the `OptimizationCoordinator` can programmatically generate variations of existing strategy prompts (via the `StrategyEvolver`), benchmark them, and promote superior versions based on data from the `Performance Database`.
 
@@ -572,30 +599,30 @@ This interface allows you to:
 MCR's flexibility comes from its use of different Translation Strategies. These strategies define how natural language is converted to logic. Here are a couple of conceptual approaches:
 
 1.  **Direct-to-Symbolic (e.g., `Direct-S1` strategy family):**
-    *   **Description:** A baseline approach where the LLM is prompted to directly output symbolic logic (e.g., Prolog facts/rules or queries).
-    *   **Assertion Logic:**
-        1.  Generate a prompt asking the LLM to convert input text into one or more symbolic facts or rules.
-        2.  Invoke the LLM.
-        3.  Perform minimal post-processing (e.g., splitting into clauses).
-    *   **Query Logic:**
-        1.  Generate a prompt asking the LLM to convert an input question into a symbolic query.
-        2.  Invoke the LLM.
-        3.  Clean and return the string.
-    *   **Pros:** Simpler to implement initially.
-    *   **Cons:** More prone to LLM-induced syntax errors or inconsistencies.
+    - **Description:** A baseline approach where the LLM is prompted to directly output symbolic logic (e.g., Prolog facts/rules or queries).
+    - **Assertion Logic:**
+      1.  Generate a prompt asking the LLM to convert input text into one or more symbolic facts or rules.
+      2.  Invoke the LLM.
+      3.  Perform minimal post-processing (e.g., splitting into clauses).
+    - **Query Logic:**
+      1.  Generate a prompt asking the LLM to convert an input question into a symbolic query.
+      2.  Invoke the LLM.
+      3.  Clean and return the string.
+    - **Pros:** Simpler to implement initially.
+    - **Cons:** More prone to LLM-induced syntax errors or inconsistencies.
 
 2.  **Structured Intermediate Representation (e.g., `SIR-R1` strategy family):**
-    *   **Description:** A more robust, multi-stage approach using a Structured Intermediate Representation (SIR) – often a JSON object – to ensure syntactic correctness and improve reliability.
-    *   **Assertion Logic:**
-        1.  _(Optional)_ **Intent Classification:** LLM classifies input as asserting facts or a rule.
-        2.  **SIR Generation:** Based on intent (or directly), an LLM generates an SIR object. The prompt includes the SIR's schema definition and examples.
-        3.  **SIR Validation:** The system parses and validates the SIR against its schema.
-        4.  **Syntactic Translation:** The system programmatically traverses the validated SIR to deterministically generate syntactically correct symbolic clauses.
-    *   **Query Logic (can also use SIR or be direct):**
-        1.  LLM generates a symbolic query (potentially via an SIR for complex queries).
-        2.  Clean and return the string.
-    *   **Pros:** Significantly reduces syntax errors from LLMs; more robust and maintainable.
-    *   **Cons:** More complex to set up initially, requires defining SIR schemas.
+    - **Description:** A more robust, multi-stage approach using a Structured Intermediate Representation (SIR) – often a JSON object – to ensure syntactic correctness and improve reliability.
+    - **Assertion Logic:**
+      1.  _(Optional)_ **Intent Classification:** LLM classifies input as asserting facts or a rule.
+      2.  **SIR Generation:** Based on intent (or directly), an LLM generates an SIR object. The prompt includes the SIR's schema definition and examples.
+      3.  **SIR Validation:** The system parses and validates the SIR against its schema.
+      4.  **Syntactic Translation:** The system programmatically traverses the validated SIR to deterministically generate syntactically correct symbolic clauses.
+    - **Query Logic (can also use SIR or be direct):**
+      1.  LLM generates a symbolic query (potentially via an SIR for complex queries).
+      2.  Clean and return the string.
+    - **Pros:** Significantly reduces syntax errors from LLMs; more robust and maintainable.
+    - **Cons:** More complex to set up initially, requires defining SIR schemas.
 
 The MCR system allows for these and other strategy types to be defined and managed, with the Evolution Engine working to find or create the most effective ones for different tasks.
 
@@ -609,6 +636,7 @@ The previous standalone demo runner (`demo.js`) has been removed.
 ## 📊 Evaluation System & Performance Dashboard
 
 The evaluation of translation strategies and exploration of performance results are now intended to be managed via the **MCR Workbench's System Analysis Mode**.
+
 - The **Strategy Leaderboard** view provides an overview of performance.
 - The **Strategy Deep Dive** view will allow detailed analysis of individual strategies (TODO).
 - The **Curriculum Explorer** view will allow management of evaluation cases (TODO).
@@ -667,6 +695,7 @@ The `src/mcpHandler.js` handles MCP-specific WebSocket messages. When an MCP cli
 
 **Available MCR Tools Exposed via MCP (managed by `mcrTools` in `mcpHandler.js`):**
 The `mcpHandler.js` defines a mapping from MCP tool names to MCR service functions. Common tools exposed include:
+
 - `create_reasoning_session`
 - `assert_facts_to_session` (maps to `mcrService.assertNLToSession`)
 - `query_session` (maps to `mcrService.querySessionWithNL`)
@@ -675,6 +704,7 @@ The `mcpHandler.js` defines a mapping from MCP tool names to MCR service functio
 
 **Configuring an MCP Client (Example for Claude Desktop - if it supports WebSocket for MCP):**
 If the MCP client supports WebSocket connections for MCP:
+
 1. Update the client's configuration to point to the MCR WebSocket endpoint: `ws://localhost:8080/ws`.
 2. The client should then use MCP's WebSocket message protocol to interact with the tools listed above.
 
@@ -752,12 +782,10 @@ To add support for a new LLM provider (e.g., "MyNewLLM"):
 
 The MCR architecture is designed to support further enhancements, including:
 
--   **Operational Enhancements:**
-    -   **Self-Correction:** If a strategy step fails (e.g., an LLM produces an invalid SIR), the system could automatically re-prompt the LLM with the context of the error, asking it to correct its previous output.
-    -   **Knowledge Retraction:** Extending MCR to understand commands for retracting or modifying existing knowledge would require changes to intent classification and the generation of retraction clauses.
-    -   **Explanatory Reasoning:** The underlying reasoner provider could be extended to optionally return a proof trace, which an LLM could then translate into a human-readable explanation of reasoning steps.
--   **Paradigm Expansion:**
-    -   **Hybrid Reasoning:** The system could support a fallback mechanism where, if a symbolic query yields no results, the query is re-posed to the base LLM for a general, sub-symbolic lookup.
-    -   **Agentic Tooling:** MCR can be integrated as a "tool" within larger AI agent frameworks, allowing autonomous agents to delegate structured reasoning tasks.
-
-
+- **Operational Enhancements:**
+  - **Self-Correction:** If a strategy step fails (e.g., an LLM produces an invalid SIR), the system could automatically re-prompt the LLM with the context of the error, asking it to correct its previous output.
+  - **Knowledge Retraction:** Extending MCR to understand commands for retracting or modifying existing knowledge would require changes to intent classification and the generation of retraction clauses.
+  - **Explanatory Reasoning:** The underlying reasoner provider could be extended to optionally return a proof trace, which an LLM could then translate into a human-readable explanation of reasoning steps.
+- **Paradigm Expansion:**
+  - **Hybrid Reasoning:** The system could support a fallback mechanism where, if a symbolic query yields no results, the query is re-posed to the base LLM for a general, sub-symbolic lookup.
+  - **Agentic Tooling:** MCR can be integrated as a "tool" within larger AI agent frameworks, allowing autonomous agents to delegate structured reasoning tasks.

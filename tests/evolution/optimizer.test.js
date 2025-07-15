@@ -5,9 +5,9 @@ const mcrService = require('../../src/mcrService');
 const { Evaluator } = require('../../src/evaluation/metrics');
 
 jest.mock('../../src/mcrService', () => ({
-    createSession: jest.fn(),
-    deleteSession: jest.fn(),
-    _refineLoop: jest.fn(),
+  createSession: jest.fn(),
+  deleteSession: jest.fn(),
+  _refineLoop: jest.fn(),
 }));
 jest.mock('../../src/evaluation/metrics', () => ({
   Evaluator: jest.fn().mockImplementation(() => {
@@ -40,12 +40,17 @@ describe('Evolution Optimizer', () => {
   describe('optimizeInLoop', () => {
     it('should use refinement loops during optimization and evaluate results', async () => {
       const strategy = { id: 'test-strategy' };
-      const inputCases = [{ nl: 'Test assertion.', expected: 'expected_fact.' }];
+      const inputCases = [
+        { nl: 'Test assertion.', expected: 'expected_fact.' },
+      ];
       const results = await optimizer.optimizeInLoop(strategy, inputCases);
 
       expect(mcrService.createSession).toHaveBeenCalled();
       expect(mcrService._refineLoop).toHaveBeenCalled();
-      expect(mockEvaluate).toHaveBeenCalledWith(['refined_fact.'], 'expected_fact.');
+      expect(mockEvaluate).toHaveBeenCalledWith(
+        ['refined_fact.'],
+        'expected_fact.'
+      );
       expect(results[0].metrics.exactMatchProlog).toBe(1);
       expect(mcrService.deleteSession).toHaveBeenCalledWith('test-session');
     });

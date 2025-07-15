@@ -19,6 +19,7 @@ Connect to the WebSocket server at `ws://<host>:<port>/ws` (e.g., `ws://localhos
 Used by the client to request the server to execute a specific MCR tool.
 
 **Structure:**
+
 ```json
 {
   "type": "tool_invoke",
@@ -45,6 +46,7 @@ Used by the client to request the server to execute a specific MCR tool.
 The server's response to a `tool_invoke` message.
 
 **Structure:**
+
 ```json
 {
   "type": "tool_result",
@@ -75,6 +77,7 @@ The server's response to a `tool_invoke` message.
 Sent by the server immediately after a WebSocket connection is successfully established.
 
 **Structure:**
+
 ```json
 {
   "type": "connection_ack",
@@ -84,9 +87,11 @@ Sent by the server immediately after a WebSocket connection is successfully esta
 ```
 
 ### 4. Error Message (Generic)
+
 If a message from the client is malformed (e.g., invalid JSON, missing critical fields like `messageId` or `type`), the server may respond with a generic error message.
 
 **Structure:**
+
 ```json
 {
   "type": "error",
@@ -108,206 +113,207 @@ The following tools can be invoked using the `tool_invoke` message type. The `in
 
 ### General Tools
 
--   **`llm.passthrough`**
-    -   Description: Sends a natural language string directly to the underlying Large Language Model for a direct, unmodified response. This is useful for tasks that don't require logical reasoning.
-    -   Input: `{ "naturalLanguageText": "Any text to send to the LLM" }`
-    -   Success Payload: `{ "success": true, "response": "The text response from the LLM" }`
+- **`llm.passthrough`**
+  - Description: Sends a natural language string directly to the underlying Large Language Model for a direct, unmodified response. This is useful for tasks that don't require logical reasoning.
+  - Input: `{ "naturalLanguageText": "Any text to send to the LLM" }`
+  - Success Payload: `{ "success": true, "response": "The text response from the LLM" }`
 
--   **`mcr.handle`**
-    -   Description: A smart handler for REPL-like interfaces. It automatically determines whether to treat the input as an assertion or a query based on a simple heuristic (e.g., ending with a "?").
-    -   Input: `{ "sessionId": "id", "naturalLanguageText": "Text to be handled" }`
-    -   Success Payload: The payload will be identical to the result of either `session.assert` or `session.query`, depending on the action taken.
+- **`mcr.handle`**
+  - Description: A smart handler for REPL-like interfaces. It automatically determines whether to treat the input as an assertion or a query based on a simple heuristic (e.g., ending with a "?").
+  - Input: `{ "sessionId": "id", "naturalLanguageText": "Text to be handled" }`
+  - Success Payload: The payload will be identical to the result of either `session.assert` or `session.query`, depending on the action taken.
 
 ### Session Management
 
--   **`session.create`**
-    -   Description: Creates a new reasoning session.
-    -   Input: `{ "sessionId": "optional-desired-id" }` (If `sessionId` is omitted, the server generates one.)
-    -   Success Payload: `{ "success": true, "data": { "id": "session-id", "facts": "", "lexiconSummary": "" } }`
+- **`session.create`**
+  - Description: Creates a new reasoning session.
+  - Input: `{ "sessionId": "optional-desired-id" }` (If `sessionId` is omitted, the server generates one.)
+  - Success Payload: `{ "success": true, "data": { "id": "session-id", "facts": "", "lexiconSummary": "" } }`
 
--   **`session.get`**
-    -   Description: Retrieves details for an existing session, including its current Knowledge Base.
-    -   Input: `{ "sessionId": "existing-session-id" }`
-    -   Success Payload: `{ "success": true, "data": { "id": "session-id", "facts": "prolog_kb_string", "lexiconSummary": "summary_string" } }`
+- **`session.get`**
+  - Description: Retrieves details for an existing session, including its current Knowledge Base.
+  - Input: `{ "sessionId": "existing-session-id" }`
+  - Success Payload: `{ "success": true, "data": { "id": "session-id", "facts": "prolog_kb_string", "lexiconSummary": "summary_string" } }`
 
--   **`session.delete`**
-    -   Description: Deletes a session.
-    -   Input: `{ "sessionId": "existing-session-id" }`
-    -   Success Payload: `{ "success": true, "message": "Session deleted." }`
+- **`session.delete`**
+  - Description: Deletes a session.
+  - Input: `{ "sessionId": "existing-session-id" }`
+  - Success Payload: `{ "success": true, "message": "Session deleted." }`
 
--   **`session.assert`**
-    -   Description: Asserts a natural language statement to a session. The statement is translated into Prolog facts/rules using the session's active strategy and added to its KB. The complete, updated knowledge base is returned upon success.
-    -   Input: `{ "sessionId": "id", "naturalLanguageText": "NL statement" }`
-    -   Success Payload: `{ "success": true, "message": "Facts asserted.", "addedFacts": ["prolog_fact1."], "fullKnowledgeBase": "complete_prolog_kb_string", "strategyId": "used_strategy_id", "cost": { ... } }`
+- **`session.assert`**
+  - Description: Asserts a natural language statement to a session. The statement is translated into Prolog facts/rules using the session's active strategy and added to its KB. The complete, updated knowledge base is returned upon success.
+  - Input: `{ "sessionId": "id", "naturalLanguageText": "NL statement" }`
+  - Success Payload: `{ "success": true, "message": "Facts asserted.", "addedFacts": ["prolog_fact1."], "fullKnowledgeBase": "complete_prolog_kb_string", "strategyId": "used_strategy_id", "cost": { ... } }`
 
--   **`session.assert_rules`**
-    -   Description: Asserts raw Prolog rules directly into a session's KB. The complete, updated knowledge base is returned upon success.
-    -   Input: `{ "sessionId": "id", "rules": ["rule1.", "rule2."] or "rule1. rule2.", "validate": true_or_false (optional, default true) }`
-    -   Success Payload: `{ "success": true, "message": "Rules asserted.", "addedFacts": ["rule1."], "fullKnowledgeBase": "complete_prolog_kb_string" }`
+- **`session.assert_rules`**
+  - Description: Asserts raw Prolog rules directly into a session's KB. The complete, updated knowledge base is returned upon success.
+  - Input: `{ "sessionId": "id", "rules": ["rule1.", "rule2."] or "rule1. rule2.", "validate": true_or_false (optional, default true) }`
+  - Success Payload: `{ "success": true, "message": "Rules asserted.", "addedFacts": ["rule1."], "fullKnowledgeBase": "complete_prolog_kb_string" }`
 
--   **`session.set_kb`**
-    -   Description: Replaces the entire Knowledge Base for a session with the provided content. The complete, updated knowledge base is returned upon success.
-    -   Input: `{ "sessionId": "id", "kbContent": "full_prolog_kb_string" }`
-    -   Success Payload: `{ "success": true, "message": "Knowledge base updated successfully.", "fullKnowledgeBase": "complete_prolog_kb_string" }`
+- **`session.set_kb`**
+  - Description: Replaces the entire Knowledge Base for a session with the provided content. The complete, updated knowledge base is returned upon success.
+  - Input: `{ "sessionId": "id", "kbContent": "full_prolog_kb_string" }`
+  - Success Payload: `{ "success": true, "message": "Knowledge base updated successfully.", "fullKnowledgeBase": "complete_prolog_kb_string" }`
 
--   **`session.query`**
-    -   Description: Queries a session with a natural language question.
-    -   Input: `{ "sessionId": "id", "naturalLanguageQuestion": "NL question", "queryOptions": { "dynamicOntology": "optional_prolog_rules_string", "style": "conversational_or_formal", "trace": true_or_false, "debug": true_or_false } }` (all fields in `queryOptions` are optional)
-    -   Success Payload: `{ "success": true, "answer": "NL_answer_string", "explanation": "optional_trace_explanation_string", "debugInfo": { ... }, "strategyId": "used_strategy_id", "cost": { ... } }`
+- **`session.query`**
+  - Description: Queries a session with a natural language question.
+  - Input: `{ "sessionId": "id", "naturalLanguageQuestion": "NL question", "queryOptions": { "dynamicOntology": "optional_prolog_rules_string", "style": "conversational_or_formal", "trace": true_or_false, "debug": true_or_false } }` (all fields in `queryOptions` are optional)
+  - Success Payload: `{ "success": true, "answer": "NL_answer_string", "explanation": "optional_trace_explanation_string", "debugInfo": { ... }, "strategyId": "used_strategy_id", "cost": { ... } }`
 
--   **`session.explainQuery`**
-    -   Description: Explains how a natural language question might be interpreted or resolved in the context of a session.
-    -   Input: `{ "sessionId": "id", "naturalLanguageQuestion": "NL question" }`
-    -   Success Payload: `{ "success": true, "explanation": "NL_explanation_string", "debugInfo": { ... }, "strategyId": "used_strategy_id", "cost": { ... } }`
+- **`session.explainQuery`**
+  - Description: Explains how a natural language question might be interpreted or resolved in the context of a session.
+  - Input: `{ "sessionId": "id", "naturalLanguageQuestion": "NL question" }`
+  - Success Payload: `{ "success": true, "explanation": "NL_explanation_string", "debugInfo": { ... }, "strategyId": "used_strategy_id", "cost": { ... } }`
 
 ---
 
 ### Symbolic Exchange Tools
 
--   **`symbolic.export`**
-    -   Description: Exports solutions to a Prolog goal from a session's knowledge base.
-    -   Input: `{ "sessionId": "id", "goal": "your_goal(X)." }`
-    -   Success Payload: `{ "success": true, "data": [...] }` (The data format depends on the solutions found)
+- **`symbolic.export`**
+  - Description: Exports solutions to a Prolog goal from a session's knowledge base.
+  - Input: `{ "sessionId": "id", "goal": "your_goal(X)." }`
+  - Success Payload: `{ "success": true, "data": [...] }` (The data format depends on the solutions found)
 
--   **`symbolic.import`**
-    -   Description: Imports raw Prolog clauses directly into a session's knowledge base.
-    -   Input: `{ "sessionId": "id", "clauses": ["clause1.", "clause2."] }`
-    -   Success Payload: `{ "success": true }`
+- **`symbolic.import`**
+  - Description: Imports raw Prolog clauses directly into a session's knowledge base.
+  - Input: `{ "sessionId": "id", "clauses": ["clause1.", "clause2."] }`
+  - Success Payload: `{ "success": true }`
 
 ### Ontology Management (Global Ontologies)
 
--   **`ontology.create`**
-    -   Description: Creates a new global ontology.
-    -   Input: `{ "name": "ontology-name", "rules": "prolog_rules_string" }`
-    -   Success Payload: `{ "success": true, "data": { "id": "internal_id", "name": "ontology-name", "rules": "prolog_rules_string" } }`
+- **`ontology.create`**
+  - Description: Creates a new global ontology.
+  - Input: `{ "name": "ontology-name", "rules": "prolog_rules_string" }`
+  - Success Payload: `{ "success": true, "data": { "id": "internal_id", "name": "ontology-name", "rules": "prolog_rules_string" } }`
 
--   **`ontology.list`**
-    -   Description: Lists all available global ontologies.
-    -   Input: `{ "includeRules": true_or_false (optional, default false) }`
-    -   Success Payload: `{ "success": true, "data": [{ "id": "...", "name": "...", "rules": "optional..." }, ...] }`
+- **`ontology.list`**
+  - Description: Lists all available global ontologies.
+  - Input: `{ "includeRules": true_or_false (optional, default false) }`
+  - Success Payload: `{ "success": true, "data": [{ "id": "...", "name": "...", "rules": "optional..." }, ...] }`
 
--   **`ontology.get`**
-    -   Description: Retrieves a specific global ontology by its name.
-    -   Input: `{ "name": "ontology-name" }`
-    -   Success Payload: `{ "success": true, "data": { "id": "...", "name": "...", "rules": "..." } }`
+- **`ontology.get`**
+  - Description: Retrieves a specific global ontology by its name.
+  - Input: `{ "name": "ontology-name" }`
+  - Success Payload: `{ "success": true, "data": { "id": "...", "name": "...", "rules": "..." } }`
 
--   **`ontology.update`**
-    -   Description: Updates the rules of an existing global ontology.
-    -   Input: `{ "name": "ontology-name", "rules": "new_prolog_rules_string" }`
-    -   Success Payload: `{ "success": true, "data": { "id": "...", "name": "...", "rules": "..." } }`
+- **`ontology.update`**
+  - Description: Updates the rules of an existing global ontology.
+  - Input: `{ "name": "ontology-name", "rules": "new_prolog_rules_string" }`
+  - Success Payload: `{ "success": true, "data": { "id": "...", "name": "...", "rules": "..." } }`
 
--   **`ontology.delete`**
-    -   Description: Deletes a global ontology.
-    -   Input: `{ "name": "ontology-name" }`
-    -   Success Payload: `{ "success": true, "message": "Ontology deleted." }`
+- **`ontology.delete`**
+  - Description: Deletes a global ontology.
+  - Input: `{ "name": "ontology-name" }`
+  - Success Payload: `{ "success": true, "message": "Ontology deleted." }`
 
 ---
 
 ### Direct Translation Tools
 
--   **`translate.nlToRules`**
-    -   Description: Translates natural language text directly to Prolog rules using a specified or default assertion strategy, without affecting any session.
-    -   Input: `{ "naturalLanguageText": "NL statement", "strategyId": "optional_strategy_id_string" }`
-    -   Success Payload: `{ "success": true, "rules": ["prolog_rule1."], "strategyId": "used_strategy_id", "cost": { ... } }`
+- **`translate.nlToRules`**
+  - Description: Translates natural language text directly to Prolog rules using a specified or default assertion strategy, without affecting any session.
+  - Input: `{ "naturalLanguageText": "NL statement", "strategyId": "optional_strategy_id_string" }`
+  - Success Payload: `{ "success": true, "rules": ["prolog_rule1."], "strategyId": "used_strategy_id", "cost": { ... } }`
 
--   **`translate.rulesToNl`**
-    -   Description: Translates Prolog rules directly into a natural language explanation.
-    -   Input: `{ "rules": "prolog_rules_string", "style": "optional_style_string (e.g., 'conversational')" }`
-    -   Success Payload: `{ "success": true, "explanation": "NL_explanation_string", "cost": { ... } }`
+- **`translate.rulesToNl`**
+  - Description: Translates Prolog rules directly into a natural language explanation.
+  - Input: `{ "rules": "prolog_rules_string", "style": "optional_style_string (e.g., 'conversational')" }`
+  - Success Payload: `{ "success": true, "explanation": "NL_explanation_string", "cost": { ... } }`
 
 ---
 
 ### Strategy Management
 
--   **`strategy.list`**
-    -   Description: Lists all available translation strategies loaded by the server.
-    -   Input: `{}` (empty object)
-    -   Success Payload: `{ "success": true, "data": [{ "id": "strat1", "name": "Strategy One", "description": "..." }, ...] }`
+- **`strategy.list`**
+  - Description: Lists all available translation strategies loaded by the server.
+  - Input: `{}` (empty object)
+  - Success Payload: `{ "success": true, "data": [{ "id": "strat1", "name": "Strategy One", "description": "..." }, ...] }`
 
--   **`strategy.setActive`**
-    -   Description: Sets the server's active base translation strategy.
-    -   Input: `{ "strategyId": "strategy-id-string" }`
-    -   Success Payload: `{ "success": true, "message": "Strategy set.", "data": { "activeStrategyId": "strategy-id" } }`
+- **`strategy.setActive`**
+  - Description: Sets the server's active base translation strategy.
+  - Input: `{ "strategyId": "strategy-id-string" }`
+  - Success Payload: `{ "success": true, "message": "Strategy set.", "data": { "activeStrategyId": "strategy-id" } }`
 
--   **`strategy.getActive`**
-    -   Description: Gets the ID of the currently active base translation strategy.
-    -   Input: `{}` (empty object)
-    -   Success Payload: `{ "success": true, "data": { "activeStrategyId": "strategy-id" } }`
+- **`strategy.getActive`**
+  - Description: Gets the ID of the currently active base translation strategy.
+  - Input: `{}` (empty object)
+  - Success Payload: `{ "success": true, "data": { "activeStrategyId": "strategy-id" } }`
 
 ---
 
 ### Utility & Debugging Tools
 
--   **`utility.getPrompts`**
-    -   Description: Retrieves all available prompt templates known to the system.
-    -   Input: `{}` (empty object)
-    -   Success Payload: `{ "success": true, "data": { "PROMPT_NAME_1": { "system": "...", "user": "..." }, ... } }`
+- **`utility.getPrompts`**
+  - Description: Retrieves all available prompt templates known to the system.
+  - Input: `{}` (empty object)
+  - Success Payload: `{ "success": true, "data": { "PROMPT_NAME_1": { "system": "...", "user": "..." }, ... } }`
 
--   **`utility.debugFormatPrompt`**
-    -   Description: Formats a specified prompt template with given input variables for debugging.
-    -   Input: `{ "templateName": "PROMPT_NAME", "inputVariables": { "var1": "val1", ... } }`
-    -   Success Payload: `{ "success": true, "templateName": "...", "rawTemplate": { ... }, "formattedUserPrompt": "...", "inputVariables": { ... } }`
+- **`utility.debugFormatPrompt`**
+  - Description: Formats a specified prompt template with given input variables for debugging.
+  - Input: `{ "templateName": "PROMPT_NAME", "inputVariables": { "var1": "val1", ... } }`
+  - Success Payload: `{ "success": true, "templateName": "...", "rawTemplate": { ... }, "formattedUserPrompt": "...", "inputVariables": { ... } }`
 
 ---
+
 ### System Analysis Tools
 
--   **`analysis.get_strategy_leaderboard`**
-    -   Description: Retrieves aggregated performance data for all evaluated strategies from the performance database.
-    -   Input: `{}` (empty object)
-    -   Success Payload: `{ "success": true, "data": [{ "strategyId": "...", "strategyName": "...", "evaluations": 10, "successRate": 0.9, "avgLatencyMs": 1500, "avgCost": 0.00123 }, ...] }`
+- **`analysis.get_strategy_leaderboard`**
+  - Description: Retrieves aggregated performance data for all evaluated strategies from the performance database.
+  - Input: `{}` (empty object)
+  - Success Payload: `{ "success": true, "data": [{ "strategyId": "...", "strategyName": "...", "evaluations": 10, "successRate": 0.9, "avgLatencyMs": 1500, "avgCost": 0.00123 }, ...] }`
 
--   **`analysis.get_strategy_details`**
-    -   Description: Retrieves detailed performance data, including individual runs, for a specific strategy.
-    -   Input: `{ "strategyId": "sir-r1-query" }`
-    -   Success Payload: `{ "success": true, "data": { "strategyId": "...", "definition": {...}, "hash": "...", "summary": {...}, "runs": [...] } }`
+- **`analysis.get_strategy_details`**
+  - Description: Retrieves detailed performance data, including individual runs, for a specific strategy.
+  - Input: `{ "strategyId": "sir-r1-query" }`
+  - Success Payload: `{ "success": true, "data": { "strategyId": "...", "definition": {...}, "hash": "...", "summary": {...}, "runs": [...] } }`
 
--   **`analysis.list_eval_curricula`**
-    -   Description: Lists all available evaluation curricula (files containing test cases).
-    -   Input: `{}` (empty object)
-    -   Success Payload: `{ "success": true, "data": [{ "id": "path/to/file.js", "name": "file.js", "path": "path/to/file.js", "caseCount": 5 }, ...] }`
+- **`analysis.list_eval_curricula`**
+  - Description: Lists all available evaluation curricula (files containing test cases).
+  - Input: `{}` (empty object)
+  - Success Payload: `{ "success": true, "data": [{ "id": "path/to/file.js", "name": "file.js", "path": "path/to/file.js", "caseCount": 5 }, ...] }`
 
--   **`analysis.get_curriculum_details`**
-    -   Description: Retrieves the content (the actual test cases) of a specific curriculum file.
-    -   Input: `{ "curriculumId": "path/to/file.js" }`
-    -   Success Payload: `{ "success": true, "data": { "id": "...", "name": "...", "cases": [...] } }`
+- **`analysis.get_curriculum_details`**
+  - Description: Retrieves the content (the actual test cases) of a specific curriculum file.
+  - Input: `{ "curriculumId": "path/to/file.js" }`
+  - Success Payload: `{ "success": true, "data": { "id": "...", "name": "...", "cases": [...] } }`
 
 ---
 
 ### Evolution Tools
 
--   **`evolution.start_optimizer`**
-    -   Description: Starts the strategy evolution optimizer script as a background process on the server.
-    -   Input: `{ "options": { "iterations": 3, "runBootstrap": true } }` (All options are optional)
-    -   Success Payload: `{ "success": true, "message": "Optimizer started with PID 12345.", "data": { "pid": 12345 } }`
+- **`evolution.start_optimizer`**
+  - Description: Starts the strategy evolution optimizer script as a background process on the server.
+  - Input: `{ "options": { "iterations": 3, "runBootstrap": true } }` (All options are optional)
+  - Success Payload: `{ "success": true, "message": "Optimizer started with PID 12345.", "data": { "pid": 12345 } }`
 
--   **`evolution.get_status`**
-    -   Description: Gets the current status (running or idle) of the optimizer process.
-    -   Input: `{}` (empty object)
-    -   Success Payload: `{ "success": true, "data": { "status": "running", "pid": 12345 } }`
+- **`evolution.get_status`**
+  - Description: Gets the current status (running or idle) of the optimizer process.
+  - Input: `{}` (empty object)
+  - Success Payload: `{ "success": true, "data": { "status": "running", "pid": 12345 } }`
 
--   **`evolution.stop_optimizer`**
-    -   Description: Stops the running optimizer process.
-    -   Input: `{}` (empty object)
-    -   Success Payload: `{ "success": true, "message": "Optimizer termination signal sent." }`
+- **`evolution.stop_optimizer`**
+  - Description: Stops the running optimizer process.
+  - Input: `{}` (empty object)
+  - Success Payload: `{ "success": true, "message": "Optimizer termination signal sent." }`
 
--   **`evolution.get_optimizer_log`**
-    -   Description: Retrieves recent logs captured from the optimizer process.
-    -   Input: `{}` (empty object)
-    -   Success Payload: `{ "success": true, "data": { "logs": [{ "timestamp": "...", "type": "stdout", "message": "..." }, ...] } }`
+- **`evolution.get_optimizer_log`**
+  - Description: Retrieves recent logs captured from the optimizer process.
+  - Input: `{}` (empty object)
+  - Success Payload: `{ "success": true, "data": { "logs": [{ "timestamp": "...", "type": "stdout", "message": "..." }, ...] } }`
 
 ---
 
 ### Demo Tools
 
--   **`demo.list`**
-    -   Description: Lists all available predefined demos.
-    -   Input: `{}` (empty object)
-    -   Success Payload: `{ "success": true, "data": [{ "id": "familyOntologyDemo", "name": "...", "description": "..." }, ...] }`
+- **`demo.list`**
+  - Description: Lists all available predefined demos.
+  - Input: `{}` (empty object)
+  - Success Payload: `{ "success": true, "data": [{ "id": "familyOntologyDemo", "name": "...", "description": "..." }, ...] }`
 
--   **`demo.run`**
-    -   Description: Runs a specific demo in a given session, returning captured logs from the demo run.
-    -   Input: `{ "demoId": "familyOntologyDemo", "sessionId": "id" }`
-    -   Success Payload: `{ "success": true, "data": { "demoId": "...", "messages": [...] } }`
+- **`demo.run`**
+  - Description: Runs a specific demo in a given session, returning captured logs from the demo run.
+  - Input: `{ "demoId": "familyOntologyDemo", "sessionId": "id" }`
+  - Success Payload: `{ "success": true, "data": { "demoId": "...", "messages": [...] } }`
 
 ---
 

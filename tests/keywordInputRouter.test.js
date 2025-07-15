@@ -48,7 +48,9 @@ describe('KeywordInputRouter', () => {
       const text = 'Test input';
       const llmModelId = 'test_model';
       const expectedHash = 'strategy123';
-      keywordInputRouter.getBestStrategy = jest.fn().mockResolvedValue(expectedHash);
+      keywordInputRouter.getBestStrategy = jest
+        .fn()
+        .mockResolvedValue(expectedHash);
       const result = await keywordInputRouter.route(text, llmModelId);
       expect(result).toBe(expectedHash);
     });

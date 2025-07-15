@@ -69,66 +69,80 @@ async function executeQuery(knowledgeBase, query, options = {}) {
 }
 
 async function probabilisticDeduce(clauses, query, threshold, embeddingBridge) {
-    const queryVector = await embeddingBridge.encode(query);
+  const queryVector = await embeddingBridge.encode(query);
 
-    const weightedClauses = await Promise.all(clauses.map(async (c) => {
-        const clauseVector = await embeddingBridge.encode(c.clause);
-        const similarity = await embeddingBridge.similarity(queryVector, clauseVector);
-        return {...c, weight: similarity};
-    }));
+  const weightedClauses = await Promise.all(
+    clauses.map(async (c) => {
+      const clauseVector = await embeddingBridge.encode(c.clause);
+      const similarity = await embeddingBridge.similarity(
+        queryVector,
+        clauseVector
+      );
+      return { ...c, weight: similarity };
+    })
+  );
 
-    const activeClauses = weightedClauses.filter(c => c.weight >= threshold);
+  const activeClauses = weightedClauses.filter((c) => c.weight >= threshold);
 
-    const knowledgeBase = activeClauses.map(c => c.clause).join('\n');
-    const provider = getProvider();
-    if (provider.name.toLowerCase() !== 'prolog') {
-        throw new Error("Probabilistic deduce currently relies on the Prolog reasoner.");
-    }
+  const knowledgeBase = activeClauses.map((c) => c.clause).join('\n');
+  const provider = getProvider();
+  if (provider.name.toLowerCase() !== 'prolog') {
+    throw new Error(
+      'Probabilistic deduce currently relies on the Prolog reasoner.'
+    );
+  }
 
-    return await provider.executeQuery(knowledgeBase, query);
+  return await provider.executeQuery(knowledgeBase, query);
 }
 
 async function guidedDeduce(query, llmService, embeddingBridge, session) {
-    const provider = getProvider();
-    const { knowledgeBase, config } = session;
-    const { ltnThreshold } = config.reasoner;
+  const provider = getProvider();
+  const { knowledgeBase, config } = session;
+  const { ltnThreshold } = config.reasoner;
 
-    // 1. Neural guide
-    const hypothesesResponse = await llmService.generate(
-        'hypothesize.system',
-        `Based on the query "${query}" and the knowledge base, generate potential answers.`,
+  // 1. Neural guide
+  const hypothesesResponse = await llmService.generate(
+    'hypothesize.system',
+    `Based on the query "${query}" and the knowledge base, generate potential answers.`
+  );
+  const hypotheses = hypothesesResponse.text.split('\n').map((h) => h.trim());
+
+  // 2. Symbolic prove on top ranks
+  const results = [];
+  for (const hypothesis of hypotheses) {
+    const result = await provider.executeQuery(knowledgeBase, hypothesis);
+    if (result.results.length > 0) {
+      // 3. Probabilistic score
+      const probability =
+        embeddingBridge && result.results[0].embedding
+          ? await embeddingBridge.similarity(
+              await embeddingBridge.encode(query),
+              result.results[0].embedding
+            )
+          : 0.9; // Fallback probability
+
+      if (probability >= ltnThreshold) {
+        results.push({ proof: result.results[0], probability });
+      }
+    }
+  }
+
+  // Fallback to deterministic if no results
+  if (results.length === 0) {
+    const deterministicResult = await provider.executeQuery(
+      session.knowledgeBase,
+      query
     );
-    const hypotheses = hypothesesResponse.text.split('\n').map(h => h.trim());
-
-    // 2. Symbolic prove on top ranks
-    const results = [];
-    for (const hypothesis of hypotheses) {
-        const result = await provider.executeQuery(knowledgeBase, hypothesis);
-        if (result.results.length > 0) {
-            // 3. Probabilistic score
-            const probability = (embeddingBridge && result.results[0].embedding)
-                ? await embeddingBridge.similarity(
-                    await embeddingBridge.encode(query),
-                    result.results[0].embedding,
-                )
-                : 0.9; // Fallback probability
-
-            if (probability >= ltnThreshold) {
-                results.push({ proof: result.results[0], probability });
-            }
-        }
+    if (deterministicResult.results) {
+      return deterministicResult.results.map((r) => ({
+        ...r,
+        probability: 1.0,
+      }));
     }
+    return [];
+  }
 
-    // Fallback to deterministic if no results
-    if (results.length === 0) {
-        const deterministicResult = await provider.executeQuery(session.knowledgeBase, query);
-        if (deterministicResult.results) {
-            return deterministicResult.results.map(r => ({ ...r, probability: 1.0 }));
-        }
-        return [];
-    }
-
-    return results;
+  return results;
 }
 
 async function validateKnowledgeBase(knowledgeBase) {

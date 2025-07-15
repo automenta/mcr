@@ -16,9 +16,7 @@ const db = require('./store/database');
 const EmbeddingBridge = require('./bridges/embeddingBridge');
 const KnowledgeGraph = require('./bridges/kgBridge');
 
-const embeddingBridge = config.embeddingModel
-  ? new EmbeddingBridge()
-  : null;
+const embeddingBridge = config.embeddingModel ? new EmbeddingBridge() : null;
 if (embeddingBridge) {
   embeddingBridge.loadModel();
 }
@@ -116,9 +114,13 @@ async function getOperationalStrategyJson(operationType, naturalLanguageText) {
         strategyManager.getStrategy(baseStrategyId) ||
         strategyManager.getDefaultStrategy();
       if (strategyJson) {
-        logger.info(`[McrService] Using fallback strategy: "${strategyJson.id}"`);
+        logger.info(
+          `[McrService] Using fallback strategy: "${strategyJson.id}"`
+        );
       } else {
-        logger.error(`[McrService] Failed to initialize with a default assertion strategy. Base ID: "${baseStrategyId}". Error: ${e}`);
+        logger.error(
+          `[McrService] Failed to initialize with a default assertion strategy. Base ID: "${baseStrategyId}". Error: ${e}`
+        );
       }
     }
   }
@@ -204,12 +206,7 @@ function getActiveStrategyId() {
  *                            Successful structure: `{ success: true, message: string, addedFacts: string[], strategyId: string, cost?: object }`
  *                            Error structure: `{ success: false, message: string, error: string, details?: string, strategyId: string, cost?: object }`
  */
-async function _refineLoop(
-  operation,
-  initialInput,
-  context,
-  maxIter = 3
-) {
+async function _refineLoop(operation, initialInput, context, maxIter = 3) {
   let currentResult = initialInput;
   let lastResult = null;
   let issues = [];
@@ -320,11 +317,7 @@ async function _refineLoop(
   };
 }
 
-async function assertNLToSession(
-  sessionId,
-  naturalLanguageText,
-  options = {}
-) {
+async function assertNLToSession(sessionId, naturalLanguageText, options = {}) {
   const { useLoops = true } = options;
   const activeStrategyJson = await getOperationalStrategyJson(
     'Assert',
@@ -586,8 +579,8 @@ async function querySessionWithNL(
       embeddingBridge,
       session
     );
-    const prologResults = reasonerResult.map(r => r.proof);
-    const probabilities = reasonerResult.map(r => r.probability);
+    const prologResults = reasonerResult.map((r) => r.proof);
+    const probabilities = reasonerResult.map((r) => r.probability);
     const proofTrace = null; // guidedDeduce does not currently support tracing
     debugInfo.prologResultsJSON = JSON.stringify(prologResults);
     debugInfo.probabilities = probabilities;

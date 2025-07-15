@@ -7,18 +7,37 @@ const CycleVisualization = ({ steps }) => {
   }
 
   return (
-    <div style={{ marginTop: '1rem', padding: '0.5rem', border: '1px solid #ccc' }}>
+    <div
+      style={{ marginTop: '1rem', padding: '0.5rem', border: '1px solid #ccc' }}
+    >
       <h5>Cycle Steps</h5>
       {steps.map((step, index) => (
         <div key={index} style={{ marginBottom: '0.5rem' }}>
-          <p><strong>Step {index + 1}:</strong> {step.action}</p>
+          <p>
+            <strong>Step {index + 1}:</strong> {step.action}
+          </p>
           {step.probability && (
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <p style={{ marginRight: '0.5rem' }}>Probability:</p>
-              <div style={{ width: '100%', backgroundColor: '#e0e0e0', borderRadius: '4px' }}>
-                <div style={{ width: `${step.probability * 100}%`, backgroundColor: '#76c7c0', height: '20px', borderRadius: '4px' }}></div>
+              <div
+                style={{
+                  width: '100%',
+                  backgroundColor: '#e0e0e0',
+                  borderRadius: '4px',
+                }}
+              >
+                <div
+                  style={{
+                    width: `${step.probability * 100}%`,
+                    backgroundColor: '#76c7c0',
+                    height: '20px',
+                    borderRadius: '4px',
+                  }}
+                ></div>
               </div>
-              <p style={{ marginLeft: '0.5rem' }}>{(step.probability * 100).toFixed(2)}%</p>
+              <p style={{ marginLeft: '0.5rem' }}>
+                {(step.probability * 100).toFixed(2)}%
+              </p>
             </div>
           )}
         </div>
@@ -26,7 +45,6 @@ const CycleVisualization = ({ steps }) => {
     </div>
   );
 };
-
 
 const SessionPanel = ({
   initialSessionId, // Renamed from sessionId to avoid confusion with internal state if any
