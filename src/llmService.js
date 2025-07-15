@@ -60,7 +60,11 @@ function getProvider() {
  * @returns {Promise<{text: string, costData: object | null}>} The generated text and cost data from the LLM.
  * @throws {Error} If the provider is not configured or generation fails.
  */
-async function generate(systemPrompt, userPrompt, options = {}) {
+async function generate(systemPrompt, userPrompt, options = {}, input = {}) {
+  if (input.embed) {
+    userPrompt += `\nEmbeddings context: ${JSON.stringify(input.embed)}`;
+  }
+
   const provider = getProvider();
   if (!provider || typeof provider.generate !== 'function') {
     logger.error(

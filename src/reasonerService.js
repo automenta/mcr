@@ -13,6 +13,10 @@ function getProvider() {
       case 'prolog':
         selectedProvider = PrologReasonerProvider;
         break;
+      case 'ltn':
+        // For now, LTN uses the Prolog reasoner under the hood
+        selectedProvider = PrologReasonerProvider;
+        break;
       // Future reasoner providers can be added here
       default:
         logger.error(
@@ -64,6 +68,24 @@ async function executeQuery(knowledgeBase, query, options = {}) {
   }
 }
 
+async function probabilisticDeduce(clauses, query, threshold) {
+    // This is a simplified simulation of LTN.
+    // A real implementation would involve a more complex logic.
+    const weightedClauses = clauses.map(c => ({...c, weight: c.similarity || 1.0}));
+
+    // Filter clauses based on weight, simulating LTN's probabilistic threshold.
+    const activeClauses = weightedClauses.filter(c => c.weight >= threshold);
+
+    // Use existing Prolog reasoner for deduction on the filtered set.
+    const knowledgeBase = activeClauses.map(c => c.clause).join(' ');
+    const provider = getProvider();
+    if (provider.name.toLowerCase() !== 'prolog') {
+        throw new Error("Probabilistic deduce currently relies on the Prolog reasoner.");
+    }
+
+    return await provider.executeQuery(knowledgeBase, query);
+}
+
 async function validateKnowledgeBase(knowledgeBase) {
   const provider = getProvider();
   if (!provider || typeof provider.validate !== 'function') {
@@ -89,4 +111,5 @@ async function validateKnowledgeBase(knowledgeBase) {
 module.exports = {
   executeQuery,
   validateKnowledgeBase,
+  probabilisticDeduce,
 };
