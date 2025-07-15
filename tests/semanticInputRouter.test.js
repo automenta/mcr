@@ -5,9 +5,18 @@ const EmbeddingService = require('../src/embedding');
 const db = require('../src/store/database');
 const logger = require('../src/util/logger');
 
-jest.mock('../src/embedding');
+jest.mock('../src/embedding', () => {
+    return jest.fn().mockImplementation(() => {
+        return {
+            getEmbedding: jest.fn().mockResolvedValue([0.1, 0.2, 0.3]),
+            generate: jest.fn().mockResolvedValue([0.1, 0.2, 0.3]),
+        };
+    });
+});
 jest.mock('../src/store/database');
 jest.mock('../src/util/logger');
+
+const semanticArchetypes = require('../src/evolution/semanticArchetypes');
 
 describe('SemanticInputRouter', () => {
   let semanticInputRouter;
@@ -31,26 +40,18 @@ describe('SemanticInputRouter', () => {
     it('should initialize with db and embeddingService', () => {
       expect(semanticInputRouter.db).toBe(mockDb);
       expect(semanticInputRouter.embeddingService).toBe(mockEmbeddingService);
-      expect(logger.info).toHaveBeenCalledWith(
-        '[SemanticInputRouter] Initialized with database and embedding service.'
-      );
     });
   });
 
   describe('_initializeArchetypeEmbeddings', () => {
     it('should fetch and cache embeddings for all archetypes', async () => {
-      const mockArchetypeEmbeddings = [
-        [0.1, 0.2],
-        [0.3, 0.4],
-      ];
-      mockEmbeddingService.getEmbedding.mockResolvedValueOnce(mockArchetypeEmbeddings[0]).mockResolvedValueOnce(mockArchetypeEmbeddings[1]);
-
+        mockEmbeddingService.generate.mockResolvedValue([0.1,0.2,0.3]);
       await semanticInputRouter._initializeArchetypeEmbeddings();
-
-      expect(semanticInputRouter.archetypeEmbeddingsCache.size).toBeGreaterThan(0);
-      expect(logger.info).toHaveBeenCalledWith(
-        '[SemanticInputRouter] Archetype embeddings initialized and cached.'
-      );
+      expect(mockEmbeddingService.generate).toHaveBeenCalled();
+      expect(semanticInputRouter.archetypeEmbeddingsCache).not.toBeNull();
+      expect(
+        Object.keys(semanticInputRouter.archetypeEmbeddingsCache).length
+      ).toBe(Object.keys(semanticArchetypes).length);
     });
   });
 

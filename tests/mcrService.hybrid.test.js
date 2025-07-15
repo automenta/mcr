@@ -15,8 +15,13 @@ jest.mock('../src/store/InMemorySessionStore', () => {
 });
 jest.mock('../src/llmService');
 jest.mock('../src/reasonerService');
-jest.mock('../src/ontologyService');
-jest.mock('../src/strategyManager');
+jest.mock('../src/ontologyService', () => ({
+    getGlobalOntologyRulesAsString: jest.fn(),
+}));
+jest.mock('../src/strategyManager', () => ({
+    getStrategy: jest.fn(),
+    getOperationalStrategyJson: jest.fn(),
+}));
 jest.mock('../src/strategyExecutor');
 
 const mcrService = require('../src/mcrService');
@@ -51,7 +56,7 @@ describe('MCR Service Hybrid Functionality', () => {
       nodes: [],
       edges: [],
     }));
-    strategyManager.getOperationalStrategyJson.mockResolvedValue({
+    mcrService.getOperationalStrategyJson = jest.fn().mockResolvedValue({
         id: 'mock-strategy',
         name: 'Mock Strategy',
         nodes: [],

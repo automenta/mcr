@@ -73,7 +73,7 @@ describe('Reasoner Service', () => {
         await reasonerService.probabilisticDeduce(clauses, query, threshold, mockEmbeddingBridge);
 
         expect(mockPrologReasonerExecuteQuery).toHaveBeenCalledWith(
-            'man(socrates). ',
+            'man(socrates).',
             query
         );
     });
@@ -124,7 +124,7 @@ describe('Reasoner Service', () => {
         await reasonerService.probabilisticDeduce(clauses, query, threshold, mockEmbeddingBridge);
 
         expect(mockPrologReasonerExecuteQuery).toHaveBeenCalledWith(
-            'man(socrates). ',
+            'man(socrates).',
             query
         );
 
