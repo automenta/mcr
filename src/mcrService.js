@@ -200,7 +200,128 @@ function getActiveStrategyId() {
  *                            Successful structure: `{ success: true, message: string, addedFacts: string[], strategyId: string, cost?: object }`
  *                            Error structure: `{ success: false, message: string, error: string, details?: string, strategyId: string, cost?: object }`
  */
-async function assertNLToSession(sessionId, naturalLanguageText) {
+async function _refineLoop(
+  operation,
+  initialInput,
+  context,
+  maxIter = 3
+) {
+  let currentResult = initialInput;
+  let lastResult = null;
+  let issues = [];
+  let iteration = 1;
+  const { embeddingBridge, session } = context;
+
+  logger.info(
+    `[McrService] Starting refinement loop for ${operation.name}. Max iterations: ${maxIter}`
+  );
+
+  while (iteration <= maxIter) {
+    logger.info(`[RefineLoop] Iteration ${iteration}`);
+
+    // Step 1: Execute the core operation
+    currentResult = await operation(currentResult, context);
+
+    // Step 2: Validate the result
+    const validation = await reasonerService.validateKnowledgeBase(
+      Array.isArray(currentResult) ? currentResult.join('\n') : currentResult
+    );
+
+    if (validation.isValid) {
+      logger.info(
+        `[RefineLoop] Validation successful on iteration ${iteration}. Loop terminated.`
+      );
+      return {
+        result: currentResult,
+        iterations: iteration,
+        converged: true,
+        history: issues,
+      };
+    }
+
+    logger.warn(
+      `[RefineLoop] Validation failed on iteration ${iteration}: ${validation.error}`
+    );
+    issues.push({ iteration, error: validation.error });
+
+    // Step 3: Refine if validation fails
+    if (iteration < maxIter) {
+      const similarContext = {};
+      if (embeddingBridge && session.embeddings.size > 0) {
+        const inputEmbedding = await embeddingBridge.encode(
+          Array.isArray(currentResult) ? currentResult.join(' ') : currentResult
+        );
+        // This is a simplified similarity search. A real implementation might query a vector DB.
+        // For now, we just find the most similar item in the session's embeddings.
+        let bestMatch = null;
+        let maxSim = -1;
+        for (const [text, embedding] of session.embeddings.entries()) {
+          const sim = await embeddingBridge.similarity(
+            inputEmbedding,
+            embedding
+          );
+          if (sim > maxSim) {
+            maxSim = sim;
+            bestMatch = text;
+          }
+        }
+        if (bestMatch) {
+          similarContext.embeddings = {
+            most_similar_fact: bestMatch,
+            similarity_score: maxSim,
+          };
+        }
+      }
+
+      const refinePromptContext = {
+        original_input: initialInput,
+        failed_output: currentResult,
+        validation_error: validation.error,
+        similar_context: JSON.stringify(similarContext),
+        iteration,
+      };
+
+      const refinePrompt = getPromptTemplateByName('REFINE_FOR_CONSISTENCY');
+      if (!refinePrompt) {
+        throw new Error('REFINE_FOR_CONSISTENCY prompt template not found.');
+      }
+
+      const llmRefinement = await llmService.generate(
+        refinePrompt.system,
+        fillTemplate(refinePrompt.user, refinePromptContext)
+      );
+
+      if (llmRefinement.text) {
+        logger.info(`[RefineLoop] LLM provided a refinement.`);
+        currentResult = llmRefinement.text; // The LLM's suggestion becomes the new input for the next iteration
+      } else {
+        logger.warn(
+          `[RefineLoop] LLM did not provide a refinement. Breaking loop.`
+        );
+        break; // Exit if LLM gives up
+      }
+    }
+
+    iteration++;
+  }
+
+  logger.warn(
+    `[RefineLoop] Loop finished after ${maxIter} iterations without converging.`
+  );
+  return {
+    result: currentResult,
+    iterations: maxIter,
+    converged: false,
+    history: issues,
+  };
+}
+
+async function assertNLToSession(
+  sessionId,
+  naturalLanguageText,
+  options = {}
+) {
+  const { useLoops = true } = options;
   const activeStrategyJson = await getOperationalStrategyJson(
     'Assert',
     naturalLanguageText
@@ -211,9 +332,8 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
   );
   const operationId = `assert-${Date.now()}`;
 
-  // Use sessionStore and await the async call
-  const sessionExists = await sessionStore.getSession(sessionId);
-  if (!sessionExists) {
+  const session = await sessionStore.getSession(sessionId);
+  if (!session) {
     logger.warn(
       `[McrService] Session ${sessionId} not found for assertion. OpID: ${operationId}`
     );
@@ -226,103 +346,78 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
   }
 
   try {
-    // Use sessionStore and await the async calls
     const existingFacts =
       (await sessionStore.getKnowledgeBase(sessionId)) || '';
-    let ontologyRules = '';
-    try {
-      const globalOntologies = await ontologyService.listOntologies(true);
-      if (globalOntologies && globalOntologies.length > 0) {
-        ontologyRules = globalOntologies.map((ont) => ont.rules).join('\n');
-      }
-    } catch (ontError) {
-      logger.warn(
-        `[McrService] Error fetching global ontologies for context in session ${sessionId}: ${ontError.message}`
-      );
-    }
-
+    const ontologyRules =
+      (await ontologyService.getGlobalOntologyRulesAsString()) || '';
     const lexiconSummary = await sessionStore.getLexiconSummary(sessionId);
-    const initialContext = {
-      naturalLanguageText,
-      existingFacts,
-      ontologyRules,
-      lexiconSummary,
-      llm_model_id: config.llm[config.llm.provider]?.model || 'default',
+
+    const nlToLogicOperation = async (nlInput, context) => {
+      const strategyContext = {
+        naturalLanguageText: nlInput,
+        existingFacts,
+        ontologyRules,
+        lexiconSummary,
+        llm_model_id: config.llm[config.llm.provider]?.model || 'default',
+      };
+      const executor = new StrategyExecutor(activeStrategyJson);
+      return executor.execute(llmService, reasonerService, strategyContext);
     };
 
-    logger.info(
-      `[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for assertion. OpID: ${operationId}.`
-    );
-    const executor = new StrategyExecutor(activeStrategyJson);
-    const executionResult = await executor.execute(
-      llmService,
-      reasonerService,
-      initialContext
-    );
+    let addedFacts;
+    let loopInfo = {};
 
-    const addedFacts = executionResult; // In SIR-R1-Assert, the result of the strategy is directly the array of prolog clauses.
-    const costOfExecution = null; // executionResult.totalCost; // TODO: Re-enable cost tracking if strategy executor provides it.
+    if (useLoops) {
+      const loopResult = await _refineLoop(
+        nlToLogicOperation,
+        naturalLanguageText,
+        { session, embeddingBridge }
+      );
+      addedFacts = loopResult.result;
+      loopInfo = {
+        loopIterations: loopResult.iterations,
+        loopConverged: loopResult.converged,
+      };
+    } else {
+      addedFacts = await nlToLogicOperation(naturalLanguageText, { session });
+      for (const factString of addedFacts) {
+        const validationResult =
+          await reasonerService.validateKnowledgeBase(factString);
+        if (!validationResult.isValid) {
+          const validationErrorMsg = `Generated Prolog is invalid: "${factString}". Error: ${validationResult.error}`;
+          return {
+            success: false,
+            message: 'Failed to assert facts: Generated Prolog is invalid.',
+            error: ErrorCodes.INVALID_GENERATED_PROLOG,
+            details: validationErrorMsg,
+            strategyId: currentStrategyId,
+          };
+        }
+      }
+    }
 
-    // Validate addedFacts structure (array of strings)
     if (
       !Array.isArray(addedFacts) ||
       !addedFacts.every((f) => typeof f === 'string')
     ) {
-      logger.error(
-        `[McrService] Strategy "${currentStrategyId}" execution for assertion did not return an array of strings. OpID: ${operationId}. Output: ${JSON.stringify(addedFacts)}`,
-        { costOfExecution }
-      );
       throw new MCRError(
         ErrorCodes.STRATEGY_INVALID_OUTPUT,
-        'Strategy execution for assertion returned an unexpected output format. Expected array of Prolog strings.'
+        'Strategy did not return an array of strings.'
       );
     }
-    logger.debug(
-      `[McrService] Strategy "${currentStrategyId}" execution returned (OpID: ${operationId}):`,
-      { addedFacts, costOfExecution }
-    );
 
-    if (!addedFacts || addedFacts.length === 0) {
-      logger.warn(
-        `[McrService] Strategy "${currentStrategyId}" returned no facts for text: "${naturalLanguageText}". OpID: ${operationId}`,
-        { costOfExecution }
-      );
+    if (addedFacts.length === 0) {
       return {
         success: true,
         message: 'No facts were extracted from the input.',
         error: ErrorCodes.NO_FACTS_EXTRACTED,
         strategyId: currentStrategyId,
-        cost: costOfExecution,
+        ...loopInfo,
       };
     }
 
-    for (const factString of addedFacts) {
-      const validationResult =
-        await reasonerService.validateKnowledgeBase(factString);
-      if (!validationResult.isValid) {
-        const validationErrorMsg = `Generated Prolog is invalid: "${factString}". Error: ${validationResult.error}`;
-        logger.error(
-          `[McrService] Validation failed for generated Prolog. OpID: ${operationId}. Details: ${validationErrorMsg}`,
-          { costOfExecution }
-        );
-        return {
-          success: false,
-          message: 'Failed to assert facts: Generated Prolog is invalid.',
-          error: ErrorCodes.INVALID_GENERATED_PROLOG,
-          details: validationErrorMsg,
-          strategyId: currentStrategyId,
-          cost: costOfExecution,
-        };
-      }
-    }
-    logger.info(
-      `[McrService] All ${addedFacts.length} generated facts validated successfully. OpID: ${operationId}`
-    );
-
-    // Use sessionStore and await the async call
     const addSuccess = await sessionStore.addFacts(sessionId, addedFacts);
     if (addSuccess) {
-      const session = await sessionStore.getSession(sessionId);
       if (embeddingBridge && session.embeddings) {
         for (const fact of addedFacts) {
           const embedding = await embeddingBridge.encode(fact);
@@ -331,11 +426,10 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
       }
       if (config.kgEnabled && session.kbGraph) {
         for (const fact of addedFacts) {
-          // Simple parsing of fact to triple. This is a placeholder and will need to be improved.
           const parts = fact.slice(0, -1).split(/[()]/);
           if (parts.length >= 2) {
             const predicate = parts[0];
-            const args = parts[1].split(',').map(s => s.trim());
+            const args = parts[1].split(',').map((s) => s.trim());
             if (args.length === 2) {
               session.kbGraph.addTriple(args[0], predicate, args[1]);
             }
@@ -344,45 +438,30 @@ async function assertNLToSession(sessionId, naturalLanguageText) {
       }
 
       const fullKnowledgeBase = await sessionStore.getKnowledgeBase(sessionId);
-      logger.info(
-        `[McrService] Facts successfully added to session ${sessionId}. OpID: ${operationId}. Facts:`,
-        { addedFacts, costOfExecution }
-      );
       return {
         success: true,
         message: 'Facts asserted successfully.',
         addedFacts,
-        fullKnowledgeBase, // Include the full KB in the response
+        fullKnowledgeBase,
         strategyId: currentStrategyId,
-        cost: costOfExecution,
+        ...loopInfo,
       };
     } else {
-      logger.error(
-        `[McrService] Failed to add facts to session ${sessionId} after validation. OpID: ${operationId}`,
-        { costOfExecution }
+      throw new MCRError(
+        ErrorCodes.SESSION_ADD_FACTS_FAILED,
+        'Failed to add facts to session store after validation.'
       );
-      return {
-        success: false,
-        message: 'Failed to add facts to session manager after validation.',
-        error: ErrorCodes.SESSION_ADD_FACTS_FAILED,
-        strategyId: currentStrategyId,
-        cost: costOfExecution,
-      };
     }
   } catch (error) {
     logger.error(
-      `[McrService] Error asserting NL to session ${sessionId} using strategy "${currentStrategyId}": ${error.message}`,
-      { stack: error.stack, details: error.details, errorCode: error.code }
+      `[McrService] Error asserting NL to session ${sessionId}: ${error.message}`,
+      { stack: error.stack }
     );
-    // Ensure cost is included in error returns if available, or null otherwise
-    const cost = error.costData || null; // Assuming error object might carry costData
     return {
       success: false,
       message: `Error during assertion: ${error.message}`,
       error: error.code || ErrorCodes.STRATEGY_EXECUTION_ERROR,
-      details: error.message,
       strategyId: currentStrategyId,
-      cost,
     };
   }
 }
@@ -406,27 +485,26 @@ async function querySessionWithNL(
   naturalLanguageQuestion,
   queryOptions = {}
 ) {
+  const {
+    dynamicOntology,
+    style = 'conversational',
+    trace = false,
+    useLoops = true, // New option for bidirectional loops
+  } = queryOptions;
+
   const activeStrategyJson = await getOperationalStrategyJson(
     'Query',
     naturalLanguageQuestion
   );
   const currentStrategyId = activeStrategyJson.id;
-  const {
-    dynamicOntology,
-    style = 'conversational',
-    trace = false,
-  } = queryOptions;
+  const operationId = `query-${Date.now()}`;
   logger.info(
     `[McrService] Enter querySessionWithNL for session ${sessionId} using strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}). NL Question: "${naturalLanguageQuestion}"`,
     { queryOptions }
   );
-  const operationId = `query-${Date.now()}`;
 
-  const sessionExists = await sessionStore.getSession(sessionId);
-  if (!sessionExists) {
-    logger.warn(
-      `[McrService] Session ${sessionId} not found for query. OpID: ${operationId}`
-    );
+  const session = await sessionStore.getSession(sessionId);
+  if (!session) {
     return {
       success: false,
       message: 'Session not found.',
@@ -440,155 +518,129 @@ async function querySessionWithNL(
     operationId,
     level: config.debugLevel,
     traceRequested: trace,
+    loopsEnabled: useLoops,
   };
 
   try {
+    // Phase 1: NL to Logic (Query Generation)
     const existingFacts =
       (await sessionStore.getKnowledgeBase(sessionId)) || '';
-    let ontologyRules = '';
-    try {
-      const globalOntologies = await ontologyService.listOntologies(true);
-      if (globalOntologies && globalOntologies.length > 0) {
-        ontologyRules = globalOntologies.map((ont) => ont.rules).join('\n');
-      }
-    } catch (ontError) {
-      logger.warn(
-        `[McrService] Error fetching global ontologies for query strategy context (session ${sessionId}): ${ontError.message}`
-      );
-      debugInfo.ontologyErrorForStrategy = `Failed to load global ontologies for query translation: ${ontError.message}`;
-    }
-
+    const ontologyRules =
+      (await ontologyService.getGlobalOntologyRulesAsString()) || '';
     const lexiconSummary = await sessionStore.getLexiconSummary(sessionId);
-    const initialContext = {
-      naturalLanguageQuestion,
-      existingFacts,
-      ontologyRules,
-      lexiconSummary,
-      llm_model_id: config.llm[config.llm.provider]?.model || 'default',
+
+    const nlToQueryOperation = async (nlInput) => {
+      const strategyContext = {
+        naturalLanguageQuestion: nlInput,
+        existingFacts,
+        ontologyRules,
+        lexiconSummary,
+        llm_model_id: config.llm[config.llm.provider]?.model || 'default',
+      };
+      const executor = new StrategyExecutor(activeStrategyJson);
+      return executor.execute(llmService, reasonerService, strategyContext);
     };
 
-    logger.info(
-      `[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for query translation. OpID: ${operationId}.`
-    );
-    const executor = new StrategyExecutor(activeStrategyJson);
-    const prologQuery = await executor.execute(
-      llmService,
-      reasonerService,
-      initialContext
-    );
+    let prologQuery;
+    let nlToLogicLoopInfo = {};
+    if (useLoops) {
+      const loopResult = await _refineLoop(
+        nlToQueryOperation,
+        naturalLanguageQuestion,
+        { session, embeddingBridge },
+        2 // Typically, query generation needs fewer loops
+      );
+      prologQuery = loopResult.result;
+      nlToLogicLoopInfo = {
+        nlToLogicLoopIterations: loopResult.iterations,
+        nlToLogicLoopConverged: loopResult.converged,
+      };
+      debugInfo.nlToLogicLoopHistory = loopResult.history;
+    } else {
+      prologQuery = await nlToQueryOperation(naturalLanguageQuestion);
+    }
 
     if (typeof prologQuery !== 'string' || !prologQuery.endsWith('.')) {
-      logger.error(
-        `[McrService] Strategy "${currentStrategyId}" execution for query did not return a valid Prolog query string. OpID: ${operationId}. Output: ${prologQuery}`
-      );
       throw new MCRError(
         ErrorCodes.STRATEGY_INVALID_OUTPUT,
-        'Strategy execution for query returned an unexpected output format. Expected Prolog query string ending with a period.'
+        'Strategy for query generation did not return a valid Prolog query string.'
       );
     }
-    logger.info(
-      `[McrService] Strategy "${currentStrategyId}" translated NL question to Prolog query (OpID: ${operationId}): ${prologQuery}`
-    );
     debugInfo.prologQuery = prologQuery;
 
+    // Phase 2: Logic Execution (Reasoner)
     let knowledgeBase = await sessionStore.getKnowledgeBase(sessionId);
-    if (knowledgeBase === null) {
-      throw new MCRError(
-        ErrorCodes.INTERNAL_KB_NOT_FOUND,
-        'Internal error: Knowledge base not found for an existing session.'
-      );
-    }
-
-    try {
-      const globalOntologies = await ontologyService.listOntologies(true);
-      if (globalOntologies && globalOntologies.length > 0) {
-        knowledgeBase += `\n% --- Global Ontologies ---\n${globalOntologies.map((ont) => ont.rules).join('\n')}`;
-      }
-    } catch (ontError) {
-      logger.error(
-        `[McrService] Error fetching global ontologies for reasoner KB (session ${sessionId}): ${ontError.message}`
-      );
-      debugInfo.ontologyErrorForReasoner = `Failed to load global ontologies for reasoner: ${ontError.message}`;
-    }
-
-    if (
-      dynamicOntology &&
-      typeof dynamicOntology === 'string' &&
-      dynamicOntology.trim() !== ''
-    ) {
+    knowledgeBase += `\n${ontologyRules}`;
+    if (dynamicOntology) {
       knowledgeBase += `\n% --- Dynamic RAG Ontology (Query-Specific) ---\n${dynamicOntology.trim()}`;
       debugInfo.dynamicOntologyProvided = true;
-    }
-
-    if (config.debugLevel === 'verbose') {
-      debugInfo.knowledgeBaseSnapshot = knowledgeBase;
     }
 
     const reasonerResult = await reasonerService.executeQuery(
       knowledgeBase,
       prologQuery,
-      { trace } // Pass trace option to reasoner
+      { trace }
     );
-
     const { results: prologResults, trace: proofTrace } = reasonerResult;
+    debugInfo.prologResultsJSON = JSON.stringify(prologResults);
 
-    if (config.debugLevel === 'verbose') {
-      debugInfo.prologResultsJSON = JSON.stringify(prologResults);
-      debugInfo.proofTrace = proofTrace;
-    }
-
-    const logicToNlPromptContext = {
-      naturalLanguageQuestion,
-      prologResultsJSON: JSON.stringify(prologResults),
-      style,
+    // Phase 3: Logic to NL (Answer Generation)
+    const logicToNlOperation = async (symbolicResultStr) => {
+      const promptContext = {
+        naturalLanguageQuestion,
+        prologResultsJSON: symbolicResultStr,
+        style,
+      };
+      const llmResult = await llmService.generate(
+        prompts.LOGIC_TO_NL_ANSWER.system,
+        fillTemplate(prompts.LOGIC_TO_NL_ANSWER.user, promptContext)
+      );
+      // A simple validation: check if the answer is not empty.
+      if (!llmResult.text || llmResult.text.trim().length === 0) {
+        throw new Error('LLM generated an empty answer.');
+      }
+      return llmResult.text;
     };
-    const llmAnswerResult = await llmService.generate(
-      prompts.LOGIC_TO_NL_ANSWER.system,
-      fillTemplate(prompts.LOGIC_TO_NL_ANSWER.user, logicToNlPromptContext)
-    );
-    const naturalLanguageAnswerText = llmAnswerResult?.text;
+
+    let naturalLanguageAnswerText;
+    let logicToNlLoopInfo = {};
+    if (useLoops) {
+      // The "refinement" for logic-to-NL is different. We're not validating syntax,
+      // but "validating" by checking if the NL answer is consistent with the symbolic results.
+      // This is a simplified placeholder. A real implementation would be more complex.
+      // For now, we just run it once as the loop structure is not a perfect fit here.
+      naturalLanguageAnswerText = await logicToNlOperation(
+        JSON.stringify(prologResults)
+      );
+    } else {
+      naturalLanguageAnswerText = await logicToNlOperation(
+        JSON.stringify(prologResults)
+      );
+    }
 
     if (!naturalLanguageAnswerText) {
-      logger.warn(
-        `[McrService] LLM returned no text for LOGIC_TO_NL_ANSWER. OpID: ${operationId}`
+      throw new MCRError(
+        ErrorCodes.LLM_EMPTY_RESPONSE,
+        'Failed to generate a natural language answer.'
       );
-      return {
-        success: false,
-        message:
-          'Failed to generate a natural language answer from query results.',
-        debugInfo,
-        error: ErrorCodes.LLM_EMPTY_RESPONSE,
-        strategyId: currentStrategyId,
-      };
     }
 
+    // Phase 4: Explanation Generation (if requested)
     let explanation = null;
     if (trace && proofTrace) {
-      logger.info(
-        `[McrService] Generating proof explanation from trace. OpID: ${operationId}`
-      );
       const tracePrompt = getPromptTemplateByName('LOGIC_TRACE_TO_NL');
       if (tracePrompt) {
-        const traceContext = { trace: JSON.stringify(proofTrace, null, 2) };
         const llmTraceResult = await llmService.generate(
           tracePrompt.system,
-          fillTemplate(tracePrompt.user, traceContext)
+          fillTemplate(tracePrompt.user, {
+            trace: JSON.stringify(proofTrace, null, 2),
+          })
         );
-        explanation = llmTraceResult?.text;
-        if (config.debugLevel === 'verbose') {
-          debugInfo.traceExplanation = explanation;
-        }
-      } else {
-        logger.warn(
-          `[McrService] LOGIC_TRACE_TO_NL prompt template not found. Cannot generate explanation. OpID: ${operationId}`
-        );
-        debugInfo.traceExplanationError = 'LOGIC_TRACE_TO_NL prompt not found.';
+        explanation = llmTraceResult.text;
       }
     }
+    debugInfo.loopInfo = { ...nlToLogicLoopInfo, ...logicToNlLoopInfo };
 
-    logger.info(
-      `[McrService] NL answer generated (OpID: ${operationId}): "${naturalLanguageAnswerText}"`
-    );
     return {
       success: true,
       answer: naturalLanguageAnswerText,
@@ -597,8 +649,8 @@ async function querySessionWithNL(
     };
   } catch (error) {
     logger.error(
-      `[McrService] Error querying session ${sessionId} with NL (OpID: ${operationId}, Strategy ID: ${currentStrategyId}): ${error.message}`,
-      { stack: error.stack, details: error.details, errorCode: error.code }
+      `[McrService] Error querying session ${sessionId}: ${error.message}`,
+      { stack: error.stack }
     );
     debugInfo.error = error.message;
     return {
@@ -606,7 +658,6 @@ async function querySessionWithNL(
       message: `Error during query: ${error.message}`,
       debugInfo,
       error: error.code || ErrorCodes.STRATEGY_EXECUTION_ERROR,
-      details: error.message,
       strategyId: currentStrategyId,
     };
   }

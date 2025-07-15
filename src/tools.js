@@ -171,9 +171,15 @@ const mcrToolDefinitions = {
           message: 'sessionId and naturalLanguageText are required.',
         };
       }
+      // Pass loop and embed options if they exist
+      const assertOptions = {
+        useLoops: input.useLoops,
+        embed: input.embed,
+      };
       return mcrService.assertNLToSession(
         input.sessionId,
-        input.naturalLanguageText
+        input.naturalLanguageText,
+        assertOptions
       );
     },
   },
@@ -187,10 +193,16 @@ const mcrToolDefinitions = {
           message: 'sessionId and naturalLanguageQuestion are required.',
         };
       }
+      // Merge useLoops and embed into queryOptions
+      const queryOptions = {
+        ...(input.queryOptions || {}),
+        useLoops: input.useLoops,
+        embed: input.embed,
+      };
       return mcrService.querySessionWithNL(
         input.sessionId,
         input.naturalLanguageQuestion,
-        input.queryOptions
+        queryOptions
       );
     },
   },

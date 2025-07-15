@@ -1,3 +1,4 @@
+jest.mock('@tensorflow/tfjs-node', () => ({}));
 const mcrToolDefinitions = require('../src/tools');
 
 describe('MCR Tool Definitions (src/tools.js)', () => {
