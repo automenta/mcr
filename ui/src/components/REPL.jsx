@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPaperPlane, faTrash } from '@fortawesome/free-solid-svg-icons';
 import apiService from '../apiService';
 import './REPL.css';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const REPL = ({
   sessionId,
@@ -14,6 +15,8 @@ const REPL = ({
 }) => {
   const [input, setInput] = useState('');
   const chatHistoryRef = useRef(null);
+  const [useLoops, setUseLoops] = useState(true);
+  const [embed, setEmbed] = useState(true);
 
   useEffect(() => {
     if (chatHistoryRef.current) {
@@ -29,14 +32,16 @@ const REPL = ({
       const response = await apiService.invokeTool('mcr.handle', {
         sessionId,
         naturalLanguageText: input,
+        useLoops,
+        embed,
       });
       if (response.success) {
         if (response.answer) {
-          addMessageToHistory({ type: 'server', text: response.answer });
+          addMessageToHistory({ type: 'server', text: response.answer, debugInfo: response.debugInfo });
         } else if (response.response) {
           addMessageToHistory({ type: 'llm', text: response.response });
         } else {
-          addMessageToHistory({ type: 'server', text: response.message });
+          addMessageToHistory({ type: 'server', text: response.message, debugInfo: response.debugInfo });
         }
       } else {
         addMessageToHistory({ type: 'error', text: response.message });
@@ -62,6 +67,30 @@ const REPL = ({
         return (
           <div key={index} className="message server">
             🤖 {message.text}
+            {message.debugInfo && (
+              <div className="debug-info">
+                {message.debugInfo.loopInfo && (
+                  <p>
+                    Loop Iterations: {message.debugInfo.loopInfo.nlToLogicLoopIterations}
+                  </p>
+                )}
+                {message.debugInfo.probabilities && (
+                  <div>
+                    <p>Probabilities:</p>
+                    <ResponsiveContainer width="100%" height={100}>
+                      <BarChart data={message.debugInfo.probabilities.map((p, i) => ({ name: `H${i}`, probability: p }))}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar dataKey="probability" fill="#8884d8" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       case 'llm':
@@ -150,6 +179,24 @@ const REPL = ({
         <button onClick={handleSend} disabled={!isMcrSessionActive}>
           <FontAwesomeIcon icon={faPaperPlane} />
         </button>
+      </div>
+      <div className="repl-options">
+        <label>
+          <input
+            type="checkbox"
+            checked={useLoops}
+            onChange={(e) => setUseLoops(e.target.checked)}
+          />
+          Use Loops
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={embed}
+            onChange={(e) => setEmbed(e.target.checked)}
+          />
+          Use Embeddings
+        </label>
       </div>
     </div>
   );

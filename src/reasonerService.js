@@ -68,15 +68,17 @@ async function executeQuery(knowledgeBase, query, options = {}) {
   }
 }
 
-async function probabilisticDeduce(clauses, query, threshold) {
-    // This is a simplified simulation of LTN.
-    // A real implementation would involve a more complex logic.
-    const weightedClauses = clauses.map(c => ({...c, weight: c.similarity || 1.0}));
+async function probabilisticDeduce(clauses, query, threshold, embeddingBridge) {
+    const queryVector = await embeddingBridge.encode(query);
 
-    // Filter clauses based on weight, simulating LTN's probabilistic threshold.
+    const weightedClauses = await Promise.all(clauses.map(async (c) => {
+        const clauseVector = await embeddingBridge.encode(c.clause);
+        const similarity = embeddingBridge.similarity(queryVector, clauseVector);
+        return {...c, weight: similarity};
+    }));
+
     const activeClauses = weightedClauses.filter(c => c.weight >= threshold);
 
-    // Use existing Prolog reasoner for deduction on the filtered set.
     const knowledgeBase = activeClauses.map(c => c.clause).join(' ');
     const provider = getProvider();
     if (provider.name.toLowerCase() !== 'prolog') {
@@ -88,29 +90,32 @@ async function probabilisticDeduce(clauses, query, threshold) {
 
 async function guidedDeduce(query, llm, session) {
     const provider = getProvider();
-    const { embeddingBridge } = session;
+    const { embeddingBridge, knowledgeBase, config } = session;
+    const { ltnThreshold } = config.reasoner;
 
-    // 1. Neural guide (simplified)
-    const hypotheses = await llm.generate(
+    // 1. Neural guide
+    const hypothesesResponse = await llm.generate(
         'hypothesize.system',
-        `Based on the query "${query}", generate potential answers.`,
+        `Based on the query "${query}" and the knowledge base, generate potential answers.`,
     );
+    const hypotheses = hypothesesResponse.text.split('\n').map(h => h.trim());
 
     // 2. Symbolic prove on top ranks
-    const rankedHypotheses = hypotheses.text.split('\n').map(h => h.trim());
     const results = [];
-
-    for (const hypothesis of rankedHypotheses) {
-        const result = await provider.executeQuery(session.knowledgeBase, hypothesis);
+    for (const hypothesis of hypotheses) {
+        const result = await provider.executeQuery(knowledgeBase, hypothesis);
         if (result.results.length > 0) {
             // 3. Probabilistic score
-            const probability = (session.embeddingBridge && result.results[0].embedding)
+            const probability = (embeddingBridge && result.results[0].embedding)
                 ? await embeddingBridge.similarity(
                     await embeddingBridge.encode(query),
                     result.results[0].embedding,
                 )
                 : 0.9; // Fallback probability
-            results.push({ proof: result.results[0], probability });
+
+            if (probability >= ltnThreshold) {
+                results.push({ proof: result.results[0], probability });
+            }
         }
     }
 

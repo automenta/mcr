@@ -3,6 +3,7 @@ const logger = require('./util/logger');
 const mcrToolDefinitions = require('./tools');
 const { handleMcpSocketMessage } = require('./mcpHandler');
 const { ErrorCodes } = require('./errors');
+const mcrService = require('./mcrService');
 
 async function routeMessage(socket, message) {
   const { type, payload, messageId } = message;
@@ -56,6 +57,71 @@ async function routeMessage(socket, message) {
             payload: result,
           })
         );
+      } else if (toolName === 'hybrid.refine') {
+        logger.info(
+            `[WS-Handler][${correlationId}] Invoking hybrid.refine tool.`,
+            { input: inputPayload }
+        );
+
+        const { sessionId, type: refineType, data } = inputPayload;
+        const session = await mcrService.getSession(sessionId);
+        if (!session) {
+            return {
+                success: false,
+                message: 'Session not found.',
+                error: ErrorCodes.SESSION_NOT_FOUND,
+            };
+        }
+
+        const refineOperation = async (input) => {
+            // This is a simplified operation for demonstration.
+            // A real implementation would have more complex logic based on the refineType.
+            return mcrService.assertNLToSession(sessionId, input);
+        };
+
+        const loopResult = await mcrService._refineLoop(
+            refineOperation,
+            data,
+            { session, embeddingBridge: mcrService.embeddingBridge },
+        );
+
+        socket.send(
+            JSON.stringify({
+                type: 'tool_result',
+                correlationId: correlationId,
+                messageId: messageId,
+                payload: {
+                    success: true,
+                    data: loopResult,
+                },
+            })
+        );
+      } else if (toolName === 'kg.query') {
+          logger.info(
+              `[WS-Handler][${correlationId}] Invoking kg.query tool.`,
+              { input: inputPayload }
+          );
+          const { sessionId, query } = inputPayload;
+          const session = await mcrService.getSession(sessionId);
+          if (!session || !session.kbGraph) {
+              return {
+                  success: false,
+                  message: 'Knowledge graph not enabled for this session.',
+                  error: ErrorCodes.KG_NOT_ENABLED,
+              };
+          }
+          const results = session.kbGraph.queryTriples(query);
+          socket.send(
+              JSON.stringify({
+                  type: 'tool_result',
+                  correlationId: correlationId,
+                  messageId: messageId,
+                  payload: {
+                      success: true,
+                      data: results,
+                  },
+              })
+          );
       } else {
         logger.warn(
           `[WS-Handler][${correlationId}] Unknown MCR tool: ${toolName}`,
@@ -74,40 +140,6 @@ async function routeMessage(socket, message) {
           })
         );
       }
-    } else if (toolName === 'hybrid.refine') {
-      logger.info(
-        `[WS-Handler][${correlationId}] Invoking hybrid.refine tool.`,
-        { input: inputPayload }
-      );
-      // Placeholder for hybrid.refine logic
-      socket.send(
-        JSON.stringify({
-          type: 'tool_result',
-          correlationId: correlationId,
-          messageId: messageId,
-          payload: {
-            success: true,
-            message: 'hybrid.refine tool invoked, but not yet implemented.',
-          },
-        })
-      );
-    } else if (toolName === 'kg.query') {
-      logger.info(
-        `[WS-Handler][${correlationId}] Invoking kg.query tool.`,
-        { input: inputPayload }
-      );
-      // Placeholder for kg.query logic
-      socket.send(
-        JSON.stringify({
-          type: 'tool_result',
-          correlationId: correlationId,
-          messageId: messageId,
-          payload: {
-            success: true,
-            message: 'kg.query tool invoked, but not yet implemented.',
-          },
-        })
-      );
     } else if (
       toolName &&
       (toolName.startsWith('mcp.') || message.action?.startsWith('mcp.'))
