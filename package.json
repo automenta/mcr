@@ -11,7 +11,7 @@
 		"chat:tui": "node cli.js chat",
 		"test": "jest",
 		"test:coverage": "jest --coverage",
-		"test:ui": "vitest run --root ui/",
+		"test:ui": "vitest run --root /app/ui/",
 		"test:ui-watch": "vitest --root ui/",
 		"test:ui-browser": "vitest --ui --root ui/",
 		"dev:ui": "cd ui && vite",
