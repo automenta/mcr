@@ -17,31 +17,7 @@ jest.mock('../src/config', () => ({
 }));
 
 // Mock external modules first
-jest.mock('@tensorflow/tfjs-node', () => ({
-    tensor: jest.fn(arr => ({
-        dataSync: jest.fn(() => arr),
-    })),
-    losses: {
-        cosineDistance: jest.fn(() => ({
-            mul: jest.fn(() => ({
-                add: jest.fn(() => ({
-                    dataSync: jest.fn(() => [0.9]),
-                })),
-            })),
-        }),
-    },
-    zeros: jest.fn(() => ({
-        array: jest.fn(() => Array(512).fill(0)),
-    })),
-}));
 
-jest.mock('@tensorflow-models/universal-sentence-encoder', () => ({
-    load: jest.fn().mockResolvedValue({
-        embed: jest.fn(texts => ({
-            array: jest.fn(() => texts.map(() => [0.1, 0.2, 0.3])),
-        })),
-    }),
-}));
 
 jest.mock('../src/llmService');
 jest.mock('../src/reasonerService');
@@ -51,20 +27,16 @@ jest.mock('../src/ontologyService', () => ({
 }));
 jest.mock('../src/strategyManager', () => ({
     getStrategy: jest.fn(),
-    getDefaultStrategy: jest.fn(),
+    getDefaultStrategy: jest.fn(() => ({
+        id: 'default-strategy',
+        name: 'Default Mock Strategy',
+        nodes: [],
+        edges: [],
+    })),
     getOperationalStrategyJson: jest.fn(),
     getAvailableStrategies: jest.fn(),
 }));
-jest.mock('../src/bridges/embeddingBridge', () => {
-    const mockEmbeddingBridgeInstance = {
-        loadModel: jest.fn().mockResolvedValue(undefined),
-        encode: jest.fn().mockResolvedValue([0.1, 0.2, 0.3]),
-        similarity: jest.fn().mockResolvedValue(0.9),
-    };
-    const MockEmbeddingBridge = jest.fn(() => mockEmbeddingBridgeInstance);
-    MockEmbeddingBridge.mockInstance = mockEmbeddingBridgeInstance;
-    return MockEmbeddingBridge;
-});
+jest.mock('../src/bridges/embeddingBridge');
 jest.mock('../src/evolution/keywordInputRouter.js');
 jest.mock('../src/store/database');
 
@@ -179,10 +151,7 @@ describe('MCR Service (mcrService.js)', () => {
 			{ id: 'SIR-R1', name: 'SIR-R1' },
 		]);
 
-		// Mock the EmbeddingBridge instance methods
-		EmbeddingBridge.mockInstance.loadModel.mockResolvedValue(undefined);
-		EmbeddingBridge.mockInstance.encode.mockResolvedValue([0.1, 0.2, 0.3]);
-		EmbeddingBridge.mockInstance.similarity.mockResolvedValue(0.9);
+		
 
 
 		const session = {
@@ -293,7 +262,7 @@ describe('MCR Service (mcrService.js)', () => {
 		it('should set embeddings when asserting a fact', async () => {
 			const nlText = 'The grass is green.';
 			const prologFact = 'is_green(grass).';
-			const embedding = [0.1, 0.2, 0.3];
+			const embedding = [[0.1, 0.2, 0.3]];
 
 			const StrategyExecutor = require('../src/strategyExecutor');
 			jest

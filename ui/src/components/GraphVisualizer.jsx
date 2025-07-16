@@ -82,14 +82,15 @@ const GraphVisualizer = ({ data, layout = 'dagre' }) => {
 
 	return (
 		<ReactFlowProvider>
-			<ReactFlow
-				nodes={nodes}
-				edges={edges}
-				onNodesChange={onNodesChange}
-				onEdgesChange={onEdgesChange}
-				nodeTypes={nodeTypes}
-				fitView
-			>
+			<div style={{ width: '100%', height: '100%' }}>
+				<ReactFlow
+					nodes={nodes}
+					edges={edges}
+					onNodesChange={onNodesChange}
+					onEdgesChange={onEdgesChange}
+					nodeTypes={nodeTypes}
+					fitView
+				>
 				<Controls />
 				<Background />
 			</ReactFlow>

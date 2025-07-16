@@ -252,6 +252,19 @@ class InMemorySessionStore extends ISessionStore {
 		logger.debug('[InMemorySessionStore] Close called (no-op).');
 		return Promise.resolve();
 	}
+
+	/**
+	 * Lists all available sessions.
+	 * @returns {Promise<Array<{id: string, createdAt: Date}>>} An array of simplified session objects.
+	 */
+	async listSessions() {
+		const sessionList = Object.values(sessions).map(session => ({
+			id: session.id,
+			createdAt: session.createdAt,
+		}));
+		logger.debug(`[InMemorySessionStore] Listed ${sessionList.length} sessions.`);
+		return Promise.resolve(sessionList);
+	}
 }
 
 // For direct use if only one store type is configured, or for factory selection.
@@ -260,4 +273,4 @@ class InMemorySessionStore extends ISessionStore {
 // that has a similar API, we can export an instance. This will need to be updated.
 // module.exports = new InMemorySessionStore();
 // Better: export the class itself so it can be instantiated by a factory/manager
-module.exports = InMemorySessionStore;
+	module.exports = InMemorySessionStore;

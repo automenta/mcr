@@ -331,6 +331,45 @@ class FileSessionStore extends ISessionStore {
 		logger.debug('[FileSessionStore] Close called (no-op).');
 		return Promise.resolve();
 	}
+
+	/**
+	 * Lists all available sessions.
+	 * @returns {Promise<Array<{id: string, createdAt: Date}>>} An array of simplified session objects.
+	 */
+	async listSessions() {
+		try {
+			const files = await fs.readdir(this.sessionsDir);
+			const sessionFiles = files.filter(file => file.endsWith('.json'));
+
+			const sessionsData = await Promise.all(
+				sessionFiles.map(async file => {
+					const sessionId = file.replace(/\.json$/, '');
+					try {
+						const session = await this._readSessionFile(sessionId);
+						if (session) {
+							return { id: session.id, createdAt: session.createdAt };
+						}
+					} catch (error) {
+						logger.warn(
+							`[FileSessionStore] Could not read or parse session file ${file}: ${error.message}`
+						);
+						return null; // Skip corrupted or unreadable files
+					}
+					return null;
+				})
+			);
+
+			const validSessions = sessionsData.filter(s => s !== null);
+			logger.debug(`[FileSessionStore] Listed ${validSessions.length} sessions.`);
+			return validSessions;
+		} catch (error) {
+			logger.error(
+				`[FileSessionStore] Error listing sessions from directory ${this.sessionsDir}:`,
+				error
+			);
+			return []; // Return empty array on error
+		}
+	}
 }
 
-module.exports = FileSessionStore;
+	module.exports = FileSessionStore;

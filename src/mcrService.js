@@ -18,6 +18,7 @@ const KnowledgeGraph = require('./bridges/kgBridge');
 
 const embeddingBridge = config.embeddingModel ? new EmbeddingBridge() : null;
 if (embeddingBridge) {
+	logger.debug('[McrService] EmbeddingBridge instance:', embeddingBridge);
 	embeddingBridge.loadModel();
 }
 
@@ -1300,6 +1301,14 @@ module.exports = {
 	getLexiconSummary: async sessionId => {
 		// Ensure it's async
 		return sessionStore.getLexiconSummary(sessionId);
+	},
+
+	/**
+	 * Lists all available sessions.
+	 * @returns {Promise<Array<{id: string, createdAt: Date}>>} An array of simplified session objects.
+	 */
+	listSessions: async () => {
+		return sessionStore.listSessions();
 	},
 	translateNLToRulesDirect, // Now directly in mcrService
 	translateRulesToNLDirect, // Now directly in mcrService

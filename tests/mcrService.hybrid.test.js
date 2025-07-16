@@ -44,8 +44,16 @@ jest.mock('../src/ontologyService', () => ({
 jest.mock('../src/strategyManager', () => ({
   getStrategy: jest.fn(),
   getOperationalStrategyJson: jest.fn(),
+  getDefaultStrategy: jest.fn(() => ({
+    id: 'default-strategy',
+    name: 'Default Mock Strategy',
+    nodes: [],
+    edges: [],
+  })),
 }));
 jest.mock('../src/strategyExecutor');
+jest.mock('../src/bridges/embeddingBridge');
+
 
 const mcrService = require('../src/mcrService');
 const llmService = require('../src/llmService');
@@ -55,6 +63,7 @@ const ontologyService = require('../src/ontologyService');
 const strategyManager = require('../src/strategyManager');
 const { MCRError, ErrorCodes } = require('../src/errors');
 const StrategyExecutor = require('../src/strategyExecutor');
+const EmbeddingBridge = require('../src/bridges/embeddingBridge');
 
 describe('MCR Service Hybrid Functionality', () => {
   let sessionId;
@@ -147,10 +156,7 @@ describe('MCR Service Hybrid Functionality', () => {
       const prologFact = 'man(socrates).';
       const embedding = [0.1, 0.2, 0.3];
       StrategyExecutor.prototype.execute.mockResolvedValue([prologFact]);
-      const mcr = require('../src/mcrService');
-      mcr.embeddingBridge = {
-        encode: jest.fn().mockResolvedValue(embedding),
-      };
+      
 
       await mcrService.assertNLToSession(sessionId, nlText);
       const session = await mcrService.getSession(sessionId);

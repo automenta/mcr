@@ -225,6 +225,13 @@ const mcrToolDefinitions = {
 			};
 		},
 	},
+	'session.list': {
+		description: 'Lists all available sessions.',
+		handler: async () => {
+			const sessions = await mcrService.listSessions();
+			return { success: true, data: sessions };
+		},
+	},
 	'session.assert': {
 		description: 'Asserts NL facts into a session.',
 		handler: async input => {
