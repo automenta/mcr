@@ -220,12 +220,40 @@ async function deleteOntology(name) {
   }
 }
 
+/**
+ * Retrieves all ontology rules from all files and concatenates them into a single string.
+ * @returns {Promise<string>} A single string containing all global ontology rules.
+ */
+async function getGlobalOntologyRulesAsString() {
+  try {
+    const ontologies = await listOntologies(true); // true to include rules
+    if (!ontologies || ontologies.length === 0) {
+      logger.info('[OntologyService] No global ontologies found to load.');
+      return '';
+    }
+    const allRules = ontologies.map(ont => ont.rules).join('\n\n');
+    logger.info(
+      `[OntologyService] Loaded ${ontologies.length} global ontologies.`
+    );
+    return allRules;
+  } catch (error) {
+    logger.error(
+      '[OntologyService] Failed to get global ontology rules as string:',
+      error
+    );
+    // Depending on desired system behavior, either rethrow or return empty string
+    // Returning empty allows the system to proceed without ontology rules.
+    return '';
+  }
+}
+
 module.exports = {
   createOntology,
   getOntology,
   listOntologies,
   updateOntology,
   deleteOntology,
+  getGlobalOntologyRulesAsString,
   // For testing or other internal uses if needed:
   // _ONTOLOGY_DIR: ONTOLOGY_DIR,
   // _ONTOLOGY_EXTENSION: ONTOLOGY_EXTENSION
