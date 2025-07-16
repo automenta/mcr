@@ -1,10 +1,9 @@
 module.exports = {
-	roots: ['<rootDir>/src'],
+	roots: ['<rootDir>/tests'],
 	testMatch: [
 		'**/__tests__/**/*.+(ts|tsx|js)',
 		'**/?(*.)+(spec|test).+(ts|tsx|js)',
 	],
-	testPathIgnorePatterns: ['/node_modules/', '/ui/'],
 	moduleNameMapper: {
 		'../src/bridges/embeddingBridge':
 			'<rootDir>/tests/__mocks__/embeddingBridge.js',

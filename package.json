@@ -9,7 +9,7 @@
 		"demo": "node demo.js",
 		"chat": "node chat.js",
 		"chat:tui": "node cli.js chat",
-		"test": "jest --config jest.config.js",
+		"test": "jest",
 		"test:coverage": "jest --coverage",
 		"test:ui": "vitest run --root /app/ui/",
 		"test:ui-watch": "vitest --root ui/",
