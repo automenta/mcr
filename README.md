@@ -404,7 +404,7 @@ This section covers setting up MCR for development, including running the backen
         npm run dev
         ```
       - This will start the Vite development server (e.g., on `http://localhost:5173`).
-    * **Important:** The main MCR server (`node mcr.js`) must also be running in another terminal for the UI dev server to make API calls. The UI dev server (Vite) will typically run on a port like `5173`, while the backend MCR server defaults to `8080`. The UI will attempt to connect to the WebSocket server at `ws://localhost:8080/ws` by default. If your MCR server is running on a different URL, you can set `window.MCR_WEBSOCKET_URL` in your browser's developer console before the UI loads, or by embedding a script in `ui/index.html` to define this global variable.
+    * **Important:** The main MCR server (`node mcr.js`) must also be running in another terminal for the UI dev server to make API calls. The UI dev server (Vite) will typically run on a port like `5173`, while the backend MCR server defaults to `8080`. The UI automatically constructs the WebSocket URL from the browser's location, so it should connect without any special configuration.
 
 4.  **Create and Configure `.env` file**:
     Copy `.env.example` to `.env` in the project root. Edit it to include your LLM API keys and other configurations. Refer to `.env.example` for all available options.

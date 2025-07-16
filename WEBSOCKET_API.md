@@ -33,8 +33,6 @@ Used by the client to request the server to execute a specific MCR tool.
 			// For 'session.assert': { "sessionId": "s1", "naturalLanguageText": "The sky is blue." }
 		}
 	}
-	// Optional headers:
-	// "headers": { "X-Correlation-ID": "client-correlation-id-if-any" }
 }
 ```
 

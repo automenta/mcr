@@ -13,19 +13,7 @@ async function createServer() {
 	const app = express();
 	const httpServer = http.createServer(app);
 
-	const wss = new WebSocketServer({ noServer: true });
-	httpServer.on('upgrade', (request, socket, head) => {
-		// Check if this is a request for the app's websocket
-		if (request.url === '/ws') {
-			wss.handleUpgrade(request, socket, head, ws => {
-				wss.emit('connection', ws, request);
-			});
-		} else {
-			// If it's not our WebSocket path, destroy the socket to prevent hanging connections.
-			// Vite's own middleware should handle its upgrade requests separately.
-			socket.destroy();
-		}
-	});
+	const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
 	// Standard middleware
 	app.use(express.json());
@@ -52,16 +40,25 @@ async function createServer() {
 		next();
 	});
 
-	logger.info('[App] Starting in development mode with Vite middleware.');
-	const vite = await import('vite'); // Dynamic import for ESM module
-	const viteDevServer = await vite.createServer({
-		configFile: path.resolve(__dirname, '..', 'ui', 'vite.config.js'),
-		root: path.resolve(__dirname, '..', 'ui'),
-		server: { middlewareMode: true },
-		appType: 'spa', // ensure Vite handles SPA routing in dev
-	});
-	app.use(viteDevServer.middlewares);
-	logger.info('[App] Vite development middleware attached.');
+	if (process.env.NODE_ENV === 'development') {
+		logger.info('[App] Starting in development mode with Vite middleware.');
+		const vite = await import('vite'); // Dynamic import for ESM module
+		const viteDevServer = await vite.createServer({
+			configFile: path.resolve(__dirname, '..', 'ui', 'vite.config.js'),
+			root: path.resolve(__dirname, '..', 'ui'),
+			server: { middlewareMode: true },
+			appType: 'spa', // ensure Vite handles SPA routing in dev
+		});
+		app.use(viteDevServer.middlewares);
+		logger.info('[App] Vite development middleware attached.');
+	} else {
+		logger.info('[App] Starting in production mode.');
+		const uiBuildPath = path.resolve(__dirname, '..', 'ui', 'dist');
+		app.use(express.static(uiBuildPath));
+		app.get('*', (req, res) => {
+			res.sendFile(path.join(uiBuildPath, 'index.html'));
+		});
+	}
 
 	// WebSocket connection handling
 	wss.on('connection', socket => {

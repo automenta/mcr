@@ -1,223 +1,195 @@
-// ui/src/apiService.js
+import { v4 as uuidv4 } from 'uuid';
+
 const logger = {
-	debug: (...args) => console.debug('[ApiService]', ...args),
-	error: (...args) => console.error('[ApiService]', ...args),
-	warn: (...args) => console.warn('[ApiService]', ...args),
+    debug: (...args) => console.debug('[ApiService]', ...args),
+    info: (...args) => console.info('[ApiService]', ...args),
+    warn: (...args) => console.warn('[ApiService]', ...args),
+    error: (...args) => console.error('[ApiService]', ...args),
 };
 
 class ApiService {
-	constructor() {
-		this.socket = null;
-		this.connectPromise = null;
-		this.eventListeners = new Map();
-		this.pendingMessages = new Map();
-		this.explicitlyClosed = false;
-		this.serverUrl = null;
-		this.correlationId = `ui-corr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-	}
+    constructor() {
+        this.socket = null;
+        this.connectionPromise = null;
+        this.eventListeners = new Map();
+        this.pendingMessages = new Map();
+        this.sessionId = null;
+        this.correlationId = `ui-corr-${uuidv4()}`;
 
-	generateMessageId() {
-		return `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-	}
+        this.connectAndCreateSession();
+    }
 
-	connect(url = window.MCR_WEBSOCKET_URL || 'ws://0.0.0.0:8080/ws') {
-		if (this.connectPromise) {
-			logger.debug(
-				'[ApiService] Connection attempt already in progress, returning existing promise.'
-			);
-			return this.connectPromise;
-		}
+    generateMessageId() {
+        return `msg-${uuidv4()}`;
+    }
 
-		this.serverUrl = url;
-		this.explicitlyClosed = false;
+    buildWebSocketUrl() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host;
+        return `${protocol}//${host}/ws`;
+    }
 
-		this.connectPromise = new Promise((resolve, reject) => {
-			if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-				logger.debug('Already connected.');
-				this.connectPromise = null;
-				resolve();
-				return;
-			}
+    async connectAndCreateSession() {
+        if (this.connectionPromise) {
+            return this.connectionPromise;
+        }
+        logger.info('Initiating new connection and session creation.');
+        this.connectionPromise = this._connect();
 
-			logger.debug(
-				`[ApiService] Attempting to connect to ${this.serverUrl}...`
-			);
-			this.socket = new WebSocket(this.serverUrl);
+        try {
+            await this.connectionPromise;
+            logger.info('WebSocket connected, now creating session.');
+            const sessionData = await this.invokeTool('session.create', {
+                // Add any session creation parameters if needed
+            });
+            this.sessionId = sessionData.data.id;
+            logger.info(`Session created successfully: ${this.sessionId}`);
+            this._notifyListeners('session_created', { sessionId: this.sessionId });
+        } catch (error) {
+            logger.error('Failed to connect or create session:', error);
+            this.connectionPromise = null; // Allow for reconnection attempts
+            this._notifyListeners('error', { message: 'Failed to establish a session.', error });
+        }
+        return this.connectionPromise;
+    }
 
-			const clearPromise = () => {
-				this.connectPromise = null;
-			};
+    _connect() {
+        return new Promise((resolve, reject) => {
+            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+                resolve();
+                return;
+            }
 
-			this.socket.onopen = () => {
-				logger.debug('[ApiService] WebSocket connection established.');
-				this._notifyListeners('connection_status', {
-					status: 'connected',
-					url: this.serverUrl,
-				});
-				clearPromise();
-				resolve();
-			};
+            const url = this.buildWebSocketUrl();
+            logger.info(`Connecting to ${url}`);
+            this.socket = new WebSocket(url);
 
-			this.socket.onmessage = event => {
-				const message = JSON.parse(event.data);
-				logger.debug('Received message:', message);
+            this.socket.onopen = () => {
+                logger.info('WebSocket connection established.');
+                this._notifyListeners('connection_status', { status: 'connected', url });
+                resolve();
+            };
 
-				if (message.messageId && this.pendingMessages.has(message.messageId)) {
-					const pending = this.pendingMessages.get(message.messageId);
-					if (message.payload?.success) {
-						pending.resolve(message.payload);
-					} else {
-						pending.reject(
-							new Error(
-								message.payload?.message ||
-									message.payload?.error ||
-									'Tool invocation failed'
-							)
-						);
-					}
-					this.pendingMessages.delete(message.messageId);
-				} else {
-					// This is a server-pushed message
-					this._notifyListeners(message.type, message.payload || message);
-				}
-			};
+            this.socket.onmessage = this.handleMessage.bind(this);
 
-			this.socket.onerror = error => {
-				logger.error('[ApiService] WebSocket error:', error);
-				this._notifyListeners('error', error);
-				if (this.connectPromise) {
-					clearPromise();
-					reject(new Error('WebSocket connection error.'));
-				}
-			};
+            this.socket.onerror = (event) => {
+                logger.error('WebSocket error:', event);
+                this._notifyListeners('error', { message: 'WebSocket error occurred.', event });
+                reject(new Error('WebSocket connection error.'));
+            };
 
-			this.socket.onclose = event => {
-				logger.debug(
-					`[ApiService] WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason}`
-				);
-				this.pendingMessages.forEach(({ reject: rejectPromise }) => {
-					rejectPromise(
-						new Error('WebSocket connection closed before response received.')
-					);
-				});
-				this.pendingMessages.clear();
+            this.socket.onclose = (event) => {
+                logger.warn(`WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason}`);
+                this._notifyListeners('connection_status', { status: 'disconnected', code: event.code, reason: event.reason });
+                this.socket = null;
+                this.connectionPromise = null; // Allow reconnection
+            };
+        });
+    }
 
-				if (this.connectPromise) {
-					clearPromise();
-					reject(
-						new Error(
-							`WebSocket closed before connection was established. Code: ${event.code}`
-						)
-					);
-				}
+    handleMessage(event) {
+        try {
+            const message = JSON.parse(event.data);
+            logger.debug('Received message:', message);
 
-				if (this.explicitlyClosed) {
-					this._notifyListeners('connection_status', {
-						status: 'disconnected_explicit',
-					});
-				} else {
-					this._notifyListeners('connection_status', {
-						status: 'disconnected',
-					});
-				}
-				this.socket = null;
-			};
-		});
+            if (message.messageId && this.pendingMessages.has(message.messageId)) {
+                const { resolve, reject } = this.pendingMessages.get(message.messageId);
+                if (message.payload?.success) {
+                    resolve(message.payload);
+                } else {
+                    const errorMessage = message.payload?.message || message.payload?.error || 'Tool invocation failed';
+                    reject(new Error(errorMessage));
+                }
+                this.pendingMessages.delete(message.messageId);
+            } else if (message.type === 'connection_ack') {
+                this.correlationId = message.correlationId;
+                logger.info(`Connection acknowledged by server with correlation ID: ${this.correlationId}`);
+            } else {
+                this._notifyListeners(message.type, message.payload || message);
+            }
+        } catch (error) {
+            logger.error('Error handling incoming message:', error);
+        }
+    }
 
-		return this.connectPromise;
-	}
+    async ensureConnected() {
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+            logger.info('Not connected. Attempting to reconnect...');
+            // This will trigger the connection and session creation logic
+            await this.connectAndCreateSession();
+        }
+        return this.connectionPromise;
+    }
 
-	disconnect() {
-		// logger.debug('[ApiService] Explicit disconnect() called.');
-		// this.explicitlyClosed = true;
-		// if (this.socket) {
-		//   this.socket.close();
-		// }
-		// this.connectPromise = null;
-	}
+    async sendMessage(type, toolNameOrAction, input = {}) {
+        await this.ensureConnected();
 
-	_notifyListeners(eventType, data) {
-		const listeners = this.eventListeners.get(eventType) || [];
-		listeners.forEach(listener => {
-			try {
-				listener(data);
-			} catch (error) {
-				logger.error(`Error in listener for ${eventType}:`, error);
-			}
-		});
+        return new Promise((resolve, reject) => {
+            const messageId = this.generateMessageId();
+            const messagePayload = {
+                type: type,
+                messageId: messageId,
+                correlationId: this.correlationId,
+                sessionId: this.sessionId,
+                payload: {
+                    tool_name: toolNameOrAction,
+                    input: { ...input, sessionId: this.sessionId },
+                },
+            };
 
-		const genericListeners = this.eventListeners.get('*') || [];
-		genericListeners.forEach(listener => {
-			try {
-				listener({ type: eventType, payload: data });
-			} catch (error) {
-				logger.error(`Error in generic listener for ${eventType}:`, error);
-			}
-		});
-	}
+            try {
+                this.socket.send(JSON.stringify(messagePayload));
+                logger.debug('Sent message:', messagePayload);
+                this.pendingMessages.set(messageId, { resolve, reject, timeout: setTimeout(() => {
+                    this.pendingMessages.delete(messageId);
+                    reject(new Error(`Message timed out: ${messageId}`));
+                }, 30000) }); // 30-second timeout
+            } catch (error) {
+                logger.error('Error sending message:', error);
+                reject(error);
+            }
+        });
+    }
 
-	sendMessage(type, toolNameOrAction, input = {}) {
-		return new Promise((resolve, reject) => {
-			if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-				logger.error('WebSocket is not connected.');
-				reject(new Error('WebSocket is not connected.'));
-				return;
-			}
+    invokeTool(toolName, input = {}) {
+        return this.sendMessage('tool_invoke', toolName, input);
+    }
 
-			const messageId = this.generateMessageId();
-			const messagePayload = {
-				type: type,
-				messageId: messageId,
-				payload: {
-					tool_name: toolNameOrAction,
-					input: input,
-				},
-			};
+    addEventListener(eventType, callback) {
+        if (!this.eventListeners.has(eventType)) {
+            this.eventListeners.set(eventType, []);
+        }
+        this.eventListeners.get(eventType).push(callback);
+    }
 
-			try {
-				this.socket.send(JSON.stringify(messagePayload));
-				logger.debug('Sent message:', messagePayload);
-				this.pendingMessages.set(messageId, { resolve, reject });
-			} catch (error) {
-				logger.error('Error sending message:', error);
-				this.pendingMessages.delete(messageId);
-				reject(error);
-			}
-		});
-	}
+    removeEventListener(eventType, callback) {
+        const listeners = this.eventListeners.get(eventType);
+        if (listeners) {
+            const index = listeners.indexOf(callback);
+            if (index > -1) {
+                listeners.splice(index, 1);
+            }
+        }
+    }
 
-	invokeTool(toolName, input = {}) {
-		return this.sendMessage('tool_invoke', toolName, input);
-	}
+    _notifyListeners(eventType, data) {
+        const listeners = this.eventListeners.get(eventType) || [];
+        listeners.forEach(listener => {
+            try {
+                listener(data);
+            } catch (error) {
+                logger.error(`Error in listener for ${eventType}:`, error);
+            }
+        });
+    }
 
-	addEventListener(eventType, callback) {
-		if (!this.eventListeners.has(eventType)) {
-			this.eventListeners.set(eventType, []);
-		}
-		this.eventListeners.get(eventType).push(callback);
-	}
+    isConnected() {
+        return this.socket && this.socket.readyState === WebSocket.OPEN;
+    }
 
-	removeEventListener(eventType, callback) {
-		const listeners = this.eventListeners.get(eventType);
-		if (listeners) {
-			const index = listeners.indexOf(callback);
-			if (index > -1) {
-				listeners.splice(index, 1);
-			}
-		}
-	}
-
-	addMessageListener(callback) {
-		this.addEventListener('*', callback);
-	}
-
-	removeMessageListener(callback) {
-		this.removeEventListener('*', callback);
-	}
-
-	isConnected() {
-		return this.socket && this.socket.readyState === WebSocket.OPEN;
-	}
+    getSessionId() {
+        return this.sessionId;
+    }
 }
 
 const apiService = new ApiService();
