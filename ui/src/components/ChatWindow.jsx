@@ -36,11 +36,11 @@ const ChatBubble = ({ message, useReasoning }) => {
 			<AnimatePresence>
 				{isExpanded && useReasoning && message.graph && (
 					<motion.div
-						initial={{ opacity: 0, height: 0 }}
-						animate={{ opacity: 1, height: 'auto' }}
-						exit={{ opacity: 0, height: 0 }}
-						style={{ marginTop: '0.5rem', overflow: 'hidden', height: '200px' }}
-					>
+							initial={{ opacity: 0, height: 0 }}
+							animate={{ opacity: 1, height: 'auto' }}
+							exit={{ opacity: 0, height: 0 }}
+							style={{ marginTop: '0.5rem', overflow: 'hidden', height: '200px', width: '100%' }}
+						>
 						<GraphVisualizer data={message.graph} layout="dagre" size="small" />
 					</motion.div>
 				)}

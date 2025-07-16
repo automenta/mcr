@@ -8,4 +8,5 @@ module.exports = {
 		'../src/bridges/embeddingBridge':
 			'<rootDir>/tests/__mocks__/embeddingBridge.js',
 	},
+	silent: true,
 };

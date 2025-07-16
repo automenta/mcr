@@ -1,79 +1,165 @@
 // tests/mcrService.test.js
 
-jest.mock('../src/store/InMemorySessionStore', () => {
-	return jest.fn().mockImplementation(() => {
-		return {
-			initialize: jest.fn().mockResolvedValue(undefined),
-			createSession: jest.fn(),
-			getSession: jest.fn(),
-			addFacts: jest.fn(),
-			getKnowledgeBase: jest.fn(),
-			getLexiconSummary: jest.fn(),
-			deleteSession: jest.fn(),
-		};
-	});
-});
+// Mock external modules first
+jest.mock('../src/config', () => ({
+    llm: {
+        provider: 'mockProvider',
+        mockProvider: { model: 'llamablit' },
+    },
+    sessionStore: { type: 'memory', filePath: './test-sessions' },
+    translationStrategy: 'SIR-R1',
+    kgEnabled: false,
+    debugLevel: 'none',
+    embeddingModel: 'mockEmbeddingModel',
+    ontology: {
+        directory: '/mock/ontology/dir',
+    },
+}));
+
+// Mock external modules first
+jest.mock('@tensorflow/tfjs-node', () => ({
+    tensor: jest.fn(arr => ({
+        dataSync: jest.fn(() => arr),
+    })),
+    losses: {
+        cosineDistance: jest.fn(() => ({
+            mul: jest.fn(() => ({
+                add: jest.fn(() => ({
+                    dataSync: jest.fn(() => [0.9]),
+                })),
+            })),
+        }),
+    },
+    zeros: jest.fn(() => ({
+        array: jest.fn(() => Array(512).fill(0)),
+    })),
+}));
+
+jest.mock('@tensorflow-models/universal-sentence-encoder', () => ({
+    load: jest.fn().mockResolvedValue({
+        embed: jest.fn(texts => ({
+            array: jest.fn(() => texts.map(() => [0.1, 0.2, 0.3])),
+        })),
+    }),
+}));
+
 jest.mock('../src/llmService');
 jest.mock('../src/reasonerService');
 jest.mock('../src/ontologyService', () => ({
-	getGlobalOntologyRulesAsString: jest.fn(),
+    getGlobalOntologyRulesAsString: jest.fn(),
+    listOntologies: jest.fn(),
 }));
 jest.mock('../src/strategyManager', () => ({
-	getStrategy: jest.fn(),
-	getDefaultStrategy: jest.fn(),
-	getOperationalStrategyJson: jest.fn(),
+    getStrategy: jest.fn(),
+    getDefaultStrategy: jest.fn(),
+    getOperationalStrategyJson: jest.fn(),
+    getAvailableStrategies: jest.fn(),
 }));
+jest.mock('../src/bridges/embeddingBridge', () => {
+    const mockEmbeddingBridgeInstance = {
+        loadModel: jest.fn().mockResolvedValue(undefined),
+        encode: jest.fn().mockResolvedValue([0.1, 0.2, 0.3]),
+        similarity: jest.fn().mockResolvedValue(0.9),
+    };
+    const MockEmbeddingBridge = jest.fn(() => mockEmbeddingBridgeInstance);
+    MockEmbeddingBridge.mockInstance = mockEmbeddingBridgeInstance;
+    return MockEmbeddingBridge;
+});
+jest.mock('../src/evolution/keywordInputRouter.js');
+jest.mock('../src/store/database');
 
-const llmService = require('../src/llmService');
-const reasonerService = require('../src/reasonerService');
-const InMemorySessionStore = require('../src/store/InMemorySessionStore');
-const ontologyService = require('../src/ontologyService');
-const strategyManager = require('../src/strategyManager');
+// Mock Session Stores explicitly to control their instances
+jest.mock('../src/store/InMemorySessionStore', () => {
+    const mockInstance = {
+        initialize: jest.fn().mockResolvedValue(undefined),
+        createSession: jest.fn(),
+        getSession: jest.fn(),
+        addFacts: jest.fn(),
+        getKnowledgeBase: jest.fn(),
+        getLexiconSummary: jest.fn(),
+        deleteSession: jest.fn(),
+        setKnowledgeBase: jest.fn(),
+    };
+    return jest.fn(() => mockInstance);
+});
+
+jest.mock('../src/store/FileSessionStore', () => {
+    const mockInstance = {
+        initialize: jest.fn().mockResolvedValue(undefined),
+        createSession: jest.fn(),
+        getSession: jest.fn(),
+        addFacts: jest.fn(),
+        getKnowledgeBase: jest.fn(),
+        getLexiconSummary: jest.fn(),
+        deleteSession: jest.fn(),
+        setKnowledgeBase: jest.fn(),
+    };
+    return jest.fn(() => mockInstance);
+});
+
+
 const { MCRError, ErrorCodes } = require('../src/errors');
 
 describe('MCR Service (mcrService.js)', () => {
 	let sessionId;
 	let mockSessionStoreInstance;
 	let mcrService;
+	let llmService;
+	let reasonerService;
+	let InMemorySessionStore;
+	let FileSessionStore;
+	let ontologyService;
+	let strategyManager;
+	let config;
+	let EmbeddingBridge;
+	let KeywordInputRouter;
+	let db;
 
 	beforeEach(async () => {
 		jest.resetModules();
-		mcrService = require('../src/mcrService');
-		sessionId = 'test-session-id';
-		mockSessionStoreInstance = new InMemorySessionStore();
-		mcrService.sessionStore = mockSessionStoreInstance;
 
+		// Require modules inside beforeEach to ensure mocks are applied
+		llmService = require('../src/llmService');
+		reasonerService = require('../src/reasonerService');
+		InMemorySessionStore = require('../src/store/InMemorySessionStore');
+		FileSessionStore = require('../src/store/FileSessionStore');
+		ontologyService = require('../src/ontologyService');
+		strategyManager = require('../src/strategyManager');
+		config = require('../src/config');
+		EmbeddingBridge = require('../src/bridges/embeddingBridge');
+		KeywordInputRouter = require('../src/evolution/keywordInputRouter.js');
+		db = require('../src/store/database');
+
+		// Set up config mocks before requiring mcrService
+		config.llm = {
+			provider: 'mockProvider',
+			mockProvider: { model: 'llamablit' },
+		};
+		config.sessionStore = { type: 'memory', filePath: './test-sessions' };
+		config.translationStrategy = 'SIR-R1';
+		config.kgEnabled = false;
+		config.debugLevel = 'none';
+		config.embeddingModel = 'mockEmbeddingModel';
+
+		// Re-require mcrService after all mocks are set up
+		mcrService = require('../src/mcrService');
+
+		sessionId = 'test-session-id';
+
+		// Instantiate the mocked session store
+		mockSessionStoreInstance = new InMemorySessionStore(); // This will now return the pre-configured mockInstance from the jest.mock factory
+
+		// Set up mocks for imported functions/objects
 		llmService.generate.mockResolvedValue({ text: 'mock llm response' });
 		reasonerService.executeQuery.mockResolvedValue({ results: [] });
 		reasonerService.validateKnowledgeBase.mockResolvedValue({ isValid: true });
+		ontologyService.getGlobalOntologyRulesAsString.mockResolvedValue('mock ontology rules');
 
-		const session = {
-			id: sessionId,
-			facts: [],
-			embeddings: new Map(),
-			kbGraph: null,
-		};
-		mockSessionStoreInstance.createSession.mockResolvedValue(session);
-		mockSessionStoreInstance.getSession.mockResolvedValue(session);
-		mockSessionStoreInstance.getKnowledgeBase.mockResolvedValue('');
-		mockSessionStoreInstance.getLexiconSummary.mockResolvedValue(
-			'mock lexicon'
-		);
-		mockSessionStoreInstance.addFacts.mockResolvedValue(true);
-		ontologyService.getGlobalOntologyRulesAsString.mockResolvedValue(
-			'mock ontology rules'
-		);
-		strategyManager.getStrategy.mockImplementation(id => ({
-			id,
-			name: `Mock Strategy ${id}`,
-			nodes: [],
-			edges: [],
-		}));
-		mcrService.getOperationalStrategyJson = jest.fn().mockResolvedValue({
-			id: 'mock-strategy',
-			name: 'Mock Strategy',
-			nodes: [],
-			edges: [],
+		strategyManager.getStrategy.mockImplementation(id => {
+			if (id === 'SIR-R1-Assert' || id === 'SIR-R1-Query' || id === 'SIR-R1') {
+				return { id, name: `Mock Strategy ${id}`, nodes: [], edges: [] };
+			}
+			return undefined;
 		});
 		strategyManager.getDefaultStrategy.mockReturnValue({
 			id: 'default-strategy',
@@ -87,13 +173,35 @@ describe('MCR Service (mcrService.js)', () => {
 			nodes: [],
 			edges: [],
 		});
-		mcrService.getOperationalStrategyJson = jest.fn().mockResolvedValue({
-			id: 'mock-strategy',
-			name: 'Mock Strategy',
-			nodes: [],
-			edges: [],
-		});
+		strategyManager.getAvailableStrategies.mockReturnValue([
+			{ id: 'SIR-R1-Assert', name: 'SIR-R1-Assert' },
+			{ id: 'SIR-R1-Query', name: 'SIR-R1-Query' },
+			{ id: 'SIR-R1', name: 'SIR-R1' },
+		]);
 
+		// Mock the EmbeddingBridge instance methods
+		EmbeddingBridge.mockInstance.loadModel.mockResolvedValue(undefined);
+		EmbeddingBridge.mockInstance.encode.mockResolvedValue([0.1, 0.2, 0.3]);
+		EmbeddingBridge.mockInstance.similarity.mockResolvedValue(0.9);
+
+
+		const session = {
+			id: sessionId,
+			facts: [],
+			embeddings: new Map(),
+			kbGraph: null,
+		};
+		// Set up the mock behaviors on the *instance* that mcrService will receive
+		mockSessionStoreInstance.createSession.mockResolvedValue(session);
+		mockSessionStoreInstance.getSession.mockResolvedValue(session);
+		mockSessionStoreInstance.getKnowledgeBase.mockResolvedValue('');
+		mockSessionStoreInstance.getLexiconSummary.mockResolvedValue(
+			'mock lexicon'
+		);
+		mockSessionStoreInstance.addFacts.mockResolvedValue(true);
+		mockSessionStoreInstance.setKnowledgeBase.mockResolvedValue(true); // Added this mock
+
+		// Now call createSession, which will use the mocked sessionStore
 		await mcrService.createSession(sessionId);
 	});
 
@@ -192,10 +300,6 @@ describe('MCR Service (mcrService.js)', () => {
 				.spyOn(StrategyExecutor.prototype, 'execute')
 				.mockResolvedValue([prologFact]);
 
-			const mcr = require('../src/mcrService');
-			mcr.embeddingBridge = {
-				encode: jest.fn().mockResolvedValue(embedding),
-			};
 			const session = {
 				id: sessionId,
 				facts: [],

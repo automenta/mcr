@@ -8,9 +8,9 @@ const ontologyService = require('./ontologyService');
 const { prompts, fillTemplate, getPromptTemplateByName } = require('./prompts');
 const logger = require('./util/logger');
 const config = require('./config');
+const { MCRError, ErrorCodes } = require('./errors');
 const strategyManager = require('./strategyManager');
 const StrategyExecutor = require('./strategyExecutor');
-const { MCRError, ErrorCodes } = require('./errors');
 const KeywordInputRouter = require('./evolution/keywordInputRouter.js');
 const db = require('./store/database');
 const EmbeddingBridge = require('./bridges/embeddingBridge');
@@ -323,6 +323,12 @@ async function assertNLToSession(sessionId, naturalLanguageText, options = {}) {
 		'Assert',
 		naturalLanguageText
 	);
+	if (!activeStrategyJson) {
+		throw new MCRError(
+			ErrorCodes.STRATEGY_NOT_FOUND,
+			`Active strategy not found for session ${sessionId}. Please ensure a valid strategy is selected.`
+		);
+	}
 	const currentStrategyId = activeStrategyJson.id;
 	logger.info(
 		`[McrService] Enter assertNLToSession for session ${sessionId} using strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}). NL Text: "${naturalLanguageText}"`
@@ -493,6 +499,12 @@ async function querySessionWithNL(
 		'Query',
 		naturalLanguageQuestion
 	);
+	if (!activeStrategyJson) {
+		throw new MCRError(
+			ErrorCodes.STRATEGY_NOT_FOUND,
+			`Active strategy not found for session ${sessionId}. Please ensure a valid strategy is selected.`
+		);
+	}
 	const currentStrategyId = activeStrategyJson.id;
 	const operationId = `query-${Date.now()}`;
 	logger.info(

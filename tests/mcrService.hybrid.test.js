@@ -1,18 +1,41 @@
 // tests/mcrService.hybrid.test.js
 
+jest.mock('../src/config', () => ({
+    llm: {
+        provider: 'mockProvider',
+        mockProvider: { model: 'llamablit' },
+    },
+    sessionStore: { type: 'memory', filePath: './test-sessions' },
+    translationStrategy: 'SIR-R1',
+    kgEnabled: true, // Enable KG for hybrid tests
+    debugLevel: 'none',
+    embeddingModel: 'mockEmbeddingModel',
+}));
+
 jest.mock('../src/store/InMemorySessionStore', () => {
-  return jest.fn().mockImplementation(() => {
-    return {
-      initialize: jest.fn().mockResolvedValue(undefined),
-      createSession: jest.fn(),
-      getSession: jest.fn(),
-      addFacts: jest.fn(),
-      getKnowledgeBase: jest.fn(),
-      getLexiconSummary: jest.fn(),
-      deleteSession: jest.fn(),
+    const mockInstance = {
+        initialize: jest.fn().mockResolvedValue(undefined),
+        createSession: jest.fn(),
+        getSession: jest.fn(),
+        addFacts: jest.fn(),
+        getKnowledgeBase: jest.fn(),
+        getLexiconSummary: jest.fn(),
+        deleteSession: jest.fn(),
+        setKnowledgeBase: jest.fn(),
     };
-  });
+    return jest.fn(() => mockInstance);
 });
+jest.mock('../src/bridges/kgBridge', () => {
+    const mockKnowledgeGraphInstance = {
+        addTriple: jest.fn(),
+        toJSON: jest.fn(() => ({})),
+        fromJSON: jest.fn(),
+    };
+    const MockKnowledgeGraph = jest.fn(() => mockKnowledgeGraphInstance);
+    MockKnowledgeGraph.mockInstance = mockKnowledgeGraphInstance;
+    return MockKnowledgeGraph;
+});
+
 jest.mock('../src/llmService');
 jest.mock('../src/reasonerService');
 jest.mock('../src/ontologyService', () => ({
@@ -36,25 +59,54 @@ const StrategyExecutor = require('../src/strategyExecutor');
 describe('MCR Service Hybrid Functionality', () => {
   let sessionId;
   let mockSessionStoreInstance;
+  let mcrService;
+  let llmService;
+  let reasonerService;
+  let InMemorySessionStore;
+  let ontologyService;
+  let strategyManager;
+  let StrategyExecutor;
+  let KnowledgeGraph;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    jest.resetModules();
+
+    // Require modules inside beforeEach to ensure mocks are applied
+    llmService = require('../src/llmService');
+    reasonerService = require('../src/reasonerService');
+    InMemorySessionStore = require('../src/store/InMemorySessionStore');
+    ontologyService = require('../src/ontologyService');
+    strategyManager = require('../src/strategyManager');
+    StrategyExecutor = require('../src/strategyExecutor');
+    KnowledgeGraph = require('../src/bridges/kgBridge');
+
+    // Re-require mcrService after all mocks are set up
+    mcrService = require('../src/mcrService');
+
     sessionId = 'test-session-id';
     mockSessionStoreInstance = new InMemorySessionStore();
+
+    // Set up the session object with embeddings and kbGraph
+    const session = {
+      id: sessionId,
+      facts: [],
+      embeddings: new Map(),
+      kbGraph: new KnowledgeGraph(),
+    };
+
+    mockSessionStoreInstance.createSession.mockResolvedValue(session);
+    mockSessionStoreInstance.getSession.mockResolvedValue(session);
+    mockSessionStoreInstance.addFacts.mockResolvedValue(true);
+    mockSessionStoreInstance.getKnowledgeBase.mockResolvedValue('');
+    mockSessionStoreInstance.getLexiconSummary.mockResolvedValue('mock lexicon');
+    mockSessionStoreInstance.setKnowledgeBase.mockResolvedValue(true);
+
     mcrService.sessionStore = mockSessionStoreInstance;
+    await mcrService.createSession(sessionId);
 
     llmService.generate.mockResolvedValue({ text: 'mock llm response' });
     reasonerService.executeQuery.mockResolvedValue({ results: [] });
     reasonerService.validateKnowledgeBase.mockResolvedValue({ isValid: true });
-describe('MCR Service Hybrid Functionality', () => {
-  let sessionId;
-  let mockSessionStoreInstance;
-
-  beforeEach(async () => {
-    sessionId = 'test-session-id';
-    mockSessionStoreInstance = new InMemorySessionStore();
-    mcrService.sessionStore = mockSessionStoreInstance;
-    await mcrService.createSession(sessionId);
-  });
 
     mockSessionStoreInstance.addFacts.mockImplementation(async (id, newFacts) => {
         if (sessions[id]) {
