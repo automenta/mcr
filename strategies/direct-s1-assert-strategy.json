@@ -1,28 +1,28 @@
 {
-  "id": "Direct-S1-Assert",
-  "name": "Direct-S1 Assertion Strategy",
-  "description": "A direct translation strategy that uses an LLM call to convert Natural Language to Prolog rules, then splits the output into an array of rules.",
-  "result_variable": "prolog_rules_array",
-  "nodes": [
-    {
-      "id": "step1_nl_to_rules_llm",
-      "type": "LLM_Call",
-      "prompt_template_name": "NL_TO_RULES_DIRECT",
-      "model": "{{llm_model_id}}",
-      "output_variable": "raw_llm_rules_output"
-    },
-    {
-      "id": "step2_split_rules_to_array",
-      "type": "Split_String_To_Array",
-      "input_variable": "raw_llm_rules_output",
-      "output_variable": "prolog_rules_array",
-      "delimiter": "\n"
-    }
-  ],
-  "edges": [
-    {
-      "from": "step1_nl_to_rules_llm",
-      "to": "step2_split_rules_to_array"
-    }
-  ]
+	"id": "Direct-S1-Assert",
+	"name": "Direct-S1 Assertion Strategy",
+	"description": "A direct translation strategy that uses an LLM call to convert Natural Language to Prolog rules, then splits the output into an array of rules.",
+	"result_variable": "prolog_rules_array",
+	"nodes": [
+		{
+			"id": "step1_nl_to_rules_llm",
+			"type": "LLM_Call",
+			"prompt_template_name": "NL_TO_RULES_DIRECT",
+			"model": "{{llm_model_id}}",
+			"output_variable": "raw_llm_rules_output"
+		},
+		{
+			"id": "step2_split_rules_to_array",
+			"type": "Split_String_To_Array",
+			"input_variable": "raw_llm_rules_output",
+			"output_variable": "prolog_rules_array",
+			"delimiter": "\n"
+		}
+	],
+	"edges": [
+		{
+			"from": "step1_nl_to_rules_llm",
+			"to": "step2_split_rules_to_array"
+		}
+	]
 }

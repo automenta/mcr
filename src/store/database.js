@@ -11,20 +11,20 @@ let db = null;
  * @returns {Promise<sqlite3.Database>} A promise that resolves with the database instance.
  */
 function initDb() {
-  return new Promise((resolve, reject) => {
-    if (db) {
-      return resolve(db);
-    }
+	return new Promise((resolve, reject) => {
+		if (db) {
+			return resolve(db);
+		}
 
-    db = new sqlite3.Database(DB_PATH, err => {
-      if (err) {
-        logger.error('Error connecting to SQLite database:', err.message);
-        db = null; // Reset db instance on connection error
-        return reject(err);
-      }
-      logger.info(`Connected to SQLite database at ${DB_PATH}`);
+		db = new sqlite3.Database(DB_PATH, err => {
+			if (err) {
+				logger.error('Error connecting to SQLite database:', err.message);
+				db = null; // Reset db instance on connection error
+				return reject(err);
+			}
+			logger.info(`Connected to SQLite database at ${DB_PATH}`);
 
-      const createTableSql = `
+			const createTableSql = `
         CREATE TABLE IF NOT EXISTS performance_results (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           strategy_hash TEXT NOT NULL,
@@ -41,28 +41,28 @@ function initDb() {
         );
       `;
 
-      db.run(createTableSql, err => {
-        if (err) {
-          logger.error(
-            'Error creating performance_results table:',
-            err.message
-          );
-          db.close(closeErr => {
-            if (closeErr)
-              logger.error(
-                'Error closing DB after table creation failure:',
-                closeErr.message
-              );
-            db = null; // Reset db instance
-            reject(err);
-          });
-        } else {
-          logger.info('performance_results table ensured to exist.');
-          resolve(db);
-        }
-      });
-    });
-  });
+			db.run(createTableSql, err => {
+				if (err) {
+					logger.error(
+						'Error creating performance_results table:',
+						err.message
+					);
+					db.close(closeErr => {
+						if (closeErr)
+							logger.error(
+								'Error closing DB after table creation failure:',
+								closeErr.message
+							);
+						db = null; // Reset db instance
+						reject(err);
+					});
+				} else {
+					logger.info('performance_results table ensured to exist.');
+					resolve(db);
+				}
+			});
+		});
+	});
 }
 
 /**
@@ -78,55 +78,55 @@ function initDb() {
  * @returns {Promise<number>} A promise that resolves with the ID of the inserted row.
  */
 async function insertPerformanceResult(resultData) {
-  const currentDb = await initDb(); // Ensure DB is initialized
+	const currentDb = await initDb(); // Ensure DB is initialized
 
-  return new Promise((resolve, reject) => {
-    const {
-      strategy_hash,
-      llm_model_id,
-      example_id,
-      metrics,
-      cost,
-      latency_ms,
-      raw_output,
-      embedding_sim,
-      prob_score,
-    } = resultData;
+	return new Promise((resolve, reject) => {
+		const {
+			strategy_hash,
+			llm_model_id,
+			example_id,
+			metrics,
+			cost,
+			latency_ms,
+			raw_output,
+			embedding_sim,
+			prob_score,
+		} = resultData;
 
-    const insertSql = `
+		const insertSql = `
       INSERT INTO performance_results
       (strategy_hash, llm_model_id, example_id, metrics, cost, latency_ms, raw_output, timestamp, embedding_sim, prob_score)
       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', 'utc'), ?, ?)
     `;
 
-    // Ensure JSON objects are stringified
-    const metricsJson = JSON.stringify(metrics);
-    const costJson = JSON.stringify(cost || {}); // Default to empty object if cost is undefined
+		// Ensure JSON objects are stringified
+		const metricsJson = JSON.stringify(metrics);
+		const costJson = JSON.stringify(cost || {}); // Default to empty object if cost is undefined
 
-    currentDb.run(
-      insertSql,
-      [
-        strategy_hash,
-        llm_model_id,
-        example_id,
-        metricsJson,
-        costJson,
-        latency_ms,
-        raw_output,
-        embedding_sim,
-        prob_score,
-      ],
-      function (err) {
-        // Use function() to access this.lastID
-        if (err) {
-          logger.error('Error inserting performance result:', err.message);
-          return reject(err);
-        }
-        logger.info(`Inserted performance result with ID: ${this.lastID}`);
-        resolve(this.lastID);
-      }
-    );
-  });
+		currentDb.run(
+			insertSql,
+			[
+				strategy_hash,
+				llm_model_id,
+				example_id,
+				metricsJson,
+				costJson,
+				latency_ms,
+				raw_output,
+				embedding_sim,
+				prob_score,
+			],
+			function (err) {
+				// Use function() to access this.lastID
+				if (err) {
+					logger.error('Error inserting performance result:', err.message);
+					return reject(err);
+				}
+				logger.info(`Inserted performance result with ID: ${this.lastID}`);
+				resolve(this.lastID);
+			}
+		);
+	});
 }
 
 /**
@@ -134,30 +134,30 @@ async function insertPerformanceResult(resultData) {
  * @returns {Promise<void>}
  */
 function closeDb() {
-  return new Promise((resolve, reject) => {
-    if (db) {
-      db.close(err => {
-        if (err) {
-          logger.error('Error closing the database connection:', err.message);
-          return reject(err);
-        }
-        logger.info('Database connection closed.');
-        db = null;
-        resolve();
-      });
-    } else {
-      resolve(); // No connection to close
-    }
-  });
+	return new Promise((resolve, reject) => {
+		if (db) {
+			db.close(err => {
+				if (err) {
+					logger.error('Error closing the database connection:', err.message);
+					return reject(err);
+				}
+				logger.info('Database connection closed.');
+				db = null;
+				resolve();
+			});
+		} else {
+			resolve(); // No connection to close
+		}
+	});
 }
 
 module.exports = {
-  initDb,
-  insertPerformanceResult,
-  closeDb,
-  queryPerformanceResults, // Added new function
-  // Expose DB_PATH for testing or other modules if needed
-  DB_PATH,
+	initDb,
+	insertPerformanceResult,
+	closeDb,
+	queryPerformanceResults, // Added new function
+	// Expose DB_PATH for testing or other modules if needed
+	DB_PATH,
 };
 
 /**
@@ -167,21 +167,21 @@ module.exports = {
  * @returns {Promise<Array<Object>>} A promise that resolves with an array of row objects.
  */
 async function queryPerformanceResults(sqlQuery, params = []) {
-  const currentDb = await initDb(); // Ensure DB is initialized
-  return new Promise((resolve, reject) => {
-    currentDb.all(sqlQuery, params, (err, rows) => {
-      if (err) {
-        logger.error(`Error executing query: ${sqlQuery}`, {
-          error: err.message,
-          params,
-        });
-        return reject(err);
-      }
-      logger.debug(`Query executed successfully: ${sqlQuery}`, {
-        params,
-        rowCount: rows ? rows.length : 0,
-      });
-      resolve(rows);
-    });
-  });
+	const currentDb = await initDb(); // Ensure DB is initialized
+	return new Promise((resolve, reject) => {
+		currentDb.all(sqlQuery, params, (err, rows) => {
+			if (err) {
+				logger.error(`Error executing query: ${sqlQuery}`, {
+					error: err.message,
+					params,
+				});
+				return reject(err);
+			}
+			logger.debug(`Query executed successfully: ${sqlQuery}`, {
+				params,
+				rowCount: rows ? rows.length : 0,
+			});
+			resolve(rows);
+		});
+	});
 }

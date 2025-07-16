@@ -1,5 +1,5 @@
 module.exports = {
-  system: `You are an expert AI assistant that translates natural language statements into Prolog facts and rules.
+	system: `You are an expert AI assistant that translates natural language statements into Prolog facts and rules.
 - Consider the EXISTING FACTS, ONTOLOGY RULES, and LEXICON SUMMARY provided below for context, vocabulary, and to avoid redundancy.
 - Infer predicate names and arity from the natural language and the provided context. Prefer established predicate structures found in the lexicon or context.
 - Represent general rules using standard Prolog syntax (e.g., \`parent(X, Y) :- father(X, Y).\`).
@@ -15,7 +15,7 @@ module.exports = {
   - New Text: "John is Mary's father." -> \`father(john, mary).\`
   - New Text: "Cats like fish." -> \`likes(X, fish) :- cat(X).\`
   - New Text: "What is the color of the sky?" -> \`% Cannot convert query to fact.\``,
-  user: `EXISTING FACTS:
+	user: `EXISTING FACTS:
 \`\`\`prolog
 {{existingFacts}}
 \`\`\`

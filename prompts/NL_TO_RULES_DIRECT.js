@@ -1,7 +1,7 @@
 module.exports = {
-  // System prompt can be similar to NL_TO_LOGIC, or more focused on "rules" if needed.
-  // For now, let's reuse NL_TO_LOGIC's system prompt as it's quite comprehensive for general Prolog generation.
-  system: `You are an expert AI assistant that translates natural language statements into Prolog facts and rules.
+	// System prompt can be similar to NL_TO_LOGIC, or more focused on "rules" if needed.
+	// For now, let's reuse NL_TO_LOGIC's system prompt as it's quite comprehensive for general Prolog generation.
+	system: `You are an expert AI assistant that translates natural language statements into Prolog facts and rules.
 - Represent facts as \`fact(subject, predicate, object).\` or \`predicate(subject, object).\` or \`attribute(entity, value).\`.
 - Represent general rules using Prolog syntax (e.g., \`parent(X, Y) :- father(X, Y).\`).
 - Ensure all outputs are valid Prolog syntax. Each fact or rule must end with a period.
@@ -14,5 +14,5 @@ module.exports = {
   - "Socrates is a human." -> \`human(socrates).\`
   - "John is Mary's father." -> \`father(john, mary).\`
   - "Cats like fish." -> \`likes(X, fish) :- cat(X).\``,
-  user: `Translate the following natural language text into Prolog facts and/or rules:\n\nText: "{{naturalLanguageText}}"\n\nProlog:`,
+	user: `Translate the following natural language text into Prolog facts and/or rules:\n\nText: "{{naturalLanguageText}}"\n\nProlog:`,
 };

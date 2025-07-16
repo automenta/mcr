@@ -1,5 +1,5 @@
 module.exports = {
-  system: `You are an expert AI assistant that translates natural language statements into a structured JSON representation (SIR) for later conversion to Prolog.
+	system: `You are an expert AI assistant that translates natural language statements into a structured JSON representation (SIR) for later conversion to Prolog.
 Your output MUST be a single, complete JSON object.
 **Follow this DETAILED GUIDANCE for structuring the SIR JSON:**
 1.  **Root Object:** The root JSON object must have a \`statementType\` field, which can be either "fact" or "rule".
@@ -31,7 +31,7 @@ Your output MUST be a single, complete JSON object.
     *   If too complex/vague: \`{"error": "Input is too complex or vague for SIR conversion."}\`
 - Adhere to the LEXICON SUMMARY for predicate naming and arity.
 `,
-  user: `EXISTING FACTS (for context):
+	user: `EXISTING FACTS (for context):
 \`\`\`prolog
 {{existingFacts}}
 \`\`\`

@@ -1,30 +1,30 @@
 {
-  "id": "Dynamic-Assert-Example",
-  "name": "Strategy with an Embedded Prompt",
-  "description": "An example strategy that defines its LLM prompt directly in the JSON.",
-  "result_variable": "prolog_clauses",
-  "nodes": [
-    {
-      "id": "step1_dynamic_llm_call",
-      "type": "LLM_Call",
-      "prompt_text": {
-        "system": "You are an AI that translates simple statements into Prolog facts about location. Format is: is_in(place, location).",
-        "user": "Translate this: {{naturalLanguageText}}"
-      },
-      "model": "{{llm_model_id}}",
-      "output_variable": "raw_prolog_output"
-    },
-    {
-      "id": "step2_split_to_array",
-      "type": "Split_String_To_Array",
-      "input_variable": "raw_prolog_output",
-      "output_variable": "prolog_clauses"
-    }
-  ],
-  "edges": [
-    {
-      "from": "step1_dynamic_llm_call",
-      "to": "step2_split_to_array"
-    }
-  ]
+	"id": "Dynamic-Assert-Example",
+	"name": "Strategy with an Embedded Prompt",
+	"description": "An example strategy that defines its LLM prompt directly in the JSON.",
+	"result_variable": "prolog_clauses",
+	"nodes": [
+		{
+			"id": "step1_dynamic_llm_call",
+			"type": "LLM_Call",
+			"prompt_text": {
+				"system": "You are an AI that translates simple statements into Prolog facts about location. Format is: is_in(place, location).",
+				"user": "Translate this: {{naturalLanguageText}}"
+			},
+			"model": "{{llm_model_id}}",
+			"output_variable": "raw_prolog_output"
+		},
+		{
+			"id": "step2_split_to_array",
+			"type": "Split_String_To_Array",
+			"input_variable": "raw_prolog_output",
+			"output_variable": "prolog_clauses"
+		}
+	],
+	"edges": [
+		{
+			"from": "step1_dynamic_llm_call",
+			"to": "step2_split_to_array"
+		}
+	]
 }

@@ -297,63 +297,63 @@ const WebSocket = require('ws');
 const ws = new WebSocket('ws://localhost:8080/ws'); // Adjust URL if needed
 
 ws.on('open', function open() {
-  console.log('Connected to MCR WebSocket server.');
+	console.log('Connected to MCR WebSocket server.');
 
-  // Example: Create a session and assert a fact
-  const createSessionMessage = {
-    type: 'tool_invoke',
-    messageId: 'msg-1',
-    payload: { tool_name: 'session.create', input: {} },
-  };
-  ws.send(JSON.stringify(createSessionMessage));
+	// Example: Create a session and assert a fact
+	const createSessionMessage = {
+		type: 'tool_invoke',
+		messageId: 'msg-1',
+		payload: { tool_name: 'session.create', input: {} },
+	};
+	ws.send(JSON.stringify(createSessionMessage));
 });
 
 ws.on('message', function incoming(data) {
-  const message = JSON.parse(data.toString());
-  console.log('Received from server:', message);
+	const message = JSON.parse(data.toString());
+	console.log('Received from server:', message);
 
-  // Example flow: After session is created, assert a fact
-  if (
-    message.type === 'tool_result' &&
-    message.messageId === 'msg-1' &&
-    message.payload?.success
-  ) {
-    const sessionId = message.payload.data.id;
-    console.log('Session created with ID:', sessionId);
+	// Example flow: After session is created, assert a fact
+	if (
+		message.type === 'tool_result' &&
+		message.messageId === 'msg-1' &&
+		message.payload?.success
+	) {
+		const sessionId = message.payload.data.id;
+		console.log('Session created with ID:', sessionId);
 
-    const assertMessage = {
-      type: 'tool_invoke',
-      messageId: 'msg-2',
-      payload: {
-        tool_name: 'session.assert',
-        input: {
-          sessionId: sessionId,
-          naturalLanguageText: 'Socrates is a man.',
-        },
-      },
-    };
-    ws.send(JSON.stringify(assertMessage));
-  }
+		const assertMessage = {
+			type: 'tool_invoke',
+			messageId: 'msg-2',
+			payload: {
+				tool_name: 'session.assert',
+				input: {
+					sessionId: sessionId,
+					naturalLanguageText: 'Socrates is a man.',
+				},
+			},
+		};
+		ws.send(JSON.stringify(assertMessage));
+	}
 
-  // Log the updated knowledge base after assertion
-  if (
-    message.type === 'tool_result' &&
-    message.messageId === 'msg-2' &&
-    message.payload?.success
-  ) {
-    console.log('Assertion successful!');
-    console.log(
-      'Updated Knowledge Base:\n' + message.payload.fullKnowledgeBase
-    );
-  }
+	// Log the updated knowledge base after assertion
+	if (
+		message.type === 'tool_result' &&
+		message.messageId === 'msg-2' &&
+		message.payload?.success
+	) {
+		console.log('Assertion successful!');
+		console.log(
+			'Updated Knowledge Base:\n' + message.payload.fullKnowledgeBase
+		);
+	}
 });
 
 ws.on('error', function error(err) {
-  console.error('WebSocket error:', err);
+	console.error('WebSocket error:', err);
 });
 
 ws.on('close', function close() {
-  console.log('Disconnected from MCR WebSocket server.');
+	console.log('Disconnected from MCR WebSocket server.');
 });
 ```
 
@@ -735,19 +735,19 @@ To add support for a new LLM provider (e.g., "MyNewLLM"):
       // const { SomeApiClient } = require('some-llm-sdk');
 
       const MyNewLlmProvider = {
-        name: 'mynewllm',
-        async generate(systemPrompt, userPrompt, options = {}) {
-          // const apiKey = config.llm.mynewllm.apiKey; // Get from config
-          // const model = config.llm.mynewllm.model;
-          // if (!apiKey) throw new Error('MyNewLLM API key not configured');
-          logger.debug(
-            `MyNewLlmProvider generating text with model: ${model}`,
-            { systemPrompt, userPrompt, options }
-          );
-          // ... logic to call the LLM API ...
-          // return generatedText;
-          throw new Error('MyNewLlmProvider not implemented yet');
-        },
+      	name: 'mynewllm',
+      	async generate(systemPrompt, userPrompt, options = {}) {
+      		// const apiKey = config.llm.mynewllm.apiKey; // Get from config
+      		// const model = config.llm.mynewllm.model;
+      		// if (!apiKey) throw new Error('MyNewLLM API key not configured');
+      		logger.debug(
+      			`MyNewLlmProvider generating text with model: ${model}`,
+      			{ systemPrompt, userPrompt, options }
+      		);
+      		// ... logic to call the LLM API ...
+      		// return generatedText;
+      		throw new Error('MyNewLlmProvider not implemented yet');
+      	},
       };
       module.exports = MyNewLlmProvider;
       ```

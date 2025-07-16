@@ -1,7 +1,7 @@
 module.exports = {
-  system:
-    'You are a helpful assistant that refines a generated output to be consistent with a validation error and similar context.',
-  user: `
+	system:
+		'You are a helpful assistant that refines a generated output to be consistent with a validation error and similar context.',
+	user: `
 The original input was: "{{original_input}}"
 The generated output failed validation:
 ---

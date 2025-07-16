@@ -22,19 +22,19 @@ Used by the client to request the server to execute a specific MCR tool.
 
 ```json
 {
-  "type": "tool_invoke",
-  "messageId": "string (unique client-generated ID, e.g., 'client-msg-123')",
-  "payload": {
-    "tool_name": "string (e.g., 'session.create', 'ontology.list')",
-    "input": {
-      // Object containing arguments specific to the tool.
-      // Examples:
-      // For 'session.create': {} or { "sessionId": "my-session" }
-      // For 'session.assert': { "sessionId": "s1", "naturalLanguageText": "The sky is blue." }
-    }
-  }
-  // Optional headers:
-  // "headers": { "X-Correlation-ID": "client-correlation-id-if-any" }
+	"type": "tool_invoke",
+	"messageId": "string (unique client-generated ID, e.g., 'client-msg-123')",
+	"payload": {
+		"tool_name": "string (e.g., 'session.create', 'ontology.list')",
+		"input": {
+			// Object containing arguments specific to the tool.
+			// Examples:
+			// For 'session.create': {} or { "sessionId": "my-session" }
+			// For 'session.assert': { "sessionId": "s1", "naturalLanguageText": "The sky is blue." }
+		}
+	}
+	// Optional headers:
+	// "headers": { "X-Correlation-ID": "client-correlation-id-if-any" }
 }
 ```
 
@@ -80,9 +80,9 @@ Sent by the server immediately after a WebSocket connection is successfully esta
 
 ```json
 {
-  "type": "connection_ack",
-  "correlationId": "string (server's correlation ID for this WebSocket connection)",
-  "message": "string (e.g., 'WebSocket connection established with MCR server.')"
+	"type": "connection_ack",
+	"correlationId": "string (server's correlation ID for this WebSocket connection)",
+	"message": "string (e.g., 'WebSocket connection established with MCR server.')"
 }
 ```
 
@@ -94,14 +94,14 @@ If a message from the client is malformed (e.g., invalid JSON, missing critical 
 
 ```json
 {
-  "type": "error",
-  "messageId": "string (echoed if available, else null)",
-  "correlationId": "string (server's WS connection ID, if connection established enough)",
-  "payload": {
-    "success": false,
-    "error": "string (e.g., 'INVALID_JSON', 'MISSING_MESSAGE_ID')",
-    "message": "string (Description of the error)"
-  }
+	"type": "error",
+	"messageId": "string (echoed if available, else null)",
+	"correlationId": "string (server's WS connection ID, if connection established enough)",
+	"payload": {
+		"success": false,
+		"error": "string (e.g., 'INVALID_JSON', 'MISSING_MESSAGE_ID')",
+		"message": "string (Description of the error)"
+	}
 }
 ```
 

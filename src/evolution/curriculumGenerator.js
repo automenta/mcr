@@ -9,31 +9,31 @@ const fs = require('fs');
 const path = require('path');
 
 class CurriculumGenerator {
-  constructor(config = {}) {
-    this.config = config;
-    this.generatedCasesDir =
-      config.generatedCasesDir ||
-      path.join(__dirname, '..', 'evalCases', 'generated');
-    if (!fs.existsSync(this.generatedCasesDir)) {
-      fs.mkdirSync(this.generatedCasesDir, { recursive: true });
-    }
-  }
+	constructor(config = {}) {
+		this.config = config;
+		this.generatedCasesDir =
+			config.generatedCasesDir ||
+			path.join(__dirname, '..', 'evalCases', 'generated');
+		if (!fs.existsSync(this.generatedCasesDir)) {
+			fs.mkdirSync(this.generatedCasesDir, { recursive: true });
+		}
+	}
 
-  /**
-   * Identifies evaluation cases where strategies frequently fail or underperform.
-   * @param {number} limit Max number of poor-performing cases to identify.
-   * @returns {Promise<Array<object>>} Array of { example_id, total_runs, failure_rate, avg_score, sample_case_details }
-   */
-  async identifyPoorPerformingCases(limit = 5) {
-    logger.info(
-      '[CurriculumGenerator] Identifying poor-performing evaluation cases...'
-    );
-    try {
-      const db = await initDb();
-      // Query for example_ids that have a high failure rate on key metrics
-      // For simplicity, let's count how many times an example_id had 'exactMatchProlog' = 0 (false)
-      const rows = await new Promise((resolve, reject) => {
-        const query = `
+	/**
+	 * Identifies evaluation cases where strategies frequently fail or underperform.
+	 * @param {number} limit Max number of poor-performing cases to identify.
+	 * @returns {Promise<Array<object>>} Array of { example_id, total_runs, failure_rate, avg_score, sample_case_details }
+	 */
+	async identifyPoorPerformingCases(limit = 5) {
+		logger.info(
+			'[CurriculumGenerator] Identifying poor-performing evaluation cases...'
+		);
+		try {
+			const db = await initDb();
+			// Query for example_ids that have a high failure rate on key metrics
+			// For simplicity, let's count how many times an example_id had 'exactMatchProlog' = 0 (false)
+			const rows = await new Promise((resolve, reject) => {
+				const query = `
                     SELECT
                         example_id,
                         COUNT(*) as total_runs,
@@ -48,96 +48,96 @@ class CurriculumGenerator {
                     ORDER BY (CAST(prolog_failures AS REAL) / total_runs) DESC, total_runs DESC -- Order by failure rate, then by run count
                     LIMIT ?;
                 `;
-        db.all(query, [limit], (err, rows) => {
-          if (err) {
-            logger.error(
-              `[CurriculumGenerator] Error querying poor-performing cases: ${err.message}`
-            );
-            return reject(err);
-          }
-          resolve(rows);
-        });
-      });
+				db.all(query, [limit], (err, rows) => {
+					if (err) {
+						logger.error(
+							`[CurriculumGenerator] Error querying poor-performing cases: ${err.message}`
+						);
+						return reject(err);
+					}
+					resolve(rows);
+				});
+			});
 
-      if (!rows || rows.length === 0) {
-        logger.info(
-          '[CurriculumGenerator] No poor-performing cases found based on current criteria.'
-        );
-        return [];
-      }
+			if (!rows || rows.length === 0) {
+				logger.info(
+					'[CurriculumGenerator] No poor-performing cases found based on current criteria.'
+				);
+				return [];
+			}
 
-      // Enrich with actual case details
-      const allEvalCases = loadAllEvalCases(); // Load from default path `src/evalCases`
-      const evalCaseMap = new Map(allEvalCases.map(ec => [ec.id, ec]));
+			// Enrich with actual case details
+			const allEvalCases = loadAllEvalCases(); // Load from default path `src/evalCases`
+			const evalCaseMap = new Map(allEvalCases.map(ec => [ec.id, ec]));
 
-      const enrichedCases = rows
-        .map(row => {
-          const fullCase = evalCaseMap.get(row.example_id);
-          if (fullCase) {
-            return {
-              exampleId: row.example_id,
-              totalRuns: row.total_runs,
-              prologFailures: row.prolog_failures,
-              answerFailures: row.answer_failures,
-              failureRateProlog:
-                row.total_runs > 0 ? row.prolog_failures / row.total_runs : 0,
-              avgPrologScore: row.avg_prolog_score,
-              avgAnswerScore: row.avg_answer_score,
-              sampleCaseDetails: {
-                // Provide the original case for context to the LLM
-                naturalLanguageInput: fullCase.naturalLanguageInput,
-                inputType: fullCase.inputType,
-                expectedProlog: fullCase.expectedProlog,
-                expectedAnswer: fullCase.expectedAnswer,
-                description: fullCase.description,
-                tags: fullCase.tags || [],
-              },
-            };
-          }
-          return null;
-        })
-        .filter(Boolean);
+			const enrichedCases = rows
+				.map(row => {
+					const fullCase = evalCaseMap.get(row.example_id);
+					if (fullCase) {
+						return {
+							exampleId: row.example_id,
+							totalRuns: row.total_runs,
+							prologFailures: row.prolog_failures,
+							answerFailures: row.answer_failures,
+							failureRateProlog:
+								row.total_runs > 0 ? row.prolog_failures / row.total_runs : 0,
+							avgPrologScore: row.avg_prolog_score,
+							avgAnswerScore: row.avg_answer_score,
+							sampleCaseDetails: {
+								// Provide the original case for context to the LLM
+								naturalLanguageInput: fullCase.naturalLanguageInput,
+								inputType: fullCase.inputType,
+								expectedProlog: fullCase.expectedProlog,
+								expectedAnswer: fullCase.expectedAnswer,
+								description: fullCase.description,
+								tags: fullCase.tags || [],
+							},
+						};
+					}
+					return null;
+				})
+				.filter(Boolean);
 
-      logger.info(
-        `[CurriculumGenerator] Identified ${enrichedCases.length} poor-performing cases for variation.`
-      );
-      return enrichedCases;
-    } catch (error) {
-      logger.error(
-        `[CurriculumGenerator] Error identifying poor-performing cases: ${error.message}`,
-        { stack: error.stack }
-      );
-      return [];
-    }
-  }
+			logger.info(
+				`[CurriculumGenerator] Identified ${enrichedCases.length} poor-performing cases for variation.`
+			);
+			return enrichedCases;
+		} catch (error) {
+			logger.error(
+				`[CurriculumGenerator] Error identifying poor-performing cases: ${error.message}`,
+				{ stack: error.stack }
+			);
+			return [];
+		}
+	}
 
-  /**
-   * Uses an LLM to generate variations of an existing evaluation case.
-   * @param {object} originalCase The original EvaluationCase object (or its key details).
-   * @param {number} numVariations Number of variations to generate.
-   * @returns {Promise<Array<object>>} Array of new EvaluationCase-like objects.
-   */
-  async generateCaseVariations(originalCase, numVariations = 2) {
-    if (!originalCase || !originalCase.naturalLanguageInput) {
-      logger.warn(
-        '[CurriculumGenerator] Original case data is insufficient for generating variations.'
-      );
-      return [];
-    }
+	/**
+	 * Uses an LLM to generate variations of an existing evaluation case.
+	 * @param {object} originalCase The original EvaluationCase object (or its key details).
+	 * @param {number} numVariations Number of variations to generate.
+	 * @returns {Promise<Array<object>>} Array of new EvaluationCase-like objects.
+	 */
+	async generateCaseVariations(originalCase, numVariations = 2) {
+		if (!originalCase || !originalCase.naturalLanguageInput) {
+			logger.warn(
+				'[CurriculumGenerator] Original case data is insufficient for generating variations.'
+			);
+			return [];
+		}
 
-    // Use the GENERATE_EVAL_CASES prompt but with specific instructions for variation
-    const generatePromptTemplate = prompts.GENERATE_EVAL_CASES;
-    if (!generatePromptTemplate) {
-      logger.error(
-        '[CurriculumGenerator] GENERATE_EVAL_CASES template not found in prompts.js. Cannot generate variations.'
-      );
-      return [];
-    }
+		// Use the GENERATE_EVAL_CASES prompt but with specific instructions for variation
+		const generatePromptTemplate = prompts.GENERATE_EVAL_CASES;
+		if (!generatePromptTemplate) {
+			logger.error(
+				'[CurriculumGenerator] GENERATE_EVAL_CASES template not found in prompts.js. Cannot generate variations.'
+			);
+			return [];
+		}
 
-    const domain = originalCase.tags
-      ? originalCase.tags.find(t => t.startsWith('domain_')) || 'general'
-      : 'general';
-    const instructions = `Generate ${numVariations} variations of the following evaluation case.
+		const domain = originalCase.tags
+			? originalCase.tags.find(t => t.startsWith('domain_')) || 'general'
+			: 'general';
+		const instructions = `Generate ${numVariations} variations of the following evaluation case.
 The variations should test the same underlying concept or knowledge but use different phrasing, complexity, or slightly altered scenarios.
 Ensure the 'expectedProlog' and 'expectedAnswer' are accurate for each new variation.
 Maintain the original inputType ('${originalCase.inputType}').
@@ -148,184 +148,184 @@ Original Expected Prolog: ${JSON.stringify(originalCase.expectedProlog)}
 Original Expected Answer: "${originalCase.expectedAnswer || ''}"
 `;
 
-    const userPrompt = fillTemplate(generatePromptTemplate.user, {
-      domain: domain,
-      instructions: instructions,
-    });
-    const systemPrompt = generatePromptTemplate.system;
+		const userPrompt = fillTemplate(generatePromptTemplate.user, {
+			domain: domain,
+			instructions: instructions,
+		});
+		const systemPrompt = generatePromptTemplate.system;
 
-    try {
-      logger.info(
-        `[CurriculumGenerator] Requesting LLM to generate ${numVariations} variations for case: ${originalCase.exampleId || originalCase.naturalLanguageInput}`
-      );
-      const llmResponse = await llmService.generate(systemPrompt, userPrompt);
+		try {
+			logger.info(
+				`[CurriculumGenerator] Requesting LLM to generate ${numVariations} variations for case: ${originalCase.exampleId || originalCase.naturalLanguageInput}`
+			);
+			const llmResponse = await llmService.generate(systemPrompt, userPrompt);
 
-      if (!llmResponse) {
-        logger.warn(
-          '[CurriculumGenerator] LLM returned empty response for case variations.'
-        );
-        return [];
-      }
+			if (!llmResponse) {
+				logger.warn(
+					'[CurriculumGenerator] LLM returned empty response for case variations.'
+				);
+				return [];
+			}
 
-      let generatedCasesArray;
-      try {
-        // Response should be a JSON array string
-        generatedCasesArray = JSON.parse(llmResponse);
-        if (!Array.isArray(generatedCasesArray)) {
-          logger.warn(
-            '[CurriculumGenerator] LLM response for variations was not a JSON array. Response:',
-            llmResponse.substring(0, 200)
-          );
-          return [];
-        }
-      } catch (parseError) {
-        logger.error(
-          `[CurriculumGenerator] Failed to parse LLM response as JSON array: ${parseError.message}. Response: ${llmResponse.substring(0, 500)}`
-        );
-        // Attempt to extract JSON from markdown code block if present
-        const jsonMatch = llmResponse.match(/```json\s*([\s\S]*?)\s*```/);
-        if (jsonMatch && jsonMatch[1]) {
-          try {
-            generatedCasesArray = JSON.parse(jsonMatch[1]);
-            if (!Array.isArray(generatedCasesArray)) {
-              logger.warn(
-                '[CurriculumGenerator] Extracted content from markdown was not a JSON array.'
-              );
-              return [];
-            }
-            logger.info(
-              '[CurriculumGenerator] Successfully parsed JSON from markdown block after initial failure.'
-            );
-          } catch (e) {
-            logger.error(
-              `[CurriculumGenerator] Failed to parse JSON from markdown block: ${e.message}`
-            );
-            return [];
-          }
-        } else {
-          return [];
-        }
-      }
+			let generatedCasesArray;
+			try {
+				// Response should be a JSON array string
+				generatedCasesArray = JSON.parse(llmResponse);
+				if (!Array.isArray(generatedCasesArray)) {
+					logger.warn(
+						'[CurriculumGenerator] LLM response for variations was not a JSON array. Response:',
+						llmResponse.substring(0, 200)
+					);
+					return [];
+				}
+			} catch (parseError) {
+				logger.error(
+					`[CurriculumGenerator] Failed to parse LLM response as JSON array: ${parseError.message}. Response: ${llmResponse.substring(0, 500)}`
+				);
+				// Attempt to extract JSON from markdown code block if present
+				const jsonMatch = llmResponse.match(/```json\s*([\s\S]*?)\s*```/);
+				if (jsonMatch && jsonMatch[1]) {
+					try {
+						generatedCasesArray = JSON.parse(jsonMatch[1]);
+						if (!Array.isArray(generatedCasesArray)) {
+							logger.warn(
+								'[CurriculumGenerator] Extracted content from markdown was not a JSON array.'
+							);
+							return [];
+						}
+						logger.info(
+							'[CurriculumGenerator] Successfully parsed JSON from markdown block after initial failure.'
+						);
+					} catch (e) {
+						logger.error(
+							`[CurriculumGenerator] Failed to parse JSON from markdown block: ${e.message}`
+						);
+						return [];
+					}
+				} else {
+					return [];
+				}
+			}
 
-      // Validate and adapt generated cases (e.g., ensure unique IDs, add tags)
-      const finalNewCases = [];
-      for (const newCase of generatedCasesArray) {
-        if (
-          newCase &&
-          newCase.id &&
-          newCase.naturalLanguageInput &&
-          newCase.inputType &&
-          newCase.expectedProlog
-        ) {
-          // Ensure unique ID, perhaps by appending a hash or more robust suffix
-          newCase.id =
-            `${originalCase.exampleId}_var_${crypto.randomBytes(3).toString('hex')}_${newCase.id}`
-              .replace(/[^a-zA-Z0-9_.-]/g, '_')
-              .substring(0, 100);
-          newCase.tags = [
-            ...(originalCase.tags || []),
-            'generated',
-            'variation',
-          ];
-          newCase.notes =
-            `Generated variation of ${originalCase.exampleId}. Original desc: ${originalCase.description}. ${newCase.notes || ''}`.substring(
-              0,
-              255
-            );
-          finalNewCases.push(newCase);
-        } else {
-          logger.warn(
-            '[CurriculumGenerator] LLM generated an invalid case structure:',
-            newCase
-          );
-        }
-      }
-      logger.info(
-        `[CurriculumGenerator] LLM generated ${finalNewCases.length} valid case variations.`
-      );
-      return finalNewCases;
-    } catch (error) {
-      logger.error(
-        `[CurriculumGenerator] LLM call for case variations failed: ${error.message}`,
-        { stack: error.stack }
-      );
-      return [];
-    }
-  }
+			// Validate and adapt generated cases (e.g., ensure unique IDs, add tags)
+			const finalNewCases = [];
+			for (const newCase of generatedCasesArray) {
+				if (
+					newCase &&
+					newCase.id &&
+					newCase.naturalLanguageInput &&
+					newCase.inputType &&
+					newCase.expectedProlog
+				) {
+					// Ensure unique ID, perhaps by appending a hash or more robust suffix
+					newCase.id =
+						`${originalCase.exampleId}_var_${crypto.randomBytes(3).toString('hex')}_${newCase.id}`
+							.replace(/[^a-zA-Z0-9_.-]/g, '_')
+							.substring(0, 100);
+					newCase.tags = [
+						...(originalCase.tags || []),
+						'generated',
+						'variation',
+					];
+					newCase.notes =
+						`Generated variation of ${originalCase.exampleId}. Original desc: ${originalCase.description}. ${newCase.notes || ''}`.substring(
+							0,
+							255
+						);
+					finalNewCases.push(newCase);
+				} else {
+					logger.warn(
+						'[CurriculumGenerator] LLM generated an invalid case structure:',
+						newCase
+					);
+				}
+			}
+			logger.info(
+				`[CurriculumGenerator] LLM generated ${finalNewCases.length} valid case variations.`
+			);
+			return finalNewCases;
+		} catch (error) {
+			logger.error(
+				`[CurriculumGenerator] LLM call for case variations failed: ${error.message}`,
+				{ stack: error.stack }
+			);
+			return [];
+		}
+	}
 
-  /**
-   * Main method to generate new curriculum content.
-   * @returns {Promise<Array<object>>} Array of newly generated EvaluationCase objects.
-   */
-  async generate() {
-    logger.info(
-      '[CurriculumGenerator] Starting curriculum generation cycle...'
-    );
-    let allNewlyGeneratedCases = [];
+	/**
+	 * Main method to generate new curriculum content.
+	 * @returns {Promise<Array<object>>} Array of newly generated EvaluationCase objects.
+	 */
+	async generate() {
+		logger.info(
+			'[CurriculumGenerator] Starting curriculum generation cycle...'
+		);
+		let allNewlyGeneratedCases = [];
 
-    const poorCases = await this.identifyPoorPerformingCases(3); // Identify top 3 poor cases
-    if (poorCases.length === 0) {
-      logger.info(
-        '[CurriculumGenerator] No poor-performing cases identified to base variations on. For now, generation will stop.'
-      );
-      // Future: Could implement other generation strategies here (e.g., from scratch based on domain gaps)
-      return [];
-    }
+		const poorCases = await this.identifyPoorPerformingCases(3); // Identify top 3 poor cases
+		if (poorCases.length === 0) {
+			logger.info(
+				'[CurriculumGenerator] No poor-performing cases identified to base variations on. For now, generation will stop.'
+			);
+			// Future: Could implement other generation strategies here (e.g., from scratch based on domain gaps)
+			return [];
+		}
 
-    for (const poorCase of poorCases) {
-      const variations = await this.generateCaseVariations(
-        poorCase.sampleCaseDetails,
-        1
-      ); // Generate 1 variation per poor case for now
-      if (variations.length > 0) {
-        allNewlyGeneratedCases.push(...variations);
-        // Persist these new cases to files
-        this.saveGeneratedCases(
-          variations,
-          `variations_of_${poorCase.exampleId}`
-        );
-      }
-    }
+		for (const poorCase of poorCases) {
+			const variations = await this.generateCaseVariations(
+				poorCase.sampleCaseDetails,
+				1
+			); // Generate 1 variation per poor case for now
+			if (variations.length > 0) {
+				allNewlyGeneratedCases.push(...variations);
+				// Persist these new cases to files
+				this.saveGeneratedCases(
+					variations,
+					`variations_of_${poorCase.exampleId}`
+				);
+			}
+		}
 
-    if (allNewlyGeneratedCases.length > 0) {
-      logger.info(
-        `[CurriculumGenerator] Successfully generated ${allNewlyGeneratedCases.length} new evaluation cases in total.`
-      );
-    } else {
-      logger.info(
-        '[CurriculumGenerator] No new evaluation cases were generated in this cycle.'
-      );
-    }
+		if (allNewlyGeneratedCases.length > 0) {
+			logger.info(
+				`[CurriculumGenerator] Successfully generated ${allNewlyGeneratedCases.length} new evaluation cases in total.`
+			);
+		} else {
+			logger.info(
+				'[CurriculumGenerator] No new evaluation cases were generated in this cycle.'
+			);
+		}
 
-    return allNewlyGeneratedCases;
-  }
+		return allNewlyGeneratedCases;
+	}
 
-  /**
-   * Saves generated evaluation cases to a JSON file in the generatedCasesDir.
-   * @param {Array<object>} casesArray Array of EvaluationCase objects.
-   * @param {string} baseName A base name for the file (e.g., 'variations_BE001').
-   */
-  saveGeneratedCases(casesArray, baseName = 'generated_curriculum') {
-    if (!casesArray || casesArray.length === 0) return;
+	/**
+	 * Saves generated evaluation cases to a JSON file in the generatedCasesDir.
+	 * @param {Array<object>} casesArray Array of EvaluationCase objects.
+	 * @param {string} baseName A base name for the file (e.g., 'variations_BE001').
+	 */
+	saveGeneratedCases(casesArray, baseName = 'generated_curriculum') {
+		if (!casesArray || casesArray.length === 0) return;
 
-    const timestamp = new Date()
-      .toISOString()
-      .replace(/:/g, '-')
-      .substring(0, 19);
-    const fileName = `${baseName}_${timestamp}_${crypto.randomBytes(3).toString('hex')}.json`;
-    const filePath = path.join(this.generatedCasesDir, fileName);
+		const timestamp = new Date()
+			.toISOString()
+			.replace(/:/g, '-')
+			.substring(0, 19);
+		const fileName = `${baseName}_${timestamp}_${crypto.randomBytes(3).toString('hex')}.json`;
+		const filePath = path.join(this.generatedCasesDir, fileName);
 
-    try {
-      fs.writeFileSync(filePath, JSON.stringify(casesArray, null, 2));
-      logger.info(
-        `[CurriculumGenerator] Saved ${casesArray.length} generated cases to: ${filePath}`
-      );
-    } catch (error) {
-      logger.error(
-        `[CurriculumGenerator] Error saving generated cases to ${filePath}: ${error.message}`
-      );
-    }
-  }
+		try {
+			fs.writeFileSync(filePath, JSON.stringify(casesArray, null, 2));
+			logger.info(
+				`[CurriculumGenerator] Saved ${casesArray.length} generated cases to: ${filePath}`
+			);
+		} catch (error) {
+			logger.error(
+				`[CurriculumGenerator] Error saving generated cases to ${filePath}: ${error.message}`
+			);
+		}
+	}
 }
 
 module.exports = CurriculumGenerator;

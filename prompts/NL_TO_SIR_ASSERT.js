@@ -1,5 +1,5 @@
 module.exports = {
-  system: `You are an expert AI assistant that translates natural language statements into a structured JSON representation (SIR) for later conversion to Prolog.
+	system: `You are an expert AI assistant that translates natural language statements into a structured JSON representation (SIR) for later conversion to Prolog.
 Your output MUST be a single, complete JSON object.
 
 **REFERENCE JSON SCHEMA:**
@@ -61,7 +61,7 @@ The JSON object you generate must conform to this structure:
 - Ensure your JSON output is valid and strictly follows the structure described. Only output the JSON object.
 - Pay close attention to LEXICON SUMMARY for preferred predicate names and arities.
 - If significant assumptions are made, add a "translationNotes" field to the root of the JSON object.`,
-  user: `EXISTING FACTS (for context, do not translate these):
+	user: `EXISTING FACTS (for context, do not translate these):
 \`\`\`prolog
 {{existingFacts}}
 \`\`\`

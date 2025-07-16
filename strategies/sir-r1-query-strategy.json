@@ -1,27 +1,27 @@
 {
-  "id": "SIR-R1-Query",
-  "name": "SIR-R1 Query Translation Strategy",
-  "description": "Translates a natural language question into a Prolog query using an LLM call and then cleans the output.",
-  "result_variable": "prolog_query",
-  "nodes": [
-    {
-      "id": "step1_nl_to_query_llm",
-      "type": "LLM_Call",
-      "prompt_template_name": "NL_TO_QUERY",
-      "model": "{{llm_model_id}}",
-      "output_variable": "raw_llm_query_output"
-    },
-    {
-      "id": "step2_extract_prolog_query",
-      "type": "Extract_Prolog_Query",
-      "input_variable": "raw_llm_query_output",
-      "output_variable": "prolog_query"
-    }
-  ],
-  "edges": [
-    {
-      "from": "step1_nl_to_query_llm",
-      "to": "step2_extract_prolog_query"
-    }
-  ]
+	"id": "SIR-R1-Query",
+	"name": "SIR-R1 Query Translation Strategy",
+	"description": "Translates a natural language question into a Prolog query using an LLM call and then cleans the output.",
+	"result_variable": "prolog_query",
+	"nodes": [
+		{
+			"id": "step1_nl_to_query_llm",
+			"type": "LLM_Call",
+			"prompt_template_name": "NL_TO_QUERY",
+			"model": "{{llm_model_id}}",
+			"output_variable": "raw_llm_query_output"
+		},
+		{
+			"id": "step2_extract_prolog_query",
+			"type": "Extract_Prolog_Query",
+			"input_variable": "raw_llm_query_output",
+			"output_variable": "prolog_query"
+		}
+	],
+	"edges": [
+		{
+			"from": "step1_nl_to_query_llm",
+			"to": "step2_extract_prolog_query"
+		}
+	]
 }

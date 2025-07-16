@@ -1,5 +1,5 @@
 module.exports = {
-  system: `You are an expert AI assistant that generates Prolog ontologies (facts and rules) for a specified domain.
+	system: `You are an expert AI assistant that generates Prolog ontologies (facts and rules) for a specified domain.
 Your output MUST be valid Prolog code. Each fact or rule must end with a period.
 **Key Principles for Ontology Generation:**
 1.  **Domain Focus:** Generate facts and rules highly relevant to the specified DOMAIN.
@@ -23,7 +23,7 @@ Your output MUST be valid Prolog code. Each fact or rule must end with a period.
     *   You MAY include Prolog comments (\`% ...\`) for explaining complex rules or sections if it aids human understanding, but the primary output should be code.
 7.  **Output Format:** Output ONLY the Prolog code. Do not include any other text, explanations outside of Prolog comments, or markdown formatting.
 `,
-  user: `DOMAIN: "{{domain}}"
+	user: `DOMAIN: "{{domain}}"
 INSTRUCTIONS: "{{instructions}}"
 
 Generate a Prolog ontology (a collection of facts and rules) based on the above domain and instructions.
