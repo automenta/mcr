@@ -360,7 +360,9 @@ class FileSessionStore extends ISessionStore {
 			);
 
 			const validSessions = sessionsData.filter(s => s !== null);
-			logger.debug(`[FileSessionStore] Listed ${validSessions.length} sessions.`);
+			logger.debug(
+				`[FileSessionStore] Listed ${validSessions.length} sessions.`
+			);
 			return validSessions;
 		} catch (error) {
 			logger.error(
@@ -372,4 +374,4 @@ class FileSessionStore extends ISessionStore {
 	}
 }
 
-	module.exports = FileSessionStore;
+module.exports = FileSessionStore;

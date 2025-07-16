@@ -34,4 +34,3 @@ vi.mock('react-dom/client', async importOriginal => {
 		})),
 	};
 });
-

@@ -1,0 +1,25 @@
+{
+	"name": "ui",
+	"version": "1.0.0",
+	"private": true,
+	"dependencies": {
+		"canvas": "^2.11.2",
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0",
+		"tsne-js": "^1.0.3"
+	},
+	"devDependencies": {
+		"@testing-library/jest-dom": "^6.4.2",
+		"@testing-library/react": "^15.0.2",
+		"@vitejs/plugin-react": "^4.2.1",
+		"jsdom": "^24.0.0",
+		"vite": "^5.2.8",
+		"vitest": "^1.4.0"
+	},
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build",
+		"serve": "vite preview",
+		"test": "vitest run"
+	}
+}

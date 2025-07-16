@@ -262,7 +262,9 @@ class InMemorySessionStore extends ISessionStore {
 			id: session.id,
 			createdAt: session.createdAt,
 		}));
-		logger.debug(`[InMemorySessionStore] Listed ${sessionList.length} sessions.`);
+		logger.debug(
+			`[InMemorySessionStore] Listed ${sessionList.length} sessions.`
+		);
 		return Promise.resolve(sessionList);
 	}
 }
@@ -273,4 +275,4 @@ class InMemorySessionStore extends ISessionStore {
 // that has a similar API, we can export an instance. This will need to be updated.
 // module.exports = new InMemorySessionStore();
 // Better: export the class itself so it can be instantiated by a factory/manager
-	module.exports = InMemorySessionStore;
+module.exports = InMemorySessionStore;

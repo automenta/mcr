@@ -734,9 +734,6 @@ async function translateNLToRulesDirect(naturalLanguageText, strategyIdToUse) {
 			llm_model_id: config.llm[config.llm.provider]?.model || 'default',
 		};
 
-
-
-
 		const prologRules = await new StrategyExecutor(strategyJsonToUse).execute(
 			llmService,
 			reasonerService, // reasonerService might not be used by all assert strategies but executor expects it
@@ -984,7 +981,6 @@ async function explainQuery(sessionId, naturalLanguageQuestion) {
 		logger.info(
 			`[McrService] Executing strategy "${activeStrategyJson.name}" (ID: ${currentStrategyId}) for query translation in explain. OpID: ${operationId}.`
 		);
-
 
 		const prologQuery = await new StrategyExecutor(activeStrategyJson).execute(
 			llmService,

@@ -91,9 +91,10 @@ const GraphVisualizer = ({ data, layout = 'dagre' }) => {
 					nodeTypes={nodeTypes}
 					fitView
 				>
-				<Controls />
-				<Background />
-				</ReactFlow></div>
+					<Controls />
+					<Background />
+				</ReactFlow>
+			</div>
 		</ReactFlowProvider>
 	);
 };

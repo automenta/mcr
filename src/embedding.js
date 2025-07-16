@@ -83,7 +83,6 @@ class Embedding {
 		}
 
 		try {
-
 			return await this.embeddingProvider.embedQuery(text);
 		} catch (error) {
 			logger.error(
@@ -109,7 +108,6 @@ class Embedding {
 		}
 
 		try {
-
 			return await this.embeddingProvider.embedDocuments(texts);
 		} catch (error) {
 			logger.error(

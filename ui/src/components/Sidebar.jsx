@@ -137,7 +137,9 @@ const Sidebar = ({ sessionId, useReasoning }) => {
 					Evolution
 				</button>
 			</div>
-			<div style={{ marginTop: '1rem', flex: 2, height: '300px', width: '100%' }}>
+			<div
+				style={{ marginTop: '1rem', flex: 2, height: '300px', width: '100%' }}
+			>
 				<GraphVisualizer
 					data={graphData}
 					layout={layout}

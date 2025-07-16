@@ -2,39 +2,38 @@
 
 // Mock external modules first
 jest.mock('../src/config', () => ({
-    llm: {
-        provider: 'mockProvider',
-        mockProvider: { model: 'llamablit' },
-    },
-    sessionStore: { type: 'memory', filePath: './test-sessions' },
-    translationStrategy: 'SIR-R1',
-    kgEnabled: false,
-    debugLevel: 'none',
-    embeddingModel: 'mockEmbeddingModel',
-    ontology: {
-        directory: '/mock/ontology/dir',
-    },
+	llm: {
+		provider: 'mockProvider',
+		mockProvider: { model: 'llamablit' },
+	},
+	sessionStore: { type: 'memory', filePath: './test-sessions' },
+	translationStrategy: 'SIR-R1',
+	kgEnabled: false,
+	debugLevel: 'none',
+	embeddingModel: 'mockEmbeddingModel',
+	ontology: {
+		directory: '/mock/ontology/dir',
+	},
 }));
 
 // Mock external modules first
 
-
 jest.mock('../src/llmService');
 jest.mock('../src/reasonerService');
 jest.mock('../src/ontologyService', () => ({
-    getGlobalOntologyRulesAsString: jest.fn(),
-    listOntologies: jest.fn(),
+	getGlobalOntologyRulesAsString: jest.fn(),
+	listOntologies: jest.fn(),
 }));
 jest.mock('../src/strategyManager', () => ({
-    getStrategy: jest.fn(),
-    getDefaultStrategy: jest.fn(() => ({
-        id: 'default-strategy',
-        name: 'Default Mock Strategy',
-        nodes: [],
-        edges: [],
-    })),
-    getOperationalStrategyJson: jest.fn(),
-    getAvailableStrategies: jest.fn(),
+	getStrategy: jest.fn(),
+	getDefaultStrategy: jest.fn(() => ({
+		id: 'default-strategy',
+		name: 'Default Mock Strategy',
+		nodes: [],
+		edges: [],
+	})),
+	getOperationalStrategyJson: jest.fn(),
+	getAvailableStrategies: jest.fn(),
 }));
 jest.mock('../src/bridges/embeddingBridge');
 jest.mock('../src/evolution/keywordInputRouter.js');
@@ -42,33 +41,32 @@ jest.mock('../src/store/database');
 
 // Mock Session Stores explicitly to control their instances
 jest.mock('../src/store/InMemorySessionStore', () => {
-    const mockInstance = {
-        initialize: jest.fn().mockResolvedValue(undefined),
-        createSession: jest.fn(),
-        getSession: jest.fn(),
-        addFacts: jest.fn(),
-        getKnowledgeBase: jest.fn(),
-        getLexiconSummary: jest.fn(),
-        deleteSession: jest.fn(),
-        setKnowledgeBase: jest.fn(),
-    };
-    return jest.fn(() => mockInstance);
+	const mockInstance = {
+		initialize: jest.fn().mockResolvedValue(undefined),
+		createSession: jest.fn(),
+		getSession: jest.fn(),
+		addFacts: jest.fn(),
+		getKnowledgeBase: jest.fn(),
+		getLexiconSummary: jest.fn(),
+		deleteSession: jest.fn(),
+		setKnowledgeBase: jest.fn(),
+	};
+	return jest.fn(() => mockInstance);
 });
 
 jest.mock('../src/store/FileSessionStore', () => {
-    const mockInstance = {
-        initialize: jest.fn().mockResolvedValue(undefined),
-        createSession: jest.fn(),
-        getSession: jest.fn(),
-        addFacts: jest.fn(),
-        getKnowledgeBase: jest.fn(),
-        getLexiconSummary: jest.fn(),
-        deleteSession: jest.fn(),
-        setKnowledgeBase: jest.fn(),
-    };
-    return jest.fn(() => mockInstance);
+	const mockInstance = {
+		initialize: jest.fn().mockResolvedValue(undefined),
+		createSession: jest.fn(),
+		getSession: jest.fn(),
+		addFacts: jest.fn(),
+		getKnowledgeBase: jest.fn(),
+		getLexiconSummary: jest.fn(),
+		deleteSession: jest.fn(),
+		setKnowledgeBase: jest.fn(),
+	};
+	return jest.fn(() => mockInstance);
 });
-
 
 const { MCRError, ErrorCodes } = require('../src/errors');
 
@@ -125,7 +123,9 @@ describe('MCR Service (mcrService.js)', () => {
 		llmService.generate.mockResolvedValue({ text: 'mock llm response' });
 		reasonerService.executeQuery.mockResolvedValue({ results: [] });
 		reasonerService.validateKnowledgeBase.mockResolvedValue({ isValid: true });
-		ontologyService.getGlobalOntologyRulesAsString.mockResolvedValue('mock ontology rules');
+		ontologyService.getGlobalOntologyRulesAsString.mockResolvedValue(
+			'mock ontology rules'
+		);
 
 		strategyManager.getStrategy.mockImplementation(id => {
 			if (id === 'SIR-R1-Assert' || id === 'SIR-R1-Query' || id === 'SIR-R1') {
@@ -150,9 +150,6 @@ describe('MCR Service (mcrService.js)', () => {
 			{ id: 'SIR-R1-Query', name: 'SIR-R1-Query' },
 			{ id: 'SIR-R1', name: 'SIR-R1' },
 		]);
-
-		
-
 
 		const session = {
 			id: sessionId,

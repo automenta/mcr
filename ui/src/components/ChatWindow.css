@@ -2,6 +2,7 @@
 	display: flex;
 	flex-direction: column;
 	height: 100%;
+	background-color: black;
 }
 
 .chat-history {
@@ -16,6 +17,7 @@
 	border-radius: 10px;
 	margin-bottom: 0.5rem;
 	max-width: 80%;
+	color: black;
 }
 
 .chat-bubble.user {

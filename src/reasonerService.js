@@ -98,7 +98,7 @@ async function probabilisticDeduce(clauses, query, threshold, embeddingBridge) {
 async function guidedDeduce(query, llmService, embeddingBridge, session) {
 	const provider = getProvider();
 	const { knowledgeBase, config } = session;
-	const { ltnThreshold } = config.reasoner;
+	const { ltnThreshold } = config ? config.reasoner : 0;
 
 	// 1. Neural guide
 	const hypothesesResponse = await llmService.generate(

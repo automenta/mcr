@@ -77,12 +77,12 @@ async function executeQuery(knowledgeBase, query, options = {}) {
 	const session = prolog.create(1000);
 	const results = [];
 
-	logger.debug(`[PrologReasoner] Attempting to run query. Query: "${query}"`, {
-		options,
-	});
-	logger.debug(
-		`[PrologReasoner] Knowledge Base (first 500 chars):\n${knowledgeBase.substring(0, 500)}`
-	);
+	// logger.debug(`[PrologReasoner] Attempting to run query. Query: "${query}"`, {
+	// 	options,
+	// });
+	// logger.debug(
+	// 	`[PrologReasoner] Knowledge Base (first 500 chars):\n${knowledgeBase.substring(0, 500)}`
+	// );
 
 	return new Promise((resolve, reject) => {
 		try {
