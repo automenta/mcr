@@ -10,6 +10,7 @@ const crypto = require('crypto'); // For hashing strategy content
 // const ExampleBase = require('./demo/ExampleBase'); // Required for demo.run - Commented out as unused
 const { queryPerformanceResults } = require('./store/database'); // For DB access
 const { spawn } = require('child_process');
+const config = require('./config'); // Import config
 
 /**
  * @typedef {Object} ToolInput
@@ -61,6 +62,45 @@ function addOptimizerLog(type, message) {
  * All available MCR tools callable via the WebSocket API.
  */
 const mcrToolDefinitions = {
+  // Config Management Tools
+  'config.set': {
+    description: 'Sets a configuration value.',
+    handler: async input => {
+      const { key, value } = input;
+      if (!key) {
+        return {
+          success: false,
+          error: ErrorCodes.INVALID_INPUT,
+          message: 'key is required.',
+        };
+      }
+      try {
+        const keys = key.split('.');
+        let configObj = config;
+        for (let i = 0; i < keys.length - 1; i++) {
+          configObj = configObj[keys[i]];
+        }
+        configObj[keys[keys.length - 1]] = value;
+        return { success: true, message: `Configuration updated: ${key} = ${value}` };
+      } catch (error) {
+        return {
+          success: false,
+          error: ErrorCodes.CONFIG_SET_FAILED,
+          message: `Failed to set configuration for key: ${key}`,
+        };
+      }
+    },
+  },
+  // Context Management Tools
+  'context.getNL': {
+    description: 'Gets natural language text from the context.',
+    handler: async () => {
+      logger.info('[Tool:context.getNL] invoked');
+      // This is a placeholder. The actual implementation will depend on how
+      // the "context" is managed in the application.
+      return { success: true, data: 'This is a dummy NL response from context.getNL.' };
+    },
+  },
   // Session Management Tools
   'llm.passthrough': {
     description:
@@ -106,6 +146,22 @@ const mcrToolDefinitions = {
         );
         return mcrService.assertNLToSession(sessionId, naturalLanguageText);
       }
+    },
+  },
+  'session.chat': {
+    description: 'Handles a chat message in a session.',
+    handler: async input => {
+      const { sessionId, message } = input;
+      if (!sessionId || !message) {
+        return {
+          success: false,
+          error: ErrorCodes.INVALID_INPUT,
+          message: 'sessionId and message are required.',
+        };
+      }
+      logger.info(`[Tool:session.chat] invoked for session ${sessionId} with message: "${message}"`);
+      // This is a placeholder. A real implementation would involve the LLM.
+      return { success: true, data: { response: `You said: "${message}"` } };
     },
   },
   'session.create': {

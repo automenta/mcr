@@ -69,6 +69,12 @@ describe('MCR Service (mcrService.js)', () => {
       nodes: [],
       edges: [],
     }));
+    mcrService.getOperationalStrategyJson = jest.fn().mockResolvedValue({
+      id: 'mock-strategy',
+      name: 'Mock Strategy',
+      nodes: [],
+      edges: [],
+    });
     strategyManager.getDefaultStrategy.mockReturnValue({
       id: 'default-strategy',
       name: 'Default Mock Strategy',
@@ -76,6 +82,12 @@ describe('MCR Service (mcrService.js)', () => {
       edges: [],
     });
     strategyManager.getOperationalStrategyJson.mockResolvedValue({
+      id: 'mock-strategy',
+      name: 'Mock Strategy',
+      nodes: [],
+      edges: [],
+    });
+    mcrService.getOperationalStrategyJson = jest.fn().mockResolvedValue({
       id: 'mock-strategy',
       name: 'Mock Strategy',
       nodes: [],

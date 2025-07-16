@@ -45,20 +45,23 @@ describe('MCR Service Hybrid Functionality', () => {
     llmService.generate.mockResolvedValue({ text: 'mock llm response' });
     reasonerService.executeQuery.mockResolvedValue({ results: [] });
     reasonerService.validateKnowledgeBase.mockResolvedValue({ isValid: true });
-    mockSessionStoreInstance.getSession.mockImplementation(async sessionId => {
-      if (sessions[sessionId]) {
-        return {
-          ...sessions[sessionId],
-          embeddings: new Map(),
-          kbGraph: { addTriple: jest.fn() },
-        };
-      }
-      return {
-        id: sessionId,
-        facts: [],
-        embeddings: new Map(),
-        kbGraph: { addTriple: jest.fn() },
-      };
+describe('MCR Service Hybrid Functionality', () => {
+  let sessionId;
+  let mockSessionStoreInstance;
+
+  beforeEach(async () => {
+    sessionId = 'test-session-id';
+    mockSessionStoreInstance = new InMemorySessionStore();
+    mcrService.sessionStore = mockSessionStoreInstance;
+    await mcrService.createSession(sessionId);
+  });
+
+    mockSessionStoreInstance.addFacts.mockImplementation(async (id, newFacts) => {
+        if (sessions[id]) {
+            sessions[id].facts.push(...newFacts);
+            return true;
+        }
+        return false;
     });
     mockSessionStoreInstance.getKnowledgeBase.mockResolvedValue('');
     mockSessionStoreInstance.getLexiconSummary.mockResolvedValue(
