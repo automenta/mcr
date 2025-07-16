@@ -1,0 +1,41 @@
+body {
+    font-family: sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+header {
+    background-color: #333;
+    color: white;
+    padding: 1rem;
+    text-align: center;
+}
+
+main {
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.container {
+    display: flex;
+    height: 100%;
+}
+
+.left-panel {
+    flex: 1;
+    padding: 1rem;
+    overflow-y: auto;
+    border-right: 1px solid #ccc;
+}
+
+.right-panel {
+    flex: 1;
+    padding: 1rem;
+    overflow-y: auto;
+}
