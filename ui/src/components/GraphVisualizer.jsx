@@ -93,7 +93,7 @@ const GraphVisualizer = ({ data, layout = 'dagre' }) => {
 				>
 				<Controls />
 				<Background />
-			</ReactFlow>
+				</ReactFlow></div>
 		</ReactFlowProvider>
 	);
 };
