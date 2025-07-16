@@ -20,10 +20,7 @@ class ApiService {
 		return `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 	}
 
-	connect(
-		url = window.MCR_WEBSOCKET_URL ||
-		`ws://${window.location.hostname}:8081/ws`
-	) {
+	connect(url = window.MCR_WEBSOCKET_URL || 'ws://localhost:8081/ws') {
 		if (this.connectPromise) {
 			logger.debug(
 				'[ApiService] Connection attempt already in progress, returning existing promise.'
