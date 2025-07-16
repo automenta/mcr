@@ -68,19 +68,18 @@ class ReplComponent extends HTMLElement {
         this.clearButton.addEventListener('click', this.clearRepl.bind(this));
     }
 
-    connectedCallback() {
-        WebSocketService.connect()
-            .then(() => {
-                this.addMessage('System', 'Connected to server.');
-                WebSocketService.sendMessage('session.create', {}, (response) => {
-                    this.sessionId = response.payload.data.id;
-                    this.addMessage('System', `Session created: ${this.sessionId}`);
-                });
-            })
-            .catch(err => {
-                this.addMessage('System', 'Failed to connect to server.');
-                console.error(err);
+    async connectedCallback() {
+        try {
+            await WebSocketService.connect();
+            this.addMessage('System', 'Connected to server.');
+            WebSocketService.sendMessage('session.create', {}, (response) => {
+                this.sessionId = response.payload.data.id;
+                this.addMessage('System', `Session created: ${this.sessionId}`);
             });
+        } catch (err) {
+            this.addMessage('System', 'Failed to connect to server.');
+            console.error(err);
+        }
     }
 
     handleKeydown(e) {
@@ -140,7 +139,11 @@ class ReplComponent extends HTMLElement {
                 }
             }));
         } else {
-            this.addMessage('System', `Error: ${payload.error} - ${payload.details}`);
+            let errorMessage = `Error: ${payload.error}`;
+            if (payload.details) {
+                errorMessage += ` - ${payload.details}`;
+            }
+            this.addMessage('System', errorMessage);
         }
     }
 
