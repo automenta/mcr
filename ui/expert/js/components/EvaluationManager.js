@@ -27,6 +27,11 @@ class EvaluationManager extends HTMLElement {
     runEvaluation() {
         WebSocketService.runEvaluation((response) => {
             console.log('Evaluation result:', response);
+            document.dispatchEvent(new CustomEvent('evaluation-results-updated', {
+                detail: {
+                    results: response.payload.data
+                }
+            }));
         });
     }
 }
