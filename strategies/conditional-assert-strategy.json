@@ -1,77 +1,77 @@
 {
-  "id": "Conditional-SIR-Assert",
-  "name": "Conditional SIR Assertion Strategy",
-  "description": "Demonstrates a conditional router. Converts NL to SIR, checks for a hypothetical 'error' property in SIR, retries LLM if error exists, then SIR to Prolog.",
-  "result_variable": "prolog_clauses",
-  "nodes": [
-    {
-      "id": "step1_nl_to_sir_llm",
-      "type": "LLM_Call",
-      "prompt_template_name": "NL_TO_SIR_ASSERT",
-      "model": "{{llm_model_id}}",
-      "output_variable": "sir_json_string"
-    },
-    {
-      "id": "step2_parse_sir_json",
-      "type": "Parse_JSON",
-      "input_variable": "sir_json_string",
-      "output_variable": "sir_json_object"
-    },
-    {
-      "id": "step3_check_sir_validity",
-      "type": "Conditional_Router",
-      "input_variable": "sir_json_object",
-      "branches": [
-        {
-          "condition": "property_exists",
-          "property": "error_flag",
-          "target": "step4_retry_nl_to_sir_llm"
-        },
-        {
-          "condition": "default",
-          "target": "step5_sir_to_prolog"
-        }
-      ]
-    },
-    {
-      "id": "step4_retry_nl_to_sir_llm",
-      "type": "LLM_Call",
-      "prompt_text": {
-        "system": "You are an assistant that corrects structured data. The user will provide natural language and a previous, potentially flawed, JSON output. Your task is to regenerate the JSON based on the NL, attempting to fix any errors from the previous attempt. Output only the corrected JSON object in a ```json ... ``` block.",
-        "user": "Original Input: {{naturalLanguageText}}\nPrevious JSON with errors: {{sir_json_string}}\nPlease regenerate the SIR JSON, ensuring it is valid and accurately represents the natural language."
-      },
-      "model": "{{llm_model_id}}",
-      "output_variable": "sir_json_string_corrected"
-    },
-    {
-      "id": "step4a_parse_corrected_sir",
-      "type": "Parse_JSON",
-      "input_variable": "sir_json_string_corrected",
-      "output_variable": "sir_json_object"
-    },
-    {
-      "id": "step5_sir_to_prolog",
-      "type": "SIR_To_Prolog",
-      "input_variable": "sir_json_object",
-      "output_variable": "prolog_clauses"
-    }
-  ],
-  "edges": [
-    {
-      "from": "step1_nl_to_sir_llm",
-      "to": "step2_parse_sir_json"
-    },
-    {
-      "from": "step2_parse_sir_json",
-      "to": "step3_check_sir_validity"
-    },
-    {
-      "from": "step4_retry_nl_to_sir_llm",
-      "to": "step4a_parse_corrected_sir"
-    },
-    {
-      "from": "step4a_parse_corrected_sir",
-      "to": "step5_sir_to_prolog"
-    }
-  ]
+	"id": "Conditional-SIR-Assert",
+	"name": "Conditional SIR Assertion Strategy",
+	"description": "Demonstrates a conditional router. Converts NL to SIR, checks for a hypothetical 'error' property in SIR, retries LLM if error exists, then SIR to Prolog.",
+	"result_variable": "prolog_clauses",
+	"nodes": [
+		{
+			"id": "step1_nl_to_sir_llm",
+			"type": "LLM_Call",
+			"prompt_template_name": "NL_TO_SIR_ASSERT",
+			"model": "{{llm_model_id}}",
+			"output_variable": "sir_json_string"
+		},
+		{
+			"id": "step2_parse_sir_json",
+			"type": "Parse_JSON",
+			"input_variable": "sir_json_string",
+			"output_variable": "sir_json_object"
+		},
+		{
+			"id": "step3_check_sir_validity",
+			"type": "Conditional_Router",
+			"input_variable": "sir_json_object",
+			"branches": [
+				{
+					"condition": "property_exists",
+					"property": "error_flag",
+					"target": "step4_retry_nl_to_sir_llm"
+				},
+				{
+					"condition": "default",
+					"target": "step5_sir_to_prolog"
+				}
+			]
+		},
+		{
+			"id": "step4_retry_nl_to_sir_llm",
+			"type": "LLM_Call",
+			"prompt_text": {
+				"system": "You are an assistant that corrects structured data. The user will provide natural language and a previous, potentially flawed, JSON output. Your task is to regenerate the JSON based on the NL, attempting to fix any errors from the previous attempt. Output only the corrected JSON object in a ```json ... ``` block.",
+				"user": "Original Input: {{naturalLanguageText}}\nPrevious JSON with errors: {{sir_json_string}}\nPlease regenerate the SIR JSON, ensuring it is valid and accurately represents the natural language."
+			},
+			"model": "{{llm_model_id}}",
+			"output_variable": "sir_json_string_corrected"
+		},
+		{
+			"id": "step4a_parse_corrected_sir",
+			"type": "Parse_JSON",
+			"input_variable": "sir_json_string_corrected",
+			"output_variable": "sir_json_object"
+		},
+		{
+			"id": "step5_sir_to_prolog",
+			"type": "SIR_To_Prolog",
+			"input_variable": "sir_json_object",
+			"output_variable": "prolog_clauses"
+		}
+	],
+	"edges": [
+		{
+			"from": "step1_nl_to_sir_llm",
+			"to": "step2_parse_sir_json"
+		},
+		{
+			"from": "step2_parse_sir_json",
+			"to": "step3_check_sir_validity"
+		},
+		{
+			"from": "step4_retry_nl_to_sir_llm",
+			"to": "step4a_parse_corrected_sir"
+		},
+		{
+			"from": "step4a_parse_corrected_sir",
+			"to": "step5_sir_to_prolog"
+		}
+	]
 }

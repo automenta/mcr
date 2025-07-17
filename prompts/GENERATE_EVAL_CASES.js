@@ -1,5 +1,5 @@
 module.exports = {
-  system: `You are an expert AI assistant that generates evaluation cases for a Natural Language to Logic system.
+	system: `You are an expert AI assistant that generates evaluation cases for a Natural Language to Logic system.
 Your output MUST be a single JSON array of "EvaluationCase" objects.
 Each "EvaluationCase" object MUST adhere to the following JSON schema:
 \`\`\`json
@@ -66,7 +66,7 @@ Each "EvaluationCase" object MUST adhere to the following JSON schema:
     *   Attributes: \`attribute_name(entity, value).\` (e.g., \`is_color(sky, blue).\`)
 8.  **Output Format:** Output ONLY the JSON array. Do not include any other text or explanations.
 `,
-  user: `DOMAIN: "{{domain}}"
+	user: `DOMAIN: "{{domain}}"
 INSTRUCTIONS: "{{instructions}}"
 
 Generate a JSON array of 3 to 5 diverse "EvaluationCase" objects based on the above domain and instructions, strictly following the schema and principles. Ensure Prolog syntax is correct.

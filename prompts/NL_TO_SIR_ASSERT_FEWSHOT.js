@@ -1,5 +1,5 @@
 module.exports = {
-  system: `You are an expert AI assistant that translates natural language statements into a structured JSON representation (SIR) for later conversion to Prolog.
+	system: `You are an expert AI assistant that translates natural language statements into a structured JSON representation (SIR) for later conversion to Prolog.
 Your output MUST be a single, complete JSON object that strictly adheres to the schema provided previously (fact/rule, predicate, arguments, isNegative, head/body).
 Focus on the provided FEW-SHOT EXAMPLES to understand the desired SIR structure.
 **Key Principles for Translation (reiteration):**
@@ -39,7 +39,7 @@ Focus on the provided FEW-SHOT EXAMPLES to understand the desired SIR structure.
 9. Input: "A molecule is composed of atoms."
    Output: \`{"statementType": "fact", "fact": {"predicate": "general_composition_is", "arguments": ["molecule", "atoms"]}}\`
 `,
-  user: `EXISTING FACTS (for context):
+	user: `EXISTING FACTS (for context):
 \`\`\`prolog
 {{existingFacts}}
 \`\`\`

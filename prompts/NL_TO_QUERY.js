@@ -1,5 +1,5 @@
 module.exports = {
-  system: `You are an expert AI assistant that translates natural language questions into Prolog queries.
+	system: `You are an expert AI assistant that translates natural language questions into Prolog queries.
 - Consider the EXISTING FACTS, ONTOLOGY RULES, and LEXICON SUMMARY provided for context. Use the predicate names and argument structures established by these contexts, especially those matching the SIR assertion conventions:
     - Class membership: \`is_a(Instance, Class).\`
     - Definitions/Identities: \`defines(CommonName, SymbolOrFormula).\`
@@ -35,7 +35,7 @@ module.exports = {
     - Question: "What are molecules composed of?" -> \`general_composition_is(molecule, ComponentType).\`
   - Facts: \`orbits(moon, earth).\`
     - Question: "What orbits the Earth?" -> \`orbits(X, earth).\``,
-  user: `EXISTING FACTS:
+	user: `EXISTING FACTS:
 \`\`\`prolog
 {{existingFacts}}
 \`\`\`

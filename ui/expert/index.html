@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>MCR Expert UI</title>
+		<link rel="icon" href="favicon.ico" type="image/svg+xml" />
+		<link rel="stylesheet" href="../shared/style.css" />
+		<link rel="stylesheet" href="style.css" />
+		<link rel="stylesheet" href="css/highlight.min.css" />
+	</head>
+	<body>
+		<div id="app">
+			<main>
+				<div class="tab-bar">
+					<button class="tab-button active" data-tab="interactive-session">
+						Interactive Session
+					</button>
+					<button class="tab-button" data-tab="system-analysis">
+						System Analysis
+					</button>
+					<button class="tab-button" data-tab="settings">Settings</button>
+				</div>
+				<div id="interactive-session" class="tab-panel active">
+					<div class="container">
+						<div class="left-panel">
+							<repl-component></repl-component>
+							<ontology-manager></ontology-manager>
+						</div>
+						<div class="right-panel">
+							<system-state></system-state>
+							<graph-visualizer></graph-visualizer>
+						</div>
+					</div>
+				</div>
+				<div id="system-analysis" class="tab-panel">
+					<div class="container">
+						<div class="left-panel">
+							<strategy-manager></strategy-manager>
+							<evaluation-manager></evaluation-manager>
+						</div>
+						<div class="right-panel">
+							<evaluation-results></evaluation-results>
+						</div>
+					</div>
+				</div>
+				<div id="settings" class="tab-panel">
+					<!-- Settings components will go here -->
+				</div>
+			</main>
+		</div>
+		<script src="js/highlight.min.js"></script>
+		<script src="js/vis-network.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+		<script type="module" src="../shared/main.js"></script>
+		<script type="module" src="../shared/components/Panel.js"></script>
+		<script type="module" src="../shared/components/Repl.js"></script>
+		<script type="module" src="../shared/components/SystemState.js"></script>
+		<script type="module" src="js/main.js"></script>
+		<script type="module" src="js/components/OntologyManager.js"></script>
+		<script type="module" src="js/components/StrategyManager.js"></script>
+		<script type="module" src="js/components/EvaluationManager.js"></script>
+		<script type="module" src="js/components/EvaluationResults.js"></script>
+		<script type="module" src="js/components/GraphVisualizer.js"></script>
+	</body>
+</html>
