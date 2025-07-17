@@ -37,8 +37,16 @@ function formatAnswer(answer) {
  * @returns {object|null} A simplified, serializable representation of the trace.
  */
 function formatTrace(termNode, session) {
-	if (!termNode) {
-		return null;
+	if (!termNode || !termNode.goal) {
+		// If termNode or its goal is null/undefined, it might be an issue with the trace tree structure.
+		// Log this occurrence and return a placeholder or null.
+		logger.warn(
+			'[PrologReasoner] formatTrace encountered a null or invalid termNode/goal.'
+		);
+		return {
+			goal: 'invalid_node',
+			children: [],
+		};
 	}
 
 	const goal = termNode.goal;
