@@ -9,7 +9,6 @@ const logger = require('./util/logger');
  */
 
 /**
- * @interface IEmbeddingService
  * @async
  * @function getEmbedding
  * @param {string} text - The text to embed.
