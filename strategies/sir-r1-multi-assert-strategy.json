@@ -1,0 +1,37 @@
+{
+	"id": "SIR-R1-Multi-Assert",
+	"name": "SIR-R1 Multi-Assertion Strategy",
+	"description": "A robust, multi-stage strategy that uses a Structured Intermediate Representation (SIR) to assert facts and rules. Converts Natural Language to potentially multiple SIR objects, then to Prolog.",
+	"result_variable": "prolog_clauses",
+	"nodes": [
+		{
+			"id": "step1_nl_to_sir_llm",
+			"type": "LLM_Call",
+			"prompt_template_name": "NL_TO_SIR_ASSERT_MULTI",
+			"model": "{{llm_model_id}}",
+			"output_variable": "sir_json_string"
+		},
+		{
+			"id": "step2_parse_sir_json",
+			"type": "Parse_JSON",
+			"input_variable": "sir_json_string",
+			"output_variable": "sir_json_object"
+		},
+		{
+			"id": "step3_sir_to_prolog",
+			"type": "SIR_To_Prolog",
+			"input_variable": "sir_json_object",
+			"output_variable": "prolog_clauses"
+		}
+	],
+	"edges": [
+		{
+			"from": "step1_nl_to_sir_llm",
+			"to": "step2_parse_sir_json"
+		},
+		{
+			"from": "step2_parse_sir_json",
+			"to": "step3_sir_to_prolog"
+		}
+	]
+}

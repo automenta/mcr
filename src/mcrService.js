@@ -65,7 +65,11 @@ try {
 
 let baseStrategyId = config.translationStrategy;
 
-async function getOperationalStrategyJson(operationType, naturalLanguageText) {
+async function getOperationalStrategyJson(
+	operationType,
+	naturalLanguageText,
+	multi = true
+) {
 	let strategyJson = null;
 	const llmModelId = config.llm[config.llm.provider]?.model || 'default';
 
@@ -99,7 +103,11 @@ async function getOperationalStrategyJson(operationType, naturalLanguageText) {
 
 	// 2. Fallback to configured strategy if router doesn't provide one
 	if (!strategyJson) {
-		const operationSuffix = operationType === 'Assert' ? '-Assert' : '-Query';
+		let operationSuffix = operationType === 'Assert' ? '-Assert' : '-Query';
+		if (operationType === 'Assert' && multi) {
+			operationSuffix = '-Multi-Assert';
+		}
+
 		const operationalStrategyId = `${baseStrategyId}${operationSuffix}`;
 		strategyJson = strategyManager.getStrategy(operationalStrategyId);
 		if (strategyJson) {
@@ -318,11 +326,16 @@ async function _refineLoop(operation, initialInput, context, maxIter = 3) {
 	};
 }
 
-async function assertNLToSession(sessionId, naturalLanguageText, options = {}) {
-	const { useLoops = true } = options;
+async function assertNLToSession(
+	sessionId,
+	naturalLanguageText,
+	options = {}
+) {
+	const { useLoops = true, multi = true } = options;
 	const activeStrategyJson = await getOperationalStrategyJson(
 		'Assert',
-		naturalLanguageText
+		naturalLanguageText,
+		multi
 	);
 	if (!activeStrategyJson) {
 		throw new MCRError(
