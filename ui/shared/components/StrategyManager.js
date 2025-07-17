@@ -1,4 +1,4 @@
-import WebSocketService from '../../../old/WebSocketService.js';
+import WebSocketService from '../services/WebSocketService.js';
 
 class StrategyManager extends HTMLElement {
 	constructor() {
