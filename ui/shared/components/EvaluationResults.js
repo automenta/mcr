@@ -1,3 +1,5 @@
+import 'https://cdn.jsdelivr.net/npm/chart.js';
+
 class EvaluationResults extends HTMLElement {
 	constructor() {
 		super();
@@ -52,6 +54,13 @@ class EvaluationResults extends HTMLElement {
 				],
 			},
 			options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Evaluation Metrics'
+                    }
+                },
 				scales: {
 					y: {
 						beginAtZero: true,

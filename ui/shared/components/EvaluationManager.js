@@ -1,4 +1,4 @@
-import WebSocketService from '../../../old/WebSocketService.js';
+import WebSocketService from '../services/WebSocketService.js';
 
 class EvaluationManager extends HTMLElement {
 	constructor() {
@@ -25,6 +25,9 @@ class EvaluationManager extends HTMLElement {
 	}
 
 	runEvaluation() {
+        this.button.disabled = true;
+        this.button.textContent = 'Running...';
+
 		WebSocketService.runEvaluation(response => {
 			console.log('Evaluation result:', response);
 			document.dispatchEvent(
@@ -34,6 +37,8 @@ class EvaluationManager extends HTMLElement {
 					},
 				})
 			);
+            this.button.disabled = false;
+            this.button.textContent = 'Run Evaluation';
 		});
 	}
 }
