@@ -47,23 +47,6 @@ body {
 	height: 100vh;
 }
 
-header {
-	background-color: var(--header-background-color);
-	border-bottom: 1px solid var(--border-color);
-	padding: 1rem 2rem;
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	box-shadow: 0 2px 4px var(--shadow-color), 0 1px 2px var(--shadow-color);
-	z-index: 10;
-}
-
-h1 {
-	margin: 0;
-	font-size: 1.5rem;
-	font-weight: 600;
-	color: var(--primary-color);
-}
 
 main {
 	display: flex;
@@ -212,30 +195,25 @@ repl-component .input-container button:hover {
 	}
 }
 
-/* Expert mode */
-.expert-only {
-	display: none;
-}
 
-.expert-mode .expert-only {
-	display: block;
-}
-
-.expert-mode-switch {
+#theme-switcher {
 	display: flex;
 	align-items: center;
-	gap: 0.5rem;
 }
 
-.expert-mode-switch label {
-	font-weight: 500;
+#theme-switcher button {
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 0.5rem;
+	color: var(--text-color);
 }
 
-footer {
-	background-color: var(--card-background-color);
-	border-top: 1px solid var(--border-color);
-	padding: 1rem 2rem;
-	text-align: center;
-	font-size: 0.9rem;
-	color: #6c757d;
+#theme-switcher button:hover {
+	color: var(--primary-color);
+}
+
+#theme-switcher button svg {
+	width: 1.25rem;
+	height: 1.25rem;
 }
