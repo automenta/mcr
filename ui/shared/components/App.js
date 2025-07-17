@@ -19,11 +19,17 @@ class App extends HTMLElement {
 			<div id="app">
 				<header>
 					<h1>MCR Interface</h1>
-					<button id="expert-mode-toggle">Toggle Expert Mode</button>
+					<div>
+						<button id="dark-mode-toggle">Toggle Dark Mode</button>
+						<div class="expert-mode-switch">
+							<label for="expert-mode-checkbox">Expert Mode</label>
+							<input type="checkbox" id="expert-mode-checkbox" />
+						</div>
+					</div>
 				</header>
 				<main>
-					<div class="main-layout">
-						${this.renderTabBar()}
+					${this.renderTabBar()}
+					<div class="main-content">
 						${this.renderTabPanels()}
 					</div>
 				</main>
@@ -100,8 +106,12 @@ class App extends HTMLElement {
 	 */
 	attachEventListeners() {
 		this.shadowRoot
-			.querySelector('#expert-mode-toggle')
-			.addEventListener('click', this.toggleExpertMode.bind(this));
+			.querySelector('#dark-mode-toggle')
+			.addEventListener('click', this.toggleDarkMode.bind(this));
+
+		this.shadowRoot
+			.querySelector('#expert-mode-checkbox')
+			.addEventListener('change', this.toggleExpertMode.bind(this));
 
 		this.shadowRoot.querySelectorAll('.tab-button').forEach(button => {
 			button.addEventListener('click', () => this.handleTabClick(button));
@@ -109,11 +119,18 @@ class App extends HTMLElement {
 	}
 
 	/**
+	 * Toggles the dark mode.
+	 */
+	toggleDarkMode() {
+		this.shadowRoot.querySelector('#app').classList.toggle('dark-mode');
+	}
+
+	/**
 	 * Toggles the expert mode.
 	 */
-	toggleExpertMode() {
-		this.isExpertMode = !this.isExpertMode;
-		this.shadowRoot.querySelector('#app').classList.toggle('expert-mode');
+	toggleExpertMode(event) {
+		this.isExpertMode = event.target.checked;
+		this.shadowRoot.querySelector('#app').classList.toggle('expert-mode', this.isExpertMode);
 	}
 
 	/**
