@@ -22,8 +22,10 @@ class App extends HTMLElement {
 					<button id="expert-mode-toggle">Toggle Expert Mode</button>
 				</header>
 				<main>
-					${this.renderTabBar()}
-					${this.renderTabPanels()}
+					<div class="main-layout">
+						${this.renderTabBar()}
+						${this.renderTabPanels()}
+					</div>
 				</main>
 				<footer>
 					<p>MCR - Multi-strategy Cognitive Reasoning Engine</p>
@@ -38,7 +40,7 @@ class App extends HTMLElement {
 	 */
 	renderTabBar() {
 		return `
-			<div class="tab-bar expert-only">
+			<div class="tab-bar">
 				<button class="tab-button active" data-tab="interactive-session">
 					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1.323l3.954 1.582a1 1 0 01.546.922V14.5a1 1 0 01-1.546.833l-3.954-2.372A1 1 0 0110 12.177V18a1 1 0 01-2 0v-5.823a1 1 0 01.454-.833l3.954-2.372L8.454 7.39A1 1 0 018 6.568V5a1 1 0 011-1h1z" clip-rule="evenodd" /></svg>
 					Interactive Session
@@ -84,7 +86,7 @@ class App extends HTMLElement {
 					</div>
 				</div>
 			</div>
-			<div id="settings" class="tab-panel expert-only">
+			<div id="settings" class="tab-panel">
 				<div class="container">
 					<h2>Settings</h2>
 					<p>Configure application settings here.</p>
