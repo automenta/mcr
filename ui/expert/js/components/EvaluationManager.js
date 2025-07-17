@@ -1,4 +1,4 @@
-import WebSocketService from '../../../old/WebSocketService.js';
+import WebSocketService from '../../services/WebSocketService.js';
 
 class EvaluationManager extends HTMLElement {
 	constructor() {

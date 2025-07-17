@@ -37,31 +37,45 @@ function formatAnswer(answer) {
  * @returns {object|null} A simplified, serializable representation of the trace.
  */
 function formatTrace(termNode, session) {
-	if (!termNode || !termNode.goal) {
-		// If termNode or its goal is null/undefined, it might be an issue with the trace tree structure.
-		// Log this occurrence and return a placeholder or null.
+	if (!termNode) {
 		logger.warn(
-			'[PrologReasoner] formatTrace encountered a null or invalid termNode/goal.'
+			'[PrologReasoner] formatTrace encountered a null termNode.'
 		);
-		return {
-			goal: 'invalid_node',
-			children: [],
-		};
+		return null;
 	}
 
+	// Safely access goal and links
 	const goal = termNode.goal;
 	const links = termNode.links;
-	let formattedGoal = 'true';
+	let formattedGoal = 'true'; // Default for successful, non-binding goals
 
 	if (goal === null) {
-		formattedGoal = 'error';
+		// A null goal can indicate the end of a branch or a failure.
+		formattedGoal = 'fail';
 	} else if (prolog.type.is_goal(goal)) {
-		// Use session.format_term to correctly represent the goal with its variables
-		formattedGoal = session.format_term(goal, { session, links });
+		try {
+			// format_term can be complex, so wrap it in a try-catch
+			formattedGoal = session.format_term(goal, { session, links });
+		} catch (e) {
+			logger.error(
+				`[PrologReasoner] Error formatting term in formatTrace: ${e.message}`,
+				{ term: goal.toString() } // Log the term that caused the error
+			);
+			formattedGoal = 'error_formatting_term';
+		}
+	} else {
+		// Handle cases where the goal is not a standard goal object
+		formattedGoal = 'unknown_goal_type';
+		logger.warn(
+			'[PrologReasoner] formatTrace encountered a non-goal object:',
+			goal
+		);
 	}
 
-	const children =
-		termNode.children?.map(child => formatTrace(child, session)) || [];
+	// Safely map children
+	const children = Array.isArray(termNode.children)
+		? termNode.children.map(child => formatTrace(child, session))
+		: [];
 
 	return {
 		goal: formattedGoal,
