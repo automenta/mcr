@@ -4,49 +4,65 @@ class WebSocketService {
 		this.socket = null;
 		this.messageId = 0;
 		this.listeners = new Map();
+		this.messageQueue = [];
+		this.connectPromise = null;
 	}
 
 	connect() {
-		return new Promise((resolve, reject) => {
-			if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-				resolve();
-				return;
-			}
-			this.socket = new WebSocket(this.url);
-
-			this.socket.onopen = () => {
-				console.log('WebSocket connected');
-				resolve();
-			};
-
-			this.socket.onmessage = event => {
-				const message = JSON.parse(event.data);
-				if (this.listeners.has(message.type)) {
-					this.listeners
-						.get(message.type)
-						.forEach(callback => callback(message));
+		if (!this.connectPromise) {
+			this.connectPromise = new Promise((resolve, reject) => {
+				if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+					resolve();
+					return;
 				}
-				if (message.messageId && this.listeners.has(message.messageId)) {
-					this.listeners
-						.get(message.messageId)
-						.forEach(callback => callback(message));
-					this.listeners.delete(message.messageId);
-				}
-			};
+				this.socket = new WebSocket(this.url);
 
-			this.socket.onerror = error => {
-				console.error('WebSocket error:', error);
-				reject(error);
-			};
+				this.socket.onopen = () => {
+					console.log('WebSocket connected');
+					this.processMessageQueue();
+					resolve();
+				};
 
-			this.socket.onclose = () => {
-				console.log('WebSocket disconnected');
-				this.socket = null;
-			};
-		});
+				this.socket.onmessage = event => {
+					const message = JSON.parse(event.data);
+					if (this.listeners.has(message.type)) {
+						this.listeners
+							.get(message.type)
+							.forEach(callback => callback(message));
+					}
+					if (message.messageId && this.listeners.has(message.messageId)) {
+						this.listeners
+							.get(message.messageId)
+							.forEach(callback => callback(message));
+						this.listeners.delete(message.messageId);
+					}
+				};
+
+				this.socket.onerror = error => {
+					console.error('WebSocket error:', error);
+					reject(error);
+				};
+
+				this.socket.onclose = () => {
+					console.log('WebSocket disconnected');
+					this.socket = null;
+					this.connectPromise = null;
+				};
+			});
+		}
+		return this.connectPromise;
 	}
 
-	sendMessage(tool_name, input, onReply) {
+	processMessageQueue() {
+		while (this.messageQueue.length > 0) {
+			const { message, onReply } = this.messageQueue.shift();
+			this.sendMessage(message.payload.tool_name, message.payload.input, onReply);
+		}
+	}
+
+	async sendMessage(tool_name, input, onReply) {
+		await this.connect();
+
 		const messageId = `client-msg-${this.messageId++}`;
 		const message = {
 			type: 'tool_invoke',
@@ -56,10 +72,14 @@ class WebSocketService {
 				input,
 			},
 		};
-		this.socket.send(JSON.stringify(message));
 
-		if (onReply) {
-			this.once(messageId, onReply);
+		if (this.socket.readyState === WebSocket.OPEN) {
+			this.socket.send(JSON.stringify(message));
+			if (onReply) {
+				this.once(messageId, onReply);
+			}
+		} else {
+			this.messageQueue.push({ message, onReply });
 		}
 	}
 

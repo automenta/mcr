@@ -51,14 +51,13 @@ class OntologyManager extends HTMLElement {
 		this.updateButton.addEventListener('click', this.updateOntology.bind(this));
 	}
 
-	connectedCallback() {
-		WebSocketService.connect().then(() => {
-			this.listOntologies();
-		});
+	async connectedCallback() {
+		await WebSocketService.connect();
+		this.listOntologies();
 	}
 
-	listOntologies() {
-		WebSocketService.sendMessage('ontology.list', {}, response => {
+	async listOntologies() {
+		await WebSocketService.sendMessage('ontology.list', {}, response => {
 			if (response.payload.success) {
 				this.updateOntologyList(response.payload.data);
 			}

@@ -61,7 +61,7 @@ class ReplComponent extends HTMLElement {
 		try {
 			await WebSocketService.connect();
 			this.addMessage('System', 'Connected to server.');
-			WebSocketService.sendMessage('session.create', {}, response => {
+			await WebSocketService.sendMessage('session.create', {}, response => {
 				this.sessionId = response.payload.data.id;
 				this.addMessage('System', `Session created: ${this.sessionId}`);
 			});

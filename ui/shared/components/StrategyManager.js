@@ -79,14 +79,13 @@ class StrategyManager extends HTMLElement {
 		);
 	}
 
-	connectedCallback() {
-		WebSocketService.connect().then(() => {
-			this.listStrategies();
-		});
+	async connectedCallback() {
+		await WebSocketService.connect();
+		this.listStrategies();
 	}
 
-	listStrategies() {
-		WebSocketService.sendMessage('strategy.list', {}, response => {
+	async listStrategies() {
+		await WebSocketService.sendMessage('strategy.list', {}, response => {
 			if (response.payload.success) {
 				this.strategies = response.payload.data;
 				this.updateStrategies(this.strategies);
