@@ -1,10 +1,10 @@
 import WebSocketService from '../WebSocketService.js';
 
 class CurriculumExplorer extends HTMLElement {
-    constructor() {
-        super();
-        this.attachShadow({ mode: 'open' });
-        this.shadowRoot.innerHTML = `
+	constructor() {
+		super();
+		this.attachShadow({ mode: 'open' });
+		this.shadowRoot.innerHTML = `
             <style>
                 :host {
                     display: block;
@@ -39,81 +39,97 @@ class CurriculumExplorer extends HTMLElement {
             </div>
         `;
 
-        this.select = this.shadowRoot.querySelector('#curriculum-select');
-        this.createButton = this.shadowRoot.querySelector('#create-curriculum');
-        this.deleteButton = this.shadowRoot.querySelector('#delete-curriculum');
-        this.display = this.shadowRoot.querySelector('#curriculum-display');
-        this.updateButton = this.shadowRoot.querySelector('#update-curriculum');
+		this.select = this.shadowRoot.querySelector('#curriculum-select');
+		this.createButton = this.shadowRoot.querySelector('#create-curriculum');
+		this.deleteButton = this.shadowRoot.querySelector('#delete-curriculum');
+		this.display = this.shadowRoot.querySelector('#curriculum-display');
+		this.updateButton = this.shadowRoot.querySelector('#update-curriculum');
 
-        this.select.addEventListener('change', this.onCurriculumSelected.bind(this));
-        this.createButton.addEventListener('click', this.createCurriculum.bind(this));
-        this.deleteButton.addEventListener('click', this.deleteCurriculum.bind(this));
-        this.updateButton.addEventListener('click', this.updateCurriculum.bind(this));
-    }
+		this.select.addEventListener(
+			'change',
+			this.onCurriculumSelected.bind(this)
+		);
+		this.createButton.addEventListener(
+			'click',
+			this.createCurriculum.bind(this)
+		);
+		this.deleteButton.addEventListener(
+			'click',
+			this.deleteCurriculum.bind(this)
+		);
+		this.updateButton.addEventListener(
+			'click',
+			this.updateCurriculum.bind(this)
+		);
+	}
 
-    connectedCallback() {
-        WebSocketService.connect().then(() => {
-            this.listCurricula();
-        });
-    }
+	connectedCallback() {
+		WebSocketService.connect().then(() => {
+			this.listCurricula();
+		});
+	}
 
-    listCurricula() {
-        // This is a placeholder for the actual API call
-        const curricula = [
-            { id: 'evalCase1', name: 'Evaluation Case 1' },
-            { id: 'evalCase2', name: 'Evaluation Case 2' },
-        ];
-        this.updateCurriculumList(curricula);
-    }
+	listCurricula() {
+		// This is a placeholder for the actual API call
+		const curricula = [
+			{ id: 'evalCase1', name: 'Evaluation Case 1' },
+			{ id: 'evalCase2', name: 'Evaluation Case 2' },
+		];
+		this.updateCurriculumList(curricula);
+	}
 
-    updateCurriculumList(curricula) {
-        this.select.innerHTML = '<option value="">Select a curriculum</option>';
-        curricula.forEach(curriculum => {
-            const option = document.createElement('option');
-            option.value = curriculum.id;
-            option.textContent = curriculum.name;
-            this.select.appendChild(option);
-        });
-    }
+	updateCurriculumList(curricula) {
+		this.select.innerHTML = '<option value="">Select a curriculum</option>';
+		curricula.forEach(curriculum => {
+			const option = document.createElement('option');
+			option.value = curriculum.id;
+			option.textContent = curriculum.name;
+			this.select.appendChild(option);
+		});
+	}
 
-    onCurriculumSelected() {
-        const curriculumId = this.select.value;
-        if (!curriculumId) {
-            this.display.value = '';
-            return;
-        }
-        // This is a placeholder for the actual API call
-        this.display.value = `Content of ${curriculumId}`;
-    }
+	onCurriculumSelected() {
+		const curriculumId = this.select.value;
+		if (!curriculumId) {
+			this.display.value = '';
+			return;
+		}
+		// This is a placeholder for the actual API call
+		this.display.value = `Content of ${curriculumId}`;
+	}
 
-    createCurriculum() {
-        const curriculumName = prompt('Enter a name for the new curriculum:');
-        if (!curriculumName) return;
-        // This is a placeholder for the actual API call
-        alert(`Curriculum "${curriculumName}" created.`);
-        this.listCurricula();
-    }
+	createCurriculum() {
+		const curriculumName = prompt('Enter a name for the new curriculum:');
+		if (!curriculumName) return;
+		// This is a placeholder for the actual API call
+		alert(`Curriculum "${curriculumName}" created.`);
+		this.listCurricula();
+	}
 
-    deleteCurriculum() {
-        const curriculumId = this.select.value;
-        if (!curriculumId) return;
+	deleteCurriculum() {
+		const curriculumId = this.select.value;
+		if (!curriculumId) return;
 
-        if (confirm(`Are you sure you want to delete the curriculum "${curriculumId}"?`)) {
-            // This is a placeholder for the actual API call
-            alert(`Curriculum "${curriculumId}" deleted.`);
-            this.listCurricula();
-            this.display.value = '';
-        }
-    }
+		if (
+			confirm(
+				`Are you sure you want to delete the curriculum "${curriculumId}"?`
+			)
+		) {
+			// This is a placeholder for the actual API call
+			alert(`Curriculum "${curriculumId}" deleted.`);
+			this.listCurricula();
+			this.display.value = '';
+		}
+	}
 
-    updateCurriculum() {
-        const curriculumId = this.select.value;
-        if (!curriculumId) return;
+	updateCurriculum() {
+		const curriculumId = this.select.value;
+		if (!curriculumId) return;
 
-        const content = this.display.value;
-        // This is a placeholder for the actual API call
-        alert(`Curriculum "${curriculumId}" updated.`);
-    }
+		const content = this.display.value;
+		// This is a placeholder for the actual API call
+		alert(`Curriculum "${curriculumId}" updated.`);
+	}
 }
 
 customElements.define('curriculum-explorer', CurriculumExplorer);

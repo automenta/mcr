@@ -1,11 +1,11 @@
 import WebSocketService from '../../../src/WebSocketService.js';
 
 class StrategyManager extends HTMLElement {
-    constructor() {
-        super();
-        this.strategies = [];
-        this.attachShadow({ mode: 'open' });
-        this.shadowRoot.innerHTML = `
+	constructor() {
+		super();
+		this.strategies = [];
+		this.attachShadow({ mode: 'open' });
+		this.shadowRoot.innerHTML = `
             <style>
                 :host {
                     display: block;
@@ -48,92 +48,113 @@ class StrategyManager extends HTMLElement {
             </div>
         `;
 
-        this.select = this.shadowRoot.querySelector('select');
-        this.setActiveButton = this.shadowRoot.querySelector('#set-active-strategy');
-        this.viewDetailsButton = this.shadowRoot.querySelector('#view-strategy-details');
-        this.strategyDetails = this.shadowRoot.querySelector('#strategy-details');
-        this.startOptimizerButton = this.shadowRoot.querySelector('#start-optimizer');
-        this.stopOptimizerButton = this.shadowRoot.querySelector('#stop-optimizer');
+		this.select = this.shadowRoot.querySelector('select');
+		this.setActiveButton = this.shadowRoot.querySelector(
+			'#set-active-strategy'
+		);
+		this.viewDetailsButton = this.shadowRoot.querySelector(
+			'#view-strategy-details'
+		);
+		this.strategyDetails = this.shadowRoot.querySelector('#strategy-details');
+		this.startOptimizerButton =
+			this.shadowRoot.querySelector('#start-optimizer');
+		this.stopOptimizerButton = this.shadowRoot.querySelector('#stop-optimizer');
 
-        this.select.addEventListener('change', this.onStrategySelected.bind(this));
-        this.setActiveButton.addEventListener('click', this.setActiveStrategy.bind(this));
-        this.viewDetailsButton.addEventListener('click', this.viewStrategyDetails.bind(this));
-        this.startOptimizerButton.addEventListener('click', this.startOptimizer.bind(this));
-        this.stopOptimizerButton.addEventListener('click', this.stopOptimizer.bind(this));
-    }
+		this.select.addEventListener('change', this.onStrategySelected.bind(this));
+		this.setActiveButton.addEventListener(
+			'click',
+			this.setActiveStrategy.bind(this)
+		);
+		this.viewDetailsButton.addEventListener(
+			'click',
+			this.viewStrategyDetails.bind(this)
+		);
+		this.startOptimizerButton.addEventListener(
+			'click',
+			this.startOptimizer.bind(this)
+		);
+		this.stopOptimizerButton.addEventListener(
+			'click',
+			this.stopOptimizer.bind(this)
+		);
+	}
 
-    connectedCallback() {
-        WebSocketService.connect().then(() => {
-            this.listStrategies();
-        });
-    }
+	connectedCallback() {
+		WebSocketService.connect().then(() => {
+			this.listStrategies();
+		});
+	}
 
-    listStrategies() {
-        WebSocketService.sendMessage('strategy.list', {}, (response) => {
-            if (response.payload.success) {
-                this.strategies = response.payload.data;
-                this.updateStrategies(this.strategies);
-            }
-        });
-    }
+	listStrategies() {
+		WebSocketService.sendMessage('strategy.list', {}, response => {
+			if (response.payload.success) {
+				this.strategies = response.payload.data;
+				this.updateStrategies(this.strategies);
+			}
+		});
+	}
 
-    updateStrategies(strategies) {
-        this.select.innerHTML = '';
-        strategies.forEach(strategy => {
-            const option = document.createElement('option');
-            option.value = strategy.id;
-            option.textContent = strategy.name;
-            this.select.appendChild(option);
-        });
-    }
+	updateStrategies(strategies) {
+		this.select.innerHTML = '';
+		strategies.forEach(strategy => {
+			const option = document.createElement('option');
+			option.value = strategy.id;
+			option.textContent = strategy.name;
+			this.select.appendChild(option);
+		});
+	}
 
-    onStrategySelected() {
-        this.strategyDetails.style.display = 'none';
-    }
+	onStrategySelected() {
+		this.strategyDetails.style.display = 'none';
+	}
 
-    setActiveStrategy() {
-        const strategyId = this.select.value;
-        if (!strategyId) return;
+	setActiveStrategy() {
+		const strategyId = this.select.value;
+		if (!strategyId) return;
 
-        WebSocketService.sendMessage('strategy.setActive', { id: strategyId }, (response) => {
-            if (response.payload.success) {
-                alert('Active strategy set successfully.');
-            } else {
-                alert(`Error setting active strategy: ${response.payload.error}`);
-            }
-        });
-    }
+		WebSocketService.sendMessage(
+			'strategy.setActive',
+			{ id: strategyId },
+			response => {
+				if (response.payload.success) {
+					alert('Active strategy set successfully.');
+				} else {
+					alert(`Error setting active strategy: ${response.payload.error}`);
+				}
+			}
+		);
+	}
 
-    viewStrategyDetails() {
-        const strategyId = this.select.value;
-        if (!strategyId) return;
+	viewStrategyDetails() {
+		const strategyId = this.select.value;
+		if (!strategyId) return;
 
-        const strategy = this.strategies.find(s => s.id === strategyId);
-        if (strategy) {
-            this.strategyDetails.textContent = JSON.stringify(strategy, null, 2);
-            this.strategyDetails.style.display = 'block';
-        }
-    }
+		const strategy = this.strategies.find(s => s.id === strategyId);
+		if (strategy) {
+			this.strategyDetails.textContent = JSON.stringify(strategy, null, 2);
+			this.strategyDetails.style.display = 'block';
+		}
+	}
 
-    startOptimizer() {
-        WebSocketService.sendMessage('evolution.start', {}, (response) => {
-            if (response.payload.success) {
-                alert('Evolution optimizer started.');
-            } else {
-                alert(`Error starting optimizer: ${response.payload.error}`);
-            }
-        });
-    }
+	startOptimizer() {
+		WebSocketService.sendMessage('evolution.start', {}, response => {
+			if (response.payload.success) {
+				alert('Evolution optimizer started.');
+			} else {
+				alert(`Error starting optimizer: ${response.payload.error}`);
+			}
+		});
+	}
 
-    stopOptimizer() {
-        WebSocketService.sendMessage('evolution.stop', {}, (response) => {
-            if (response.payload.success) {
-                alert('Evolution optimizer stopped.');
-            } else {
-                alert(`Error stopping optimizer: ${response.payload.error}`);
-            }
-        });
-    }
+	stopOptimizer() {
+		WebSocketService.sendMessage('evolution.stop', {}, response => {
+			if (response.payload.success) {
+				alert('Evolution optimizer stopped.');
+			} else {
+				alert(`Error stopping optimizer: ${response.payload.error}`);
+			}
+		});
+	}
 }
 
 customElements.define('strategy-manager', StrategyManager);

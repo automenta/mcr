@@ -1,10 +1,10 @@
-import WebSocketService from '../WebSocketService.js';
+import WebSocketService from '../../../src/WebSocketService.js';
 
 class EvaluationManager extends HTMLElement {
-    constructor() {
-        super();
-        this.attachShadow({ mode: 'open' });
-        this.shadowRoot.innerHTML = `
+	constructor() {
+		super();
+		this.attachShadow({ mode: 'open' });
+		this.shadowRoot.innerHTML = `
             <style>
                 :host {
                     display: block;
@@ -20,20 +20,22 @@ class EvaluationManager extends HTMLElement {
             </div>
         `;
 
-        this.button = this.shadowRoot.querySelector('button');
-        this.button.addEventListener('click', this.runEvaluation.bind(this));
-    }
+		this.button = this.shadowRoot.querySelector('button');
+		this.button.addEventListener('click', this.runEvaluation.bind(this));
+	}
 
-    runEvaluation() {
-        WebSocketService.runEvaluation((response) => {
-            console.log('Evaluation result:', response);
-            document.dispatchEvent(new CustomEvent('evaluation-results-updated', {
-                detail: {
-                    results: response.payload.data
-                }
-            }));
-        });
-    }
+	runEvaluation() {
+		WebSocketService.runEvaluation(response => {
+			console.log('Evaluation result:', response);
+			document.dispatchEvent(
+				new CustomEvent('evaluation-results-updated', {
+					detail: {
+						results: response.payload.data,
+					},
+				})
+			);
+		});
+	}
 }
 
 customElements.define('evaluation-manager', EvaluationManager);
