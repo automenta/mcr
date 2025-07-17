@@ -76,7 +76,9 @@ class SystemState extends HTMLElement {
 				this.codeElement.textContent = this.knowledgeBase;
 			}
 		}
-		hljs.highlightElement(this.codeElement);
+		if (typeof hljs !== 'undefined') {
+			hljs.highlightElement(this.codeElement);
+		}
 	}
 }
 
