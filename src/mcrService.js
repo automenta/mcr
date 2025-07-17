@@ -326,11 +326,7 @@ async function _refineLoop(operation, initialInput, context, maxIter = 3) {
 	};
 }
 
-async function assertNLToSession(
-	sessionId,
-	naturalLanguageText,
-	options = {}
-) {
+async function assertNLToSession(sessionId, naturalLanguageText, options = {}) {
 	const { useLoops = true, multi = true } = options;
 	const activeStrategyJson = await getOperationalStrategyJson(
 		'Assert',
