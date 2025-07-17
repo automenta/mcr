@@ -1,0 +1,63 @@
+{
+	"id": "conditional-multi-assert-Query",
+	"name": "Conditional Multi-Assert Query Strategy",
+	"description": "A robust, multi-stage strategy that uses a Structured Intermediate Representation (SIR) to translate a natural language question into a Prolog query. It includes a conditional retry mechanism.",
+	"result_variable": "prolog_query",
+	"nodes": [
+		{
+			"id": "step1_nl_to_query_llm",
+			"type": "LLM_Call",
+			"prompt_template_name": "NL_TO_QUERY",
+			"model": "{{llm_model_id}}",
+			"output_variable": "raw_llm_query_output"
+		},
+		{
+			"id": "step2_check_query_validity",
+			"type": "Conditional_Router",
+			"input_variable": "raw_llm_query_output",
+			"branches": [
+				{
+					"condition": "property_exists",
+					"property": "error_flag",
+					"target": "step3_retry_nl_to_query_llm"
+				},
+				{
+					"condition": "default",
+					"target": "step4_extract_prolog_query"
+				}
+			]
+		},
+		{
+			"id": "step3_retry_nl_to_query_llm",
+			"type": "LLM_Call",
+			"prompt_text": {
+				"system": "You are an assistant that corrects structured data. The user will provide natural language and a previous, potentially flawed, JSON output. Your task is to regenerate the JSON based on the NL, attempting to fix any errors from the previous attempt. Output only the corrected JSON object in a ```json ... ``` block.",
+				"user": "Original Input: {{naturalLanguageText}}\nPrevious JSON with errors: {{raw_llm_query_output}}\nPlease regenerate the SIR JSON, ensuring it is valid and accurately represents the natural language."
+			},
+			"model": "{{llm_model_id}}",
+			"output_variable": "raw_llm_query_output_corrected"
+		},
+		{
+			"id": "step3a_parse_corrected_query",
+			"type": "Extract_Prolog_Query",
+			"input_variable": "raw_llm_query_output_corrected",
+			"output_variable": "prolog_query"
+		},
+		{
+			"id": "step4_extract_prolog_query",
+			"type": "Extract_Prolog_Query",
+			"input_variable": "raw_llm_query_output",
+			"output_variable": "prolog_query"
+		}
+	],
+	"edges": [
+		{
+			"from": "step1_nl_to_query_llm",
+			"to": "step2_check_query_validity"
+		},
+		{
+			"from": "step3_retry_nl_to_query_llm",
+			"to": "step3a_parse_corrected_query"
+		}
+	]
+}
