@@ -14,23 +14,42 @@
             <h1>MCR Expert Interface</h1>
         </header>
         <main>
-            <div class="container">
-                <div class="left-panel">
-                    <repl-component></repl-component>
-                    <ontology-manager></ontology-manager>
+            <div class="tab-bar">
+                <button class="tab-button active" data-tab="interactive-session">Interactive Session</button>
+                <button class="tab-button" data-tab="system-analysis">System Analysis</button>
+                <button class="tab-button" data-tab="settings">Settings</button>
+            </div>
+            <div id="interactive-session" class="tab-panel active">
+                <div class="container">
+                    <div class="left-panel">
+                        <repl-component></repl-component>
+                        <ontology-manager></ontology-manager>
+                    </div>
+                    <div class="right-panel">
+                        <system-state></system-state>
+                        <graph-visualizer></graph-visualizer>
+                    </div>
                 </div>
-                <div class="right-panel">
-                    <system-state></system-state>
-                    <strategy-manager></strategy-manager>
-                    <evaluation-manager></evaluation-manager>
-                    <evaluation-results></evaluation-results>
-                    <graph-visualizer></graph-visualizer>
+            </div>
+            <div id="system-analysis" class="tab-panel">
+                <div class="container">
+                    <div class="left-panel">
+                        <strategy-manager></strategy-manager>
+                        <evaluation-manager></evaluation-manager>
+                    </div>
+                    <div class="right-panel">
+                        <evaluation-results></evaluation-results>
+                    </div>
                 </div>
+            </div>
+            <div id="settings" class="tab-panel">
+                <!-- Settings components will go here -->
             </div>
         </main>
     </div>
     <script src="js/highlight.min.js"></script>
     <script src="js/vis-network.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module" src="js/main.js"></script>
 </body>
 </html>

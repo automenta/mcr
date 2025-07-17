@@ -52,11 +52,24 @@ class SystemState extends HTMLElement {
 
     render() {
         if (this.isRawVisible) {
-            this.codeElement.textContent = JSON.stringify(this.knowledgeBase, null, 2);
+            this.codeElement.textContent = this.knowledgeBase;
         } else {
-            // A more user-friendly, parsed view could be implemented here.
-            // For now, we'll just pretty-print the JSON.
-            this.codeElement.textContent = JSON.stringify(this.knowledgeBase, null, 2);
+            try {
+                const kb = JSON.parse(this.knowledgeBase);
+                let html = '<ul>';
+                for (const predicate in kb) {
+                    html += `<li><strong>${predicate}</strong></li>`;
+                    html += '<ul>';
+                    kb[predicate].forEach(args => {
+                        html += `<li>${predicate}(${args.join(', ')}).</li>`;
+                    });
+                    html += '</ul>';
+                }
+                html += '</ul>';
+                this.codeElement.innerHTML = html;
+            } catch (e) {
+                this.codeElement.textContent = this.knowledgeBase;
+            }
         }
         hljs.highlightElement(this.codeElement);
     }

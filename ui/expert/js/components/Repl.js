@@ -1,4 +1,4 @@
-import WebSocketService from '../WebSocketService.js';
+import WebSocketService from '../../../src/WebSocketService.js';
 
 class ReplComponent extends HTMLElement {
     constructor() {

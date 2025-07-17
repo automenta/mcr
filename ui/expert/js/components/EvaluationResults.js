@@ -11,31 +11,14 @@ class EvaluationResults extends HTMLElement {
                 h2 {
                     margin-top: 0;
                 }
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                }
-                th, td {
-                    border: 1px solid #ccc;
-                    padding: 0.5rem;
-                    text-align: left;
-                }
             </style>
             <div>
                 <h2>Evaluation Results</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Metric</th>
-                            <th>Value</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                </table>
+                <canvas id="results-chart"></canvas>
             </div>
         `;
-        this.tbody = this.shadowRoot.querySelector('tbody');
+        this.chartCanvas = this.shadowRoot.querySelector('#results-chart');
+        this.chart = null;
     }
 
     connectedCallback() {
@@ -44,21 +27,33 @@ class EvaluationResults extends HTMLElement {
 
     updateResults(event) {
         const results = event.detail.results;
-        this.tbody.innerHTML = '';
+        const labels = Object.keys(results);
+        const data = Object.values(results);
 
-        for (const metric in results) {
-            const row = document.createElement('tr');
-            const metricCell = document.createElement('td');
-            const valueCell = document.createElement('td');
-
-            metricCell.textContent = metric;
-            valueCell.textContent = results[metric];
-
-            row.appendChild(metricCell);
-            row.appendChild(valueCell);
-
-            this.tbody.appendChild(row);
+        if (this.chart) {
+            this.chart.destroy();
         }
+
+        this.chart = new Chart(this.chartCanvas, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Evaluation Metrics',
+                    data: data,
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
     }
 }
 

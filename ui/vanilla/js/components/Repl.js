@@ -1,4 +1,4 @@
-import WebSocketService from '../WebSocketService.js';
+import WebSocketService from '../../../src/WebSocketService.js';
 
 class ReplComponent extends HTMLElement {
     constructor() {
@@ -37,8 +37,16 @@ class ReplComponent extends HTMLElement {
                 button {
                     padding: 0.5rem 1rem;
                 }
+                .controls {
+                    display: flex;
+                    justify-content: flex-end;
+                    margin-bottom: 1rem;
+                }
             </style>
             <div class="repl-container">
+                <div class="controls">
+                    <button id="clear-repl">Clear</button>
+                </div>
                 <div class="messages"></div>
                 <div class="input-container">
                     <input type="text" placeholder="Enter your message...">
@@ -50,28 +58,47 @@ class ReplComponent extends HTMLElement {
         this.messagesContainer = this.shadowRoot.querySelector('.messages');
         this.input = this.shadowRoot.querySelector('input');
         this.button = this.shadowRoot.querySelector('button');
+        this.clearButton = this.shadowRoot.querySelector('#clear-repl');
+
+        this.history = [];
+        this.historyIndex = -1;
 
         this.button.addEventListener('click', this.sendMessage.bind(this));
-        this.input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                this.sendMessage();
-            }
-        });
+        this.input.addEventListener('keydown', this.handleKeydown.bind(this));
+        this.clearButton.addEventListener('click', this.clearRepl.bind(this));
     }
 
-    connectedCallback() {
-        WebSocketService.connect()
-            .then(() => {
-                this.addMessage('System', 'Connected to server.');
-                WebSocketService.sendMessage('session.create', {}, (response) => {
-                    this.sessionId = response.payload.data.id;
-                    this.addMessage('System', `Session created: ${this.sessionId}`);
-                });
-            })
-            .catch(err => {
-                this.addMessage('System', 'Failed to connect to server.');
-                console.error(err);
+    async connectedCallback() {
+        try {
+            await WebSocketService.connect();
+            this.addMessage('System', 'Connected to server.');
+            WebSocketService.sendMessage('session.create', {}, (response) => {
+                this.sessionId = response.payload.data.id;
+                this.addMessage('System', `Session created: ${this.sessionId}`);
             });
+        } catch (err) {
+            this.addMessage('System', 'Failed to connect to server.');
+            console.error(err);
+        }
+    }
+
+    handleKeydown(e) {
+        if (e.key === 'Enter') {
+            this.sendMessage();
+        } else if (e.key === 'ArrowUp') {
+            if (this.historyIndex > 0) {
+                this.historyIndex--;
+                this.input.value = this.history[this.historyIndex];
+            }
+        } else if (e.key === 'ArrowDown') {
+            if (this.historyIndex < this.history.length - 1) {
+                this.historyIndex++;
+                this.input.value = this.history[this.historyIndex];
+            } else {
+                this.historyIndex = this.history.length;
+                this.input.value = '';
+            }
+        }
     }
 
     sendMessage() {
@@ -79,12 +106,19 @@ class ReplComponent extends HTMLElement {
         if (!message) return;
 
         this.addMessage('User', message);
+        this.history.push(message);
+        this.historyIndex = this.history.length;
+
         WebSocketService.sendMessage('mcr.handle', {
             sessionId: this.sessionId,
             naturalLanguageText: message,
         }, this.handleResponse.bind(this));
 
         this.input.value = '';
+    }
+
+    clearRepl() {
+        this.messagesContainer.innerHTML = '';
     }
 
     handleResponse(response) {
@@ -105,7 +139,11 @@ class ReplComponent extends HTMLElement {
                 }
             }));
         } else {
-            this.addMessage('System', `Error: ${payload.error} - ${payload.details}`);
+            let errorMessage = `Error: ${payload.error}`;
+            if (payload.details) {
+                errorMessage += ` - ${payload.details}`;
+            }
+            this.addMessage('System', errorMessage);
         }
     }
 

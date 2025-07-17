@@ -37,41 +37,55 @@ class GraphVisualizer extends HTMLElement {
 
         const nodes = new vis.DataSet();
         const edges = new vis.DataSet();
+        const nodeSet = new Set();
 
-        const parsedKb = JSON.parse(knowledgeBase);
+        try {
+            const kb = JSON.parse(knowledgeBase);
 
-        if (parsedKb.nodes) {
-            nodes.add(parsedKb.nodes);
-        }
-
-        if (parsedKb.edges) {
-            edges.add(parsedKb.edges);
-        }
-
-        const data = { nodes, edges };
-        const options = {
-            nodes: {
-                shape: 'dot',
-                size: 16
-            },
-            physics: {
-                forceAtlas2Based: {
-                    gravitationalConstant: -26,
-                    centralGravity: 0.005,
-                    springLength: 230,
-                    springConstant: 0.18
-                },
-                maxVelocity: 146,
-                solver: 'forceAtlas2Based',
-                timestep: 0.35,
-                stabilization: { iterations: 150 }
+            for (const predicate in kb) {
+                kb[predicate].forEach(args => {
+                    if (args.length === 2) {
+                        const [from, to] = args;
+                        if (!nodeSet.has(from)) {
+                            nodes.add({ id: from, label: from });
+                            nodeSet.add(from);
+                        }
+                        if (!nodeSet.has(to)) {
+                            nodes.add({ id: to, label: to });
+                            nodeSet.add(to);
+                        }
+                        edges.add({ from, to, label: predicate });
+                    }
+                });
             }
-        };
 
-        if (!this.network) {
-            this.network = new vis.Network(this.container, data, options);
-        } else {
-            this.network.setData(data);
+            const data = { nodes, edges };
+            const options = {
+                nodes: {
+                    shape: 'dot',
+                    size: 16
+                },
+                physics: {
+                    forceAtlas2Based: {
+                        gravitationalConstant: -26,
+                        centralGravity: 0.005,
+                        springLength: 230,
+                        springConstant: 0.18
+                    },
+                    maxVelocity: 146,
+                    solver: 'forceAtlas2Based',
+                    timestep: 0.35,
+                    stabilization: { iterations: 150 }
+                }
+            };
+
+            if (!this.network) {
+                this.network = new vis.Network(this.container, data, options);
+            } else {
+                this.network.setData(data);
+            }
+        } catch (e) {
+            console.error('Failed to parse knowledge base for graph visualization', e);
         }
     }
 }
