@@ -60,7 +60,7 @@ const config = {
 	logLevel: process.env.LOG_LEVEL || 'info', // Ensure this is info
 	// Default translation strategy
 	translationStrategy:
-		process.env.MCR_TRANSLATION_STRATEGY || 'sir-r1-multi-assert',
+		process.env.MCR_TRANSLATION_STRATEGY || 'conditional-multi-assert',
 	// Debug level for API responses and potentially logs
 	// Options: 'none', 'basic', 'verbose'. Default: 'none' (most restrictive)
 	debugLevel: process.env.MCR_DEBUG_LEVEL || 'none',
