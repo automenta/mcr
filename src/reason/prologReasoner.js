@@ -102,9 +102,14 @@ async function executeQuery(knowledgeBase, query, options = {}) {
 	const results = [];
 
 	function getProofTrace() {
-		if (!trace) return null;
+		if (!trace) {
+			return null;
+		}
 		const tree = session.thread.get_tree();
-		return tree ? formatTrace(tree, session) : null;
+		if (!tree) {
+			return null;
+		}
+		return formatTrace(tree, session);
 	}
 
 	return new Promise((resolve, reject) => {
