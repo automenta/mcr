@@ -2,8 +2,7 @@
 const logger = require('./util/logger');
 const { ErrorCodes, ApiError } = require('./errors');
 const { v4: uuidv4 } = require('uuid');
-const mcrService = require('./mcrService');
-const mcrToolDefinitions = require('./tools')(mcrService, require('../src/config'));
+const mcrToolDefinitions = require('./tools');
 
 // Define the tools MCR will offer via MCP
 const mcrTools = [
@@ -201,122 +200,166 @@ const mcrTools = [
 ];
 
 
-async function routeMessage(socket, message, tools, mcrEngine) {
-    const { type, tool, payload, messageId } = message;
-    const correlationId = socket.correlationId;
+async function routeMessage(socket, message, mcrEngine) {
+	const { type, tool, payload, messageId } = message;
+	const correlationId = socket.correlationId;
 
-    logger.info(`[WS-API][${correlationId}] Routing message. Type: '${type}', Tool: '${tool}', MsgID: ${messageId}`);
+	logger.info(
+		`[WS-API][${correlationId}] Routing message. Type: '${type}', Tool: '${tool}', MsgID: ${messageId}`
+	);
 
-    try {
-        switch (type) {
-            case 'invoke':
-                let result;
-                const toolDefinition = tools[tool];
-                if (toolDefinition && typeof toolDefinition.handler === 'function') {
-                    logger.debug(`[WS-API][${correlationId}] Invoking tool: ${tool}`, { input: payload });
+	try {
+		switch (type) {
+			case 'invoke':
+				let result;
+				const tools = mcrToolDefinitions(mcrEngine, mcrEngine.config);
+				const toolDefinition = tools[tool];
 
-                    result = await toolDefinition.handler(payload || {});
+				if (toolDefinition && typeof toolDefinition.handler === 'function') {
+					logger.debug(`[WS-API][${correlationId}] Invoking tool: ${tool}`, {
+						input: payload,
+					});
 
-                    if (result.success && (tool === 'session.create' || tool === 'session.get') && result.data?.id) {
-                        if (socket.sessionId !== result.data.id) {
-                            socket.sessionId = result.data.id;
-                            logger.info(`[WS-API][${correlationId}] WebSocket connection now associated with session: ${socket.sessionId}`);
-                        }
-                    }
-                } else {
-                    logger.warn(`[WS-API][${correlationId}] Unknown tool: ${tool}`, { messageId });
-                    socket.send(JSON.stringify({
-                        type: 'error',
-                        correlationId,
-                        messageId,
-                        tool,
-                        payload: {
-                            success: false,
-                            error: ErrorCodes.UNKNOWN_TOOL,
-                            message: `Unknown tool: ${tool}`,
-                        },
-                    }));
-                    return;
-                }
+					result = await toolDefinition.handler(payload || {});
 
-                socket.send(JSON.stringify({
-                    type: 'result',
-                    correlationId,
-                    messageId,
-                    tool,
-                    payload: result,
-                }));
-                break;
+					if (
+						result.success &&
+						(tool === 'session.create' || tool === 'session.get') &&
+						result.data?.id
+					) {
+						if (socket.sessionId !== result.data.id) {
+							socket.sessionId = result.data.id;
+							logger.info(
+								`[WS-API][${correlationId}] WebSocket connection now associated with session: ${socket.sessionId}`
+							);
+						}
+					}
+				} else {
+					logger.warn(`[WS-API][${correlationId}] Unknown tool: ${tool}`, {
+						messageId,
+					});
+					socket.send(
+						JSON.stringify({
+							type: 'error',
+							correlationId,
+							messageId,
+							tool,
+							payload: {
+								success: false,
+								error: ErrorCodes.UNKNOWN_TOOL,
+								message: `Unknown tool: ${tool}`,
+							},
+						})
+					);
+					return;
+				}
 
-            case 'mcp.invoke_tool':
-                await handleMcpToolInvocation(socket, message, mcrEngine);
-                break;
+				socket.send(
+					JSON.stringify({
+						type: 'result',
+						correlationId,
+						messageId,
+						tool,
+						payload: result,
+					})
+				);
+				break;
 
-            case 'mcp.request_tools':
-                sendWebSocketMessage(socket, 'mcp.tools_updated', { tools: mcrTools }, messageId, correlationId, 'initial_setup');
-                break;
+			case 'mcp.invoke_tool':
+				await handleMcpToolInvocation(socket, message, mcrEngine);
+				break;
 
-            default:
-                logger.warn(`[WS-API][${correlationId}] Unrecognized message type: '${type}'`, { parsedMessage: message });
-                socket.send(JSON.stringify({
-                    type: 'error',
-                    correlationId,
-                    messageId,
-                    payload: {
-                        success: false,
-                        error: ErrorCodes.INVALID_MESSAGE_STRUCTURE,
-                        message: `Unrecognized message type: '${type}'`,
-                    },
-                }));
-        }
-    } catch (error) {
-        logger.error(`[WS-API][${correlationId}] Error processing message for tool ${tool}: ${error.message}`, {
-            stack: error.stack,
-            messageId,
-            tool,
-        });
-        socket.send(JSON.stringify({
-            type: 'error',
-            correlationId,
-            messageId,
-            tool,
-            payload: {
-                success: false,
-                error: ErrorCodes.INTERNAL_SERVER_ERROR,
-                message: `Internal server error while processing tool '${tool}'.`,
-                details: error.message,
-            },
-        }));
-    }
+			case 'mcp.request_tools':
+				sendWebSocketMessage(
+					socket,
+					'mcp.tools_updated',
+					{ tools: mcrTools },
+					messageId,
+					correlationId,
+					'initial_setup'
+				);
+				break;
+
+			default:
+				logger.warn(
+					`[WS-API][${correlationId}] Unrecognized message type: '${type}'`,
+					{ parsedMessage: message }
+				);
+				socket.send(
+					JSON.stringify({
+						type: 'error',
+						correlationId,
+						messageId,
+						payload: {
+							success: false,
+							error: ErrorCodes.INVALID_MESSAGE_STRUCTURE,
+							message: `Unrecognized message type: '${type}'`,
+						},
+					})
+				);
+		}
+	} catch (error) {
+		logger.error(
+			`[WS-API][${correlationId}] Error processing message for tool ${tool}: ${error.message}`,
+			{
+				stack: error.stack,
+				messageId,
+				tool,
+			}
+		);
+		socket.send(
+			JSON.stringify({
+				type: 'error',
+				correlationId,
+				messageId,
+				tool,
+				payload: {
+					success: false,
+					error: ErrorCodes.INTERNAL_SERVER_ERROR,
+					message: `Internal server error while processing tool '${tool}'.`,
+					details: error.message,
+				},
+			})
+		);
+	}
 }
 
 function handleWebSocketConnection(socket, mcrEngine) {
-    socket.correlationId = `ws-conn-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    logger.info(`[WS-API][${socket.correlationId}] New WebSocket connection established.`);
+	socket.correlationId = `ws-conn-${Date.now()}-${Math.random()
+		.toString(36)
+		.substring(2, 7)}`;
+	logger.info(
+		`[WS-API][${socket.correlationId}] New WebSocket connection established.`
+	);
 
-    const tools = require('./tools')(mcrEngine, mcrEngine.config);
+	socket.on('message', message => {
+		logger.info(
+			`[WS-API][${socket.correlationId}] Received raw message:`,
+			message
+		);
+		routeMessage(socket, JSON.parse(message), mcrEngine);
+	});
 
-    socket.on('message', message => {
-        logger.info(`[WS-API][${socket.correlationId}] Received raw message:`, message);
-        routeMessage(socket, JSON.parse(message), tools, mcrEngine);
-    });
+	socket.on('close', () => {
+		logger.info(
+			`[WS-API][${socket.correlationId}] WebSocket connection closed.`
+		);
+	});
 
-    socket.on('close', () => {
-        logger.info(`[WS-API][${socket.correlationId}] WebSocket connection closed.`);
-    });
+	socket.on('error', error => {
+		logger.error(`[WS-API][${socket.correlationId}] WebSocket error:`, {
+			error: error.message,
+			stack: error.stack,
+		});
+	});
 
-    socket.on('error', error => {
-        logger.error(`[WS-API][${socket.correlationId}] WebSocket error:`, {
-            error: error.message,
-            stack: error.stack,
-        });
-    });
-
-    socket.send(JSON.stringify({
-        type: 'connection_ack',
-        correlationId: socket.correlationId,
-        message: 'WebSocket connection established with MCR server.',
-    }));
+	socket.send(
+		JSON.stringify({
+			type: 'connection_ack',
+			correlationId: socket.correlationId,
+			message: 'WebSocket connection established with MCR server.',
+		})
+	);
 }
 
 function sendWebSocketMessage(ws, type, data, messageId, correlationId, invocation_id = 'N/A') {
@@ -331,110 +374,189 @@ function sendWebSocketMessage(ws, type, data, messageId, correlationId, invocati
 }
 
 async function handleMcpToolInvocation(socket, message, mcrEngine) {
-    const { payload, messageId, headers } = message;
-    socket.correlationId = (headers && headers['x-correlation-id']) || socket.correlationId || `ws-mcp-${uuidv4()}`;
-    socket.clientId = (headers && headers['x-mcp-client-id']) || socket.clientId || `ws-client-${uuidv4().substring(0, 8)}`;
+	const { payload, messageId, headers } = message;
+	socket.correlationId =
+		(headers && headers['x-correlation-id']) ||
+		socket.correlationId ||
+		`ws-mcp-${uuidv4()}`;
+	socket.clientId =
+		(headers && headers['x-mcp-client-id']) ||
+		socket.clientId ||
+		`ws-client-${uuidv4().substring(0, 8)}`;
 
-    if (!payload || !payload.tool_name || !payload.invocation_id) {
-        logger.warn(`[MCP WS][${socket.clientId}][${socket.correlationId}] Invalid 'mcp.invoke_tool' message: missing tool_name or invocation_id. MessageID: ${messageId}`);
-        sendWebSocketMessage(socket, 'mcp.protocol_error', { error: "Invalid 'mcp.invoke_tool' message: missing tool_name or invocation_id." }, messageId, socket.correlationId, payload.invocation_id || 'unknown_invocation');
-        return;
-    }
+	if (!payload || !payload.tool_name || !payload.invocation_id) {
+		logger.warn(
+			`[MCP WS][${socket.clientId}][${socket.correlationId}] Invalid 'mcp.invoke_tool' message: missing tool_name or invocation_id. MessageID: ${messageId}`
+		);
+		sendWebSocketMessage(
+			socket,
+			'mcp.protocol_error',
+			{
+				error:
+					"Invalid 'mcp.invoke_tool' message: missing tool_name or invocation_id.",
+			},
+			messageId,
+			socket.correlationId,
+			payload.invocation_id || 'unknown_invocation'
+		);
+		return;
+	}
 
-    const { tool_name, input, invocation_id } = payload;
-    const toolCorrelationId = `${socket.correlationId}-tool-${invocation_id ? invocation_id.substring(0, 8) : 'noinv'}`;
-    logger.info(`[MCP Tool][${socket.clientId}][${toolCorrelationId}] Enter handleToolInvocation. Tool: ${tool_name}, InvocationID: ${invocation_id}, OriginalMsgID: ${messageId}`, { tool_name, input, invocation_id });
+	const { tool_name, input, invocation_id } = payload;
+	const toolCorrelationId = `${socket.correlationId}-tool-${
+		invocation_id ? invocation_id.substring(0, 8) : 'noinv'
+	}`;
+	logger.info(
+		`[MCP Tool][${socket.clientId}][${toolCorrelationId}] Enter handleToolInvocation. Tool: ${tool_name}, InvocationID: ${invocation_id}, OriginalMsgID: ${messageId}`,
+		{ tool_name, input, invocation_id }
+	);
 
-    let resultData;
+	let resultData;
 
-    try {
-        switch (tool_name) {
-            case 'create_reasoning_session':
-                const session = await mcrEngine.createSession();
-                resultData = {
-                    sessionId: session.id,
-                    createdAt: session.createdAt.toISOString(),
-                    facts: session.facts,
-                    factCount: session.factCount,
-                };
-                break;
-            case 'assert_facts_to_session':
-                if (!input || !input.sessionId || !input.naturalLanguageText) {
-                    throw new ApiError(400, 'Missing sessionId or naturalLanguageText for assert_facts_to_session');
-                }
-                const assertResult = await mcrEngine.assertNLToSession(input.sessionId, input.naturalLanguageText);
-                resultData = {
-                    success: assertResult.success,
-                    message: assertResult.message,
-                    addedFacts: assertResult.addedFacts,
-                };
-                if (!assertResult.success) {
-                    const errorType = resultData.message && resultData.message.includes('Session not found') ? 'SESSION_NOT_FOUND_TOOL' : 'ASSERT_TOOL_FAILED';
-                    const statusCode = errorType === 'SESSION_NOT_FOUND_TOOL' ? 404 : 400;
-                    throw new ApiError(statusCode, resultData.message, errorType);
-                }
-                break;
-            case 'translate_nl_to_rules':
-                if (!input || !input.naturalLanguageText) {
-                    throw new ApiError(400, 'Missing naturalLanguageText for translate_nl_to_rules');
-                }
-                const nlToRulesResult = await mcrEngine.translateNLToRulesDirect(input.naturalLanguageText);
-                resultData = {
-                    success: nlToRulesResult.success,
-                    rules: nlToRulesResult.rules,
-                    rawOutput: nlToRulesResult.rawOutput,
-                    message: nlToRulesResult.message,
-                };
-                if (!nlToRulesResult.success) {
-                    throw new ApiError(400, resultData.message || 'NL to Rules translation failed', 'NL_TO_RULES_TOOL_FAILED');
-                }
-                break;
-            case 'translate_rules_to_nl':
-                if (!input || !input.prologRules) {
-                    throw new ApiError(400, 'Missing prologRules for translate_rules_to_nl');
-                }
-                const rulesToNlResult = await mcrEngine.translateRulesToNLDirect(input.prologRules, input.style || 'conversational');
-                resultData = {
-                    success: rulesToNlResult.success,
-                    explanation: rulesToNlResult.explanation,
-                    message: rulesToNlResult.message,
-                };
-                if (!rulesToNlResult.success) {
-                    throw new ApiError(400, resultData.message || 'Rules to NL translation failed', 'RULES_TO_NL_TOOL_FAILED');
-                }
-                break;
-            case 'query_session':
-                if (!input || !input.sessionId || !input.naturalLanguageQuestion) {
-                    throw new ApiError(400, 'Missing sessionId or naturalLanguageQuestion for query_session');
-                }
-                const queryResult = await mcrEngine.querySessionWithNL(input.sessionId, input.naturalLanguageQuestion);
-                resultData = {
-                    success: queryResult.success,
-                    answer: queryResult.answer,
-                };
-                if (!queryResult.success) {
-                    const errorType = queryResult.message && queryResult.message.includes('Session not found') ? 'SESSION_NOT_FOUND_TOOL' : 'QUERY_TOOL_FAILED';
-                    const statusCode = errorType === 'SESSION_NOT_FOUND_TOOL' ? 404 : 500;
-                    throw new ApiError(statusCode, queryResult.message || 'Query tool failed', errorType);
-                }
-                break;
-            default:
-                throw new ApiError(404, `Tool not found: ${tool_name}`, 'TOOL_NOT_FOUND');
-        }
+	try {
+		switch (tool_name) {
+			case 'create_reasoning_session':
+				const session = await mcrEngine.createSession();
+				resultData = {
+					sessionId: session.id,
+					createdAt: session.createdAt.toISOString(),
+					facts: session.facts,
+					factCount: session.factCount,
+				};
+				break;
+			case 'assert_facts_to_session':
+				if (!input || !input.sessionId || !input.naturalLanguageText) {
+					throw new ApiError(
+						400,
+						'Missing sessionId or naturalLanguageText for assert_facts_to_session'
+					);
+				}
+				const assertResult = await mcrEngine.assertNLToSession(
+					input.sessionId,
+					input.naturalLanguageText
+				);
+				resultData = {
+					success: assertResult.success,
+					message: assertResult.message,
+					addedFacts: assertResult.addedFacts,
+				};
+				if (!assertResult.success) {
+					const errorType =
+						resultData.message &&
+						resultData.message.includes('Session not found')
+							? 'SESSION_NOT_FOUND_TOOL'
+							: 'ASSERT_TOOL_FAILED';
+					const statusCode = errorType === 'SESSION_NOT_FOUND_TOOL' ? 404 : 400;
+					throw new ApiError(statusCode, resultData.message, errorType);
+				}
+				break;
+			case 'translate_nl_to_rules':
+				if (!input || !input.naturalLanguageText) {
+					throw new ApiError(
+						400,
+						'Missing naturalLanguageText for translate_nl_to_rules'
+					);
+				}
+				const nlToRulesResult =
+					await mcrEngine.translateNLToRulesDirect(input.naturalLanguageText);
+				resultData = {
+					success: nlToRulesResult.success,
+					rules: nlToRulesResult.rules,
+					rawOutput: nlToRulesResult.rawOutput,
+					message: nlToRulesResult.message,
+				};
+				if (!nlToRulesResult.success) {
+					throw new ApiError(
+						400,
+						resultData.message || 'NL to Rules translation failed',
+						'NL_TO_RULES_TOOL_FAILED'
+					);
+				}
+				break;
+			case 'translate_rules_to_nl':
+				if (!input || !input.prologRules) {
+					throw new ApiError(400, 'Missing prologRules for translate_rules_to_nl');
+				}
+				const rulesToNlResult = await mcrEngine.translateRulesToNLDirect(
+					input.prologRules,
+					input.style || 'conversational'
+				);
+				resultData = {
+					success: rulesToNlResult.success,
+					explanation: rulesToNlResult.explanation,
+					message: rulesToNlResult.message,
+				};
+				if (!rulesToNlResult.success) {
+					throw new ApiError(
+						400,
+						resultData.message || 'Rules to NL translation failed',
+						'RULES_TO_NL_TOOL_FAILED'
+					);
+				}
+				break;
+			case 'query_session':
+				if (!input || !input.sessionId || !input.naturalLanguageQuestion) {
+					throw new ApiError(
+						400,
+						'Missing sessionId or naturalLanguageQuestion for query_session'
+					);
+				}
+				const queryResult = await mcrEngine.querySessionWithNL(
+					input.sessionId,
+					input.naturalLanguageQuestion
+				);
+				resultData = {
+					success: queryResult.success,
+					answer: queryResult.answer,
+				};
+				if (!queryResult.success) {
+					const errorType =
+						queryResult.message &&
+						queryResult.message.includes('Session not found')
+							? 'SESSION_NOT_FOUND_TOOL'
+							: 'QUERY_TOOL_FAILED';
+					const statusCode = errorType === 'SESSION_NOT_FOUND_TOOL' ? 404 : 500;
+					throw new ApiError(
+						statusCode,
+						queryResult.message || 'Query tool failed',
+						errorType
+					);
+				}
+				break;
+			default:
+				throw new ApiError(404, `Tool not found: ${tool_name}`, 'TOOL_NOT_FOUND');
+		}
 
-        sendWebSocketMessage(socket, 'mcp.tool_result', { tool_name, output: resultData }, messageId, toolCorrelationId, invocation_id);
-    } catch (error) {
-        logger.error(`[MCP Tool][${socket.clientId}][${toolCorrelationId}] Error invoking tool ${tool_name}: ${error.message}. OriginalMsgID: ${messageId}`, { error: error.stack });
-        const isApiError = error instanceof ApiError;
-        sendWebSocketMessage(socket, 'mcp.tool_error', {
-            tool_name,
-            error: {
-                message: error.message,
-                code: isApiError ? error.errorCode : 'TOOL_EXECUTION_ERROR',
-                details: isApiError ? error.details : undefined,
-            },
-        }, messageId, toolCorrelationId, invocation_id);
-    }
+		sendWebSocketMessage(
+			socket,
+			'mcp.tool_result',
+			{ tool_name, output: resultData },
+			messageId,
+			toolCorrelationId,
+			invocation_id
+		);
+	} catch (error) {
+		logger.error(
+			`[MCP Tool][${socket.clientId}][${toolCorrelationId}] Error invoking tool ${tool_name}: ${error.message}. OriginalMsgID: ${messageId}`,
+			{ error: error.stack }
+		);
+		const isApiError = error instanceof ApiError;
+		sendWebSocketMessage(
+			socket,
+			'mcp.tool_error',
+			{
+				tool_name,
+				error: {
+					message: error.message,
+					code: isApiError ? error.errorCode : 'TOOL_EXECUTION_ERROR',
+					details: isApiError ? error.details : undefined,
+				},
+			},
+			messageId,
+			toolCorrelationId,
+			invocation_id
+		);
+	}
 }
 
 module.exports = {

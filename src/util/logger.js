@@ -1,50 +1,74 @@
 const fs = require('fs');
 const path = require('path');
+const chalk = require('chalk');
 
 let logFilePath = null;
 let currentLevel = 'info';
 
 function configureLogger(options = {}) {
-    currentLevel = options.logLevel || 'info';
-    if (options.logFile) {
-        logFilePath = path.resolve(options.logFile);
-    } else {
-        logFilePath = null;
-    }
+	currentLevel = options.logLevel || 'info';
+	if (options.logFile) {
+		logFilePath = path.resolve(options.logFile);
+	} else {
+		logFilePath = null;
+	}
 }
 
 const levels = {
 	error: 0,
 	warn: 1,
 	info: 2,
-	debug: 3,
+	http: 3,
+	debug: 4,
+};
+
+const colors = {
+	error: chalk.red,
+	warn: chalk.yellow,
+	info: chalk.blue,
+	http: chalk.magenta,
+	debug: chalk.gray,
 };
 
 const log = (level, message, ...args) => {
-  if (levels[level] <= levels[currentLevel]) {
-    const timestamp = new Date().toISOString();
-    const formattedMessage = `${timestamp} [${level.toUpperCase()}] ${message} ${args.length > 0 ? JSON.stringify(args) : ''}\n`;
+	if (levels[level] <= levels[currentLevel]) {
+		const timestamp = new Date().toISOString();
+		const levelUpper = level.toUpperCase();
+		const color = colors[level] || (text => text);
 
-    // Always log to console
-    console.log(formattedMessage);
+		// Prepare console message with colors
+		const consoleMessage = `${chalk.gray(timestamp)} ${color(
+			`[${levelUpper}]`
+		)} ${message} ${
+			args.length > 0 ? chalk.cyan(JSON.stringify(args, null, 2)) : ''
+		}`;
+		console.log(consoleMessage);
 
-    // Optionally log to file
-    if (logFilePath) {
-      fs.appendFile(logFilePath, formattedMessage, (err) => {
-        if (err) {
-          console.error('Failed to write to log file:', err);
-        }
-      });
-    }
-  }
+		// Prepare file message without colors
+		const fileMessage = `${timestamp} [${levelUpper}] ${message} ${
+			args.length > 0 ? JSON.stringify(args) : ''
+		}\n`;
+
+		if (logFilePath) {
+			fs.appendFile(logFilePath, fileMessage, err => {
+				if (err) {
+					console.error(
+						chalk.red('Failed to write to log file:'),
+						err
+					);
+				}
+			});
+		}
+	}
 };
 
 const logger = {
-  info: (message, ...args) => log('info', message, ...args),
-  warn: (message, ...args) => log('warn', message, ...args),
-  error: (message, ...args) => log('error', message, ...args),
-  debug: (message, ...args) => log('debug', message, ...args),
-  configure: configureLogger,
+	error: (message, ...args) => log('error', message, ...args),
+	warn: (message, ...args) => log('warn', message, ...args),
+	info: (message, ...args) => log('info', message, ...args),
+	http: (message, ...args) => log('http', message, ...args),
+	debug: (message, ...args) => log('debug', message, ...args),
+	configure: configureLogger,
 };
 
 module.exports = logger;
