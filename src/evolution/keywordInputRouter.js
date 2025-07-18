@@ -37,6 +37,20 @@ class KeywordInputRouter {
 	}
 
 	/**
+	 * Selects a strategy based on keywords in the input text.
+	 * @param {string} naturalLanguageText - The input text.
+	 * @returns {string|null} The ID of the recommended strategy, or null.
+	 */
+	getStrategy(naturalLanguageText) {
+		const nlLower = naturalLanguageText.toLowerCase();
+		if (nlLower.includes('solve') || nlLower.includes('constraint')) {
+			logger.info('[InputRouter] "solve" or "constraint" keyword found, recommending bilevel-adaptive-assert strategy.');
+			return 'bilevel-adaptive-assert';
+		}
+		return null;
+	}
+
+	/**
 	 * Classifies the input text to determine its type (e.g., simple assertion, complex query).
 	 * This is a placeholder and should be replaced with more sophisticated logic.
 	 * @param {string} naturalLanguageText - The input text.

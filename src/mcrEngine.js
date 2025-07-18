@@ -1118,13 +1118,13 @@ class MCREngine {
 
     if (this.inputRouterInstance && naturalLanguageText) {
       try {
-        const recommendedStrategyHash = await this.inputRouterInstance.route(naturalLanguageText, llmModelId);
-        if (recommendedStrategyHash) {
-          strategyJson = strategyManager.getStrategyByHash(recommendedStrategyHash);
+        const recommendedStrategyId = await this.inputRouterInstance.getStrategy(naturalLanguageText);
+        if (recommendedStrategyId) {
+          strategyJson = strategyManager.getStrategy(recommendedStrategyId);
           if (strategyJson) {
-            logger.info(`[MCREngine] InputRouter recommended strategy by HASH "${recommendedStrategyHash.substring(0, 12)}" (ID: "${strategyJson.id}") for input: "${naturalLanguageText.substring(0, 50)}..."`);
+            logger.info(`[MCREngine] InputRouter recommended strategy ID "${recommendedStrategyId}" for input: "${naturalLanguageText.substring(0, 50)}..."`);
           } else {
-            logger.warn(`[MCREngine] InputRouter recommended strategy HASH "${recommendedStrategyHash.substring(0, 12)}" but it was not found by StrategyManager. Falling back.`);
+            logger.warn(`[MCREngine] InputRouter recommended strategy ID "${recommendedStrategyId}" but it was not found by StrategyManager. Falling back.`);
           }
         }
       } catch (routerError) {
@@ -1314,7 +1314,12 @@ class MCREngine {
           llm_model_id: this.config.llm[this.config.llm.provider]?.model || 'default',
         };
         const executor = new StrategyExecutor(activeStrategyJson);
-        return executor.execute(this, this, strategyContext);
+        const result = await executor.execute(this, this, strategyContext);
+
+        if (result.intermediate_model) {
+          session.contextGraph.models.push(result.intermediate_model);
+        }
+        return result.prolog_clauses;
       };
 
       let addedFacts;

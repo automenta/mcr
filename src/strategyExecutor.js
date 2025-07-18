@@ -636,6 +636,35 @@ class StrategyExecutor {
 						output = rewritten;
 						break;
 
+					case 'JS_Call': {
+						if (!node.module || !node.function) {
+							throw new MCRError(
+								ErrorCodes.INVALID_STRATEGY_NODE,
+								`JS_Call node ${node.id} missing 'module' or 'function'.`
+							);
+						}
+						const modulePath = require('path').resolve(__dirname, '..', node.module);
+						const customModule = require(modulePath);
+						const args = node.input_variables.map(varName => {
+							if (varName === 'llmProvider') return llmProvider;
+							return executionState[varName]
+						});
+						output = await customModule[node.function](...args);
+						break;
+					}
+
+					case 'JS_Extract': {
+						if (!node.input_variable || !node.property) {
+							throw new MCRError(
+								ErrorCodes.INVALID_STRATEGY_NODE,
+								`JS_Extract node ${node.id} missing 'input_variable' or 'property'.`
+							);
+						}
+						const obj = executionState[node.input_variable];
+						output = obj[node.property];
+						break;
+					}
+
 					case 'Conditional_Router': {
 						if (!node.input_variable) {
 							throw new MCRError(
