@@ -65,7 +65,7 @@ Where can MCR make a difference?
 
 3.  **Reason 💡 (Logic Engine):**
     - When a question is asked, the `MCREngine` translates it into a formal query.
-    - A logic reasoner (Prolog) uses the stored knowledge to find the answer with precision.
+    - A logic reasoner (Prolog or LTN) uses the stored knowledge to find the answer with precision.
     - The `MCREngine` then translates the logical answer back into natural language.
 
 **It's a seamless blend of language intuition and logical deduction, all managed by the central `MCREngine`!**
@@ -133,7 +133,19 @@ Ready to explore the power of MCR?
 
 ---
 
-## Slide 9: The Future is Reasoned & Evolving 🌟
+## Slide 9: 🔌 NEW: The Plugin Architecture - Your AI Toolkit!
+
+**Compose complex reasoning workflows as easily as installing plugins in your favorite application!**
+
+- **Reasoning Plugins:** MCR provides a set of "reasoning plugins" - modular components for specific tasks (Neural, Symbolic, Hybrid).
+- **Build Your Workflow:** Chain these plugins together to create custom reasoning pipelines.
+- **Bi-level Co-evolution Plugin:** An advanced plugin that automatically tunes your reasoning strategies and the tests used to validate them, ensuring your AI is always learning and improving.
+
+**The Plugin architecture makes building sophisticated, custom AI solutions intuitive and powerful.**
+
+---
+
+## Slide 10: The Future is Reasoned & Evolving 🌟
 
 MCR is more than just a tool; it's a step towards more intelligent and reliable AI.
 

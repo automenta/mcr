@@ -36,11 +36,15 @@ This combination unlocks possibilities for more robust, explainable, and sophist
 
 - **🧩 Modular Server**: Core logic is well-structured (Config, Logger, LLM Service, Reasoner Service, MCR Service, Tool Definitions).
 - **💾 Persistent Sessions**: Supports both in-memory and file-based session storage, allowing knowledge bases to persist across server restarts. Configurable via `.env`.
-- **🤖 Extensible LLM Support**: Supports multiple LLM providers (OpenAI, Gemini, Ollama, etc.), selectable via configuration.
+- **🤖 Extensible LLM Support**: Supports multiple LLM providers (Ollama, Gemini, OpenAI, Anthropic, and any OpenAI-compatible API), selectable via configuration.
 - **🧠 Neurosymbolic Capabilities**:
-  - **Bidirectional Refinement Loops**: Automatically refines translations between natural language and logic for improved accuracy and consistency.
+  - **Guided Deduction**: Uses an LLM to generate hypotheses and a reasoner to verify them.
+  - **Probabilistic Deduction**: Uses embeddings to weight clauses and perform probabilistic reasoning.
+  - **Refinement Loops**: Uses an LLM to refine the output of a strategy.
   - **Embeddings and Knowledge Graph Integration**: Enriches reasoning with semantic context from embeddings and structured knowledge from a graph database.
-  - **Guided Probabilistic Reasoning**: Combines neural guidance with symbolic deduction to produce probabilistic answers.
+- ** evolving translation strategies.
+- ** Bi-level Co-evolution:** A system for co-evolving both the strategies and the evaluation curriculum.
+- ** Pedalboard Metaphor:** A flexible and powerful way to build complex reasoning pipelines.
 - **📚 Dynamic Lexicon Summary**: Automatically builds a lexicon of known predicates from asserted facts to aid LLM translation.
 - **🛡️ Robust Error Handling**: Centralized error handling for WebSocket API calls.
 - **✅ Configuration Validation**: Validates essential configurations on server startup.
@@ -57,8 +61,8 @@ This combination unlocks possibilities for more robust, explainable, and sophist
 The MCR is defined by a multi-layered, service-oriented architecture that promotes modularity and separation of concerns:
 
 - **Presentation Layer:** Any user-facing application that consumes the MCR's API (e.g., GUI Workbench, CLI, API Client).
-- **API Layer:** The WebSocket message handlers (`websocketHandlers.js`) define the formal contract for interacting with MCR.
-- **Service Layer:** The core orchestrator (`mcrService.js`). It manages the business logic of a request (e.g., "assert this text") by invoking the currently selected Translation Strategy and the necessary providers. It also directly manages session state via a pluggable Session Store.
+- **API Layer:** The WebSocket message handlers (`websocketApi.js`) define the formal contract for interacting with MCR.
+- **Service Layer:** The core orchestrator (`mcrEngine.js`). It manages the business logic of a request (e.g., "assert this text") by invoking the currently selected Translation Strategy and the necessary providers. It also directly manages session state via a pluggable Session Store.
 - **Provider & Strategy Interfaces:** A set of abstract contracts that define the capabilities of key components like LLM Providers, Reasoner Providers, Session Stores, and Translation Strategies. This allows for pluggable implementations.
 - **Implementation Layer:** Concrete implementations of the interfaces (e.g., specific LLM providers like Ollama or Gemini, a Prolog Reasoner, various Translation Strategy modules, and Session Stores like `InMemorySessionStore` and `FileSessionStore`).
 
@@ -84,7 +88,7 @@ graph TD
 
     subgraph MCR Core System
         direction LR
-        MCR_Service[MCR Service]
+        MCR_Service[MCR Engine]
         SM -- Loads Strategies --> MCR_Service
         SEcore[Strategy Executor]
         MCR_Service -- Uses --> SEcore
@@ -120,6 +124,25 @@ graph TD
     class CLI_API external;
     class PD,EvalCasesDir,StrategiesDir db;
 ```
+
+## 🔌 The Plugin Metaphor: Composable Reasoning
+
+MCR introduces a "Plugin" metaphor for its reasoning processes. Just like a user installs plugins to extend the functionality of an application, MCR allows you to chain together "reasoning plugins" to construct sophisticated AI workflows.
+
+Each "plugin" is a self-contained processing unit that performs a specific task, such as:
+
+- **Neural Plugin:** Interacts with an LLM for tasks like translation, summarization, or creative generation.
+- **Symbolic Plugin:** Executes a formal logic query using a reasoner like Prolog.
+- **Hybrid Plugin:** Combines neural and symbolic steps, for example, using an LLM to generate hypotheses and a reasoner to validate them.
+- **Bi-level Coevolution:** This advanced plugin doesn't just perform a single function but adaptively co-evolves both the reasoning strategies (the "what") and the evaluation curricula (the "how") to continuously improve performance on specific domains. It's a form of AutoML for reasoning, ensuring that the system gets better and more efficient over time.
+
+This modular, composable approach allows developers to:
+
+- **Build Complex Workflows:** Chain plugins together in a `program` to create multi-step reasoning pipelines.
+- **Experiment and Customize:** Easily swap out plugins or reconfigure the chain to test different approaches.
+- **Promote Reusability:** Each plugin is a reusable component that can be used in multiple configurations.
+
+The Plugin metaphor makes MCR a flexible and powerful platform for building a wide range of neurosymbolic applications.
 
 ## 🏁 Quick Start
 
@@ -421,13 +444,29 @@ This section covers setting up MCR for development, including running the backen
     OPENAI_API_KEY="sk-..."
     # MCR_LLM_MODEL_OPENAI="gpt-4o" # Optional
 
+    # --- Other LLM Provider Examples ---
+    # MCR_LLM_PROVIDER="gemini"
+    # GEMINI_API_KEY="..."
+
+    # MCR_LLM_PROVIDER="anthropic"
+    # ANTHROPIC_API_KEY="..."
+
+    # MCR_LLM_PROVIDER="ollama"
+    # MCR_LLM_MODEL_OLLAMA="llama3"
+
+    # MCR_LLM_PROVIDER="generic_openai"
+    # MCR_LLM_MODEL_GENERIC_OPENAI="some-model-name"
+    # MCR_LLM_GENERIC_OPENAI_BASE_URL="http://some-url/v1"
+    # MCR_LLM_GENERIC_OPENAI_API_KEY="some-key"
+
+
     # --- Session Storage Configuration ---
     # For persistent sessions that survive restarts, use "file".
     # For ephemeral sessions, use "memory" or omit this line.
     MCR_SESSION_STORE_TYPE="file"
 
     # --- Neurosymbolic Configuration ---
-    REASONER_TYPE="ltn" # 'prolog' or 'ltn'
+    REASONER_TYPE="prolog" # 'prolog' or 'ltn'
     EMBEDDING_MODEL="all-MiniLM-L6-v2" # Optional
     KG_ENABLED=true # Optional
     LTN_THRESHOLD=0.7 # Required if REASONER_TYPE is 'ltn'
