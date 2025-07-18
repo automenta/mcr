@@ -1,10 +1,10 @@
-// tests/evolution/optimizer.test.js
+// tests/optimizer.test.js
 
-const OptimizationCoordinator = require('../../src/evolution/optimizer');
-const MCREngine = require('../../src/mcrEngine');
-const { Evaluator } = require('../../src/evaluation/metrics');
+const { OptimizationCoordinator } = require('../src/evolutionModule');
+const MCREngine = require('../src/mcrEngine');
+const { Evaluator } = require('../src/evaluation/metrics');
 
-jest.mock('../../src/mcrEngine', () => {
+jest.mock('../src/mcrEngine', () => {
     return jest.fn().mockImplementation(() => {
         return {
             createSession: jest.fn(),
@@ -16,7 +16,7 @@ jest.mock('../../src/mcrEngine', () => {
         };
     });
 });
-jest.mock('../../src/evaluation/metrics', () => ({
+jest.mock('../src/evaluation/metrics', () => ({
 	Evaluator: jest.fn().mockImplementation(() => {
 		return {
 			evaluate: jest.fn().mockResolvedValue({ exactMatchProlog: 1 }),

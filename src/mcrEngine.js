@@ -11,7 +11,7 @@ const { prompts, fillTemplate, getPromptTemplateByName } = require('./prompts');
 const { MCRError, ErrorCodes } = require('./errors');
 const strategyManager = require('./strategyManager');
 const StrategyExecutor = require('./strategyExecutor');
-const KeywordInputRouter = require('./evolution/keywordInputRouter.js');
+const { KeywordInputRouter, OptimizationCoordinator } = require('./evolutionModule.js');
 const db = require('./store/database');
 const EmbeddingBridge = require('./bridges/embeddingBridge');
 
@@ -72,6 +72,10 @@ class MCREngine {
         type: process.env.MCR_SESSION_STORE_TYPE || 'memory',
         filePath: process.env.MCR_SESSION_STORE_FILE_PATH || path.resolve(process.cwd(), './.sessions'),
       },
+      evolution: {
+        enabled: process.env.MCR_EVOLUTION_ENABLED === 'true',
+        iterations: parseInt(process.env.MCR_EVOLUTION_ITERATIONS, 10) || 1,
+      }
     };
 
     try {
@@ -1628,6 +1632,23 @@ class MCREngine {
       results.push(result);
     }
     return results;
+  }
+
+  async evolve(sessionId, input) {
+    if (!this.config.evolution.enabled) {
+      return {
+        success: false,
+        message: 'Evolution is not enabled in the configuration.',
+      };
+    }
+
+    const optimizer = new OptimizationCoordinator(this);
+    const results = await optimizer.start(this.config.evolution.iterations);
+    return {
+      success: true,
+      message: 'Evolution process completed.',
+      results,
+    };
   }
 }
 
