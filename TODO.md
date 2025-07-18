@@ -1,113 +1,72 @@
-### Development Plan for MCR Chat-Based UI Refactor
+# Phased Development Plan for MCR 2.0
 
-Implement the consolidated UI in the existing `ui/` React app (Vite-based). Reuse components like SessionChat.jsx; add React Flow for GraphVisualizer, Framer Motion for animations, DruidJS for dimensionality reduction (embeddings viz). Focus on ergonomic, intuitive flows with progressive disclosure. Install deps via `npm install react-flow@12.7.0 framer-motion@12.23.5 druidjs tsnejs dagre elkjs recharts@2.12.7` in ui/. Use Tailwind for styling.
+This plan outlines a step-by-step transformation of the existing codebase into the MCR 2.0 design, focusing exclusively on code modifications, creations, deletions, and integrations. It assumes the current structure includes root files like mcr.js, generate_example.js, generate_ontology.js; src/ with config.js, logger.js, llmService.js, reasonerService.js, mcrService.js, sessionStore.js, websocketHandlers.js, mcpHandler.js, and subdirs like evolution/ (curriculumGenerator.js, keywordInputRouter.js, optimizer.js, strategyEvolver.js), evalCases/generated/, llmProviders/, ontologies/; separate strategies/ dir with translation strategy files; providers/ for abstracts and implementations; ui/src/ for Workbench components; and tests/ for Jest tests. Phases build incrementally, with each ending in a testable state where possible.
 
-#### Step 1: Setup Dependencies and Base Layout
+## Phase 1: Cleanup and Preparation
+- Delete deprecated root files: Remove cli.js, chat.js, and demo.js entirely.
+- In mcr.js (server startup script), remove any references or imports related to deleted files (e.g., CLI/demo integrations).
+- In src/mcrService.js, comment out or remove direct calls to deprecated components if present.
+- Create a new file src/mcrEngine.js with an empty class `MCREngine` exported as module; add basic constructor that loads config from .env using dotenv and validates essential settings (e.g., API keys, storage type) via a simple try-catch block ported from config.js.
+- Update package.json to ensure no references to removed files in scripts or dependencies; conditionally load LLM SDKs based on config (e.g., if(process.env.LLM_PROVIDER === 'openai') require('@openai/openai')) to minimize always-loaded deps.
+- In src/logger.js, simplify to console-based with optional file output using fs, and export as a module for later integration.
 
-- In `ui/package.json`: Add dependencies above; update scripts if needed.
-- In `ui/src/App.jsx`: Refactor root layout—use flexbox: left sidebar (collapsible via state), central chat (70%), right panel (expandable via toggle). Add reasoning toggle button (brain icon, state: useReasoning, defaults false—hides graphs if off).
-- In `ui/src/components/Sidebar.jsx`: Create component with session list (fetch via WebSocket), context tabs (NL, Reasoning, KB, Evolution)—each renders GraphVisualizer with context-specific props. Add config toggles (e.g., enable LTN) syncing to backend via WS.
-- In `ui/src/components/ChatWindow.jsx`: Bubble list from session history; each bubble with expandable accordion (details via GraphVisualizer mini). Input bar: Textarea + send (Ctrl+Enter), slash command parser (e.g., /assert triggers KB op), mode toggle.
+## Phase 2: Consolidate Core Services into Unified Engine
+- In src/mcrEngine.js, add session management: Port code from sessionStore.js to create a `sessions` Map (for in-memory) and methods like `getSession(id)`, `updateSession(id, data)`, `createSession()`; add file-based persistence option using fs to read/write JSON files in .sessions/, toggled via config.
+- Merge LLM integration: Move code from llmService.js into `MCREngine` methods like `callLLM(prompt, options)`; use provider interface from providers/ to abstract calls, defaulting to OpenAI; retain passthrough via a `passthroughLLM(input)` method.
+- Merge reasoner integration: Port from reasonerService.js to methods like `assertClauses(kb, clauses)`, `queryProlog(kb, query)` using tau-prolog; wrap in functional style with immutable KB updates.
+- Merge business logic: Port from mcrService.js to methods like `handleInput(sessionId, input)` which orchestrates translation and reasoning; initially use existing strategies by requiring them dynamically.
+- Delete src/llmService.js, src/reasonerService.js, src/mcrService.js, and src/sessionStore.js after verifying migrations; update imports in mcr.js to use `MCREngine` instance.
+- In src/mcrEngine.js, add centralized error handling: Wrap key methods in try-catch, logging errors via the integrated logger and prompting LLM for fixes in hybrid cases.
+- Update src/config.js to a simple export object if needed, but fold most into `MCREngine` constructor; delete config.js if fully merged.
 
-#### Step 2: Implement GraphVisualizer Component
+## Phase 3: Implement Hybrid Execution Engine (HEE) and Hybrid Loop
+- In src/mcrEngine.js, add HEE as a method `executeProgram(sessionId, program)` where `program` is an array of ops (JS objects like `{ op: 'neural', prompt: '...', outputVar: 'var' }`, `{ op: 'symbolic', query: '...', bindingsVar: 'var' }`, `{ op: 'hybrid', inputVar: 'var', refine: true }`); use async generators to yield results for streaming.
+- Implement op execution: For 'neural', call LLM; for 'symbolic', query/assert Prolog; for 'hybrid', chain them with refinement logic.
+- Add Context Graph as a session property: A plain JS object `{ facts: [], rules: [], embeddings: {}, models: {} }` for shared state; update methods to read/write immutably (e.g., return new graph copies).
+- Implement Hybrid Loop as a utility function in `executeProgram`: For refinement ops, iterate LLM generate → Prolog evaluate → LLM refine (using feedback like "Fix: [error]") until convergence (e.g., no errors or max iterations); integrate bidirectional fusion by exporting KB to prompts and asserting LLM outputs as soft rules.
+- Add embedding support: If LLM provider allows, compute embeddings in neural ops and store in Context Graph for semantic query routing (e.g., similarity checks before Prolog queries).
+- Update `handleInput` to construct and run a default HEE program for standard queries (e.g., translate → query → refine).
+- In src/mcrEngine.js, add probabilistic reasoning: In hybrid ops, combine LLM confidence scores with Prolog results (e.g., weight soft facts).
 
-- Add `ui/src/components/GraphVisualizer.jsx`: Use ReactFlowProvider; render ReactFlow with custom nodes/edges. Props: data (nodes/edges), nodeRenderer (fn returning CustomNode with params: color, size, shape via SVG/CSS, border), layout (string: 'grid'|'circular'|'tree'|'force'; use dagre for grid/tree, elkjs for force/circular; params obj for spacing/direction).
-- CustomNode: Div/SVG wrapper; apply params (e.g., `style={{backgroundColor: color, width: size, border: `${border.width}px ${border.style} ${border.color}`}}`, shape via clip-path or SVG paths).
-- Integrate animations: Wrap nodes/edges in motion.div (Framer Motion); e.g., `initial={{opacity: 0}} animate={{opacity: 1, transition: {delay: index * 0.1}}}` for staggered fade-in; hover: `whileHover={{scale: 1.05}}`.
-- Interactions: Enable draggable/zoomable via props; onNodeDragStop: Trigger WS query (e.g., infer relation); onNodeClick: Expand details/tooltip.
+## Phase 4: Integrate Bi-Level Translation Strategy
+- If not present, create dir strategies/ (or use existing); add new file strategies/BiLevelAdaptive.js exporting a function `translateToLogic(input, sessionId)` with upper level LLM prompt to generate JSON model `{ p: '...', t: '...', V: [], C: [], O: '...' }`, then lower level prompt to produce Prolog clauses from the model; return `{ clauses, intermediateModel }`.
+- In src/mcrEngine.js, update translation pipeline: Add `getStrategy(input)` using keywordInputRouter.js logic (port if needed) to select strategies, prioritizing BiLevelAdaptive for tasks with keywords like "solve", "constraints"; store intermediates in session Context Graph.
+- Enhance `assertNaturalLanguage(sessionId, input)` (from merged mcrService): Use selected strategy, assert clauses to KB, push model to session.intermediates.
+- Add dynamic lexicon: In translation functions, generate predicate summaries from KB on-the-fly and append to prompts.
+- Update existing strategies (e.g., basic.js, SIR.js if present) to optional composable steps in BiLevelAdaptive for backward compatibility.
 
-#### Step 3: Add Embedding Visualization
+## Phase 5: Create and Enhance Evolution Module
+- Create src/evolutionModule.js by merging code from evolution/ files: Port curriculumGenerator.js to `generateCurriculum(cases)`, keywordInputRouter.js to `selectStrategy(input, perfData)`, optimizer.js and strategyEvolver.js to `optimizeStrategies()` and `mutateStrategy(name, examples)`.
+- In evolutionModule.js, implement bilevel optimization: Treat upper/lower as sub-components; in `optimizeStrategies()`, for 'BiLevelAdaptive', mutate prompts separately, evaluate jointly on cases using rewards (1 for successful Prolog resolution vs. ground truth); apply GRPO-inspired clipping (e.g., group evaluations, update if average > threshold).
+- Integrate as optional mode: Add `evolve(sessionId, input)` in src/mcrEngine.js that calls evolutionModule if config flag enabled; trigger inline during hybrid loops if refinements fail > N times, using failures as examples.
+- Make evolution self-contained: Store performance in simple session perfData object or file (using fs), generate curricula via LLM calls if needed.
+- Delete src/evolution/ dir and files after migration.
 
-- Add `ui/src/utils/embeddingViz.js`: Fn generateEmbeddingBitmap(embedding, width=16, height=16, dim=2): Use DruidJS for reduction (e.g., const pca = new Druid.PCA(embedding); reduced = pca.transform(embedding, dim);) or fallback tsnejs. Map reduced to grid: Canvas 2D context, pixels colored by HSL (hue: value \* 360, sat: 100, light: 50). Return dataURL for img/src or background.
-- In GraphVisualizer: For nodes with embedding prop, set backgroundImage: `url(${generateEmbeddingBitmap(node.embedding)})` or inline <img> for icons. Downscale: Param size (e.g., 8x8 for thumbs). Animations: Hover color-shift (motion.animate hue rotation).
+## Phase 6: Streamline WebSocket API Layer
+- Rename or replace src/websocketHandlers.js with src/websocketApi.js; simplify to a single handler function with switch on `msg.type === 'invoke'` and `msg.tool`, dispatching to mcrEngine methods (e.g., 'mcr.handle' → handleInput).
+- Merge src/mcpHandler.js into websocketApi.js if separate; retain tools like 'llm.passthrough', 'kb.import/export' as dispatched functions.
+- Update message structure to flatter pattern; add real-time streaming via async generators in handlers (e.g., yield op results).
+- In mcr.js, update server setup to use new websocketApi.js for handling connections.
+- Delete src/mcpHandler.js and src/toolDefinitions.js if redundant after merge.
 
-#### Step 4: Unify Context Views with GraphVisualizer
+## Phase 7: Update MCR Workbench UI
+- In ui/src/, simplify components: Reduce hooks by using direct WebSocket subscriptions for live updates (e.g., KB view subscribes to session changes).
+- Add visualizations: Create new components like HybridLoopViewer.jsx to display step-by-step ops (e.g., render program array as timeline) and BiLevelModelDisplay.jsx to show JSON intermediates as formatted tables.
+- Fold deprecated functionalities: Integrate any remaining CLI/demo logic into UI routes (e.g., chat mode as tab, ontology loading via button calling generate_ontology.js).
+- Update main app component to use tabs for Interactive Session Mode (chat, KB, demos) and System Analysis Mode (dashboards for perf, evolver controls calling evolutionModule).
+- Ensure all comms via WebSocket with the new invoke pattern; add error display tied to centralized handling.
 
-- In Sidebar tabs:
-  - NL Context: Data: Messages as nodes (linear edges); layout: 'grid' {direction: 'vertical', spacing: 20}; renderer: Bubble shapes, color by sender.
-  - Reasoning Context: Data: Steps as nodes (e.g., 'LLM' -> 'Validate'); layout: 'circular' {radius: 200}; renderer: Hex/circle, size by depth; animate pulse on active loops.
-  - KB Context: Data: Triples as nodes/edges; layout: 'force' {}; renderer: Rects, border for prob; embeddings as bg; drag to query sim.
-  - Evolution Context: Data: Strategies as nodes (edges: evals); layout: 'grid' {}; renderer: Bars (height by score via Recharts mini); morph animate on optimize.
-- In ChatWindow: Inline mini-graphs in bubbles (e.g., for query response: <GraphVisualizer data={proofGraph} layout='tree' size='small'/>); expand on click to full panel.
+## Phase 8: Integrate Utility Scripts
+- Move generate_example.js and generate_ontology.js to src/utility.js as exported functions `generateExample()`, `generateOntology(domain)`.
+- In src/mcrEngine.js, add methods to call utilities (e.g., `generateCurriculumViaUtility()` wrapping generate_example for evolution).
+- Make utilities API-callable: Expose via WebSocket tools (e.g., 'util.generate_example') in websocketApi.js.
+- In ui/src/, add buttons/controls to invoke utilities (e.g., demo runner calls generate_ontology).
+- Delete original root utility files after move.
 
-#### Step 5: Enhance Interactions and Flows
-
-- In ChatWindow input: Parse commands (regex for /assert|/query); auto-suggest buttons (e.g., if logic detected, "Enable graphs?").
-- Animations: Load: Staggered node fade; hover: Pulse + tooltip; drag: Spring physics (motion.useSpring); transitions: Layout morph (motion.LayoutGroup); errors: Ripple from node (motion.circle expand).
-- Onboarding: Use state for first-load; show banner with mini-graph preview, fade-out on interact.
-- Pure LM Mode: If !useReasoning, render plain text bubbles, hide sidebar graphs/tabs.
-- Accessibility: Add ARIA (e.g., role='graph', labels on nodes); keyboard nav (focus + arrows); color-blind patterns (stripes over hues for bitmaps).
-
-#### Step 6: Integrate with Backend and Test
-
-- In relevant components: Use WebSocket hooks (existing or add useWebSocket) for real-time updates (e.g., on assert, update graph data, trigger animations).
-- In `ui/src/tests/`: Add GraphVisualizer.test.jsx (render with mock data, snapshot layouts); embeddingViz.test.js (mock reduction, check dataURL); interaction tests (simulate drag, assert WS call).
-- Update README in ui/: Add UI usage examples with screenshots.
-
-Ensure fallbacks (e.g., no embeddings: plain nodes). This completes the refactor, unifying views ergonomically.
-
----
-
-### Refined Development Plan for Implementing Elegant Neurosymbolic MCR Redesign (Complete)
-
-This refined plan builds directly on the existing codebase (clone from https://github.com/automenta/mcr), reusing modularity (e.g., pluggable services in src/, WebSocket handlers, session stores, evolution components), while ensuring full coverage of the elegant model's features: config variants (LLM/reasoner OR/XOR), bridges/integration, hybrid session/KB persistence, bidirectional operations loops, guided probabilistic reasoning, optional UI/API enhancements, and loop-integrated evolution. Additions focus on symbiosis (embeddings, KG, LTN) without disrupting existing flows—e.g., fallback to current Prolog if LTN not configured. Use JavaScript/Node.js; add minimal npm deps for new features.
-
-#### Step 1: Enhance Configuration for Full Variant Support
-
-- In `config.js`: Expand .env parsing with `REASONER_TYPE` (default 'prolog', XOR: 'prolog' | 'ltn'), `EMBEDDING_MODEL` (optional, e.g., 'all-MiniLM-L6-v2'), `KG_ENABLED` (boolean, default false). Add validation: if 'ltn', require `LTN_THRESHOLD` (float 0-1 for prob cutoff); if embeddings, check model availability.
-- In `.env.example`: Append new keys with examples, e.g., `REASONER_TYPE=ltn`, `EMBEDDING_MODEL=all-MiniLM-L6-v2`, `KG_ENABLED=true`, `LTN_THRESHOLD=0.7`.
-- In `mcr.js`: On startup, conditionally load tfjs and graphology: add `if (config.EMBEDDING_MODEL) { const tf = require('@tensorflow/tfjs-node'); }` and similar for graphology if KG_ENABLED.
-
-#### Step 2: Implement Neural-Symbolic Bridges for Integration
-
-- Create `src/bridges/` directory.
-- Add `src/bridges/embeddingBridge.js`: Class `EmbeddingBridge` with `async loadModel()` (load tfjs sentence-transformer model), `encode(text)` (return vector array), `similarity(vec1, vec2)` (cosine sim). Fallback to zero-vector if load fails.
-- Add `src/bridges/kgBridge.js`: Class `KnowledgeGraph` using graphology: methods `addTriple(subj, pred, obj)`, `queryTriples(pattern)` (return matching triples), `embedNodes(embeddingBridge)` (vectorize nodes/edges), `toJSON()`/`fromJSON()` for persistence.
-- In `src/llmService.js`: Extend `invokeLLM` to optionally append embeddings to prompts, e.g., if input.embed, add `prompt += `\nEmbeddings context: ${JSON.stringify(relevantVectors)}`;`.
-- In `src/reasonerService.js`: Add LTN variant—conditional: if config.REASONER_TYPE === 'ltn', implement `probabilisticDeduce(clauses, query, threshold)` (weight clauses by embedding sim, filter proofs > threshold; use simple array-based weighting as LTN sim, integrate with existing Prolog resolver for base deduction).
-
-#### Step 3: Hybridize Session and KB for Persistent State
-
-- In `src/mcrService.js`: Update `Session` class—add `kbGraph` (KnowledgeGraph instance if KG_ENABLED), `embeddings` (Map<string, array> for clause vectors). In constructor: `if (config.KG_ENABLED) this.kbGraph = new KnowledgeGraph(); this.embeddings = new Map();`.
-- In assert/query methods: After logic ops, if embeddings enabled, `this.embeddings.set(clauseId, embeddingBridge.encode(clause));` and if KG, parse clause to triples and add to kbGraph.
-- In `InMemorySessionStore.js` and `FileSessionStore.js`: Modify save/load—add `sessionData.kbGraph = this.kbGraph ? this.kbGraph.toJSON() : null;` and `sessionData.embeddings = Array.from(this.embeddings);`. On load, reconstruct instances.
-
-#### Step 4: Add Bidirectional Refinement Loops to Operations
-
-- In `src/mcrService.js`: Introduce private `_refineLoop(input, type='nl_to_logic', maxIter=3)`:
-  1. Initial translate (use existing LLM/reasoner).
-  2. Validate (consistency check via reasoner).
-  3. If fail, refine: Query similar embeddings/KG triples, re-prompt LLM ("Refine for consistency: [issues], similar: [similars]").
-  4. Loop until valid or max; log iterations.
-- Refactor `kb.assert`: Wrap NL-to-logic in `_refineLoop`; add KG triple extraction if enabled.
-- Refactor `kb.query`: Wrap logic-to-NL in reverse `_refineLoop` (symbolic result → embed → LLM interpret → validate sim).
-- In `src/toolDefinitions.js`: Update KB tool schemas—add optional params `useLoops: boolean` (default true), `embed: boolean`, to trigger features.
-
-#### Step 5: Upgrade Reasoning to Guided Loops with Probabilistic Outputs
-
-- In `src/reasonerService.js`: Replace `deduce` with `guidedDeduce(query)`:
-  1. Neural guide: LLM generate/rank hypotheses (prompt with embeddings/KG context).
-  2. Symbolic prove: Run deduction (Prolog or LTN) on top ranks.
-  3. Probabilistic: Compute output { proof, probability: simScore \* (1 / rank) } or LTN-weighted; filter by threshold.
-- In `src/mcrService.js`: Hook `kb.query` to `guidedDeduce`; extend tool_result payload with `probabilities: array`, `loopIterations: number`.
-- Fallback: If no embeddings/KG, use current deterministic mode with mock prob=1.0.
-
-#### Step 6: Enhance Optional UI/API and Integrate Evolution into Cycles
-
-- In `src/websocketHandlers.js`: Add tools `hybrid.refine` (explicit loop invoke, input: {type, data}), `kg.query` (if KG_ENABLED). Extend existing tools with loop/hybrid flags.
-- In `ui/src/components/SessionChat.jsx`: Add cycle viz—e.g., accordion for loop steps, probability bars (use Recharts if added to ui/package.json).
-- In `ui/src/components/AnalysisDashboard.jsx`: Extend with hybrid metrics (e.g., embedding sim histograms, prob distributions).
-- For evolution: In `src/evolution/optimizer.js`, modify `optimizeStrategy` to `optimizeInLoop(strategy, inputCases)`—wrap evals in `_refineLoop` from mcrService; add embedding/KG metrics to perf DB schema (alter `performance_results.db` with new columns: embedding_sim float, prob_score float).
-
-#### Step 7: Add Dependencies, Comprehensive Tests, and Final Cleanup
-
-- In root `package.json`: Add `"@tensorflow/tfjs-node": "^4.20.0"`, `"@tensorflow-models/universal-sentence-encoder": "^1.3.3"`, `"graphology": "^0.25.4"`, `"recharts": "^2.12.7"` (for UI viz).
-- In `ui/package.json`: Ensure Recharts if using for probs viz.
-- In `tests/mcrService.test.js`: Add tests for hybrid session (mock bridges, assert embeddings set), loops (simulate iterations, check convergence).
-- In `tests/reasonerService.test.js`: Test guidedDeduce variants (Prolog deterministic, LTN probabilistic with mocks).
-- In `tests/evolution/optimizer.test.js`: Test loop-integrated optimization (include hybrid metrics).
-- Run `npm install` in root and ui/.
-- In README.md: Update features section with neurosymbolic additions (e.g., "Bidirectional loops, embeddings/KG support"); add config examples; include hybrid usage in examples.
-- Remove any conflicting deprecated code if found (e.g., ensure no CLI remnants).
-
-This ensures feature-completeness: all elegant model elements implemented, with fallbacks for optionals (e.g., disable KG via config). Test thoroughly post-changes; deploy via existing `node mcr.js`.
+## Phase 9: Testing and Final Integration
+- In tests/, update existing Jest tests to cover new mcrEngine.js methods (e.g., test handleInput with mock LLM/Prolog, HEE program execution, bi-level translation).
+- Add new tests: For HEE (mock ops chain), Hybrid Loop (iteration convergence), bilevel evolution (reward-based updates), Context Graph immutability.
+- In src/mcrEngine.js, add end-to-end test helpers (e.g., mock providers).
+- In mcr.js, instantiate MCREngine and ensure server starts with all components; add config flag for evolution mode.
+- Update OVERVIEW.md and WEBSOCKET_API.md in root to reflect new architecture, API patterns, and features (code-only: treat as code comments if not markdown).
+- Run full test suite; iteratively fix any breakage from consolidations.
