@@ -1,5 +1,3 @@
-# Phased Development Plan for MCR 2.0
-
 This plan outlines a step-by-step transformation of the existing codebase into the MCR 2.0 design, focusing exclusively on code modifications, creations, deletions, and integrations. It assumes the current structure includes root files like mcr.js, generate_example.js, generate_ontology.js; src/ with config.js, logger.js, llmService.js, reasonerService.js, mcrService.js, sessionStore.js, websocketHandlers.js, mcpHandler.js, and subdirs like evolution/ (curriculumGenerator.js, keywordInputRouter.js, optimizer.js, strategyEvolver.js), evalCases/generated/, llmProviders/, ontologies/; separate strategies/ dir with translation strategy files; providers/ for abstracts and implementations; ui/src/ for Workbench components; and tests/ for Jest tests. Phases build incrementally, with each ending in a testable state where possible.
 
 ## Phase 1: Cleanup and Preparation
