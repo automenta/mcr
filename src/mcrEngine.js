@@ -1340,7 +1340,7 @@ class MCREngine {
         if (result.intermediate_model) {
           session.contextGraph.models.push(result.intermediate_model);
         }
-        return { prolog_clauses: result.prolog_clauses };
+        return result;
       };
 
       let addedFacts;
@@ -1348,14 +1348,13 @@ class MCREngine {
 
       if (useLoops) {
         const loopResult = await this._refineLoop(nlToLogicOperation, naturalLanguageText, { session, embeddingBridge: this.embeddingBridge });
-        addedFacts = loopResult.result.prolog_clauses;
+        addedFacts = loopResult.result;
         loopInfo = {
           loopIterations: loopResult.iterations,
           loopConverged: loopResult.converged,
         };
       } else {
-        const result = await nlToLogicOperation(naturalLanguageText, { session });
-        addedFacts = result.prolog_clauses;
+        addedFacts = await nlToLogicOperation(naturalLanguageText, { session });
         for (const factString of addedFacts) {
           const validationResult = await this.validateKnowledgeBase(factString);
           if (!validationResult.isValid) {
@@ -1388,13 +1387,13 @@ class MCREngine {
       const addSuccess = await this.addFacts(sessionId, addedFacts);
       if (addSuccess) {
         if (this.embeddingBridge && session.embeddings) {
-          for (const fact of factsToAdd) {
+          for (const fact of addedFacts) {
             const embedding = await this.embeddingBridge.encode(fact);
             session.embeddings.set(fact, embedding);
           }
         }
         if (this.config.kg.enabled && session.kbGraph) {
-          for (const fact of factsToAdd) {
+          for (const fact of addedFacts) {
             const parts = fact.slice(0, -1).split(/[()]/);
             if (parts.length >= 2) {
               const predicate = parts[0];
@@ -1410,7 +1409,7 @@ class MCREngine {
         return {
           success: true,
           message: 'Facts asserted successfully.',
-          addedFacts: factsToAdd,
+          addedFacts,
           fullKnowledgeBase,
           strategyId: currentStrategyId,
           ...loopInfo,

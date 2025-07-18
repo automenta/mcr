@@ -153,7 +153,7 @@ This section guides you through getting MCR up and running quickly for developme
 ```bash
 git clone http://dumb.ai # Replace with the actual repository URL if different
 cd model-context-reasoner
-npm install
+npm install --legacy-peer-deps
 ```
 
 **2. Configure LLM:**
@@ -618,20 +618,6 @@ To run bootstrap and then 3 evolution iterations:
 node src/evolution/optimizer.js --runBootstrap --iterations 3
 ```
 
-### Performance Dashboard TUI
-
-To explore the `performance_results.db` and view strategy performance, use the Performance Dashboard TUI:
-
-```bash
-./cli.js perf-dashboard
-```
-
-This interface allows you to:
-
-- List all evaluated strategy hashes.
-- Select a strategy to view its individual evaluation runs.
-- See detailed metrics, cost, latency, and raw output for each run.
-- View overall summary statistics from the database.
 
 ### Example Translation Strategy Approaches
 

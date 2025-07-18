@@ -7,11 +7,11 @@ const MockLLMProvider = jest.fn().mockImplementation(() => {
       if (userPrompt.includes('refine')) {
         return Promise.resolve({ text: 'is_hot(sun).' });
       }
+      if (userPrompt.includes('Is the sky blue?')) {
+        return Promise.resolve({ text: 'is_blue(sky)?' });
+      }
       if (userPrompt.includes('translate')) {
         return Promise.resolve({ text: '{"statementType": "fact", "fact": {"predicate": "is_blue", "arguments": ["sky"]}}' });
-      }
-      if (userPrompt.includes('query')) {
-        return Promise.resolve({ text: 'is_blue(sky)?' });
       }
       if (userPrompt.includes('fact(X)')) {
         return Promise.resolve({ text: 'a' });
