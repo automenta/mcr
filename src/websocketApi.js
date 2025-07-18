@@ -2,6 +2,7 @@
 const logger = require('./util/logger');
 const { ErrorCodes, ApiError } = require('./errors');
 const { v4: uuidv4 } = require('uuid');
+const { generateExample, generateOntology } = require('./utility');
 const mcrService = require('./mcrService');
 const mcrToolDefinitions = require('./tools')(mcrService, require('../src/config'));
 
@@ -210,11 +211,12 @@ async function routeMessage(socket, message) {
     try {
         switch (type) {
             case 'invoke':
+                let result;
                 const toolDefinition = mcrToolDefinitions[tool];
                 if (toolDefinition && typeof toolDefinition.handler === 'function') {
                     logger.debug(`[WS-API][${correlationId}] Invoking tool: ${tool}`, { input: payload });
 
-                    const result = await toolDefinition.handler(payload || {});
+                    result = await toolDefinition.handler(payload || {});
 
                     if (result.success && (tool === 'session.create' || tool === 'session.get') && result.data?.id) {
                         if (socket.sessionId !== result.data.id) {
@@ -222,14 +224,10 @@ async function routeMessage(socket, message) {
                             logger.info(`[WS-API][${correlationId}] WebSocket connection now associated with session: ${socket.sessionId}`);
                         }
                     }
-
-                    socket.send(JSON.stringify({
-                        type: 'result',
-                        correlationId,
-                        messageId,
-                        tool,
-                        payload: result,
-                    }));
+                } else if (tool === 'util.generate_example') {
+                    result = await generateExample(payload.domain, payload.instructions);
+                } else if (tool === 'util.generate_ontology') {
+                    result = await generateOntology(payload.domain, payload.instructions);
                 } else {
                     logger.warn(`[WS-API][${correlationId}] Unknown tool: ${tool}`, { messageId });
                     socket.send(JSON.stringify({
@@ -243,7 +241,16 @@ async function routeMessage(socket, message) {
                             message: `Unknown tool: ${tool}`,
                         },
                     }));
+                    return;
                 }
+
+                socket.send(JSON.stringify({
+                    type: 'result',
+                    correlationId,
+                    messageId,
+                    tool,
+                    payload: result,
+                }));
                 break;
 
             case 'mcp.invoke_tool':

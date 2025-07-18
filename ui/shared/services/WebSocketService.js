@@ -4,6 +4,7 @@ class WebSocketService {
 		this.socket = null;
 		this.messageId = 0;
 		this.listeners = new Map();
+		this.pendingRequests = new Map();
 	}
 
 	connect() {
@@ -21,16 +22,14 @@ class WebSocketService {
 
 			this.socket.onmessage = event => {
 				const message = JSON.parse(event.data);
-				if (this.listeners.has(message.type)) {
+				if (message.messageId && this.pendingRequests.has(message.messageId)) {
+					const { resolve } = this.pendingRequests.get(message.messageId);
+					resolve(message);
+					this.pendingRequests.delete(message.messageId);
+				} else if (this.listeners.has(message.type)) {
 					this.listeners
 						.get(message.type)
 						.forEach(callback => callback(message));
-				}
-				if (message.messageId && this.listeners.has(message.messageId)) {
-					this.listeners
-						.get(message.messageId)
-						.forEach(callback => callback(message));
-					this.listeners.delete(message.messageId);
 				}
 			};
 
@@ -46,51 +45,28 @@ class WebSocketService {
 		});
 	}
 
-	sendMessage(tool_name, input, onReply) {
-		const messageId = `client-msg-${this.messageId++}`;
-		const message = {
-			type: 'tool_invoke',
-			messageId,
-			payload: {
-				tool_name,
-				input,
-			},
-		};
-		this.socket.send(JSON.stringify(message));
-
-		if (onReply) {
-			this.once(messageId, onReply);
-		}
+	invoke(tool, args = {}) {
+		return new Promise(resolve => {
+			const messageId = `client-msg-${this.messageId++}`;
+			const message = {
+				type: 'invoke',
+				tool,
+				args,
+				messageId,
+			};
+			this.socket.send(JSON.stringify(message));
+			this.pendingRequests.set(messageId, { resolve });
+		});
 	}
 
-	loadOntology(ontology, onReply) {
-		this.sendMessage('ontology.load', { ontology }, onReply);
-	}
-
-	listStrategies(onReply) {
-		this.sendMessage('strategy.list', {}, onReply);
-	}
-
-	runEvaluation(onReply) {
-		this.sendMessage('evaluation.run', {}, onReply);
-	}
-
-	on(type, callback) {
+	subscribe(type, callback) {
 		if (!this.listeners.has(type)) {
 			this.listeners.set(type, []);
 		}
 		this.listeners.get(type).push(callback);
 	}
 
-	once(type, callback) {
-		const onceCallback = message => {
-			callback(message);
-			this.off(type, onceCallback);
-		};
-		this.on(type, onceCallback);
-	}
-
-	off(type, callback) {
+	unsubscribe(type, callback) {
 		if (this.listeners.has(type)) {
 			const newListeners = this.listeners.get(type).filter(l => l !== callback);
 			if (newListeners.length === 0) {

@@ -1,24 +1,19 @@
-// scripts/generate_example.js
 const path = require('path');
-const { prompts, fillTemplate } = require('../src/prompts');
-const logger = require('../src/logger');
+const { prompts, fillTemplate } = require('./prompts');
+const logger = require('./util/logger');
 const { v4: uuidv4 } = require('uuid');
 const {
 	generateContent,
 	setupGeneratorScript,
 	ensureDirectoryExists,
 	writeGeneratedFile,
-} = require('./src/util/generatorUtils');
+} = require('./util/generatorUtils');
 
-const SCRIPT_NAME = 'generate_example.js';
-const evalCasesDir = path.join(__dirname, '..', 'src', 'evalCases');
+const SCRIPT_NAME = 'utility.js';
+const evalCasesDir = path.join(__dirname, 'evalCases');
+const ontologiesDir = path.join(__dirname, '..', 'ontologies');
 
-async function createEvaluationExamples(
-	domain,
-	instructions,
-	llmProviderName,
-	modelName
-) {
+async function generateExample(domain, instructions, llmProviderName, modelName) {
 	logger.info(
 		`[${SCRIPT_NAME}] Creating evaluation examples for domain: "${domain}" with instructions: "${instructions}" using ${llmProviderName}`
 	);
@@ -115,32 +110,60 @@ async function createEvaluationExamples(
 	);
 }
 
-if (require.main === module) {
-	const scriptSpecificOptions = {
-		domain: {
-			alias: 'd',
-			type: 'string',
-			description:
-				'The domain for which to generate examples (e.g., "chemistry", "history")',
-			demandOption: true,
-		},
-		instructions: {
-			alias: 'i',
-			type: 'string',
-			description:
-				'Specific instructions for the types of examples to generate',
-			demandOption: true,
-		},
-	};
-	const argv = setupGeneratorScript(scriptSpecificOptions, SCRIPT_NAME);
+async function generateOntology(domain, instructions, llmProviderName, modelName) {
+	logger.info(
+		`[${SCRIPT_NAME}] Creating ontology for domain: "${domain}" with instructions: "${instructions}" using ${llmProviderName}`
+	);
 
-	createEvaluationExamples(
-		argv.domain,
-		argv.instructions,
-		argv.provider,
-		argv.model
-	).catch(error => {
-		logger.error(`An error occurred in ${SCRIPT_NAME}: ${error.message}`);
-		process.exit(1);
+	if (!prompts.GENERATE_ONTOLOGY) {
+		logger.error('GENERATE_ONTOLOGY prompt is not defined in prompts.js.');
+		throw new Error('GENERATE_ONTOLOGY prompt is not defined.');
+	}
+
+	const filledUserPrompt = fillTemplate(prompts.GENERATE_ONTOLOGY.user, {
+		domain,
+		instructions,
 	});
+	const systemPrompt = prompts.GENERATE_ONTOLOGY.system;
+
+	const generatedProlog = await generateContent({
+		promptName: 'GENERATE_ONTOLOGY',
+		systemPrompt,
+		userPrompt: filledUserPrompt,
+		llmProviderName,
+		modelName,
+	});
+
+	let cleanedProlog = generatedProlog.replace(
+		/```prolog\s*([\s\S]*?)\s*```/g,
+		'$1'
+	);
+	cleanedProlog = cleanedProlog.replace(/```\s*([\s\S]*?)\s*```/g, '$1');
+	cleanedProlog = cleanedProlog.trim();
+
+	if (!cleanedProlog) {
+		logger.warn('LLM generated empty Prolog content.');
+		return;
+	}
+	const prologCommentHeader = `% Domain: ${domain}\n% Instructions: ${instructions}\n`;
+	const fullContent = `${prologCommentHeader}\n${cleanedProlog}`;
+
+	const fileName = `${domain.replace(/\s+/g, '_').toLowerCase()}GeneratedOntology.pl`;
+	const filePath = path.join(ontologiesDir, fileName);
+
+	ensureDirectoryExists(ontologiesDir);
+	writeGeneratedFile({
+		filePath,
+		content: fullContent,
+		domain,
+		instructions,
+		scriptName: SCRIPT_NAME,
+	});
+
+	logger.info(`[${SCRIPT_NAME}] Successfully generated ontology.`);
 }
+
+module.exports = {
+  generateExample,
+  generateOntology,
+};
