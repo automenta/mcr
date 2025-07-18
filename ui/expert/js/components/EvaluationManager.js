@@ -1,4 +1,4 @@
-import WebSocketService from '../../services/WebSocketService.js';
+import WebSocketService from '@shared/services/WebSocketService.js';
 
 class EvaluationManager extends HTMLElement {
 	constructor() {
@@ -24,8 +24,9 @@ class EvaluationManager extends HTMLElement {
 		this.button.addEventListener('click', this.runEvaluation.bind(this));
 	}
 
-	runEvaluation() {
-		WebSocketService.runEvaluation(response => {
+	async runEvaluation() {
+		try {
+			const response = await WebSocketService.invoke('evaluation.run', {});
 			console.log('Evaluation result:', response);
 			document.dispatchEvent(
 				new CustomEvent('evaluation-results-updated', {
@@ -34,7 +35,9 @@ class EvaluationManager extends HTMLElement {
 					},
 				})
 			);
-		});
+		} catch (err) {
+			console.error('Evaluation failed', err);
+		}
 	}
 }
 
