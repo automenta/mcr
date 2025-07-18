@@ -1,7 +1,8 @@
 const reasonerService = require('../src/reasonerService');
 const mcrService = require('../src/mcrService');
-const llmService = require('../src/llmService');
-jest.mock('../src/llmService');
+const MCREngine = require('../src/mcrEngine');
+const engine = new MCREngine();
+jest.mock('../src/mcrEngine');
 const InMemorySessionStore = require('../src/store/InMemorySessionStore');
 const config = require('../src/config');
 
@@ -32,7 +33,7 @@ describe('guidedDeduce', () => {
   });
 
   it('should return a probabilistic result', async () => {
-    jest.spyOn(llmService, 'generate').mockResolvedValue({
+    jest.spyOn(engine, 'callLLM').mockResolvedValue({
         text: 'fact(a).\nfact(c).',
     });
     executeQuery.mockImplementation((kb, query) => {
@@ -44,11 +45,11 @@ describe('guidedDeduce', () => {
 
     const results = await originalReasonerService.guidedDeduce(
       'fact(X).',
-      llmService,
+      engine,
       session
     );
 
-    expect(llmService.generate).toHaveBeenCalled();
+    expect(engine.callLLM).toHaveBeenCalled();
     expect(executeQuery).toHaveBeenCalledWith(
       'fact(a). fact(b).',
       'fact(a).'
@@ -59,7 +60,7 @@ describe('guidedDeduce', () => {
   });
 
   it('should fallback to deterministic mode', async () => {
-    jest.spyOn(llmService, 'generate').mockResolvedValue({
+    jest.spyOn(engine, 'callLLM').mockResolvedValue({
         text: 'fact(c).\nfact(d).',
     });
       executeQuery.mockImplementation((kb, query) => {
@@ -71,11 +72,11 @@ describe('guidedDeduce', () => {
 
       const results = await originalReasonerService.guidedDuce(
         'fact(X).',
-        llmService,
+        engine,
         session
       );
 
-      expect(llmService.generate).toHaveBeenCalled();
+      expect(engine.callLLM).toHaveBeenCalled();
       expect(executeQuery).toHaveBeenCalledWith(
         'fact(a). fact(b).',
         'fact(X).'

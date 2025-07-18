@@ -2,7 +2,8 @@
 const crypto = require('crypto');
 const logger = require('../util/logger');
 const { initDb } = require('../store/database'); // closeDb removed
-const llmService = require('../llmService'); // Assuming llmService is set up and provides a 'generate' method
+const MCREngine = require('../mcrEngine');
+const engine = new MCREngine();
 const {
 	prompts,
 	fillTemplate,
@@ -191,7 +192,7 @@ Your response should be JUST the rewritten prompt text, without any preamble or 
 Do NOT wrap the rewritten prompt in markdown code blocks. Output only the raw text of the new prompt.
 `;
 			logger.warn('[StrategyEvolver] Using fallback critique prompt template.');
-			const rewrittenPrompt = await llmService.generate(
+			const rewrittenPrompt = await engine.callLLM(
 				fallbackSystem,
 				fallbackUser
 			);
@@ -211,7 +212,7 @@ Do NOT wrap the rewritten prompt in markdown code blocks. Output only the raw te
 			logger.info(
 				'[StrategyEvolver] Sending prompt for critique and rewrite to LLM...'
 			);
-			const llmResponse = await llmService.generate(systemPrompt, userPrompt);
+			const llmResponse = await engine.callLLM(systemPrompt, userPrompt);
 			if (llmResponse) {
 				logger.info('[StrategyEvolver] LLM returned rewritten prompt.');
 				// Expecting the LLM to return just the prompt text based on typical instructions.

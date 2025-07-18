@@ -2,7 +2,8 @@
 const fs = require('fs');
 const yargs = require('yargs/yargs');
 const { hideBin } = require('yargs/helpers');
-const llmService = require('../llmService');
+const MCREngine = require('../mcrEngine');
+const engine = new MCREngine();
 const logger = require('./logger');
 
 /**
@@ -57,9 +58,9 @@ async function generateContent({
 						`[GeneratorUtils] Model specified for unknown provider ${currentProvider}, model override might not take effect as expected.`
 					);
 			}
-			// NOTE: This relies on llmService.getProvider() re-evaluating process.env each time,
-			// or being called after these changes. If llmService caches the provider instance heavily,
-			// this might not work as expected without further changes to llmService to allow explicit provider/model override.
+			// NOTE: This relies on engine.getLlmProvider() re-evaluating process.env each time,
+			// or being called after these changes. If engine caches the provider instance heavily,
+			// this might not work as expected without further changes to engine to allow explicit provider/model override.
 			// For a script context, this is often acceptable as the script is a short-lived process.
 		} else {
 			// If no provider override, use the one from config (which reads env vars at startup)
@@ -67,15 +68,11 @@ async function generateContent({
 			currentModel = null; // Model is determined by config based on provider
 		}
 
-		// Ensure llmService is re-initialized if provider was changed by env vars
-		// This is a simplified approach; a more robust solution might involve passing provider/model directly to llmService.generate
-		llmService.forceReinitializeProvider();
-
 		logger.info(
 			`[GeneratorUtils] Calling LLM service. Provider: ${process.env.MCR_LLM_PROVIDER}, Model for OpenAI: ${process.env.MCR_LLM_MODEL_OPENAI}, Model for Gemini: ${process.env.MCR_LLM_MODEL_GEMINI}, Model for Ollama: ${process.env.MCR_LLM_MODEL_OLLAMA}`
 		);
 
-		const llmResult = await llmService.generate(systemPrompt, userPrompt);
+		const llmResult = await engine.callLLM(systemPrompt, userPrompt);
 
 		if (!llmResult || typeof llmResult.text !== 'string') {
 			logger.error(
@@ -107,7 +104,6 @@ async function generateContent({
 			logger.info(
 				`[GeneratorUtils] Restored original LLM environment variables.`
 			);
-			llmService.forceReinitializeProvider(); // Re-initialize with original settings
 		}
 	}
 }

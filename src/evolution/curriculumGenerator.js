@@ -2,7 +2,8 @@
 const crypto = require('crypto');
 const logger = require('../util/logger');
 const { initDb } = require('../store/database'); // closeDb removed
-const llmService = require('../llmService');
+const MCREngine = require('../mcrEngine');
+const engine = new MCREngine();
 const { prompts, fillTemplate } = require('../prompts');
 const { loadAllEvalCases } = require('../evalCases/baseEvals'); // To get existing cases
 const fs = require('fs');
@@ -158,7 +159,7 @@ Original Expected Answer: "${originalCase.expectedAnswer || ''}"
 			logger.info(
 				`[CurriculumGenerator] Requesting LLM to generate ${numVariations} variations for case: ${originalCase.exampleId || originalCase.naturalLanguageInput}`
 			);
-			const llmResponse = await llmService.generate(systemPrompt, userPrompt);
+			const llmResponse = await engine.callLLM(systemPrompt, userPrompt);
 
 			if (!llmResponse) {
 				logger.warn(
