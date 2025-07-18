@@ -132,10 +132,9 @@ class ReplComponent extends HTMLElement {
 		try {
 			await WebSocketService.connect();
 			this.addMessage('System', 'Connected to server.');
-			WebSocketService.sendMessage('session.create', {}, response => {
-				this.sessionId = response.payload.data.id;
-				this.addMessage('System', `Session created: ${this.sessionId}`);
-			});
+			const response = await WebSocketService.invoke('session.create', {});
+			this.sessionId = response.payload.data.id;
+			this.addMessage('System', `Session created: ${this.sessionId}`);
 		} catch (err) {
 			this.addMessage('System', 'Failed to connect to server.');
 			console.error(err);
@@ -169,14 +168,10 @@ class ReplComponent extends HTMLElement {
 		this.history.push(message);
 		this.historyIndex = this.history.length;
 
-		WebSocketService.sendMessage(
-			'mcr.handle',
-			{
-				sessionId: this.sessionId,
-				naturalLanguageText: message,
-			},
-			this.handleResponse.bind(this)
-		);
+		WebSocketService.invoke('mcr.handle', {
+			sessionId: this.sessionId,
+			naturalLanguageText: message,
+		}).then(this.handleResponse.bind(this));
 
 		this.input.value = '';
 	}

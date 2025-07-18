@@ -1,4 +1,4 @@
-import WebSocketService from '../../shared/services/WebSocketService.js';
+import WebSocketService from '@shared/services/WebSocketService.js';
 
 class UtilityManager extends HTMLElement {
   constructor() {

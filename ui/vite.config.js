@@ -9,6 +9,11 @@ import path from 'path';
 export default defineConfig({
 	plugins: [react()],
 	// root: '.', // Implicit, as vite.config.js is in ui/
+	resolve: {
+		alias: {
+			'@shared': path.resolve(__dirname, './shared'),
+		},
+	},
 	build: {
 		// Output directory relative to project root (where package.json is)
 		// Vite's `--root ui` in the build script sets the context for this config.
