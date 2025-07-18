@@ -1,19 +1,33 @@
 // src/ontologyService.js
 const fs = require('fs').promises;
 const path = require('path');
-const config = require('./config');
 const logger = require('./util/logger');
 const { ApiError } = require('./errors');
-const reasonerService = require('./reasonerService'); // Import reasonerService
+const PrologReasonerProvider = require('./reason/prologReasoner');
 
-const ONTOLOGY_DIR = config.ontology.directory;
+let ONTOLOGY_DIR = null;
+let reasonerProvider = null;
 const ONTOLOGY_EXTENSION = '.pl';
+
+function configureOntologyService(options = {}) {
+    if (options.ontologyDir) {
+        ONTOLOGY_DIR = options.ontologyDir;
+    }
+    if (options.reasonerProvider) {
+        reasonerProvider = options.reasonerProvider;
+    } else {
+        reasonerProvider = PrologReasonerProvider;
+    }
+}
 
 /**
  * Ensures the ontology directory exists.
  */
 async function ensureOntologyDirExists() {
 	try {
+        if (!ONTOLOGY_DIR) {
+            throw new Error("Ontology directory not configured.");
+        }
 		await fs.mkdir(ONTOLOGY_DIR, { recursive: true });
 	} catch (error) {
 		logger.error(
@@ -57,7 +71,7 @@ async function createOntology(name, rulesString) {
 
 	// Validate Prolog syntax before saving
 	const validationResult =
-		await reasonerService.validateKnowledgeBase(rulesString);
+		await reasonerProvider.validate(rulesString);
 	if (!validationResult.isValid) {
 		logger.warn(
 			`[OntologyService] Validation failed for new ontology "${name}". Error: ${validationResult.error}`
@@ -167,7 +181,7 @@ async function updateOntology(name, newRulesString) {
 
 	// Validate Prolog syntax before saving
 	const validationResult =
-		await reasonerService.validateKnowledgeBase(newRulesString);
+		await reasonerProvider.validate(newRulesString);
 	if (!validationResult.isValid) {
 		logger.warn(
 			`[OntologyService] Validation failed for updating ontology "${name}". Error: ${validationResult.error}`
@@ -254,6 +268,7 @@ module.exports = {
 	updateOntology,
 	deleteOntology,
 	getGlobalOntologyRulesAsString,
+    configureOntologyService,
 	// For testing or other internal uses if needed:
 	// _ONTOLOGY_DIR: ONTOLOGY_DIR,
 	// _ONTOLOGY_EXTENSION: ONTOLOGY_EXTENSION

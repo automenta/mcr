@@ -3,12 +3,13 @@ const logger = require('../util/logger');
 const strategyManager = require('../strategyManager');
 const { Evaluator } = require('../evaluation/metrics');
 const { initDb, closeDb } = require('../store/database');
-const mcrService = require('../mcrService');
+const MCREngine = require('../mcrEngine');
 
 class OptimizationCoordinator {
-	constructor(config = {}) {
-		this.config = config;
-		this.evaluator = new Evaluator(config.evalCasesPath || 'src/evalCases');
+	constructor(mcrService) {
+		this.mcrService = mcrService;
+		this.config = mcrService.config;
+		this.evaluator = new Evaluator(this.config.evalCasesPath || 'src/evalCases');
 	}
 
 	async bootstrap() {
@@ -175,16 +176,16 @@ class OptimizationCoordinator {
 	}
 
 	async optimizeInLoop(strategy, inputCases) {
-		const session = await mcrService.createSession();
+		const session = await this.mcrService.createSession();
 		const results = [];
 		for (const inputCase of inputCases) {
-			const loopResult = await mcrService._refineLoop(
+			const loopResult = await this.mcrService._refineLoop(
 				async input => {
-					const res = await mcrService.assertNLToSession(session.id, input);
+					const res = await this.mcrService.assertNLToSession(session.id, input);
 					return res.addedFacts;
 				},
 				inputCase.nl,
-				{ session, embeddingBridge: mcrService.embeddingBridge }
+				{ session, embeddingBridge: this.mcrService.embeddingBridge }
 			);
 
 			const metrics = await this.evaluator.evaluate(
@@ -197,7 +198,7 @@ class OptimizationCoordinator {
 				metrics,
 			});
 		}
-		await mcrService.deleteSession(session.id);
+		await this.mcrService.deleteSession(session.id);
 		return results;
 	}
 

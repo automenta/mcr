@@ -253,6 +253,12 @@ class MCREngine {
       lexicon: new Set(),
       embeddings: new Map(),
       kbGraph: this.config.kg.enabled ? new KnowledgeGraph() : null,
+      contextGraph: {
+        facts: [],
+        rules: [],
+        embeddings: {},
+        models: {},
+      },
     };
 
     if (this.config.sessionStore.type === 'file') {
@@ -1527,6 +1533,96 @@ class MCREngine {
         strategyId: currentStrategyId,
       };
     }
+  }
+
+  async *executeProgram(sessionId, program) {
+    logger.info(`[MCREngine] Executing program for session ${sessionId}`, { program });
+    const session = await this.getSession(sessionId);
+    if (!session) {
+      yield { op: 'error', message: 'Session not found' };
+      return;
+    }
+
+    const context = {};
+
+    for (const operation of program) {
+      yield { op: 'status', message: `Executing operation: ${operation.op}` };
+      switch (operation.op) {
+        case 'neural':
+          const { prompt, outputVar, storeEmbedding } = operation;
+          const llmResult = await this.callLLM(prompt.system, prompt.user);
+          context[outputVar] = llmResult.text;
+          if (storeEmbedding && this.embeddingBridge) {
+            const embedding = await this.embeddingBridge.encode(llmResult.text);
+            session.contextGraph.embeddings[outputVar] = embedding;
+          }
+          yield { op: 'result', data: { [outputVar]: llmResult.text } };
+          break;
+        case 'symbolic':
+          const { query, bindingsVar } = operation;
+          const knowledgeBase = await this.getKnowledgeBase(sessionId);
+          const results = await this.queryProlog(knowledgeBase, query);
+          context[bindingsVar] = results;
+          yield { op: 'result', data: { [bindingsVar]: results } };
+          break;
+        case 'hybrid':
+          const { inputVar, refine, probabilistic } = operation;
+          if (refine) {
+            const loopResult = await this._refineLoop(
+              async (input) => {
+                const llmResult = await this.callLLM({ system: "Refine the following text:", user: input });
+                return llmResult.text;
+              },
+              context[inputVar],
+              { session, embeddingBridge: this.embeddingBridge }
+            );
+            context[inputVar] = loopResult.result;
+            yield { op: 'result', data: { [inputVar]: loopResult.result } };
+          }
+          if (probabilistic) {
+            const { clauses, query, threshold } = operation;
+            const results = await this.probabilisticDeduce(clauses, query, threshold, this.embeddingBridge);
+            yield { op: 'result', data: { results } };
+          }
+          break;
+        default:
+          yield { op: 'error', message: `Unknown operation: ${operation.op}` };
+      }
+    }
+    yield { op: 'status', message: 'Execution finished' };
+  }
+
+  async handleInput(sessionId, input) {
+    const program = [
+      {
+        op: 'neural',
+        prompt: {
+          system: 'You are a helpful assistant.',
+          user: `Translate the following natural language text to a Prolog query: ${input}`,
+        },
+        outputVar: 'prologQuery',
+        storeEmbedding: true,
+      },
+      {
+        op: 'symbolic',
+        query: 'prologQuery',
+        bindingsVar: 'results',
+      },
+      {
+        op: 'neural',
+        prompt: {
+          system: 'You are a helpful assistant.',
+          user: `Based on the following results, provide a natural language response: {{results}}`,
+        },
+        outputVar: 'response',
+      },
+    ];
+
+    const results = [];
+    for await (const result of this.executeProgram(sessionId, program)) {
+      results.push(result);
+    }
+    return results;
   }
 }
 

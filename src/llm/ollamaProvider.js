@@ -1,33 +1,33 @@
 // new/src/llmProviders/ollamaProvider.js
 const { ChatOllama } = require('@langchain/community/chat_models/ollama');
-// StringOutputParser and PromptTemplate are no longer used directly in this simplified version
-// const { StringOutputParser } = require('@langchain/core/output_parsers');
-// const { PromptTemplate } = require('@langchain/core/prompts');
-const config = require('../config');
 const logger = require('../util/logger');
 
 let ollamaInstance;
 
+function configureOllama(config) {
+    if (!ollamaInstance) {
+        try {
+            logger.debug('[OllamaProvider] Attempting to instantiate ChatOllama...');
+            ollamaInstance = new ChatOllama({
+                baseUrl: config.llm.ollama.baseURL,
+                model: config.llm.ollama.model,
+            });
+            logger.debug('[OllamaProvider] ChatOllama instantiated successfully.');
+            logger.info(
+                `Ollama provider initialized with model ${config.llm.ollama.model} at ${config.llm.ollama.baseURL}`
+            );
+        } catch (error) {
+            logger.error(`Failed to initialize Ollama provider: ${error.message}`, {
+                error,
+            });
+            throw new Error(`Ollama initialization failed: ${error.message}`);
+        }
+    }
+}
+
 function getOllamaInstance() {
 	if (!ollamaInstance) {
-		try {
-			logger.debug('[OllamaProvider] Attempting to instantiate ChatOllama...');
-			ollamaInstance = new ChatOllama({
-				// Changed from OllamaLangchain
-				baseUrl: config.llm.ollama.baseURL,
-				model: config.llm.ollama.model,
-				// temperature: 0, // Optional: for more deterministic output
-			});
-			logger.debug('[OllamaProvider] ChatOllama instantiated successfully.');
-			logger.info(
-				`Ollama provider initialized with model ${config.llm.ollama.model} at ${config.llm.ollama.baseURL}`
-			);
-		} catch (error) {
-			logger.error(`Failed to initialize Ollama provider: ${error.message}`, {
-				error,
-			});
-			throw new Error(`Ollama initialization failed: ${error.message}`);
-		}
+		throw new Error('Ollama provider not configured. Please call configureOllama first.');
 	}
 	return ollamaInstance;
 }
@@ -128,5 +128,6 @@ async function generate(systemPrompt, userPrompt, options = {}) {
 module.exports = {
 	name: 'ollama',
 	generate,
+    configureOllama,
 	// Potentially add a more generic generate(promptString) if needed later
 };

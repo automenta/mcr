@@ -1,7 +1,11 @@
 jest.mock('@tensorflow/tfjs-node', () => ({}));
-const mcrToolDefinitions = require('../src/tools');
+const getMcrToolDefinitions = require('../src/tools');
 
 describe('MCR Tool Definitions (src/tools.js)', () => {
+	const mockMcrService = {};
+	const mockConfig = {};
+	const mcrToolDefinitions = getMcrToolDefinitions(mockMcrService, mockConfig);
+
 	it('should be an object', () => {
 		expect(typeof mcrToolDefinitions).toBe('object');
 		expect(mcrToolDefinitions).not.toBeNull();
@@ -57,11 +61,6 @@ describe('MCR Tool Definitions (src/tools.js)', () => {
 			});
 		});
 	});
-
-	// Optionally, add more specific tests for certain tool schemas if they are complex
-	// For example, checking input_schema or output_schema if those were part of mcrToolDefinitions
-	// (They are defined in mcrHandler.js for MCP, not directly in mcrToolDefinitions from src/tools.js)
-
 	it('should not have undefined handlers for any defined tool', () => {
 		for (const toolName in mcrToolDefinitions) {
 			if (Object.prototype.hasOwnProperty.call(mcrToolDefinitions, toolName)) {

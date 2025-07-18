@@ -1,36 +1,36 @@
 // new/src/llmProviders/geminiProvider.js
 const { ChatGoogleGenerativeAI } = require('@langchain/google-genai');
 const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
-// const { StringOutputParser } = require('@langchain/core/output_parsers'); // Removed
-
-const config = require('../config');
 const logger = require('../util/logger');
 
 let geminiInstance;
 
+function configureGemini(config) {
+    if (!geminiInstance) {
+        if (!config.llm.gemini.apiKey) {
+            logger.error('Gemini API key is not configured.');
+            throw new Error('Gemini API key is missing. Please set GEMINI_API_KEY.');
+        }
+        try {
+            geminiInstance = new ChatGoogleGenerativeAI({
+                apiKey: config.llm.gemini.apiKey,
+                modelName: config.llm.gemini.model,
+            });
+            logger.info(
+                `Gemini provider initialized with model ${config.llm.gemini.model}`
+            );
+        } catch (error) {
+            logger.error(`Failed to initialize Gemini provider: ${error.message}`, {
+                error,
+            });
+            throw new Error(`Gemini initialization failed: ${error.message}`);
+        }
+    }
+}
+
 function getGeminiInstance() {
 	if (!geminiInstance) {
-		if (!config.llm.gemini.apiKey) {
-			logger.error('Gemini API key is not configured.');
-			throw new Error('Gemini API key is missing. Please set GEMINI_API_KEY.');
-		}
-		try {
-			geminiInstance = new ChatGoogleGenerativeAI({
-				apiKey: config.llm.gemini.apiKey,
-				modelName: config.llm.gemini.model,
-				// temperature: 0, // Optional: for more deterministic output
-				// topK: 40,      // Optional: common settings
-				// topP: 0.95,    // Optional: common settings
-			});
-			logger.info(
-				`Gemini provider initialized with model ${config.llm.gemini.model}`
-			);
-		} catch (error) {
-			logger.error(`Failed to initialize Gemini provider: ${error.message}`, {
-				error,
-			});
-			throw new Error(`Gemini initialization failed: ${error.message}`);
-		}
+		throw new Error('Gemini provider not configured. Please call configureGemini first.');
 	}
 	return geminiInstance;
 }
@@ -142,4 +142,5 @@ async function generate(systemPrompt, userPrompt, options = {}) {
 module.exports = {
 	name: 'gemini',
 	generate,
+    configureGemini,
 };

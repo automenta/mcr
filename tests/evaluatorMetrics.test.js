@@ -72,21 +72,6 @@ describe('Evaluator Metrics', () => {
 		it('should not remove spaces within quoted atoms', () => {
 			const prolog = "fact('hello world'). % a comment";
 			const expected = "fact('hello world').";
-			// The current normalizeProlog does not specifically handle quoted atoms to preserve internal spaces.
-			// It might strip spaces around parentheses even if part of a quoted atom if not careful.
-			// The current regex `\s*([(),.:-])\s*` is simple.
-			// For this test, we'll assume it correctly handles simple quotes due to lack of operators within.
-			// A more robust parser would be needed for complex quoted content.
-			// The current normalization `norm = norm.replace(/\s*([(),.:-])\s*/g, '$1');` might be too aggressive.
-			// Let's test based on its actual behavior:
-			// normalizeProlog("fact('hello world').") -> fact('helloworld'). (incorrect if space matters)
-			// This reveals a limitation. For now, the test will reflect what it *does*.
-			// To fix normalizeProlog, it would need to be aware of quoting.
-			// Given the current implementation, it will likely fail this test or require the expected to be squashed.
-			// Let's assume for now it doesn't specifically protect quoted spaces from general space normalization rules if they are next to operators.
-			// The key part of normalizeProlog is `replace(/\s+/g, ' ')` then `replace(/\s*([(),.:-])\s*/g, '$1')`
-			// `fact('hello world').` -> `fact('hello world').` (no operators, so spaces inside quotes are preserved from the second replace)
-			// `fact ( 'hello world' ).` -> `fact('hello world').` (spaces around quotes and dot removed)
 			expect(metrics.normalizeProlog(prolog)).toBe(
 				expected.replace(/\s*([(),.:-])\s*/g, '$1')
 			);

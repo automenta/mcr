@@ -2,7 +2,6 @@
 const fs = require('fs');
 const path = require('path');
 const logger = require('./util/logger');
-const config = require('./config');
 const { MCRError, ErrorCodes } = require('./errors');
 
 // Define the new directory for JSON strategies relative to the project root
@@ -14,7 +13,8 @@ const STRATEGIES_DIR_JSON = path.join(__dirname, '..', 'strategies');
  * Strategies are loaded from the `strategies/` directory at the project root.
  */
 class StrategyManager {
-	constructor() {
+	constructor(config) {
+		this.config = config;
 		this.strategies = new Map();
 		this.loadStrategies();
 	}
@@ -110,7 +110,7 @@ class StrategyManager {
 	}
 
 	getDefaultStrategy() {
-		const defaultStrategyId = config.translationStrategy;
+		const defaultStrategyId = this.config.translationStrategy;
 		logger.debug(
 			`[StrategyManager] Default strategy ID from config: ${defaultStrategyId}`
 		);
