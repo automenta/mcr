@@ -5,7 +5,7 @@ const logger = require('../util/logger');
 /**
  * Helper to format Prolog answers.
  * @param {*} answer - An answer from Tau Prolog.
- * @returns {string|object} - A simplified representation of the answer.
+ * @returns {string|object} - A simplified representation of the anwer.
  */
 function formatAnswer(answer) {
 	if (
@@ -37,50 +37,52 @@ function formatAnswer(answer) {
  * @returns {object|null} A simplified, serializable representation of the trace.
  */
 function formatTrace(termNode, session) {
-	if (!termNode) {
-		logger.warn(
-			'[PrologReasoner] formatTrace encountered a null termNode.'
-		);
-		return null;
-	}
-
-	// Safely access goal and links
-	const goal = termNode.goal;
-	const links = termNode.links;
-	let formattedGoal = 'true'; // Default for successful, non-binding goals
-
-	if (goal === null) {
-		// A null goal can indicate the end of a branch or a failure.
-		formattedGoal = 'fail';
-	} else if (prolog.type.is_goal(goal)) {
-		try {
-			// format_term can be complex, so wrap it in a try-catch
-			formattedGoal = session.format_term(goal, { session, links });
-		} catch (e) {
-			logger.error(
-				`[PrologReasoner] Error formatting term in formatTrace: ${e.message}`,
-				{ term: goal.toString() } // Log the term that caused the error
-			);
-			formattedGoal = 'error_formatting_term';
+	try {
+		if (!termNode || termNode.goal === null) {
+			return { goal: 'fail', children: [] };
 		}
-	} else {
-		// Handle cases where the goal is not a standard goal object
-		formattedGoal = 'unknown_goal_type';
-		logger.warn(
-			'[PrologReasoner] formatTrace encountered a non-goal object:',
-			goal
+
+		// Safely access goal and links
+		const goal = termNode.goal;
+		const links = termNode.links;
+		let formattedGoal = 'true'; // Default for successful, non-binding goals
+
+		if (prolog.type.is_goal(goal)) {
+			try {
+				// format_term can be complex, so wrap it in a try-catch
+				formattedGoal = session.format_term(goal, { session, links });
+			} catch (e) {
+				logger.error(
+					`[PrologReasoner] Error formatting term in formatTrace: ${e.message}`,
+					{ term: goal.toString() } // Log the term that caused the error
+				);
+				formattedGoal = 'error_formatting_term';
+			}
+		} else {
+			// Handle cases where the goal is not a standard goal object
+			formattedGoal = 'unknown_goal_type';
+			logger.warn(
+				'[PrologReasoner] formatTrace encountered a non-goal object:',
+				goal
+			);
+		}
+
+		// Safely map children
+		const children = Array.isArray(termNode.children)
+			? termNode.children.map(child => formatTrace(child, session))
+			: [];
+
+		return {
+			goal: formattedGoal,
+			children,
+		};
+	} catch (error) {
+		logger.error(
+			`[PrologReasoner] Unexpected error in formatTrace: ${error.message}`,
+			{ error }
 		);
+		return { goal: 'error', children: [] };
 	}
-
-	// Safely map children
-	const children = Array.isArray(termNode.children)
-		? termNode.children.map(child => formatTrace(child, session))
-		: [];
-
-	return {
-		goal: formattedGoal,
-		children,
-	};
 }
 
 /**
@@ -99,25 +101,12 @@ async function executeQuery(knowledgeBase, query, options = {}) {
 	const session = prolog.create(1000);
 	const results = [];
 
-	// logger.debug(`[PrologReasoner] Attempting to run query. Query: "${query}"`, {
-	// 	options,
-	// });
-	// logger.debug(
-	// 	`[PrologReasoner] Knowledge Base (first 500 chars):\n${knowledgeBase.substring(0, 500)}`
-	// );
-
 	return new Promise((resolve, reject) => {
 		try {
 			session.consult(knowledgeBase, {
 				success: () => {
-					logger.info(
-						'[PrologReasoner] Knowledge base consulted successfully.'
-					);
 					session.query(query, {
 						success: () => {
-							logger.info(
-								`[PrologReasoner] Prolog query "${query}" execution initiated successfully.`
-							);
 							function processNextAnswer() {
 								session.answer({
 									success: answer => {
@@ -127,9 +116,6 @@ async function executeQuery(knowledgeBase, query, options = {}) {
 												typeof prolog.type.is_theta_nil === 'function' &&
 												prolog.type.is_theta_nil(answer))
 										) {
-											logger.info(
-												`[PrologReasoner] Query "${query}": No more solutions.`
-											);
 											const proofTrace = trace
 												? formatTrace(session.thread.get_tree(), session)
 												: null;
@@ -141,9 +127,6 @@ async function executeQuery(knowledgeBase, query, options = {}) {
 										results.push(formatted);
 
 										if (results.length >= limit) {
-											logger.info(
-												`[PrologReasoner] Query "${query}": Reached result limit of ${limit}.`
-											);
 											const proofTrace = trace
 												? formatTrace(session.thread.get_tree(), session)
 												: null;
@@ -153,24 +136,15 @@ async function executeQuery(knowledgeBase, query, options = {}) {
 										processNextAnswer();
 									},
 									error: err => {
-										logger.error(
-											`[PrologReasoner] Error processing answer for query "${query}": ${err}`
-										);
 										reject(new Error(`Prolog error processing answer: ${err}`));
 									},
 									fail: () => {
-										logger.info(
-											`[PrologReasoner] Query "${query}" failed to find a solution.`
-										);
 										const proofTrace = trace
 											? formatTrace(session.thread.get_tree(), session)
 											: null;
 										resolve({ results, trace: proofTrace });
 									},
 									limit: () => {
-										logger.warn(
-											`[PrologReasoner] Query "${query}" exceeded execution limit.`
-										);
 										const proofTrace = trace
 											? formatTrace(session.thread.get_tree(), session)
 											: null;
@@ -181,25 +155,15 @@ async function executeQuery(knowledgeBase, query, options = {}) {
 							processNextAnswer();
 						},
 						error: err => {
-							logger.error(
-								`[PrologReasoner] Prolog syntax error or issue in query "${query}": ${err}`
-							);
 							reject(new Error(`Prolog query error: ${err}`));
 						},
 					});
 				},
 				error: err => {
-					logger.error(
-						`[PrologReasoner] Syntax error or issue consulting knowledgeBase: ${err}`
-					);
 					reject(new Error(`Prolog knowledge base error: ${err}`));
 				},
 			});
 		} catch (error) {
-			logger.error(
-				`[PrologReasoner] Unexpected error during Prolog operation: ${error.message}`,
-				{ error }
-			);
 			reject(new Error(`Unexpected Prolog error: ${error.message}`));
 		}
 	});
@@ -214,9 +178,6 @@ async function executeQuery(knowledgeBase, query, options = {}) {
 async function validateKnowledgeBase(knowledgeBase) {
 	const kbSnippet =
 		knowledgeBase.substring(0, 200) + (knowledgeBase.length > 200 ? '...' : '');
-	logger.info(
-		`[PrologReasonerProvider] Validating knowledge base (approx. ${knowledgeBase.length} chars). Snippet: "${kbSnippet}"`
-	);
 
 	try {
 		const session = prolog.create(100);
@@ -239,20 +200,11 @@ async function validateKnowledgeBase(knowledgeBase) {
 		}
 
 		if (consultError) {
-			logger.warn(
-				`[PrologReasonerProvider] Knowledge base validation FAILED. Error: ${consultError}. Snippet: "${kbSnippet}"`
-			);
 			return { isValid: false, error: String(consultError) };
 		}
 
-		logger.info(
-			`[PrologReasonerProvider] Knowledge base validation PASSED. Snippet: "${kbSnippet}"`
-		);
 		return { isValid: true };
 	} catch (e) {
-		logger.error(
-			`[PrologReasonerProvider] Exception during knowledge base validation process. Error: ${e.message}. Snippet: "${kbSnippet}"`
-		);
 		return { isValid: false, error: e.message };
 	}
 }
