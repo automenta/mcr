@@ -25,39 +25,9 @@ function addOptimizerLog(type, message) {
 	logger.info(`[OptimizerRuntime:${type}] ${message.trim()}`);
 }
 
-module.exports = function (mcrService, config) {
+module.exports = function (mcrEngine, config) {
+	const mcrService = mcrEngine;
 	return {
-		'config.set': {
-			description: 'Sets a configuration value.',
-			handler: async input => {
-				const { key, value } = input;
-				if (!key) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'key is required.',
-					};
-				}
-				try {
-					const keys = key.split('.');
-					let configObj = config;
-					for (let i = 0; i < keys.length - 1; i++) {
-						configObj = configObj[keys[i]];
-					}
-					configObj[keys[keys.length - 1]] = value;
-					return {
-						success: true,
-						message: `Configuration updated: ${key} = ${value}`,
-					};
-				} catch (error) {
-					return {
-						success: false,
-						error: ErrorCodes.CONFIG_SET_FAILED,
-						message: `Failed to set configuration for key: ${key}`,
-					};
-				}
-			},
-		},
 		'context.getNL': {
 			description: 'Gets natural language text from the context.',
 			handler: async () => {
@@ -80,7 +50,7 @@ module.exports = function (mcrService, config) {
 						message: 'naturalLanguageText is required.',
 					};
 				}
-				return mcrService.llmPassthrough(naturalLanguageText);
+				return mcrEngine.llmPassthrough(naturalLanguageText);
 			},
 		},
 		'mcr.handle': {
@@ -99,7 +69,7 @@ module.exports = function (mcrService, config) {
 					logger.info(
 						`[Tool:mcr.handle] Treating as a query: "${naturalLanguageText}"`
 					);
-					return mcrService.querySessionWithNL(
+					return mcrEngine.querySessionWithNL(
 						sessionId,
 						naturalLanguageText,
 						input.queryOptions
@@ -108,7 +78,7 @@ module.exports = function (mcrService, config) {
 					logger.info(
 						`[Tool:mcr.handle] Treating as an assertion: "${naturalLanguageText}"`
 					);
-					return mcrService.assertNLToSession(
+					return mcrEngine.assertNLToSession(
 						sessionId,
 						naturalLanguageText
 					);
@@ -139,7 +109,7 @@ module.exports = function (mcrService, config) {
 			description: 'Creates a new reasoning session.',
 			handler: async input => {
 				const sessionId = input?.sessionId;
-				const session = await mcrService.createSession(sessionId);
+				const session = await mcrEngine.createSession(sessionId);
 				return { success: true, data: session };
 			},
 		},
@@ -153,7 +123,7 @@ module.exports = function (mcrService, config) {
 						message: 'sessionId is required.',
 					};
 				}
-				const session = await mcrService.getSession(input.sessionId);
+				const session = await mcrEngine.getSession(input.sessionId);
 				if (session) {
 					return { success: true, data: session };
 				}
@@ -174,7 +144,7 @@ module.exports = function (mcrService, config) {
 						message: 'sessionId is required.',
 					};
 				}
-				const deleted = await mcrService.deleteSession(input.sessionId);
+				const deleted = await mcrEngine.deleteSession(input.sessionId);
 				if (deleted) {
 					return {
 						success: true,
@@ -191,7 +161,7 @@ module.exports = function (mcrService, config) {
 		'session.list': {
 			description: 'Lists all available sessions.',
 			handler: async () => {
-				const sessions = await mcrService.listSessions();
+				const sessions = await mcrEngine.listSessions();
 				return { success: true, data: sessions };
 			},
 		},
@@ -209,7 +179,7 @@ module.exports = function (mcrService, config) {
 					useLoops: input.useLoops,
 					embed: input.embed,
 				};
-				return mcrService.assertNLToSession(
+				return mcrEngine.assertNLToSession(
 					input.sessionId,
 					input.naturalLanguageText,
 					assertOptions
@@ -231,7 +201,7 @@ module.exports = function (mcrService, config) {
 					useLoops: input.useLoops,
 					embed: input.embed,
 				};
-				return mcrService.querySessionWithNL(
+				return mcrEngine.querySessionWithNL(
 					input.sessionId,
 					input.naturalLanguageQuestion,
 					queryOptions
@@ -248,7 +218,7 @@ module.exports = function (mcrService, config) {
 						message: 'sessionId and naturalLanguageQuestion are required.',
 					};
 				}
-				return mcrService.explainQuery(
+				return mcrEngine.explainQuery(
 					input.sessionId,
 					input.naturalLanguageQuestion
 				);
@@ -264,7 +234,7 @@ module.exports = function (mcrService, config) {
 						message: 'sessionId and rules are required.',
 					};
 				}
-				return mcrService.assertRawPrologToSession(
+				return mcrEngine.assertRawPrologToSession(
 					input.sessionId,
 					input.rules,
 					input.validate
@@ -282,7 +252,7 @@ module.exports = function (mcrService, config) {
 						message: 'sessionId and kbContent (string) are required.',
 					};
 				}
-				return mcrService.setSessionKnowledgeBase(
+				return mcrEngine.setSessionKnowledgeBase(
 					input.sessionId,
 					input.kbContent
 				);
@@ -298,7 +268,7 @@ module.exports = function (mcrService, config) {
 						message: 'sessionId and goal are required.',
 					};
 				}
-				const session = await mcrService.getSession(input.sessionId);
+				const session = await mcrEngine.getSession(input.sessionId);
 				if (!session) {
 					return {
 						success: false,
@@ -321,7 +291,7 @@ module.exports = function (mcrService, config) {
 						message: 'sessionId and clauses are required.',
 					};
 				}
-				const session = await mcrService.getSession(input.sessionId);
+				const session = await mcrEngine.getSession(input.sessionId);
 				if (!session) {
 					return {
 						success: false,
@@ -485,7 +455,7 @@ module.exports = function (mcrService, config) {
 						message: 'naturalLanguageText is required.',
 					};
 				}
-				return mcrService.translateNLToRulesDirect(
+				return mcrEngine.translateNLToRulesDirect(
 					input.naturalLanguageText,
 					input.strategyId
 				);
@@ -501,7 +471,7 @@ module.exports = function (mcrService, config) {
 						message: 'rules are required.',
 					};
 				}
-				return mcrService.translateRulesToNLDirect(input.rules, input.style);
+				return mcrEngine.translateRulesToNLDirect(input.rules, input.style);
 			},
 		},
 		'strategy.list': {
@@ -521,11 +491,11 @@ module.exports = function (mcrService, config) {
 						message: 'strategyId is required.',
 					};
 				}
-				const success = await mcrService.setTranslationStrategy(
+				const success = await mcrEngine.setTranslationStrategy(
 					input.strategyId
 				);
 				if (success) {
-					const activeStrategyId = mcrService.getActiveStrategyId();
+					const activeStrategyId = mcrEngine.getActiveStrategyId();
 					return {
 						success: true,
 						message: `Base translation strategy set to ${activeStrategyId}.`,
@@ -542,14 +512,14 @@ module.exports = function (mcrService, config) {
 		'strategy.getActive': {
 			description: 'Gets the currently active base translation strategy ID.',
 			handler: async () => {
-				const activeStrategyId = mcrService.getActiveStrategyId();
+				const activeStrategyId = mcrEngine.getActiveStrategyId();
 				return { success: true, data: { activeStrategyId } };
 			},
 		},
 		'utility.getPrompts': {
 			description: 'Retrieves all available prompt templates.',
 			handler: async () => {
-				const result = await mcrService.getPrompts();
+				const result = await mcrEngine.getPrompts();
 				if (result.success) {
 					return { success: true, data: result.prompts };
 				}
@@ -567,7 +537,7 @@ module.exports = function (mcrService, config) {
 						message: 'templateName and inputVariables are required.',
 					};
 				}
-				return mcrService.debugFormatPrompt(
+				return mcrEngine.debugFormatPrompt(
 					input.templateName,
 					input.inputVariables
 				);
@@ -584,7 +554,7 @@ module.exports = function (mcrService, config) {
             message: 'domain and instructions are required.',
           };
         }
-        return mcrService.generateExample(domain, instructions);
+        return mcrEngine.generateExample(domain, instructions);
       },
     },
     'util.generate_ontology': {
@@ -598,7 +568,7 @@ module.exports = function (mcrService, config) {
             message: 'domain and instructions are required.',
           };
         }
-        return mcrService.generateOntology(domain, instructions);
+        return mcrEngine.generateOntology(domain, instructions);
       },
     },
 		'analysis.get_strategy_leaderboard': {

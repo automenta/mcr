@@ -9,7 +9,7 @@ const path = require('path');
 const logger = require('./util/logger'); // Assuming logger is here
 const { errorHandlerMiddleware } = require('./errors');
 
-async function createServer() {
+async function createServer(mcrEngine) {
 	const app = express();
 	const httpServer = http.createServer(app);
 
@@ -65,7 +65,7 @@ async function createServer() {
 
 	// WebSocket connection handling
 	wss.on('connection', socket => {
-		handleWebSocketConnection(socket);
+		handleWebSocketConnection(socket, mcrEngine);
 	});
 
 	logger.info('[App] WebSocket server event handlers set up.');

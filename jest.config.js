@@ -11,6 +11,7 @@ module.exports = {
 	transform: {
     '^.+\\.js$': 'babel-jest',
   },
-	transformIgnorePatterns: [],
-	silent: true,
+	transformIgnorePatterns: [
+    '/node_modules/(?!yargs)/',
+  ],
 };

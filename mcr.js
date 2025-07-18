@@ -7,11 +7,15 @@ console.log('[MCR Pre-Init] Starting mcr.js...'); // Very early log
  * and handles uncaught exceptions and unhandled promise rejections.
  * @returns {Promise<import('http').Server>} A promise that resolves to the running HTTP server instance.
  */
+const MCREngine = require('./src/mcrEngine');
+
 async function startServer() {
 	// Logger and config should be initialized first
-	const config = require('./src/config');
 	const logger = require('./src/util/logger');
 	logger.info('[MCR Init] Initializing MCR server...');
+
+	const mcrEngine = new MCREngine();
+	const config = mcrEngine.config;
 
 	if (config.embedding.model) {
 		try {
@@ -51,7 +55,7 @@ async function startServer() {
 	// await mcrService.init(); // if it were async
 
 	// createHttpServer is an async function that returns the configured http.Server instance
-	const server = await createHttpServer();
+	const server = await createHttpServer(mcrEngine);
 	logger.info('[MCR Init] HTTP server instance created by src/app.');
 
 	// Now, attach the listener to the server instance
@@ -74,6 +78,7 @@ async function startServer() {
 		logger.info(
 			`  Default Translation Strategy: ${config.translationStrategy}`
 		);
+		logger.info(`  Evolution Mode: ${config.evolution.enabled}`);
 		logger.info('---------------------');
 	});
 

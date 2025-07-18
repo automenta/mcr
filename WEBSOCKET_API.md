@@ -107,7 +107,7 @@ If a message from the client is malformed (e.g., invalid JSON, missing critical 
 
 ## Available Tools (`tool_name`)
 
-The following tools can be invoked using the `tool_invoke` message type. The `input` object within `payload.input` should contain the specified parameters for each tool. All tool handlers are defined in `src/tools.js` and primarily interact with `src/mcrService.js` or `src/ontologyService.js`.
+The following tools can be invoked using the `tool_invoke` message type. The `input` object within `payload.input` should contain the specified parameters for each tool. All tool handlers are defined in `src/tools.js` and primarily interact with the `MCREngine`.
 
 ---
 
@@ -128,12 +128,12 @@ The following tools can be invoked using the `tool_invoke` message type. The `in
 - **`session.create`**
   - Description: Creates a new reasoning session.
   - Input: `{ "sessionId": "optional-desired-id" }` (If `sessionId` is omitted, the server generates one.)
-  - Success Payload: `{ "success": true, "data": { "id": "session-id", "facts": "", "lexiconSummary": "" } }`
+  - Success Payload: `{ "success": true, "data": { "id": "session-id", "createdAt": "...", "facts": [], "lexicon": "...", "embeddings": {}, "kbGraph": null, "contextGraph": { "facts": [], "rules": [], "embeddings": {}, "models": {} } } }`
 
 - **`session.get`**
   - Description: Retrieves details for an existing session, including its current Knowledge Base.
   - Input: `{ "sessionId": "existing-session-id" }`
-  - Success Payload: `{ "success": true, "data": { "id": "session-id", "facts": "prolog_kb_string", "lexiconSummary": "summary_string" } }`
+  - Success Payload: `{ "success": true, "data": { ... } }` (The full session object)
 
 - **`session.delete`**
   - Description: Deletes a session.
@@ -166,18 +166,6 @@ The following tools can be invoked using the `tool_invoke` message type. The `in
   - Success Payload: `{ "success": true, "explanation": "NL_explanation_string", "debugInfo": { ... }, "strategyId": "used_strategy_id", "cost": { ... } }`
 
 ---
-
-### Symbolic Exchange Tools
-
-- **`symbolic.export`**
-  - Description: Exports solutions to a Prolog goal from a session's knowledge base.
-  - Input: `{ "sessionId": "id", "goal": "your_goal(X)." }`
-  - Success Payload: `{ "success": true, "data": [...] }` (The data format depends on the solutions found)
-
-- **`symbolic.import`**
-  - Description: Imports raw Prolog clauses directly into a session's knowledge base.
-  - Input: `{ "sessionId": "id", "clauses": ["clause1.", "clause2."] }`
-  - Success Payload: `{ "success": true }`
 
 ### Ontology Management (Global Ontologies)
 
@@ -253,29 +241,15 @@ The following tools can be invoked using the `tool_invoke` message type. The `in
   - Input: `{ "templateName": "PROMPT_NAME", "inputVariables": { "var1": "val1", ... } }`
   - Success Payload: `{ "success": true, "templateName": "...", "rawTemplate": { ... }, "formattedUserPrompt": "...", "inputVariables": { ... } }`
 
----
+- **`util.generate_example`**
+  - Description: Generates evaluation examples for a given domain and instructions.
+  - Input: `{ "domain": "domain_name", "instructions": "instructions_text" }`
+  - Success Payload: `{ "success": true, "data": { ... } }`
 
-### System Analysis Tools
-
-- **`analysis.get_strategy_leaderboard`**
-  - Description: Retrieves aggregated performance data for all evaluated strategies from the performance database.
-  - Input: `{}` (empty object)
-  - Success Payload: `{ "success": true, "data": [{ "strategyId": "...", "strategyName": "...", "evaluations": 10, "successRate": 0.9, "avgLatencyMs": 1500, "avgCost": 0.00123 }, ...] }`
-
-- **`analysis.get_strategy_details`**
-  - Description: Retrieves detailed performance data, including individual runs, for a specific strategy.
-  - Input: `{ "strategyId": "sir-r1-query" }`
-  - Success Payload: `{ "success": true, "data": { "strategyId": "...", "definition": {...}, "hash": "...", "summary": {...}, "runs": [...] } }`
-
-- **`analysis.list_eval_curricula`**
-  - Description: Lists all available evaluation curricula (files containing test cases).
-  - Input: `{}` (empty object)
-  - Success Payload: `{ "success": true, "data": [{ "id": "path/to/file.js", "name": "file.js", "path": "path/to/file.js", "caseCount": 5 }, ...] }`
-
-- **`analysis.get_curriculum_details`**
-  - Description: Retrieves the content (the actual test cases) of a specific curriculum file.
-  - Input: `{ "curriculumId": "path/to/file.js" }`
-  - Success Payload: `{ "success": true, "data": { "id": "...", "name": "...", "cases": [...] } }`
+- **`util.generate_ontology`**
+  - Description: Generates an ontology for a given domain and instructions.
+  - Input: `{ "domain": "domain_name", "instructions": "instructions_text" }`
+  - Success Payload: `{ "success": true, "data": { ... } }`
 
 ---
 
@@ -314,10 +288,4 @@ The following tools can be invoked using the `tool_invoke` message type. The `in
   - Description: Runs a specific demo in a given session, returning captured logs from the demo run.
   - Input: `{ "demoId": "familyOntologyDemo", "sessionId": "id" }`
   - Success Payload: `{ "success": true, "data": { "demoId": "...", "messages": [...] } }`
-
 ---
-
-## MCP (Model Context Protocol) Messages
-
-MCR also handles MCP messages over the same WebSocket connection. These messages typically use an `action` field at the top level (e.g., `mcp.request_tools`, `mcp.invoke_tool`) and are processed by `src/mcpHandler.js`. Refer to MCP specifications for their exact structure.
-The MCR server will respond to MCP messages as defined by the MCP specification, often involving `mcp.tool_response` messages.

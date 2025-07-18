@@ -1,4 +1,4 @@
-## Slide 1: 🧠✨ Model Context Reasoner (MCR): Supercharge Your AI!
+## Slide 1: 🧠✨ Model Context Reasoner (MCR) 2.0: Supercharge Your AI!
 
 **Problem:** LLMs are amazing, but struggle with complex logic and verifiable facts.
 **Solution:** MCR bridges the gap! It combines the language power of LLMs with the precision of formal logic.
@@ -51,24 +51,24 @@ Where can MCR make a difference?
 
 ---
 
-## Slide 5: How Does It Work? (The Simple Version) 🛠️
+## Slide 5: How Does It Work? (The MCREngine) 🛠️
 
-**MCR: The 3-Step Symphony**
+**MCR: The 3-Step Symphony orchestrated by the MCREngine**
 
 1.  **Understand 🗣️ (LLM):**
     - User provides information or asks a question in natural language.
-    - MCR uses an LLM (like GPT, Gemini, Claude) to understand the _meaning_.
+    - The `MCREngine` uses an LLM (like GPT, Gemini, Claude) to understand the _meaning_.
 
-2.  **Structure 🧠 (MCR + LLM):**
+2.  **Structure 🧠 (MCREngine + LLM):**
     - The LLM, guided by MCR's "Translation Strategies," converts this meaning into formal logic rules and facts (like `is_a(cat, mammal).`).
-    - This knowledge is stored in a dedicated `Session` for the user.
+    - This knowledge is stored in a dedicated `Session` for the user, managed by the `MCREngine`.
 
 3.  **Reason 💡 (Logic Engine):**
-    - When a question is asked, MCR translates it into a formal query.
+    - When a question is asked, the `MCREngine` translates it into a formal query.
     - A logic reasoner (Prolog) uses the stored knowledge to find the answer with precision.
-    - MCR then translates the logical answer back into natural language.
+    - The `MCREngine` then translates the logical answer back into natural language.
 
-**It's a seamless blend of language intuition and logical deduction!**
+**It's a seamless blend of language intuition and logical deduction, all managed by the central `MCREngine`!**
 
 ---
 
@@ -76,9 +76,9 @@ Where can MCR make a difference?
 
 **Easy Integration, Powerful Effect!**
 
-- **Plug-and-Play:** MCR runs as a service. Your existing applications can talk to it via a simple API.
+- **Plug-and-Play:** MCR runs as a service. Your existing applications can talk to it via a simple WebSocket API.
 - **Minimal Setup:** Designed to add advanced reasoning to your AI stack without a major overhaul.
-- **Focus on Your Core:** Let MCR handle the complexities of logic and translation, so you can focus on your application's unique features.
+- **Focus on Your Core:** Let the `MCREngine` handle the complexities of logic and translation, so you can focus on your application's unique features.
 
 **Add a "Reasoning" pedal to your AI effects chain!**
 
@@ -88,27 +88,27 @@ Where can MCR make a difference?
 
 Ready to explore the power of MCR?
 
-1.  **For a Quick Taste (TUI Chat):**
+1.  **For a Quick Taste (MCR Workbench):**
     - The easiest way to see MCR in action!
-    - Run the MCR server, then launch the interactive chat.
+    - Run the MCR server, and open the MCR Workbench in your browser.
     - Assert facts, ask questions, and see MCR reason in real-time.
-    - _(See `README.md` for `npm run chat` or `./cli.js chat` instructions)_
+    - _(See `README.md` for instructions)_
 
 2.  **For Developers (API Integration):**
     - Start the MCR server.
-    - Use any HTTP client to interact with the MCR API (create sessions, assert facts, query knowledge).
+    - Use any WebSocket client to interact with the MCR API (create sessions, assert facts, query knowledge).
     - Perfect for integrating MCR into your own applications.
-    - _(Detailed API reference in `README.md`)_
+    - _(Detailed API reference in `WEBSOCKET_API.md`)_
 
 3.  **Explore the Code:**
-    - Dive into the MCR codebase to understand its architecture and capabilities.
+    - Dive into the MCR codebase to understand its architecture, centered around the `MCREngine`.
     - Contributions and feedback are welcome!
 
 4.  **Development & Testing Support:**
-    - MCR includes an advanced evaluation system (`evaluator.js`) for rigorously testing translation accuracy and performance with various metrics.
-    - Utility scripts (`generate_example.js`, `generate_ontology.js`) are provided to leverage LLMs for rapidly creating new test cases and domain ontologies, speeding up development cycles.
+    - MCR includes an advanced evaluation system for rigorously testing translation accuracy and performance with various metrics.
+    - Utility scripts are provided to leverage LLMs for rapidly creating new test cases and domain ontologies, speeding up development cycles.
 
-**Check out our `README.md` for detailed setup, installation, API documentation, and information on development tools!**
+**Check out our `README.md` for detailed setup, installation, and API documentation!**
 
 ---
 
@@ -116,7 +116,7 @@ Ready to explore the power of MCR?
 
 **MCR now gets SMARTER over time, AUTOMATICALLY!** 🚀
 
-- **Evolution Engine:** MCR includes a built-in supervisory loop that continuously:
+- **Evolution Engine:** The `MCREngine` includes a built-in supervisory loop that continuously:
   - **Discovers** new ways to translate language to logic.
   - **Evaluates** how well these "translation strategies" perform.
   - **Refines** them to improve accuracy, speed, and cost-efficiency.
@@ -145,6 +145,6 @@ MCR is more than just a tool; it's a step towards more intelligent and reliable 
 
 **Thank You!**
 Learn more & contribute: [Link to GitHub Repo - will be the current repo]
-(For technical details, see `README.md`)
+(For technical details, see `README.md` and `WEBSOCKET_API.md`)
 
 ---

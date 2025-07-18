@@ -201,7 +201,7 @@ const mcrTools = [
 ];
 
 
-async function routeMessage(socket, message) {
+async function routeMessage(socket, message, tools, mcrEngine) {
     const { type, tool, payload, messageId } = message;
     const correlationId = socket.correlationId;
 
@@ -211,7 +211,7 @@ async function routeMessage(socket, message) {
         switch (type) {
             case 'invoke':
                 let result;
-                const toolDefinition = mcrToolDefinitions[tool];
+                const toolDefinition = tools[tool];
                 if (toolDefinition && typeof toolDefinition.handler === 'function') {
                     logger.debug(`[WS-API][${correlationId}] Invoking tool: ${tool}`, { input: payload });
 
@@ -249,7 +249,7 @@ async function routeMessage(socket, message) {
                 break;
 
             case 'mcp.invoke_tool':
-                await handleMcpToolInvocation(socket, message);
+                await handleMcpToolInvocation(socket, message, mcrEngine);
                 break;
 
             case 'mcp.request_tools':
@@ -290,13 +290,15 @@ async function routeMessage(socket, message) {
     }
 }
 
-function handleWebSocketConnection(socket) {
+function handleWebSocketConnection(socket, mcrEngine) {
     socket.correlationId = `ws-conn-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     logger.info(`[WS-API][${socket.correlationId}] New WebSocket connection established.`);
 
+    const tools = require('./tools')(mcrEngine, mcrEngine.config);
+
     socket.on('message', message => {
         logger.info(`[WS-API][${socket.correlationId}] Received raw message:`, message);
-        routeMessage(socket, JSON.parse(message));
+        routeMessage(socket, JSON.parse(message), tools, mcrEngine);
     });
 
     socket.on('close', () => {
@@ -328,7 +330,7 @@ function sendWebSocketMessage(ws, type, data, messageId, correlationId, invocati
     logger.http(`[MCP WS][${ws.clientId}][${correlationId}] Sent WS message. Type: ${type}, MessageID: ${messageId}, InvocationID: ${invocation_id}`, { type, messageId, invocation_id, data });
 }
 
-async function handleMcpToolInvocation(socket, message) {
+async function handleMcpToolInvocation(socket, message, mcrEngine) {
     const { payload, messageId, headers } = message;
     socket.correlationId = (headers && headers['x-correlation-id']) || socket.correlationId || `ws-mcp-${uuidv4()}`;
     socket.clientId = (headers && headers['x-mcp-client-id']) || socket.clientId || `ws-client-${uuidv4().substring(0, 8)}`;
@@ -348,7 +350,7 @@ async function handleMcpToolInvocation(socket, message) {
     try {
         switch (tool_name) {
             case 'create_reasoning_session':
-                const session = await mcrService.createSession();
+                const session = await mcrEngine.createSession();
                 resultData = {
                     sessionId: session.id,
                     createdAt: session.createdAt.toISOString(),
@@ -360,7 +362,7 @@ async function handleMcpToolInvocation(socket, message) {
                 if (!input || !input.sessionId || !input.naturalLanguageText) {
                     throw new ApiError(400, 'Missing sessionId or naturalLanguageText for assert_facts_to_session');
                 }
-                const assertResult = await mcrService.assertNLToSession(input.sessionId, input.naturalLanguageText);
+                const assertResult = await mcrEngine.assertNLToSession(input.sessionId, input.naturalLanguageText);
                 resultData = {
                     success: assertResult.success,
                     message: assertResult.message,
@@ -376,7 +378,7 @@ async function handleMcpToolInvocation(socket, message) {
                 if (!input || !input.naturalLanguageText) {
                     throw new ApiError(400, 'Missing naturalLanguageText for translate_nl_to_rules');
                 }
-                const nlToRulesResult = await mcrService.translateNLToRulesDirect(input.naturalLanguageText);
+                const nlToRulesResult = await mcrEngine.translateNLToRulesDirect(input.naturalLanguageText);
                 resultData = {
                     success: nlToRulesResult.success,
                     rules: nlToRulesResult.rules,
@@ -391,7 +393,7 @@ async function handleMcpToolInvocation(socket, message) {
                 if (!input || !input.prologRules) {
                     throw new ApiError(400, 'Missing prologRules for translate_rules_to_nl');
                 }
-                const rulesToNlResult = await mcrService.translateRulesToNLDirect(input.prologRules, input.style || 'conversational');
+                const rulesToNlResult = await mcrEngine.translateRulesToNLDirect(input.prologRules, input.style || 'conversational');
                 resultData = {
                     success: rulesToNlResult.success,
                     explanation: rulesToNlResult.explanation,
@@ -405,7 +407,7 @@ async function handleMcpToolInvocation(socket, message) {
                 if (!input || !input.sessionId || !input.naturalLanguageQuestion) {
                     throw new ApiError(400, 'Missing sessionId or naturalLanguageQuestion for query_session');
                 }
-                const queryResult = await mcrService.querySessionWithNL(input.sessionId, input.naturalLanguageQuestion);
+                const queryResult = await mcrEngine.querySessionWithNL(input.sessionId, input.naturalLanguageQuestion);
                 resultData = {
                     success: queryResult.success,
                     answer: queryResult.answer,
