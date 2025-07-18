@@ -101,6 +101,12 @@ async function executeQuery(knowledgeBase, query, options = {}) {
 	const session = prolog.create(1000);
 	const results = [];
 
+	function getProofTrace() {
+		if (!trace) return null;
+		const tree = session.thread.get_tree();
+		return tree ? formatTrace(tree, session) : null;
+	}
+
 	return new Promise((resolve, reject) => {
 		try {
 			session.consult(knowledgeBase, {
@@ -116,10 +122,7 @@ async function executeQuery(knowledgeBase, query, options = {}) {
 												typeof prolog.type.is_theta_nil === 'function' &&
 												prolog.type.is_theta_nil(answer))
 										) {
-											const proofTrace = trace
-												? formatTrace(session.thread.get_tree(), session)
-												: null;
-											resolve({ results, trace: proofTrace });
+											resolve({ results, trace: getProofTrace() });
 											return;
 										}
 
@@ -127,10 +130,7 @@ async function executeQuery(knowledgeBase, query, options = {}) {
 										results.push(formatted);
 
 										if (results.length >= limit) {
-											const proofTrace = trace
-												? formatTrace(session.thread.get_tree(), session)
-												: null;
-											resolve({ results, trace: proofTrace });
+											resolve({ results, trace: getProofTrace() });
 											return;
 										}
 										processNextAnswer();
@@ -139,16 +139,10 @@ async function executeQuery(knowledgeBase, query, options = {}) {
 										reject(new Error(`Prolog error processing answer: ${err}`));
 									},
 									fail: () => {
-										const proofTrace = trace
-											? formatTrace(session.thread.get_tree(), session)
-											: null;
-										resolve({ results, trace: proofTrace });
+										resolve({ results, trace: getProofTrace() });
 									},
 									limit: () => {
-										const proofTrace = trace
-											? formatTrace(session.thread.get_tree(), session)
-											: null;
-										resolve({ results, trace: proofTrace });
+										resolve({ results, trace: getProofTrace() });
 									},
 								});
 							}
