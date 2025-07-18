@@ -6,9 +6,6 @@
 	"scripts": {
 		"start": "node mcr.js",
 		"dev": "nodemon mcr.js",
-		"demo": "node demo.js",
-		"chat": "node chat.js",
-		"chat:tui": "node cli.js chat",
 		"test": "jest",
 		"test:coverage": "jest --coverage",
 		"test:ui": "vitest run --root ui/",
@@ -38,9 +35,6 @@
 	"type": "commonjs",
 	"files": [
 		"mcr.js",
-		"cli.js",
-		"chat.js",
-		"demo.js",
 		"src/",
 		"ontologies/",
 		"strategies/",

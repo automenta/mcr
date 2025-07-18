@@ -1,35 +1,31 @@
-// new/src/logger.js
-const winston = require('winston');
+const fs = require('fs');
+const path = require('path');
 const config = require('../config');
 
-const logger = winston.createLogger({
-	level: config.logLevel,
-	format: winston.format.combine(
-		winston.format.timestamp({
-			format: 'YYYY-MM-DD HH:mm:ss',
-		}),
-		winston.format.errors({ stack: true }),
-		winston.format.splat(),
-		winston.format.json()
-	),
-	defaultMeta: { service: 'mcr-streamlined' },
-	transports: [
-		new winston.transports.Console({
-			format: winston.format.combine(
-				winston.format.colorize(),
-				winston.format.printf(
-					info =>
-						`${info.timestamp} ${info.level}: ${info.message}${info.stack ? '\\n' + info.stack : ''}`
-				)
-			),
-		}),
-	],
-});
+const logFilePath = config.logFile ? path.resolve(config.logFile) : null;
 
-// If in production, might want to add a file transport
-// if (process.env.NODE_ENV === 'production') {
-//   logger.add(new winston.transports.File({ filename: 'error.log', level: 'error' }));
-//   logger.add(new winston.transports.File({ filename: 'combined.log' }));
-// }
+const log = (level, message, ...args) => {
+  const timestamp = new Date().toISOString();
+  const formattedMessage = `${timestamp} [${level.toUpperCase()}] ${message} ${args.length > 0 ? JSON.stringify(args) : ''}\n`;
+
+  // Always log to console
+  console.log(formattedMessage);
+
+  // Optionally log to file
+  if (logFilePath) {
+    fs.appendFile(logFilePath, formattedMessage, (err) => {
+      if (err) {
+        console.error('Failed to write to log file:', err);
+      }
+    });
+  }
+};
+
+const logger = {
+  info: (message, ...args) => log('info', message, ...args),
+  warn: (message, ...args) => log('warn', message, ...args),
+  error: (message, ...args) => log('error', message, ...args),
+  debug: (message, ...args) => log('debug', message, ...args),
+};
 
 module.exports = logger;
