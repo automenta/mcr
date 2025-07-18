@@ -2,6 +2,10 @@ const MCREngine = require('../src/mcrEngine');
 const { ErrorCodes } = require('../src/errors');
 const MockLLMProvider = require('./__mocks__/llmProvider');
 const MockPrologReasonerProvider = require('./__mocks__/prologReasonerProvider');
+const ontologyService = require('../src/ontologyService');
+const fs = require('fs');
+const path = require('path');
+
 jest.mock('../src/evaluation/metrics.js', () => {
   return jest.fn().mockImplementation(() => {
     return {
@@ -20,6 +24,18 @@ describe('MCR Engine (mcrEngine.js)', () => {
   const mcrEngine = new MCREngine();
   mcrEngine.getLlmProvider(new MockLLMProvider());
   mcrEngine.getReasonerProvider(new MockPrologReasonerProvider());
+  const tempOntologyDir = path.join(__dirname, 'temp_ontologies');
+
+  beforeAll(() => {
+    if (!fs.existsSync(tempOntologyDir)) {
+      fs.mkdirSync(tempOntologyDir);
+    }
+    ontologyService.configureOntologyService({ ontologyDir: tempOntologyDir });
+  });
+
+  afterAll(() => {
+    fs.rmSync(tempOntologyDir, { recursive: true, force: true });
+  });
 
   beforeEach(async () => {
     sessionId = 'test-session-id';
@@ -94,10 +110,10 @@ describe('MCR Engine (mcrEngine.js)', () => {
   describe('Context Graph', () => {
     it('should remain immutable', async () => {
       const session = await mcrEngine.getSession(sessionId);
-      const originalContextGraph = session.contextGraph;
+      const originalContextGraph = JSON.parse(JSON.stringify(session.contextGraph));
       await mcrEngine.addFacts(sessionId, ['is_green(grass).']);
       const newSession = await mcrEngine.getSession(sessionId);
-      expect(newSession.contextGraph).not.toBe(originalContextGraph);
+      expect(newSession.contextGraph).not.toEqual(originalContextGraph);
     });
   });
 

@@ -302,6 +302,7 @@ class MCREngine {
         lexicon: new Set(session.lexicon),
         embeddings: session.embeddings,
         kbGraph: session.kbGraph,
+        contextGraph: session.contextGraph,
       };
     }
   }
@@ -820,7 +821,13 @@ class MCREngine {
         logger.warn(`[MCREngine] Some facts were invalid and were not added to session ${sessionId}.`);
     }
 
+    const newContextGraph = {
+        ...sessionData.contextGraph,
+        facts: [...(sessionData.contextGraph?.facts || []), ...validatedFacts],
+    };
+
     sessionData.facts.push(...validatedFacts);
+    sessionData.contextGraph = newContextGraph;
     this._updateLexiconWithFacts(sessionData, validatedFacts);
 
     if (this.config.sessionStore.type === 'file') {
@@ -1333,7 +1340,7 @@ class MCREngine {
         if (result.intermediate_model) {
           session.contextGraph.models.push(result.intermediate_model);
         }
-        return result.prolog_clauses;
+        return { prolog_clauses: result.prolog_clauses };
       };
 
       let addedFacts;
@@ -1341,13 +1348,14 @@ class MCREngine {
 
       if (useLoops) {
         const loopResult = await this._refineLoop(nlToLogicOperation, naturalLanguageText, { session, embeddingBridge: this.embeddingBridge });
-        addedFacts = loopResult.result;
+        addedFacts = loopResult.result.prolog_clauses;
         loopInfo = {
           loopIterations: loopResult.iterations,
           loopConverged: loopResult.converged,
         };
       } else {
-        addedFacts = await nlToLogicOperation(naturalLanguageText, { session });
+        const result = await nlToLogicOperation(naturalLanguageText, { session });
+        addedFacts = result.prolog_clauses;
         for (const factString of addedFacts) {
           const validationResult = await this.validateKnowledgeBase(factString);
           if (!validationResult.isValid) {
@@ -1377,8 +1385,7 @@ class MCREngine {
         };
       }
 
-      const factsToAdd = Array.isArray(addedFacts) ? addedFacts : [addedFacts];
-      const addSuccess = await this.addFacts(sessionId, factsToAdd);
+      const addSuccess = await this.addFacts(sessionId, addedFacts);
       if (addSuccess) {
         if (this.embeddingBridge && session.embeddings) {
           for (const fact of factsToAdd) {
@@ -1387,7 +1394,7 @@ class MCREngine {
           }
         }
         if (this.config.kg.enabled && session.kbGraph) {
-          for (const fact of addedFacts) {
+          for (const fact of factsToAdd) {
             const parts = fact.slice(0, -1).split(/[()]/);
             if (parts.length >= 2) {
               const predicate = parts[0];
@@ -1403,7 +1410,7 @@ class MCREngine {
         return {
           success: true,
           message: 'Facts asserted successfully.',
-          addedFacts,
+          addedFacts: factsToAdd,
           fullKnowledgeBase,
           strategyId: currentStrategyId,
           ...loopInfo,
