@@ -12,15 +12,6 @@
 	<body>
 		<div id="app">
 			<main>
-				<div class="tab-bar">
-					<button class="tab-button active" data-tab="interactive-session">
-						Interactive Session
-					</button>
-					<button class="tab-button" data-tab="system-analysis">
-						System Analysis
-					</button>
-					<button class="tab-button" data-tab="settings">Settings</button>
-				</div>
 				<div id="interactive-session" class="tab-panel active">
 					<div class="container">
 						<div class="left-panel">
@@ -35,20 +26,6 @@
 							<bi-level-model-display></bi-level-model-display>
 						</div>
 					</div>
-				</div>
-				<div id="system-analysis" class="tab-panel">
-					<div class="container">
-						<div class="left-panel">
-							<strategy-manager></strategy-manager>
-							<evaluation-manager></evaluation-manager>
-						</div>
-						<div class="right-panel">
-							<evaluation-results></evaluation-results>
-						</div>
-					</div>
-				</div>
-				<div id="settings" class="tab-panel">
-					<!-- Settings components will go here -->
 				</div>
 			</main>
 		</div>
