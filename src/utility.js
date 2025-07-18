@@ -29,7 +29,7 @@ async function generateExample(domain, instructions, llmProviderName, modelName)
 	});
 	const systemPrompt = prompts.GENERATE_EVAL_CASES.system;
 
-	const generatedJsonString = await generateContent({
+	const generatedJsonString = await generateContent(this, {
 		promptName: 'GENERATE_EVAL_CASES',
 		systemPrompt,
 		userPrompt: filledUserPrompt,
@@ -126,7 +126,7 @@ async function generateOntology(domain, instructions, llmProviderName, modelName
 	});
 	const systemPrompt = prompts.GENERATE_ONTOLOGY.system;
 
-	const generatedProlog = await generateContent({
+	const generatedProlog = await generateContent(this, {
 		promptName: 'GENERATE_ONTOLOGY',
 		systemPrompt,
 		userPrompt: filledUserPrompt,
@@ -161,6 +161,46 @@ async function generateOntology(domain, instructions, llmProviderName, modelName
 	});
 
 	logger.info(`[${SCRIPT_NAME}] Successfully generated ontology.`);
+}
+
+async function main() {
+  const scriptSpecificOptions = {
+    domain: {
+      alias: 'd',
+      type: 'string',
+      describe: 'The domain for which to generate examples (e.g., "Family Tree").',
+      demandOption: true,
+    },
+    instructions: {
+      alias: 'i',
+      type: 'string',
+      describe: 'Specific instructions for the types of examples to generate.',
+      default: 'Generate a variety of assertions and queries, including edge cases.',
+    },
+    type: {
+      alias: 't',
+      type: 'string',
+      describe: 'Type of generation to perform: "example" or "ontology".',
+      demandOption: true,
+    }
+  };
+
+  const argv = await setupGeneratorScript(scriptSpecificOptions, SCRIPT_NAME);
+
+  if (argv.type === 'example') {
+    await generateExample(argv.domain, argv.instructions, argv.provider, argv.model);
+  } else if (argv.type === 'ontology') {
+    await generateOntology(argv.domain, argv.instructions, argv.provider, argv.model);
+  } else {
+    logger.error(`Invalid type specified: ${argv.type}. Must be "example" or "ontology".`);
+  }
+}
+
+if (require.main === module) {
+  main().catch(error => {
+    logger.error(`[${SCRIPT_NAME}] An unexpected error occurred:`, error);
+    process.exit(1);
+  });
 }
 
 module.exports = {

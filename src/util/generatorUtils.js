@@ -1,9 +1,6 @@
 // scripts/_generatorUtils.js
 const fs = require('fs');
-const yargs = require('yargs/yargs');
-const { hideBin } = require('yargs/helpers');
-const MCREngine = require('../mcrEngine');
-const engine = new MCREngine();
+const getYargs = require('./yargs-importer');
 const logger = require('./logger');
 
 /**
@@ -17,7 +14,9 @@ const logger = require('./logger');
  * @returns {Promise<string>} The raw text output from the LLM.
  * @throws {Error} If LLM generation fails.
  */
-async function generateContent({
+async function generateContent(
+  engine,
+  {
 	promptName,
 	systemPrompt,
 	userPrompt,
@@ -146,10 +145,11 @@ const commonYargsOptionsSpec = {
  * @param {string} scriptFileName - The name of the script file (e.g., 'generate_example.js').
  * @returns {object} The parsed argv object.
  */
-function setupGeneratorScript(
+async function setupGeneratorScript(
 	scriptSpecificOptions,
 	scriptFileName = 'generator_script.js'
 ) {
+  const { yargs, hideBin } = await getYargs();
 	let yargsInstance = yargs(hideBin(process.argv));
 
 	// Add script-specific options

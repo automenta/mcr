@@ -12,6 +12,9 @@ module.exports = {
     '^.+\\.js$': 'babel-jest',
   },
 	transformIgnorePatterns: [
-    '/node_modules/(?!yargs)/',
+    '/node_modules/(?!yargs|yargs-parser)/',
   ],
+  globals: {
+    self: {},
+  },
 };

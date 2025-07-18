@@ -6,7 +6,7 @@
 	"scripts": {
 		"start": "node mcr.js",
 		"dev": "nodemon mcr.js",
-		"test": "jest",
+		"test": "NODE_OPTIONS=--experimental-vm-modules jest",
 		"test:coverage": "jest --coverage",
 		"test:ui": "vitest run --root ui/",
 		"test:ui-watch": "vitest --root ui/",
@@ -17,8 +17,8 @@
 		"format": "prettier --write .",
 		"lint": "eslint . --fix",
 		"lint:ui": "eslint ui/",
-		"generate-examples": "node ./generate_example.js",
-		"generate-ontology": "node ./generate_ontology.js",
+		"generate-examples": "node src/utility.js --type example",
+		"generate-ontology": "node src/utility.js --type ontology",
 		"dev:vanilla": "http-server ui/vanilla -p 3001"
 	},
 	"keywords": [
