@@ -573,6 +573,34 @@ module.exports = function (mcrService, config) {
 				);
 			},
 		},
+    'util.generate_example': {
+      description: 'Generates evaluation examples for a given domain and instructions.',
+      handler: async (input) => {
+        const { domain, instructions } = input;
+        if (!domain || !instructions) {
+          return {
+            success: false,
+            error: ErrorCodes.INVALID_INPUT,
+            message: 'domain and instructions are required.',
+          };
+        }
+        return mcrService.generateExample(domain, instructions);
+      },
+    },
+    'util.generate_ontology': {
+      description: 'Generates an ontology for a given domain and instructions.',
+      handler: async (input) => {
+        const { domain, instructions } = input;
+        if (!domain || !instructions) {
+          return {
+            success: false,
+            error: ErrorCodes.INVALID_INPUT,
+            message: 'domain and instructions are required.',
+          };
+        }
+        return mcrService.generateOntology(domain, instructions);
+      },
+    },
 		'analysis.get_strategy_leaderboard': {
 			description: 'Retrieves aggregated performance data for strategies.',
 			handler: async () => {

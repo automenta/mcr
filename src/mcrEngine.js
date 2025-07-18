@@ -12,6 +12,7 @@ const { MCRError, ErrorCodes } = require('./errors');
 const strategyManager = require('./strategyManager');
 const StrategyExecutor = require('./strategyExecutor');
 const { KeywordInputRouter, OptimizationCoordinator } = require('./evolutionModule.js');
+const { generateExample, generateOntology } = require('./utility.js');
 const db = require('./store/database');
 const EmbeddingBridge = require('./bridges/embeddingBridge');
 
@@ -1649,6 +1650,18 @@ class MCREngine {
       message: 'Evolution process completed.',
       results,
     };
+  }
+
+  async generateExample(domain, instructions) {
+    const llmProviderName = this.config.llm.provider;
+    const modelName = this.config.llm[llmProviderName]?.model;
+    return generateExample(domain, instructions, llmProviderName, modelName);
+  }
+
+  async generateOntology(domain, instructions) {
+    const llmProviderName = this.config.llm.provider;
+    const modelName = this.config.llm[llmProviderName]?.model;
+    return generateOntology(domain, instructions, llmProviderName, modelName);
   }
 }
 

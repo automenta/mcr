@@ -2,7 +2,6 @@
 const logger = require('./util/logger');
 const { ErrorCodes, ApiError } = require('./errors');
 const { v4: uuidv4 } = require('uuid');
-const { generateExample, generateOntology } = require('./utility');
 const mcrService = require('./mcrService');
 const mcrToolDefinitions = require('./tools')(mcrService, require('../src/config'));
 
@@ -224,10 +223,6 @@ async function routeMessage(socket, message) {
                             logger.info(`[WS-API][${correlationId}] WebSocket connection now associated with session: ${socket.sessionId}`);
                         }
                     }
-                } else if (tool === 'util.generate_example') {
-                    result = await generateExample(payload.domain, payload.instructions);
-                } else if (tool === 'util.generate_ontology') {
-                    result = await generateOntology(payload.domain, payload.instructions);
                 } else {
                     logger.warn(`[WS-API][${correlationId}] Unknown tool: ${tool}`, { messageId });
                     socket.send(JSON.stringify({
