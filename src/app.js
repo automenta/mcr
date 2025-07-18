@@ -1,7 +1,7 @@
 const express = require('express');
 const http = require('http');
 const { WebSocketServer } = require('ws');
-const { handleWebSocketConnection } = require('./websocketHandlers');
+const { handleWebSocketConnection } = require('./websocketApi');
 const path = require('path');
 
 // Assuming logger and errorHandlerMiddleware are accessible or passed in mcr.js
