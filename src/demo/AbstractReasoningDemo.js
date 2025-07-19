@@ -1,4 +1,4 @@
-const ExampleBase = require('./ExampleBase'); // Use the new base class
+import ExampleBase from './ExampleBase.js'; // Use the new base class
 
 class AbstractReasoningDemo extends ExampleBase {
 	// constructor(sessionId, logCollector) { // No constructor needed if just calling super
@@ -144,4 +144,4 @@ class AbstractReasoningDemo extends ExampleBase {
 	}
 }
 
-module.exports = AbstractReasoningDemo;
+export default AbstractReasoningDemo;

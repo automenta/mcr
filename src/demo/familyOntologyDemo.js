@@ -1,12 +1,7 @@
-const ExampleBase = require('./ExampleBase'); // Use the new base class
-const { readFileContentSafe } = require('./demoUtils'); // Import the utility
-const path = require('path');
+import ExampleBase from './ExampleBase.js';
+import { readFileContentSafe } from './demoUtils.js';
 
 class FamilyOntologyDemo extends ExampleBase {
-	// constructor(sessionId, logCollector) { // No constructor needed if just calling super
-	//   super(sessionId, logCollector);
-	// }
-
 	getName() {
 		return 'Family Ontology';
 	}
@@ -18,7 +13,6 @@ class FamilyOntologyDemo extends ExampleBase {
 	async run() {
 		this.dLog.step('Starting Family Ontology Demo');
 
-		// Session is now passed in constructor and available as this.sessionId
 		if (!this.sessionId) {
 			this.dLog.error(
 				'Demo cannot continue without a session ID provided at instantiation.'
@@ -29,17 +23,22 @@ class FamilyOntologyDemo extends ExampleBase {
 		this.dLog.divider();
 		this.dLog.step('Loading Family Ontology');
 
-		const ontologyPath = path.resolve(__dirname, '../../ontologies/family.pl');
-		this.dLog.info('Attempting to load ontology from path', ontologyPath);
+		let ontologyContent;
+		try {
+			const response = await fetch('/ontologies/family.pl');
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`);
+			}
+			ontologyContent = await response.text();
+		} catch (e) {
+			this.dLog.error('Could not load family ontology.', e.message);
+			return;
+		}
 
-		const ontologyContent = readFileContentSafe(
-			ontologyPath,
-			'Family Ontology'
-		);
 
 		if (!ontologyContent) {
 			this.dLog.error(
-				`Family ontology file (${path.basename(ontologyPath)}) could not be read from ${ontologyPath}. Demo cannot proceed with ontology loading.`
+				`Family ontology file could not be read. Demo cannot proceed with ontology loading.`
 			);
 			return;
 		}
@@ -50,7 +49,6 @@ class FamilyOntologyDemo extends ExampleBase {
 		);
 
 		try {
-			// Use the standard /assert endpoint, but specify type as 'prolog'
 			const assertResponse = await this.assertFact(ontologyContent, 'prolog');
 
 			if (
@@ -61,16 +59,11 @@ class FamilyOntologyDemo extends ExampleBase {
 				this.dLog.success(
 					`Ontology content asserted successfully. Statements found by server: ${assertResponse.addedFacts.length}`
 				);
-				// Optionally, log a few of the added facts if needed
-				// assertResponse.addedFacts.slice(0, 5).forEach(f => this.dLog.logic('Sample loaded rule', f));
 			} else if (assertResponse && assertResponse.message) {
-				// This case might occur if the server accepted it but didn't explicitly list addedFacts,
-				// or if it considered them already present, etc.
 				this.dLog.info(
 					'Ontology assertion processed, but no new facts explicitly reported or message indicates other status.',
 					assertResponse.message
 				);
-				// If the message suggests an issue, treat it as an error for demo purposes
 				if (
 					assertResponse.message.toLowerCase().includes('error') ||
 					assertResponse.message.toLowerCase().includes('fail')
@@ -85,11 +78,9 @@ class FamilyOntologyDemo extends ExampleBase {
 				this.dLog.error(
 					'Ontology assertion failed or server response was not as expected.'
 				);
-				return; // Stop if ontology loading fails
+				return;
 			}
 		} catch (error) {
-			// This catch is more for unexpected errors during the assertFact call itself,
-			// as assertFact already has internal error handling via handleApiError.
 			this.dLog.error(
 				'Critical error during family ontology assertion step',
 				error.message
@@ -97,7 +88,7 @@ class FamilyOntologyDemo extends ExampleBase {
 			this.dLog.error(
 				'Cannot proceed without the ontology loaded for this demo.'
 			);
-			return; // Stop if API call itself fails
+			return;
 		}
 
 		this.dLog.divider();
@@ -115,7 +106,7 @@ class FamilyOntologyDemo extends ExampleBase {
 			{ q: 'Is Bart male?', expected: 'yes' },
 			{ q: "Who is Bart's grandfather?", expected: 'Abraham' },
 			{ q: "Is Lisa Homer's daughter?", expected: 'yes' },
-			{ q: "Who are Abraham's children?", expected: ['Homer', 'Herb'] }, // Herb might not be in all versions of family.pl
+			{ q: "Who are Abraham's children?", expected: ['Homer', 'Herb'] },
 			{ q: "Is Mona Abraham's wife?", expected: 'yes' },
 			{ q: "What is Lisa's occupation?", expected: 'student' },
 		];
@@ -123,7 +114,6 @@ class FamilyOntologyDemo extends ExampleBase {
 		for (const item of familyQueries) {
 			const result = await this.query(item.q);
 			if (result && typeof result.answer === 'string') {
-				// Ensure answer is a string
 				let conditionMet = false;
 				if (Array.isArray(item.expected)) {
 					conditionMet = item.expected.every(exp =>
@@ -163,6 +153,4 @@ class FamilyOntologyDemo extends ExampleBase {
 	}
 }
 
-module.exports = FamilyOntologyDemo;
-// For ES module compatibility if ever needed
-// export default FamilyOntologyDemo;
+export default FamilyOntologyDemo;

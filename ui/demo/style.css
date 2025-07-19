@@ -1,0 +1,63 @@
+#app {
+	display: flex;
+	flex-direction: column;
+	height: 100vh;
+}
+
+header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 1rem;
+	background-color: #f0f0f0;
+	border-bottom: 1px solid #ccc;
+}
+
+main {
+	display: flex;
+	flex: 1;
+}
+
+#demo-menu {
+	width: 250px;
+	padding: 1rem;
+	border-right: 1px solid #ccc;
+	background-color: #f8f8f8;
+}
+
+#output {
+	flex: 1;
+	padding: 1rem;
+	overflow-y: auto;
+}
+
+.demo-button {
+	display: block;
+	width: 100%;
+	padding: 0.5rem;
+	margin-bottom: 0.5rem;
+	text-align: left;
+	background-color: #e7e7e7;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.demo-button:hover {
+	background-color: #ddd;
+}
+
+.log-entry {
+	margin-bottom: 1rem;
+	padding: 0.5rem;
+	border: 1px solid #eee;
+	border-radius: 4px;
+}
+
+.log-entry.debug {
+	background-color: #f8f8f8;
+}
+
+.log-entry h2 {
+	margin-top: 0;
+}

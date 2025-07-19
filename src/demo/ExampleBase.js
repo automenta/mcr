@@ -1,9 +1,6 @@
 // src/demo/ExampleBase.js
-const mcrService = require('../mcrService'); // Adjusted path
-const mcrToolDefinitions = require('../tools');
-
 class ExampleBase {
-	constructor(sessionId, logCollector) {
+	constructor(sessionId, logCollector, webSocketManager) {
 		if (!sessionId) {
 			throw new Error('ExampleBase requires a sessionId during instantiation.');
 		}
@@ -12,8 +9,12 @@ class ExampleBase {
 				'ExampleBase requires a logCollector function during instantiation.'
 			);
 		}
+		if (!webSocketManager) {
+			throw new Error('ExampleBase requires a webSocketManager during instantiation.');
+		}
 		this.sessionId = sessionId;
 		this.logCollector = logCollector; // Function to call with log messages
+		this.webSocketManager = webSocketManager;
 
 		// Simplified dLog that uses the collector
 		this.dLog = {
@@ -70,11 +71,9 @@ class ExampleBase {
 		};
 	}
 
-	// createSession is not needed here as session is passed in.
-
 	async handleNL(naturalLanguageText) {
 		this.dLog.info('Handling NL', { text: naturalLanguageText });
-		const response = await mcrToolDefinitions['mcr.handle'].handler({
+		const response = await this.webSocketManager.invoke('handle', {
 			sessionId: this.sessionId,
 			naturalLanguageText,
 		});
@@ -93,10 +92,10 @@ class ExampleBase {
 		this.dLog.info('Asserting Fact', { text: naturalLanguageText, type });
 		let response;
 		if (type === 'prolog') {
-			response = await mcrService.assertRawPrologToSession(
-				this.sessionId,
-				naturalLanguageText
-			);
+			response = await this.webSocketManager.invoke('assert', {
+				sessionId: this.sessionId,
+				prolog: naturalLanguageText,
+			});
 		} else {
 			response = await this.handleNL(naturalLanguageText);
 		}
@@ -145,4 +144,4 @@ class ExampleBase {
 	}
 }
 
-module.exports = ExampleBase;
+export default ExampleBase;

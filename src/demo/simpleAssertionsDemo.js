@@ -1,10 +1,6 @@
-const ExampleBase = require('./ExampleBase'); // Use the new base class
+import ExampleBase from './ExampleBase.js';
 
 class SimpleAssertionsDemo extends ExampleBase {
-	// constructor(sessionId, logCollector) { // No constructor needed if just calling super
-	//   super(sessionId, logCollector);
-	// }
-
 	getName() {
 		return 'Simple Assertions';
 	}
@@ -16,7 +12,6 @@ class SimpleAssertionsDemo extends ExampleBase {
 	async run() {
 		this.dLog.step('Starting Simple Assertions Demo');
 
-		// Session is now passed in constructor and available as this.sessionId
 		if (!this.sessionId) {
 			this.dLog.error(
 				'Demo cannot continue without a session ID provided at instantiation.'
@@ -28,9 +23,9 @@ class SimpleAssertionsDemo extends ExampleBase {
 		this.dLog.step('Asserting Facts');
 		const factsToAssert = [
 			'The sky is blue.',
-			'Socrates is a human.', // Assumed to become is_a(socrates,human).
-			'human(X) :- is_a(X, human).', // Bridge rule
-			'mortal(X) :- human(X).', // Changed from "All humans are mortal."
+			'Socrates is a human.',
+			'human(X) :- is_a(X, human).',
+			'mortal(X) :- human(X).',
 			"John is Mary's father.",
 			'Mary is a doctor.',
 		];
@@ -44,16 +39,15 @@ class SimpleAssertionsDemo extends ExampleBase {
 		this.dLog.step('Querying Session');
 		const questions = [
 			{ q: 'What color is the sky?', expected: 'blue' },
-			{ q: 'Is Socrates mortal?', expected: 'yes' }, // Assuming Prolog will infer this
+			{ q: 'Is Socrates mortal?', expected: 'yes' },
 			{ q: "Who is Mary's father?", expected: 'John' },
 			{ q: 'Is Mary a doctor?', expected: 'yes' },
-			{ q: 'Who is mortal?', expected: 'Socrates' }, // This might be more complex depending on reasoner
+			{ q: 'Who is mortal?', expected: 'Socrates' },
 		];
 
 		for (const item of questions) {
 			const result = await this.query(item.q);
 			if (result) {
-				// Basic check, can be more sophisticated
 				const condition = result.answer
 					.toLowerCase()
 					.includes(item.expected.toLowerCase());
@@ -75,6 +69,4 @@ class SimpleAssertionsDemo extends ExampleBase {
 	}
 }
 
-module.exports = SimpleAssertionsDemo;
-// For ES module compatibility if ever needed, though current setup is CommonJS
-// export default SimpleAssertionsDemo;
+export default SimpleAssertionsDemo;

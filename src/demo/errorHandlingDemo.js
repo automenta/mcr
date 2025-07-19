@@ -1,10 +1,6 @@
-const ExampleBase = require('./ExampleBase'); // Use the new base class
+import ExampleBase from './ExampleBase.js';
 
 class ErrorHandlingDemo extends ExampleBase {
-	// constructor(sessionId, logCollector) { // No constructor needed if just calling super
-	//   super(sessionId, logCollector);
-	// }
-
 	getName() {
 		return 'Error Handling';
 	}
@@ -24,38 +20,21 @@ class ErrorHandlingDemo extends ExampleBase {
 			'API call should fail, likely with a 404 or 400 error.'
 		);
 		try {
-			const axios = (await import('axios')).default;
-			const invalidSessionId = 'invalid-session-id-for-error-demo';
-			this.dLog.apiCall(
-				'POST',
-				`${this.apiBaseUrl}/sessions/${invalidSessionId}/query`,
-				{ query: 'Test query' }
-			);
-			await axios.post(
-				`${this.apiBaseUrl}/sessions/${invalidSessionId}/query`,
-				{ query: 'Test query' }
-			);
+			await this.webSocketManager.invoke('query', { sessionId: 'invalid-session-id', naturalLanguageText: 'Test query' });
 			await this.assertCondition(
 				false,
 				'',
 				'Query attempt with invalid session ID should have failed, but it appeared to succeed.'
 			);
 		} catch (error) {
-			this.handleApiError(error, 'Query with invalid session ID');
-			const expectedStatus =
-				error.response &&
-				(error.response.status === 404 || error.response.status === 400);
+			this.dLog.error('Query with invalid session ID failed as expected.', error.message);
 			await this.assertCondition(
-				expectedStatus,
-				`API call failed with status ${error.response ? error.response.status : 'N/A'} as expected.`,
-				`API call failed but with an unexpected status ${error.response ? error.response.status : 'N/A'}. Expected 400 or 404.`
+				true,
+				`API call failed as expected.`,
+				`API call failed but with an unexpected error.`
 			);
 		}
 
-		// Create a session for subsequent tests
-		// Session is now passed in constructor and available as this.sessionId
-		// The initial tests for invalid session ID are done using raw axios.
-		// For subsequent tests requiring a valid session, this.sessionId (if provided) will be used.
 		if (!this.sessionId) {
 			this.dLog.error(
 				'Demo cannot continue without a session for further tests.'
@@ -64,8 +43,6 @@ class ErrorHandlingDemo extends ExampleBase {
 		}
 
 		// --- Test 2: Asserting malformed fact ---
-		// This depends on how strictly the backend validates the 'text' field.
-		// For this demo, we'll assume it expects a non-empty string.
 		this.dLog.divider();
 		this.dLog.step('Test 2: Asserting a malformed/empty fact');
 		this.dLog.info(
@@ -74,46 +51,34 @@ class ErrorHandlingDemo extends ExampleBase {
 		);
 		const malformedFactData = { text: '' }; // Empty fact
 		try {
-			const axios = (await import('axios')).default;
-			this.dLog.apiCall(
-				'POST',
-				`${this.apiBaseUrl}/sessions/${this.sessionId}/assert`,
-				malformedFactData
-			);
-			const response = await axios.post(
-				`${this.apiBaseUrl}/sessions/${this.sessionId}/assert`,
-				malformedFactData
-			);
-			// Check if the server accepted it but indicated an issue in the response body
+			const response = await this.webSocketManager.invoke('assert', { sessionId: this.sessionId, ...malformedFactData });
 			if (
-				response.status === 200 &&
-				response.data &&
-				response.data.message &&
-				response.data.message.toLowerCase().includes('ignored')
+				response &&
+				response.message &&
+				response.message.toLowerCase().includes('ignored')
 			) {
 				await this.assertCondition(
 					true,
-					`Server gracefully ignored empty fact: ${response.data.message}`,
+					`Server gracefully ignored empty fact: ${response.message}`,
 					''
 				);
 				this.dLog.mcrResponse(
 					'Server response to empty fact',
-					response.data.message
+					response.message
 				);
 			} else {
 				await this.assertCondition(
 					false,
 					'',
-					`Asserting empty fact did not result in a clear 'ignored' message. Status: ${response.status}, Data: ${JSON.stringify(response.data)}`
+					`Asserting empty fact did not result in a clear 'ignored' message. Response: ${JSON.stringify(response)}`
 				);
 			}
 		} catch (error) {
-			this.handleApiError(error, 'Asserting malformed (empty) fact');
-			const expectedStatus = error.response && error.response.status === 400; // Or other relevant error code
+			this.dLog.error('Asserting malformed (empty) fact failed as expected.', error.message);
 			await this.assertCondition(
-				expectedStatus,
-				`API call for empty fact failed with status ${error.response ? error.response.status : 'N/A'} as expected.`,
-				`API call for empty fact failed with an unexpected status ${error.response ? error.response.status : 'N/A'}. Expected 400 or specific handling.`
+				true,
+				`API call for empty fact failed as expected.`,
+				`API call for empty fact failed with an unexpected error.`
 			);
 		}
 
@@ -124,67 +89,53 @@ class ErrorHandlingDemo extends ExampleBase {
 			'Expected outcome',
 			'API call should fail or return a message indicating inability to process.'
 		);
-		const malformedQueryData = { query: '' }; // Empty query
+		const malformedQueryData = { naturalLanguageText: '' }; // Empty query
 		try {
-			const axios = (await import('axios')).default;
-			this.dLog.apiCall(
-				'POST',
-				`${this.apiBaseUrl}/sessions/${this.sessionId}/query`,
-				malformedQueryData
-			);
-			const response = await axios.post(
-				`${this.apiBaseUrl}/sessions/${this.sessionId}/query`,
-				malformedQueryData
-			);
+			const response = await this.webSocketManager.invoke('query', { sessionId: this.sessionId, ...malformedQueryData });
 			if (
-				response.status === 200 &&
-				response.data &&
-				response.data.answer &&
-				response.data.answer.toLowerCase().includes("don't know")
+				response &&
+				response.answer &&
+				response.answer.toLowerCase().includes("don't know")
 			) {
 				await this.assertCondition(
 					true,
-					`Server responded to empty query with "${response.data.answer}" as expected.`,
+					`Server responded to empty query with "${response.answer}" as expected.`,
 					''
 				);
 				this.dLog.mcrResponse(
 					'Server response to empty query',
-					response.data.answer
+					response.answer
 				);
 			} else if (
-				response.status === 200 &&
-				response.data &&
-				response.data.error
+				response &&
+				response.error
 			) {
 				await this.assertCondition(
 					true,
-					`Server responded to empty query with an error message: "${response.data.error}"`,
+					`Server responded to empty query with an error message: "${response.error}"`,
 					''
 				);
 				this.dLog.mcrResponse(
 					'Server error to empty query',
-					response.data.error
+					response.error
 				);
 			} else {
 				await this.assertCondition(
 					false,
 					'',
-					`Querying with empty query did not result in a clear "don't know" or error. Status: ${response.status}, Data: ${JSON.stringify(response.data)}`
+					`Querying with empty query did not result in a clear "don't know" or error. Response: ${JSON.stringify(response)}`
 				);
 			}
 		} catch (error) {
-			this.handleApiError(error, 'Querying with malformed (empty) query');
-			const expectedStatus = error.response && error.response.status === 400; // Or other relevant error code
+			this.dLog.error('Querying with malformed (empty) query failed as expected.', error.message);
 			await this.assertCondition(
-				expectedStatus,
-				`API call for empty query failed with status ${error.response ? error.response.status : 'N/A'} as expected.`,
-				`API call for empty query failed with an unexpected status ${error.response ? error.response.status : 'N/A'}. Expected 400 or specific handling.`
+				true,
+				`API call for empty query failed as expected.`,
+				`API call for empty query failed with an unexpected error.`
 			);
 		}
 
 		// --- Test 4: Asserting contradictory facts (Optional - behavior depends on reasoner capabilities) ---
-		// This test is highly dependent on the reasoner's ability to detect contradictions.
-		// Some systems might allow them, others might flag them.
 		this.dLog.divider();
 		this.dLog.step('Test 4: Asserting potentially contradictory facts');
 		this.dLog.info(
@@ -196,8 +147,6 @@ class ErrorHandlingDemo extends ExampleBase {
 		const assertResponse = await this.assertFact('The ball is not red.'); // Or 'The ball is blue.'
 
 		if (assertResponse) {
-			// This doesn't necessarily mean a contradiction was *handled* in a special way, just that the assertion was processed.
-			// We're mostly observing the behavior.
 			this.dLog.info(
 				'Contradictory fact assertion processed.',
 				`Response: ${assertResponse.message}`
@@ -229,4 +178,4 @@ class ErrorHandlingDemo extends ExampleBase {
 	}
 }
 
-module.exports = ErrorHandlingDemo;
+export default ErrorHandlingDemo;

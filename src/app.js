@@ -52,6 +52,9 @@ async function createServer(mcrEngine) {
 		next();
 	});
 
+	// Serve ontologies
+	app.use('/ontologies', express.static(path.resolve(__dirname, '..', 'ontologies')));
+
 	logger.info('[App] Starting in development mode with Vite middleware.');
 	const vite = await import('vite'); // Dynamic import for ESM module
 	const viteDevServer = await vite.createServer({

@@ -1,10 +1,6 @@
-const ExampleBase = require('./ExampleBase'); // Use the new base class
+import ExampleBase from './ExampleBase.js';
 
 class ScientificKBDemo extends ExampleBase {
-	// constructor(sessionId, logCollector) { // No constructor needed if just calling super
-	//   super(sessionId, logCollector);
-	// }
-
 	getName() {
 		return 'Scientific KB';
 	}
@@ -16,7 +12,6 @@ class ScientificKBDemo extends ExampleBase {
 	async run() {
 		this.dLog.step('Starting Scientific KB Demo');
 
-		// Session is now passed in constructor and available as this.sessionId
 		if (!this.sessionId) {
 			this.dLog.error(
 				'Demo cannot continue without a session ID provided at instantiation.'
@@ -27,7 +22,6 @@ class ScientificKBDemo extends ExampleBase {
 		this.dLog.divider();
 		this.dLog.step('Asserting Scientific Facts');
 		const factsToAssert = [
-			// Basic Chemistry
 			'Water is H2O.',
 			'H2O is a molecule.',
 			'Table salt is NaCl.',
@@ -40,15 +34,13 @@ class ScientificKBDemo extends ExampleBase {
 			'Na is an atom.',
 			'Chlorine is Cl.',
 			'Cl is an atom.',
-			'A molecule is composed of atoms.', // General rule
-			'H2O is composed of Hydrogen and Oxygen.', // Specific composition
-			'NaCl is composed of Sodium and Chlorine.', // Specific composition
-
-			// Basic Physics
+			'A molecule is composed of atoms.',
+			'H2O is composed of Hydrogen and Oxygen.',
+			'NaCl is composed of Sodium and Chlorine.',
 			'Gravity is a force.',
 			'The Earth has gravity.',
 			'The Moon orbits the Earth.',
-			'A force can cause acceleration.', // General rule
+			'A force can cause acceleration.',
 			'Gravity causes apples to fall from trees.',
 		];
 
@@ -60,23 +52,20 @@ class ScientificKBDemo extends ExampleBase {
 		this.dLog.divider();
 		this.dLog.step('Querying Scientific Knowledge Base');
 		const queries = [
-			// Chemistry Queries
-			{ q: 'What is H2O?', expected: 'Water' }, // or "H2O is a molecule"
+			{ q: 'What is H2O?', expected: 'Water' },
 			{ q: 'Is H2O a molecule?', expected: 'yes' },
 			{ q: 'What is table salt?', expected: 'NaCl' },
-			{ q: 'What is O?', expected: 'Oxygen' }, // or "O is an atom"
+			{ q: 'What is O?', expected: 'Oxygen' },
 			{ q: 'Is Na an atom?', expected: 'yes' },
 			{ q: 'What are molecules composed of?', expected: 'atoms' },
 			{ q: 'What is H2O composed of?', expected: ['Hydrogen', 'Oxygen'] },
 			{ q: 'What is NaCl composed of?', expected: ['Sodium', 'Chlorine'] },
-
-			// Physics Queries
 			{ q: 'What is gravity?', expected: 'force' },
 			{ q: 'Does the Earth have gravity?', expected: 'yes' },
 			{ q: 'What orbits the Earth?', expected: 'Moon' },
-			{ q: 'What can cause acceleration?', expected: 'gravity' }, // Changed from 'force' as gravity is the instance defined as a force that generates acceleration
+			{ q: 'What can cause acceleration?', expected: 'gravity' },
 			{ q: 'What causes apples to fall from trees?', expected: 'Gravity' },
-			{ q: 'Is the sun a star?', expected: "I don't know" }, // Example of something not in KB
+			{ q: 'Is the sun a star?', expected: "I don't know" },
 		];
 
 		for (const item of queries) {
@@ -92,7 +81,6 @@ class ScientificKBDemo extends ExampleBase {
 						result,
 					});
 				}
-				// Check if "I don't know" was expected for this failed query
 				if (
 					typeof item.expected === 'string' &&
 					item.expected.toLowerCase().includes("don't know")
@@ -100,7 +88,7 @@ class ScientificKBDemo extends ExampleBase {
 					await this.assertCondition(
 						true,
 						`Query "${item.q}" correctly returned no specific answer, as expected ("${item.expected}").`,
-						'' // Should not happen
+						''
 					);
 				} else {
 					await this.assertCondition(
@@ -109,10 +97,9 @@ class ScientificKBDemo extends ExampleBase {
 						`Query "${item.q}" failed or returned no string answer.`
 					);
 				}
-				continue; // Move to the next query
+				continue;
 			}
 
-			// At this point, result and result.answer are valid
 			const answerLower = result.answer.toLowerCase();
 			let conditionMet = false;
 			let successMessage = '';
@@ -130,7 +117,6 @@ class ScientificKBDemo extends ExampleBase {
 				successMessage = `Query "${item.q}" -> Answer: "${result.answer}" (Matches expected: "${item.expected}")`;
 				failureMessage = `Query "${item.q}" -> Answer: "${result.answer}" (Expected: "${item.expected}", but was different or not found)`;
 
-				// Special handling for "I don't know" if it was expected and met
 				if (
 					item.expected.toLowerCase().includes("don't know") &&
 					conditionMet
@@ -141,7 +127,7 @@ class ScientificKBDemo extends ExampleBase {
 				this.dLog.error(
 					`Invalid 'item.expected' type for query: ${item.q}. Expected string or array.`
 				);
-				conditionMet = false; // Mark as failed if expected type is wrong
+				conditionMet = false;
 				failureMessage = `Query "${item.q}" -> Invalid test configuration: 'item.expected' has unexpected type.`;
 			}
 
@@ -152,4 +138,4 @@ class ScientificKBDemo extends ExampleBase {
 	}
 }
 
-module.exports = ScientificKBDemo;
+export default ScientificKBDemo;
