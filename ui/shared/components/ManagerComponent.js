@@ -1,4 +1,5 @@
-import WebSocketManager from '../services/WebSocketService.js';
+import McrConnection from '../services/McrConnection.js';
+import './ErrorDisplay.js';
 
 export class ManagerComponent extends HTMLElement {
   constructor() {
@@ -24,9 +25,17 @@ export class ManagerComponent extends HTMLElement {
           align-items: center;
           margin-bottom: 1rem;
         }
+        .loading {
+          display: none;
+        }
+        :host([loading]) .loading {
+          display: block;
+        }
       </style>
       <div>
         <h2 id="manager-title"></h2>
+        <error-display></error-display>
+        <div class="loading">Loading...</div>
         <div class="controls">
           <select id="item-select"></select>
           <div>
@@ -40,6 +49,7 @@ export class ManagerComponent extends HTMLElement {
     `;
 
     this.titleElement = this.shadowRoot.querySelector('#manager-title');
+    this.errorDisplay = this.shadowRoot.querySelector('error-display');
     this.select = this.shadowRoot.querySelector('#item-select');
     this.createButton = this.shadowRoot.querySelector('#create-item');
     this.deleteButton = this.shadowRoot.querySelector('#delete-item');
@@ -50,20 +60,28 @@ export class ManagerComponent extends HTMLElement {
     this.createButton.addEventListener('click', this.createItem.bind(this));
     this.deleteButton.addEventListener('click', this.deleteItem.bind(this));
     this.updateButton.addEventListener('click', this.updateItem.bind(this));
+
+    this.api = new McrConnection();
   }
 
-  connectedCallback() {
+  async connectedCallback() {
     this.managerType = this.getAttribute('manager-type');
     this.titleElement.textContent = `${this.managerType} Manager`;
+    await this.api.connect();
     this.listItems();
+    this.api.subscribe('error', (error) => {
+        this.errorDisplay.textContent = error;
+    });
   }
 
-  listItems() {
-    WebSocketManager.invoke(`${this.managerType.toLowerCase()}.list`).then(response => {
-      if (response.payload.success) {
-        this.updateItemList(response.payload.data);
-      }
-    });
+  async listItems() {
+    this.errorDisplay.textContent = '';
+    try {
+        const items = await this.api.invoke(`${this.managerType.toLowerCase()}.list`, {}, (loading) => this.toggleAttribute('loading', loading));
+        this.updateItemList(items);
+    } catch (error) {
+        // The error is already displayed by the error handler
+    }
   }
 
   updateItemList(items) {
@@ -76,62 +94,64 @@ export class ManagerComponent extends HTMLElement {
     });
   }
 
-  onItemSelected() {
+  async onItemSelected() {
     const itemId = this.select.value;
     if (!itemId) {
       this.display.value = '';
       return;
     }
 
-    WebSocketManager.invoke(`${this.managerType.toLowerCase()}.get`, { id: itemId }).then(response => {
-      if (response.payload.success) {
-        this.display.value = response.payload.data.content;
-      }
-    });
+    this.errorDisplay.textContent = '';
+    try {
+        const item = await this.api.invoke(`${this.managerType.toLowerCase()}.get`, { id: itemId }, (loading) => this.toggleAttribute('loading', loading));
+        this.display.value = item.content;
+    } catch (error) {
+        // The error is already displayed by the error handler
+    }
   }
 
-  createItem() {
+  async createItem() {
     const itemName = prompt(`Enter a name for the new ${this.managerType.toLowerCase()}:`);
     if (!itemName) return;
 
-    WebSocketManager.invoke(`${this.managerType.toLowerCase()}.create`, { id: itemName, content: '' }).then(response => {
-      if (response.payload.success) {
+    this.errorDisplay.textContent = '';
+    try {
+        await this.api.invoke(`${this.managerType.toLowerCase()}.create`, { id: itemName, content: '' }, (loading) => this.toggleAttribute('loading', loading));
         this.listItems();
-      } else {
-        alert(`Error creating ${this.managerType.toLowerCase()}: ${response.payload.error}`);
-      }
-    });
+    } catch (error) {
+        // The error is already displayed by the error handler
+    }
   }
 
-  deleteItem() {
+  async deleteItem() {
     const itemId = this.select.value;
     if (!itemId) return;
 
     if (confirm(`Are you sure you want to delete the ${this.managerType.toLowerCase()} "${itemId}"?`)) {
-      WebSocketManager.invoke(`${this.managerType.toLowerCase()}.delete`, { id: itemId }).then(response => {
-        if (response.payload.success) {
-          this.listItems();
-          this.display.value = '';
-        } else {
-          alert(`Error deleting ${this.managerType.toLowerCase()}: ${response.payload.error}`);
+        this.errorDisplay.textContent = '';
+        try {
+            await this.api.invoke(`${this.managerType.toLowerCase()}.delete`, { id: itemId }, (loading) => this.toggleAttribute('loading', loading));
+            this.listItems();
+            this.display.value = '';
+        } catch (error) {
+            // The error is already displayed by the error handler
         }
-      });
     }
   }
 
-  updateItem() {
-    const itemId = this.select.value;
-    if (!itemId) return;
+    async updateItem() {
+        const itemId = this.select.value;
+        if (!itemId) return;
 
-    const content = this.display.value;
-    WebSocketManager.invoke(`${this.managerType.toLowerCase()}.update`, { id: itemId, content }).then(response => {
-      if (response.payload.success) {
-        alert(`${this.managerType} updated successfully.`);
-      } else {
-        alert(`Error updating ${this.managerType.toLowerCase()}: ${response.payload.error}`);
-      }
-    });
-  }
+        const content = this.display.value;
+        this.errorDisplay.textContent = '';
+        try {
+            await this.api.invoke(`${this.managerType.toLowerCase()}.update`, { id: itemId, content }, (loading) => this.toggleAttribute('loading', loading));
+            alert(`${this.managerType} updated successfully.`);
+        } catch (error) {
+            // The error is already displayed by the error handler
+        }
+    }
 }
 
 customElements.define('manager-component', ManagerComponent);

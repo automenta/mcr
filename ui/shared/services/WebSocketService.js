@@ -23,8 +23,13 @@ class WebSocketService {
 			this.socket.onmessage = event => {
 				const message = JSON.parse(event.data);
 				if (message.messageId && this.pendingRequests.has(message.messageId)) {
-					const { resolve } = this.pendingRequests.get(message.messageId);
-					resolve(message);
+					const { resolve, reject } = this.pendingRequests.get(message.messageId);
+					if (message.payload && message.payload.success === false) {
+						this.emit('error', message.payload.error);
+						reject(message.payload.error);
+					} else {
+						resolve(message);
+					}
 					this.pendingRequests.delete(message.messageId);
 				} else if (this.listeners.has(message.type)) {
 					this.listeners
@@ -46,7 +51,7 @@ class WebSocketService {
 	}
 
 	invoke(tool, args = {}) {
-		return new Promise(resolve => {
+		return new Promise((resolve, reject) => {
 			const messageId = `client-msg-${this.messageId++}`;
 			const message = {
 				type: 'invoke',
@@ -55,8 +60,14 @@ class WebSocketService {
 				messageId,
 			};
 			this.socket.send(JSON.stringify(message));
-			this.pendingRequests.set(messageId, { resolve });
+			this.pendingRequests.set(messageId, { resolve, reject });
 		});
+	}
+
+	emit(type, payload) {
+		if (this.listeners.has(type)) {
+			this.listeners.get(type).forEach(callback => callback(payload));
+		}
 	}
 
 	subscribe(type, callback) {

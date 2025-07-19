@@ -4,11 +4,11 @@ const MockLLMProvider = jest.fn().mockImplementation(() => {
       if (userPrompt.includes('invalid')) {
         return Promise.resolve({ text: 'invalid_prolog.' });
       }
-      if (userPrompt.includes('refine')) {
-        return Promise.resolve({ text: 'is_hot(sun).' });
+      if (userPrompt.includes('The sun is hot.')) {
+        return Promise.resolve({ text: '{"statementType": "fact", "fact": {"predicate": "is_hot", "arguments": ["sun"]}}' });
       }
       if (userPrompt.includes('Is the sky blue?')) {
-        return Promise.resolve({ text: 'is_blue(sky)?' });
+        return Promise.resolve({ text: 'Yes, the sky is blue.' });
       }
       if (userPrompt.includes('translate')) {
         return Promise.resolve({ text: '{"statementType": "fact", "fact": {"predicate": "is_blue", "arguments": ["sky"]}}' });
