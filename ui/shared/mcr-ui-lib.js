@@ -1,4 +1,145 @@
-import WebSocketService from '../services/WebSocketService.js';
+class WebSocketService {
+	constructor(url) {
+		this.url = url;
+		this.socket = null;
+		this.messageId = 0;
+		this.listeners = new Map();
+		this.pendingRequests = new Map();
+	}
+
+	connect() {
+		return new Promise((resolve, reject) => {
+			if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+				resolve();
+				return;
+			}
+			this.socket = new WebSocket(this.url);
+
+			this.socket.onopen = () => {
+				console.log('WebSocket connected');
+				resolve();
+			};
+
+			this.socket.onmessage = event => {
+				const message = JSON.parse(event.data);
+				if (message.messageId && this.pendingRequests.has(message.messageId)) {
+					const { resolve } = this.pendingRequests.get(message.messageId);
+					resolve(message);
+					this.pendingRequests.delete(message.messageId);
+				} else if (this.listeners.has(message.type)) {
+					this.listeners
+						.get(message.type)
+						.forEach(callback => callback(message));
+				}
+			};
+
+			this.socket.onerror = error => {
+				console.error('WebSocket error:', error);
+				reject(error);
+			};
+
+			this.socket.onclose = () => {
+				console.log('WebSocket disconnected');
+				this.socket = null;
+			};
+		});
+	}
+
+	invoke(tool, args = {}) {
+		return new Promise(resolve => {
+			const messageId = `client-msg-${this.messageId++}`;
+			const message = {
+				type: 'invoke',
+				tool,
+				args,
+				messageId,
+			};
+			this.socket.send(JSON.stringify(message));
+			this.pendingRequests.set(messageId, { resolve });
+		});
+	}
+
+	subscribe(type, callback) {
+		if (!this.listeners.has(type)) {
+			this.listeners.set(type, []);
+		}
+		this.listeners.get(type).push(callback);
+	}
+
+	unsubscribe(type, callback) {
+		if (this.listeners.has(type)) {
+			const newListeners = this.listeners.get(type).filter(l => l !== callback);
+			if (newListeners.length === 0) {
+				this.listeners.delete(type);
+			} else {
+				this.listeners.set(type, newListeners);
+			}
+		}
+	}
+}
+
+const WebSocketManager = new WebSocketService(`ws://${window.location.host}/ws`);
+export default WebSocketManager;
+
+class ErrorDisplay extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          display: none;
+          position: fixed;
+          bottom: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          padding: 15px;
+          background-color: #f44336;
+          color: white;
+          border-radius: 5px;
+          z-index: 1000;
+        }
+        :host(.show) {
+          display: block;
+        }
+      </style>
+      <div id="error-message"></div>
+    `;
+  }
+
+  show(message) {
+    this.shadowRoot.getElementById('error-message').textContent = message;
+    this.classList.add('show');
+    setTimeout(() => {
+      this.classList.remove('show');
+    }, 5000);
+  }
+}
+
+customElements.define('error-display', ErrorDisplay);
+
+class PanelComponent extends HTMLElement {
+	constructor() {
+		super();
+		this.attachShadow({ mode: 'open' });
+		this.shadowRoot.innerHTML = `
+            <style>
+                .panel {
+                    background-color: #fff;
+                    border: 1px solid #e0e6ed;
+                    border-radius: 8px;
+                    padding: 1.5rem;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+                }
+            </style>
+            <div class="panel">
+                <slot></slot>
+            </div>
+        `;
+	}
+}
+
+customElements.define('panel-component', PanelComponent);
 
 class ReplComponent extends HTMLElement {
 	constructor() {
@@ -130,9 +271,9 @@ class ReplComponent extends HTMLElement {
 
 	async connectedCallback() {
 		try {
-			await WebSocketService.connect();
+			await WebSocketManager.connect();
 			this.addMessage('System', 'Connected to server.');
-			const response = await WebSocketService.invoke('session.create', {});
+			const response = await WebSocketManager.invoke('session.create', {});
 			this.sessionId = response.payload.data.id;
 			this.addMessage('System', `Session created: ${this.sessionId}`);
 		} catch (err) {
@@ -168,7 +309,7 @@ class ReplComponent extends HTMLElement {
 		this.history.push(message);
 		this.historyIndex = this.history.length;
 
-		WebSocketService.invoke('mcr.handle', {
+		WebSocketManager.invoke('mcr.handle', {
 			sessionId: this.sessionId,
 			naturalLanguageText: message,
 		}).then(this.handleResponse.bind(this));
@@ -245,3 +386,102 @@ class ReplComponent extends HTMLElement {
 }
 
 customElements.define('repl-component', ReplComponent);
+
+class SystemState extends HTMLElement {
+	constructor() {
+		super();
+		this.attachShadow({ mode: 'open' });
+		this.shadowRoot.innerHTML = `
+            <style>
+                :host {
+                    display: block;
+                }
+                pre {
+                    white-space: pre-wrap;
+                    word-wrap: break-word;
+                    background-color: #f9fafb;
+                    padding: 1rem;
+                    border-radius: 6px;
+                }
+                .controls {
+                    margin-bottom: 1rem;
+                }
+                button {
+                    padding: 0.5rem 1rem;
+                    border: 1px solid #d1d5db;
+                    background-color: #fff;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    transition: background-color 0.2s;
+                }
+                button:hover {
+                    background-color: #f3f4f6;
+                }
+            </style>
+            <panel-component>
+                <div>
+                    <h2>Knowledge Base</h2>
+                    <div class="controls">
+                        <button id="toggle-raw">Show Raw</button>
+                    </div>
+                    <pre><code class="language-json"></code></pre>
+                </div>
+            </panel-component>
+        `;
+		this.codeElement = this.shadowRoot.querySelector('code');
+		this.toggleButton = this.shadowRoot.querySelector('#toggle-raw');
+
+		this.isRawVisible = false;
+		this.knowledgeBase = {};
+
+		this.toggleButton.addEventListener('click', this.toggleRaw.bind(this));
+	}
+
+	connectedCallback() {
+		document.addEventListener(
+			'knowledge-base-updated',
+			this.updateKnowledgeBase.bind(this)
+		);
+	}
+
+	updateKnowledgeBase(event) {
+		this.knowledgeBase = event.detail.knowledgeBase;
+		this.render();
+	}
+
+	toggleRaw() {
+		this.isRawVisible = !this.isRawVisible;
+		this.toggleButton.textContent = this.isRawVisible
+			? 'Show Parsed'
+			: 'Show Raw';
+		this.render();
+	}
+
+	render() {
+		if (this.isRawVisible) {
+			this.codeElement.textContent = this.knowledgeBase;
+		} else {
+			try {
+				const kb = JSON.parse(this.knowledgeBase);
+				let html = '<ul>';
+				for (const predicate in kb) {
+					html += `<li><strong>${predicate}</strong></li>`;
+					html += '<ul>';
+					kb[predicate].forEach(args => {
+						html += `<li>${predicate}(${args.join(', ')}).</li>`;
+					});
+					html += '</ul>';
+				}
+				html += '</ul>';
+				this.codeElement.innerHTML = html;
+			} catch (e) {
+				this.codeElement.textContent = this.knowledgeBase;
+			}
+		}
+		if (typeof hljs !== 'undefined') {
+			hljs.highlightElement(this.codeElement);
+		}
+	}
+}
+
+customElements.define('system-state', SystemState);

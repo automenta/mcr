@@ -3,24 +3,21 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>MCR REPL</title>
+		<title>MCR Unified UI</title>
+		<link rel="icon" href="../expert/favicon.ico" type="image/svg+xml" />
 		<link rel="stylesheet" href="../shared/style.css" />
 		<link rel="stylesheet" href="style.css" />
 	</head>
 	<body>
 		<div id="app">
 			<main>
-				<div class="container">
-					<div class="left-panel">
-						<repl-component></repl-component>
-					</div>
-					<div class="right-panel">
-						<system-state></system-state>
-					</div>
+				<div id="unified-container">
+					<!-- The unified UI will be rendered here -->
 				</div>
 			</main>
 		</div>
 		<script type="module" src="../shared/mcr-ui-lib.js"></script>
 		<script type="module" src="js/main.js"></script>
+		<error-display></error-display>
 	</body>
 </html>
