@@ -1,4 +1,4 @@
-import McrConnection from '../services/McrConnection.js';
+import { McrConnection } from '../services/McrConnection.js';
 import './MessageDisplay.js';
 import './MessageInput.js';
 
@@ -55,13 +55,14 @@ export class Repl extends HTMLElement {
 		this.messageInput.addEventListener('history-back', this.historyBack.bind(this));
 		this.messageInput.addEventListener('history-forward', this.historyForward.bind(this));
 		this.clearButton.addEventListener('click', this.clearRepl.bind(this));
+        this.mcrConnection = new McrConnection();
 	}
 
 	async connectedCallback() {
 		try {
-			await McrConnection.connectionPromise;
+			await this.mcrConnection.connectionPromise;
 			this.messageDisplay.addMessage('System', 'Connected to server.');
-			this.sessionId = McrConnection.sessionId;
+			this.sessionId = this.mcrConnection.sessionId;
 			this.messageDisplay.addMessage('System', `Session created: ${this.sessionId}`);
 		} catch (err) {
 			this.messageDisplay.addMessage('System', 'Failed to connect to server.', 'error');
@@ -94,7 +95,7 @@ export class Repl extends HTMLElement {
 		this.history.push(message);
 		this.historyIndex = this.history.length;
 
-		McrConnection.invoke('mcr.handle', {
+		this.mcrConnection.invoke('mcr.handle', {
 			sessionId: this.sessionId,
 			naturalLanguageText: message,
 		}).then(this.handleResponse.bind(this));

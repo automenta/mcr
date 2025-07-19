@@ -1,4 +1,4 @@
-import McrConnection from '../services/McrConnection.js';
+import { McrConnection } from '../services/McrConnection.js';
 import './ErrorDisplay.js';
 import { PanelComponent } from './PanelComponent.js';
 
@@ -12,7 +12,6 @@ export class ManagerComponent extends PanelComponent {
     super.connectedCallback();
     this.managerType = this.getAttribute('manager-type');
     this.title = `${this.managerType} Manager`;
-    await this.api.connect();
     this.listItems();
     this.api.subscribe('error', (error) => {
         this.showError(error);

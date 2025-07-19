@@ -1,4 +1,4 @@
-import McrConnection from '../../shared/services/McrConnection.js';
+import { McrConnection } from '../../shared/services/McrConnection.js';
 import { LogDisplay } from '../../shared/components/index.js';
 
 // Import all demos
@@ -23,7 +23,8 @@ const output = document.getElementById('output');
 const debugToggle = document.getElementById('debug-toggle');
 
 async function main() {
-    await McrConnection.connectionPromise;
+    const mcrConnection = new McrConnection();
+    await mcrConnection.connectionPromise;
 
     demos.forEach(demo => {
         const button = document.createElement('button');
@@ -41,7 +42,7 @@ async function main() {
                 logDisplay.addLog(log.level, log.message, log.details);
             };
 
-            const demoInstance = new demo.constructor(McrConnection.sessionId, logCollector, McrConnection);
+            const demoInstance = new demo.constructor(mcrConnection.sessionId, logCollector, mcrConnection);
 
             try {
                 await demoInstance.run();
