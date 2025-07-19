@@ -1,0 +1,137 @@
+import WebSocketManager from '../services/WebSocketService.js';
+
+export class ManagerComponent extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          display: block;
+          margin-top: 1rem;
+        }
+        h2 {
+          margin-top: 0;
+        }
+        textarea {
+          width: 100%;
+          height: 150px;
+          margin-top: 1rem;
+        }
+        .controls {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+        }
+      </style>
+      <div>
+        <h2 id="manager-title"></h2>
+        <div class="controls">
+          <select id="item-select"></select>
+          <div>
+            <button id="create-item">Create</button>
+            <button id="delete-item">Delete</button>
+          </div>
+        </div>
+        <textarea id="item-display" placeholder="Select an item to view its content..."></textarea>
+        <button id="update-item">Update</button>
+      </div>
+    `;
+
+    this.titleElement = this.shadowRoot.querySelector('#manager-title');
+    this.select = this.shadowRoot.querySelector('#item-select');
+    this.createButton = this.shadowRoot.querySelector('#create-item');
+    this.deleteButton = this.shadowRoot.querySelector('#delete-item');
+    this.display = this.shadowRoot.querySelector('#item-display');
+    this.updateButton = this.shadowRoot.querySelector('#update-item');
+
+    this.select.addEventListener('change', this.onItemSelected.bind(this));
+    this.createButton.addEventListener('click', this.createItem.bind(this));
+    this.deleteButton.addEventListener('click', this.deleteItem.bind(this));
+    this.updateButton.addEventListener('click', this.updateItem.bind(this));
+  }
+
+  connectedCallback() {
+    this.managerType = this.getAttribute('manager-type');
+    this.titleElement.textContent = `${this.managerType} Manager`;
+    this.listItems();
+  }
+
+  listItems() {
+    WebSocketManager.invoke(`${this.managerType.toLowerCase()}.list`).then(response => {
+      if (response.payload.success) {
+        this.updateItemList(response.payload.data);
+      }
+    });
+  }
+
+  updateItemList(items) {
+    this.select.innerHTML = `<option value="">Select an ${this.managerType.toLowerCase()}</option>`;
+    items.forEach(item => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = item.name || item.id;
+      this.select.appendChild(option);
+    });
+  }
+
+  onItemSelected() {
+    const itemId = this.select.value;
+    if (!itemId) {
+      this.display.value = '';
+      return;
+    }
+
+    WebSocketManager.invoke(`${this.managerType.toLowerCase()}.get`, { id: itemId }).then(response => {
+      if (response.payload.success) {
+        this.display.value = response.payload.data.content;
+      }
+    });
+  }
+
+  createItem() {
+    const itemName = prompt(`Enter a name for the new ${this.managerType.toLowerCase()}:`);
+    if (!itemName) return;
+
+    WebSocketManager.invoke(`${this.managerType.toLowerCase()}.create`, { id: itemName, content: '' }).then(response => {
+      if (response.payload.success) {
+        this.listItems();
+      } else {
+        alert(`Error creating ${this.managerType.toLowerCase()}: ${response.payload.error}`);
+      }
+    });
+  }
+
+  deleteItem() {
+    const itemId = this.select.value;
+    if (!itemId) return;
+
+    if (confirm(`Are you sure you want to delete the ${this.managerType.toLowerCase()} "${itemId}"?`)) {
+      WebSocketManager.invoke(`${this.managerType.toLowerCase()}.delete`, { id: itemId }).then(response => {
+        if (response.payload.success) {
+          this.listItems();
+          this.display.value = '';
+        } else {
+          alert(`Error deleting ${this.managerType.toLowerCase()}: ${response.payload.error}`);
+        }
+      });
+    }
+  }
+
+  updateItem() {
+    const itemId = this.select.value;
+    if (!itemId) return;
+
+    const content = this.display.value;
+    WebSocketManager.invoke(`${this.managerType.toLowerCase()}.update`, { id: itemId, content }).then(response => {
+      if (response.payload.success) {
+        alert(`${this.managerType} updated successfully.`);
+      } else {
+        alert(`Error updating ${this.managerType.toLowerCase()}: ${response.payload.error}`);
+      }
+    });
+  }
+}
+
+customElements.define('manager-component', ManagerComponent);

@@ -1,8 +1,9 @@
+import '@shared/components/ManagerComponent.js';
 import './components/OntologyManager.js';
 import './components/StrategyManager.js';
-import './components/EvaluationManager.js';
-import './components/EvaluationResults.js';
-import './components/GraphVisualizer.js';
-import './components/HybridLoopViewer.js';
-import './components/BiLevelModelDisplay.js';
-import './components/UtilityManager.js';
+import './components/CurriculumManager.js';
+import '@shared/components/EvaluationManager.js';
+import '@shared/components/EvaluationResults.js';
+import '@shared/components/GraphVisualizer.js';
+import '@shared/components/JSONDisplay.js';
+import '@shared/components/UtilityManager.js';
