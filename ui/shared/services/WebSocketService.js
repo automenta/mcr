@@ -89,5 +89,4 @@ class WebSocketService {
 	}
 }
 
-const WebSocketManager = new WebSocketService(`ws://${window.location.host}/ws`);
-export default WebSocketManager;
+export { WebSocketService };

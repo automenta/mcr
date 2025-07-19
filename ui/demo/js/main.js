@@ -1,4 +1,4 @@
-import WebSocketManager from '../../shared/services/WebSocketService.js';
+import McrConnection from '../../shared/services/McrConnection.js';
 import { LogDisplay } from '../../shared/components/index.js';
 
 // Import all demos
@@ -23,8 +23,7 @@ const output = document.getElementById('output');
 const debugToggle = document.getElementById('debug-toggle');
 
 async function main() {
-    await WebSocketManager.connect();
-    const { sessionId } = await WebSocketManager.invoke('createSession');
+    await McrConnection.connectionPromise;
 
     demos.forEach(demo => {
         const button = document.createElement('button');
@@ -42,7 +41,7 @@ async function main() {
                 logDisplay.addLog(log.level, log.message, log.details);
             };
 
-            const demoInstance = new demo.constructor(sessionId, logCollector, WebSocketManager);
+            const demoInstance = new demo.constructor(McrConnection.sessionId, logCollector, McrConnection);
 
             try {
                 await demoInstance.run();

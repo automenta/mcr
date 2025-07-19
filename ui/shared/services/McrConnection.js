@@ -1,18 +1,22 @@
-import WebSocketManager from './WebSocketService.js';
+import { WebSocketService } from './WebSocketService.js';
 
 class McrConnection {
     constructor() {
-        this.ws = WebSocketManager;
-    }
+        if (McrConnection.instance) {
+            return McrConnection.instance;
+        }
 
-    async connect() {
-        await this.ws.connect();
-        const { sessionId } = await this.ws.invoke('createSession');
-        this.sessionId = sessionId;
-        return this;
+        this.ws = new WebSocketService(`ws://${window.location.host}/ws`);
+        this.connectionPromise = this.ws.connect().then(async () => {
+            const { sessionId } = await this.ws.invoke('createSession');
+            this.sessionId = sessionId;
+        });
+
+        McrConnection.instance = this;
     }
 
     async invoke(tool, args, loadingSetter) {
+        await this.connectionPromise;
         if (loadingSetter) {
             loadingSetter(true);
         }
@@ -39,4 +43,5 @@ class McrConnection {
     }
 }
 
-export default McrConnection;
+const instance = new McrConnection();
+export default instance;

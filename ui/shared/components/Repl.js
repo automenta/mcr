@@ -1,4 +1,4 @@
-import WebSocketManager from '../services/WebSocketService.js';
+import McrConnection from '../services/McrConnection.js';
 import './MessageDisplay.js';
 import './MessageInput.js';
 
@@ -59,10 +59,9 @@ export class Repl extends HTMLElement {
 
 	async connectedCallback() {
 		try {
-			await WebSocketManager.connect();
+			await McrConnection.connectionPromise;
 			this.messageDisplay.addMessage('System', 'Connected to server.');
-			const response = await WebSocketManager.invoke('session.create', {});
-			this.sessionId = response.payload.data.id;
+			this.sessionId = McrConnection.sessionId;
 			this.messageDisplay.addMessage('System', `Session created: ${this.sessionId}`);
 		} catch (err) {
 			this.messageDisplay.addMessage('System', 'Failed to connect to server.');
@@ -95,7 +94,7 @@ export class Repl extends HTMLElement {
 		this.history.push(message);
 		this.historyIndex = this.history.length;
 
-		WebSocketManager.invoke('mcr.handle', {
+		McrConnection.invoke('mcr.handle', {
 			sessionId: this.sessionId,
 			naturalLanguageText: message,
 		}).then(this.handleResponse.bind(this));

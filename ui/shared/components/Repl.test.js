@@ -3,6 +3,15 @@ import { Repl } from './Repl';
 import { MessageDisplay } from './MessageDisplay';
 import { MessageInput } from './MessageInput';
 
+vi.mock('../services/McrConnection.js', () => ({
+  default: {
+    connectionPromise: Promise.resolve(),
+    invoke: vi.fn(),
+    subscribe: vi.fn(),
+    unsubscribe: vi.fn(),
+  },
+}));
+
 describe('Repl', () => {
   it('should render the component', () => {
     document.body.innerHTML = '<repl-repl></repl-repl>';
