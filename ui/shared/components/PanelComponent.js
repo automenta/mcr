@@ -3,13 +3,16 @@ export class PanelComponent extends HTMLElement {
 		super();
 		this.attachShadow({ mode: 'open' });
 		this.shadowRoot.innerHTML = `
+            <link rel="stylesheet" href="../variables.css">
             <style>
                 .panel {
-                    background-color: #fff;
-                    border: 1px solid #e0e6ed;
-                    border-radius: 8px;
+                    background-color: var(--panel-bg);
+                    border: 1px solid var(--border-color);
+                    border-radius: var(--border-radius);
                     padding: 1.5rem;
                     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+                    color: var(--text-color);
+                    font-family: var(--font-family);
                 }
             </style>
             <div class="panel">

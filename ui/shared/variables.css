@@ -1,0 +1,12 @@
+:root {
+    --bg-color: #1a1a1a;
+    --text-color: #e0e0e0;
+    --panel-bg: #2c2c2c;
+    --border-color: #444;
+    --accent-color: #00aaff;
+    --accent-hover: #0088cc;
+
+    --border-radius: 6px;
+    --font-family: 'Roboto', sans-serif;
+    --font-family-mono: 'Roboto Mono', monospace;
+}

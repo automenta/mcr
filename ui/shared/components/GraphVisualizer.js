@@ -1,8 +1,9 @@
-class GraphVisualizer extends HTMLElement {
+export class GraphVisualizer extends HTMLElement {
 	constructor() {
 		super();
 		this.attachShadow({ mode: 'open' });
 		this.shadowRoot.innerHTML = `
+            <link rel="stylesheet" href="../variables.css">
             <style>
                 :host {
                     display: block;
@@ -11,11 +12,13 @@ class GraphVisualizer extends HTMLElement {
                 }
                 h2 {
                     margin-top: 0;
+                    color: var(--text-color);
+                    font-family: var(--font-family);
                 }
                 #graph-container {
                     width: 100%;
                     height: 100%;
-                    border: 1px solid #ccc;
+                    border: 1px solid var(--border-color);
                 }
             </style>
             <div>

@@ -1,5 +1,5 @@
 import WebSocketManager from '../../shared/services/WebSocketService.js';
-import LogDisplay from '../../shared/components/LogDisplay.js';
+import { LogDisplay } from '../../shared/components/index.js';
 
 // Import all demos
 import AbstractReasoningDemo from '../../../../src/demo/AbstractReasoningDemo.js';

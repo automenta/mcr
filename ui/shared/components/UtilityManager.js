@@ -1,19 +1,22 @@
 import McrConnection from '@shared/services/McrConnection.js';
 import './ErrorDisplay.js';
 
-class UtilityManager extends HTMLElement {
+export class UtilityManager extends HTMLElement {
     constructor() {
         super();
         this.attachShadow({ mode: 'open' });
         this.shadowRoot.innerHTML = `
+            <link rel="stylesheet" href="../variables.css">
             <style>
                 :host {
                     display: block;
                     padding: 10px;
-                    border: 1px solid #ccc;
-                    border-radius: 5px;
+                    border: 1px solid var(--border-color);
+                    border-radius: var(--border-radius);
+                    color: var(--text-color);
+                    font-family: var(--font-family);
                 }
-                h3 {
+                h3, h4 {
                     margin-top: 0;
                 }
                 .form-group {
@@ -27,10 +30,21 @@ class UtilityManager extends HTMLElement {
                     width: 100%;
                     padding: 5px;
                     box-sizing: border-box;
+                    background-color: #333;
+                    color: var(--text-color);
+                    border: 1px solid var(--border-color);
+                    border-radius: var(--border-radius);
                 }
                 button {
                     padding: 5px 10px;
                     cursor: pointer;
+                    background-color: var(--accent-color);
+                    color: #fff;
+                    border: 1px solid var(--accent-color);
+                    border-radius: var(--border-radius);
+                }
+                button:hover {
+                    background-color: var(--accent-hover);
                 }
                 .loading {
                     display: none;
