@@ -5,6 +5,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	container.innerHTML = `
     <repl-repl></repl-repl>
     <graph-visualizer></graph-visualizer>
-    <utility-manager></utility-manager>
+    <div class="manager-grid">
+        <ontology-manager></ontology-manager>
+        <curriculum-manager></curriculum-manager>
+        <strategy-manager></strategy-manager>
+        <utility-manager></utility-manager>
+        <evaluation-manager></evaluation-manager>
+        <evaluation-results></evaluation-results>
+    </div>
   `;
 });

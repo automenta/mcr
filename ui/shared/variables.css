@@ -5,6 +5,10 @@
     --border-color: #444;
     --accent-color: #00aaff;
     --accent-hover: #0088cc;
+    --error-color: #ff4444;
+    --success-color: #44ff44;
+    --user-message-color: #a0a0a0;
+    --system-message-color: #e0e0e0;
 
     --border-radius: 6px;
     --font-family: 'Roboto', sans-serif;

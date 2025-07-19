@@ -18,7 +18,7 @@ export class MessageDisplay extends HTMLElement {
                     line-height: 1.6;
                 }
                 .user-message {
-                    color: #a0a0a0;
+                    color: var(--user-message-color);
                     text-align: right;
                 }
                 .system-message {
@@ -27,6 +27,11 @@ export class MessageDisplay extends HTMLElement {
                     padding: 0.75rem;
                     border-radius: var(--border-radius);
                     position: relative;
+                    color: var(--system-message-color);
+                }
+                .system-message.error {
+                    background-color: var(--error-color);
+                    color: white;
                 }
                 .copy-button {
                     position: absolute;
@@ -51,15 +56,26 @@ export class MessageDisplay extends HTMLElement {
         this.messagesContainer = this.shadowRoot.querySelector('.messages');
     }
 
-    addMessage(sender, text) {
+    addMessage(sender, text, type = 'normal') {
         const messageElement = document.createElement('div');
-        messageElement.classList.add(
-            'message',
-            sender === 'User' ? 'user-message' : 'system-message'
-        );
+        messageElement.classList.add('message');
+
+        let senderIcon = '';
+        if (sender === 'User') {
+            messageElement.classList.add('user-message');
+            senderIcon = '🧑‍💻';
+        } else {
+            messageElement.classList.add('system-message');
+            if (type === 'error') {
+                messageElement.classList.add('error');
+                senderIcon = '🔥';
+            } else {
+                senderIcon = '🤖';
+            }
+        }
 
         const messageContent = document.createElement('div');
-        messageContent.textContent = `${sender}: ${text}`;
+        messageContent.textContent = `${senderIcon} ${sender}: ${text}`;
         messageElement.appendChild(messageContent);
 
         if (sender === 'System') {

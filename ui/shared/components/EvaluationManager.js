@@ -1,49 +1,27 @@
-import McrConnection from '@shared/services/McrConnection.js';
-import './ErrorDisplay.js';
+import { ManagerComponent } from './ManagerComponent.js';
 
-class EvaluationManager extends HTMLElement {
+class EvaluationManager extends ManagerComponent {
     constructor() {
         super();
-        this.attachShadow({ mode: 'open' });
-        this.shadowRoot.innerHTML = `
-            <style>
-                :host {
-                    display: block;
-                    margin-top: 1rem;
-                }
-                h2 {
-                    margin-top: 0;
-                }
-                .loading {
-                    display: none;
-                }
-                :host([loading]) .loading {
-                    display: block;
-                }
-            </style>
-            <div>
-                <h2>Evaluation Manager</h2>
-                <error-display></error-display>
-                <div class="loading">Loading...</div>
-                <button>Run Evaluation</button>
-            </div>
-        `;
-
-        this.errorDisplay = this.shadowRoot.querySelector('error-display');
-        this.button = this.shadowRoot.querySelector('button');
-        this.button.addEventListener('click', this.runEvaluation.bind(this));
-        this.api = new McrConnection();
+        this.setAttribute('manager-type', 'Evaluation');
     }
 
-    async connectedCallback() {
-        await this.api.connect();
-        this.api.subscribe('error', (error) => {
-            this.errorDisplay.textContent = error;
-        });
+    get template() {
+        return `
+            ${super.template}
+            <error-display></error-display>
+            <button>Run Evaluation</button>
+        `;
+    }
+
+    render() {
+        super.render();
+        const button = this.querySelector('button');
+        button.addEventListener('click', this.runEvaluation.bind(this));
     }
 
     async runEvaluation() {
-        this.errorDisplay.textContent = '';
+        this.showError('');
         try {
             const results = await this.api.invoke('evaluation.run', {}, (loading) => this.toggleAttribute('loading', loading));
             document.dispatchEvent(

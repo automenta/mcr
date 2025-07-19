@@ -64,7 +64,7 @@ export class Repl extends HTMLElement {
 			this.sessionId = McrConnection.sessionId;
 			this.messageDisplay.addMessage('System', `Session created: ${this.sessionId}`);
 		} catch (err) {
-			this.messageDisplay.addMessage('System', 'Failed to connect to server.');
+			this.messageDisplay.addMessage('System', 'Failed to connect to server.', 'error');
 			console.error(err);
 		}
 	}
@@ -130,7 +130,7 @@ export class Repl extends HTMLElement {
 			if (payload.details) {
 				errorMessage += ` - ${payload.details}`;
 			}
-			this.messageDisplay.addMessage('System', errorMessage);
+			this.messageDisplay.addMessage('System', errorMessage, 'error');
 		}
 	}
 }
