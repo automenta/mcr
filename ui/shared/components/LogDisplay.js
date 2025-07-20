@@ -1,12 +1,12 @@
 class LogDisplay extends HTMLElement {
-    constructor({ demoName, demoDescription, debug }) {
-        super();
-        this.attachShadow({ mode: 'open' });
-        this.demoName = demoName;
-        this.demoDescription = demoDescription;
-        this.debug = debug;
+	constructor({ demoName, demoDescription, debug }) {
+		super();
+		this.attachShadow({ mode: 'open' });
+		this.demoName = demoName;
+		this.demoDescription = demoDescription;
+		this.debug = debug;
 
-        this.shadowRoot.innerHTML = `
+		this.shadowRoot.innerHTML = `
             <style>
                 :host {
                     display: block;
@@ -46,25 +46,25 @@ class LogDisplay extends HTMLElement {
             <div class="log-container"></div>
         `;
 
-        this.logContainer = this.shadowRoot.querySelector('.log-container');
-    }
+		this.logContainer = this.shadowRoot.querySelector('.log-container');
+	}
 
-    addLog(level, message, details) {
-        const entry = document.createElement('div');
-        entry.className = `log-entry ${level}`;
+	addLog(level, message, details) {
+		const entry = document.createElement('div');
+		entry.className = `log-entry ${level}`;
 
-        let content = message;
-        if (details) {
-            content += ` ${typeof details === 'object' ? JSON.stringify(details, null, 2) : details}`;
-        }
-        entry.textContent = content;
+		let content = message;
+		if (details) {
+			content += ` ${typeof details === 'object' ? JSON.stringify(details, null, 2) : details}`;
+		}
+		entry.textContent = content;
 
-        if (level === 'debug' && !this.debug) {
-            entry.style.display = 'none';
-        }
+		if (level === 'debug' && !this.debug) {
+			entry.style.display = 'none';
+		}
 
-        this.logContainer.appendChild(entry);
-    }
+		this.logContainer.appendChild(entry);
+	}
 }
 
 customElements.define('log-display', LogDisplay);

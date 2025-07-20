@@ -5,29 +5,31 @@ const logger = require('../util/logger');
 let ollamaInstance;
 
 function configureOllama(config) {
-    if (!ollamaInstance) {
-        try {
-            logger.debug('[OllamaProvider] Attempting to instantiate ChatOllama...');
-            ollamaInstance = new ChatOllama({
-                baseUrl: config.llm.ollama.baseURL,
-                model: config.llm.ollama.model,
-            });
-            logger.debug('[OllamaProvider] ChatOllama instantiated successfully.');
-            logger.info(
-                `Ollama provider initialized with model ${config.llm.ollama.model} at ${config.llm.ollama.baseURL}`
-            );
-        } catch (error) {
-            logger.error(`Failed to initialize Ollama provider: ${error.message}`, {
-                error,
-            });
-            throw new Error(`Ollama initialization failed: ${error.message}`);
-        }
-    }
+	if (!ollamaInstance) {
+		try {
+			logger.debug('[OllamaProvider] Attempting to instantiate ChatOllama...');
+			ollamaInstance = new ChatOllama({
+				baseUrl: config.llm.ollama.baseURL,
+				model: config.llm.ollama.model,
+			});
+			logger.debug('[OllamaProvider] ChatOllama instantiated successfully.');
+			logger.info(
+				`Ollama provider initialized with model ${config.llm.ollama.model} at ${config.llm.ollama.baseURL}`
+			);
+		} catch (error) {
+			logger.error(`Failed to initialize Ollama provider: ${error.message}`, {
+				error,
+			});
+			throw new Error(`Ollama initialization failed: ${error.message}`);
+		}
+	}
 }
 
 function getOllamaInstance() {
 	if (!ollamaInstance) {
-		throw new Error('Ollama provider not configured. Please call configureOllama first.');
+		throw new Error(
+			'Ollama provider not configured. Please call configureOllama first.'
+		);
 	}
 	return ollamaInstance;
 }
@@ -128,6 +130,6 @@ async function generate(systemPrompt, userPrompt, options = {}) {
 module.exports = {
 	name: 'ollama',
 	generate,
-    configureOllama,
+	configureOllama,
 	// Potentially add a more generic generate(promptString) if needed later
 };

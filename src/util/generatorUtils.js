@@ -15,14 +15,9 @@ const logger = require('./logger');
  * @throws {Error} If LLM generation fails.
  */
 async function generateContent(
-  engine,
-  {
-	promptName,
-	systemPrompt,
-	userPrompt,
-	llmProviderName,
-	modelName,
-}) {
+	engine,
+	{ promptName, systemPrompt, userPrompt, llmProviderName, modelName }
+) {
 	logger.info(
 		`[GeneratorUtils] Generating content for prompt: "${promptName}" using ${llmProviderName || 'configured provider'}`
 	);
@@ -149,7 +144,7 @@ async function setupGeneratorScript(
 	scriptSpecificOptions,
 	scriptFileName = 'generator_script.js'
 ) {
-  const { yargs, hideBin } = await getYargs();
+	const { yargs, hideBin } = await getYargs();
 	let yargsInstance = yargs(hideBin(process.argv));
 
 	// Add script-specific options

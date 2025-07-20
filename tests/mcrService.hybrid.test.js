@@ -8,7 +8,7 @@ describe('MCR Engine Hybrid Functionality', () => {
 
 	beforeEach(async () => {
 		mcrEngine = new MCREngine();
-        mcrEngine.config.kg.enabled = true;
+		mcrEngine.config.kg.enabled = true;
 		sessionId = 'test-session-id';
 		await mcrEngine.createSession(sessionId);
 	});
@@ -80,11 +80,9 @@ describe('MCR Engine Hybrid Functionality', () => {
 				answer: finalAnswer,
 			});
 
-			const result = await mcrEngine.querySessionWithNL(
-				sessionId,
-				nlQuestion,
-				{ useLoops: true }
-			);
+			const result = await mcrEngine.querySessionWithNL(sessionId, nlQuestion, {
+				useLoops: true,
+			});
 
 			expect(result.success).toBe(true);
 			expect(result.answer).toBe('Test Answer');

@@ -10,8 +10,15 @@
 }
 
 body {
-	font-family: 'Roboto Mono', -apple-system, BlinkMacSystemFont, 'Segoe UI',
-		Roboto, Helvetica, Arial, sans-serif;
+	font-family:
+		'Roboto Mono',
+		-apple-system,
+		BlinkMacSystemFont,
+		'Segoe UI',
+		Roboto,
+		Helvetica,
+		Arial,
+		sans-serif;
 }
 
 repl-component,

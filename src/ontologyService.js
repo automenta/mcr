@@ -10,14 +10,14 @@ let reasonerProvider = null;
 const ONTOLOGY_EXTENSION = '.pl';
 
 function configureOntologyService(options = {}) {
-    if (options.ontologyDir) {
-        ONTOLOGY_DIR = options.ontologyDir;
-    }
-    if (options.reasonerProvider) {
-        reasonerProvider = options.reasonerProvider;
-    } else {
-        reasonerProvider = PrologReasonerProvider;
-    }
+	if (options.ontologyDir) {
+		ONTOLOGY_DIR = options.ontologyDir;
+	}
+	if (options.reasonerProvider) {
+		reasonerProvider = options.reasonerProvider;
+	} else {
+		reasonerProvider = PrologReasonerProvider;
+	}
 }
 
 /**
@@ -25,9 +25,9 @@ function configureOntologyService(options = {}) {
  */
 async function ensureOntologyDirExists() {
 	try {
-        if (!ONTOLOGY_DIR) {
-            throw new Error("Ontology directory not configured.");
-        }
+		if (!ONTOLOGY_DIR) {
+			throw new Error('Ontology directory not configured.');
+		}
 		await fs.mkdir(ONTOLOGY_DIR, { recursive: true });
 	} catch (error) {
 		logger.error(
@@ -70,8 +70,7 @@ async function createOntology(name, rulesString) {
 	}
 
 	// Validate Prolog syntax before saving
-	const validationResult =
-		await reasonerProvider.validate(rulesString);
+	const validationResult = await reasonerProvider.validate(rulesString);
 	if (!validationResult.isValid) {
 		logger.warn(
 			`[OntologyService] Validation failed for new ontology "${name}". Error: ${validationResult.error}`
@@ -180,8 +179,7 @@ async function updateOntology(name, newRulesString) {
 	}
 
 	// Validate Prolog syntax before saving
-	const validationResult =
-		await reasonerProvider.validate(newRulesString);
+	const validationResult = await reasonerProvider.validate(newRulesString);
 	if (!validationResult.isValid) {
 		logger.warn(
 			`[OntologyService] Validation failed for updating ontology "${name}". Error: ${validationResult.error}`
@@ -268,7 +266,7 @@ module.exports = {
 	updateOntology,
 	deleteOntology,
 	getGlobalOntologyRulesAsString,
-    configureOntologyService,
+	configureOntologyService,
 	// For testing or other internal uses if needed:
 	// _ONTOLOGY_DIR: ONTOLOGY_DIR,
 	// _ONTOLOGY_EXTENSION: ONTOLOGY_EXTENSION

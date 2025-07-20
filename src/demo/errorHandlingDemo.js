@@ -20,14 +20,20 @@ class ErrorHandlingDemo extends ExampleBase {
 			'API call should fail, likely with a 404 or 400 error.'
 		);
 		try {
-			await this.webSocketManager.invoke('query', { sessionId: 'invalid-session-id', naturalLanguageText: 'Test query' });
+			await this.webSocketManager.invoke('query', {
+				sessionId: 'invalid-session-id',
+				naturalLanguageText: 'Test query',
+			});
 			await this.assertCondition(
 				false,
 				'',
 				'Query attempt with invalid session ID should have failed, but it appeared to succeed.'
 			);
 		} catch (error) {
-			this.dLog.error('Query with invalid session ID failed as expected.', error.message);
+			this.dLog.error(
+				'Query with invalid session ID failed as expected.',
+				error.message
+			);
 			await this.assertCondition(
 				true,
 				`API call failed as expected.`,
@@ -51,7 +57,10 @@ class ErrorHandlingDemo extends ExampleBase {
 		);
 		const malformedFactData = { text: '' }; // Empty fact
 		try {
-			const response = await this.webSocketManager.invoke('assert', { sessionId: this.sessionId, ...malformedFactData });
+			const response = await this.webSocketManager.invoke('assert', {
+				sessionId: this.sessionId,
+				...malformedFactData,
+			});
 			if (
 				response &&
 				response.message &&
@@ -74,7 +83,10 @@ class ErrorHandlingDemo extends ExampleBase {
 				);
 			}
 		} catch (error) {
-			this.dLog.error('Asserting malformed (empty) fact failed as expected.', error.message);
+			this.dLog.error(
+				'Asserting malformed (empty) fact failed as expected.',
+				error.message
+			);
 			await this.assertCondition(
 				true,
 				`API call for empty fact failed as expected.`,
@@ -91,7 +103,10 @@ class ErrorHandlingDemo extends ExampleBase {
 		);
 		const malformedQueryData = { naturalLanguageText: '' }; // Empty query
 		try {
-			const response = await this.webSocketManager.invoke('query', { sessionId: this.sessionId, ...malformedQueryData });
+			const response = await this.webSocketManager.invoke('query', {
+				sessionId: this.sessionId,
+				...malformedQueryData,
+			});
 			if (
 				response &&
 				response.answer &&
@@ -106,19 +121,13 @@ class ErrorHandlingDemo extends ExampleBase {
 					'Server response to empty query',
 					response.answer
 				);
-			} else if (
-				response &&
-				response.error
-			) {
+			} else if (response && response.error) {
 				await this.assertCondition(
 					true,
 					`Server responded to empty query with an error message: "${response.error}"`,
 					''
 				);
-				this.dLog.mcrResponse(
-					'Server error to empty query',
-					response.error
-				);
+				this.dLog.mcrResponse('Server error to empty query', response.error);
 			} else {
 				await this.assertCondition(
 					false,
@@ -127,7 +136,10 @@ class ErrorHandlingDemo extends ExampleBase {
 				);
 			}
 		} catch (error) {
-			this.dLog.error('Querying with malformed (empty) query failed as expected.', error.message);
+			this.dLog.error(
+				'Querying with malformed (empty) query failed as expected.',
+				error.message
+			);
 			await this.assertCondition(
 				true,
 				`API call for empty query failed as expected.`,

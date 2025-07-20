@@ -10,12 +10,12 @@ import SimpleAssertionsDemo from '../../../../src/demo/simpleAssertionsDemo.js';
 import SimpleQADemo from '../../../../src/demo/simpleQADemo.js';
 
 const demos = [
-    new AbstractReasoningDemo(),
-    new ErrorHandlingDemo(),
-    new FamilyOntologyDemo(),
-    new ScientificKBDemo(),
-    new SimpleAssertionsDemo(),
-    new SimpleQADemo(),
+	new AbstractReasoningDemo(),
+	new ErrorHandlingDemo(),
+	new FamilyOntologyDemo(),
+	new ScientificKBDemo(),
+	new SimpleAssertionsDemo(),
+	new SimpleQADemo(),
 ];
 
 const demoMenu = document.getElementById('demo-menu');
@@ -23,36 +23,43 @@ const output = document.getElementById('output');
 const debugToggle = document.getElementById('debug-toggle');
 
 async function main() {
-    const mcrConnection = new McrConnection();
-    await mcrConnection.connectionPromise;
+	const mcrConnection = new McrConnection();
+	await mcrConnection.connectionPromise;
 
-    demos.forEach(demo => {
-        const button = document.createElement('button');
-        button.className = 'demo-button';
-        button.textContent = demo.getName();
-        button.onclick = async () => {
-            const logDisplay = new LogDisplay({
-                demoName: demo.getName(),
-                demoDescription: demo.getDescription(),
-                debug: debugToggle.checked,
-            });
-            output.appendChild(logDisplay);
+	demos.forEach(demo => {
+		const button = document.createElement('button');
+		button.className = 'demo-button';
+		button.textContent = demo.getName();
+		button.onclick = async () => {
+			const logDisplay = new LogDisplay({
+				demoName: demo.getName(),
+				demoDescription: demo.getDescription(),
+				debug: debugToggle.checked,
+			});
+			output.appendChild(logDisplay);
 
-            const logCollector = (log) => {
-                logDisplay.addLog(log.level, log.message, log.details);
-            };
+			const logCollector = log => {
+				logDisplay.addLog(log.level, log.message, log.details);
+			};
 
-            const demoInstance = new demo.constructor(mcrConnection.sessionId, logCollector, mcrConnection);
+			const demoInstance = new demo.constructor(
+				mcrConnection.sessionId,
+				logCollector,
+				mcrConnection
+			);
 
-            try {
-                await demoInstance.run();
-            } catch (error) {
-                logCollector({level: 'error', message: `Unhandled exception in demo: ${error.message}`});
-                console.error(error);
-            }
-        };
-        demoMenu.appendChild(button);
-    });
+			try {
+				await demoInstance.run();
+			} catch (error) {
+				logCollector({
+					level: 'error',
+					message: `Unhandled exception in demo: ${error.message}`,
+				});
+				console.error(error);
+			}
+		};
+		demoMenu.appendChild(button);
+	});
 }
 
 main();

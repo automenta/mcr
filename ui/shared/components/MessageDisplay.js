@@ -1,8 +1,8 @@
 export class MessageDisplay extends HTMLElement {
-    constructor() {
-        super();
-        this.attachShadow({ mode: 'open' });
-        this.shadowRoot.innerHTML = `
+	constructor() {
+		super();
+		this.attachShadow({ mode: 'open' });
+		this.shadowRoot.innerHTML = `
             <link rel="stylesheet" href="../variables.css">
             <style>
                 .messages {
@@ -53,58 +53,58 @@ export class MessageDisplay extends HTMLElement {
             </style>
             <div class="messages"></div>
         `;
-        this.messagesContainer = this.shadowRoot.querySelector('.messages');
-    }
+		this.messagesContainer = this.shadowRoot.querySelector('.messages');
+	}
 
-    addMessage(sender, text, type = 'normal') {
-        const messageElement = document.createElement('div');
-        messageElement.classList.add('message');
+	addMessage(sender, text, type = 'normal') {
+		const messageElement = document.createElement('div');
+		messageElement.classList.add('message');
 
-        let senderIcon = '';
-        if (sender === 'User') {
-            messageElement.classList.add('user-message');
-            senderIcon = '🧑‍💻';
-        } else {
-            messageElement.classList.add('system-message');
-            if (type === 'error') {
-                messageElement.classList.add('error');
-                senderIcon = '🔥';
-            } else {
-                senderIcon = '🤖';
-            }
-        }
+		let senderIcon = '';
+		if (sender === 'User') {
+			messageElement.classList.add('user-message');
+			senderIcon = '🧑‍💻';
+		} else {
+			messageElement.classList.add('system-message');
+			if (type === 'error') {
+				messageElement.classList.add('error');
+				senderIcon = '🔥';
+			} else {
+				senderIcon = '🤖';
+			}
+		}
 
-        const messageContent = document.createElement('div');
-        messageContent.textContent = `${senderIcon} ${sender}: ${text}`;
-        messageElement.appendChild(messageContent);
+		const messageContent = document.createElement('div');
+		messageContent.textContent = `${senderIcon} ${sender}: ${text}`;
+		messageElement.appendChild(messageContent);
 
-        if (sender === 'System') {
-            const copyButton = document.createElement('button');
-            copyButton.textContent = 'Copy';
-            copyButton.className = 'copy-button';
-            copyButton.onclick = () => {
-                navigator.clipboard.writeText(text).then(
-                    () => {
-                        copyButton.textContent = 'Copied!';
-                        setTimeout(() => (copyButton.textContent = 'Copy'), 2000);
-                    },
-                    err => {
-                        console.error('Failed to copy text: ', err);
-                        copyButton.textContent = 'Error';
-                        setTimeout(() => (copyButton.textContent = 'Copy'), 2000);
-                    }
-                );
-            };
-            messageElement.appendChild(copyButton);
-        }
+		if (sender === 'System') {
+			const copyButton = document.createElement('button');
+			copyButton.textContent = 'Copy';
+			copyButton.className = 'copy-button';
+			copyButton.onclick = () => {
+				navigator.clipboard.writeText(text).then(
+					() => {
+						copyButton.textContent = 'Copied!';
+						setTimeout(() => (copyButton.textContent = 'Copy'), 2000);
+					},
+					err => {
+						console.error('Failed to copy text: ', err);
+						copyButton.textContent = 'Error';
+						setTimeout(() => (copyButton.textContent = 'Copy'), 2000);
+					}
+				);
+			};
+			messageElement.appendChild(copyButton);
+		}
 
-        this.messagesContainer.appendChild(messageElement);
-        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
-    }
+		this.messagesContainer.appendChild(messageElement);
+		this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+	}
 
-    clear() {
-        this.messagesContainer.innerHTML = '';
-    }
+	clear() {
+		this.messagesContainer.innerHTML = '';
+	}
 }
 
 customElements.define('message-display', MessageDisplay);

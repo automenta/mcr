@@ -1,8 +1,8 @@
 export class ErrorDisplay extends HTMLElement {
-  constructor() {
-    super();
-    this.attachShadow({ mode: 'open' });
-    this.shadowRoot.innerHTML = `
+	constructor() {
+		super();
+		this.attachShadow({ mode: 'open' });
+		this.shadowRoot.innerHTML = `
       <style>
         :host {
           display: none;
@@ -22,15 +22,15 @@ export class ErrorDisplay extends HTMLElement {
       </style>
       <div id="error-message"></div>
     `;
-  }
+	}
 
-  show(message) {
-    this.shadowRoot.getElementById('error-message').textContent = message;
-    this.classList.add('show');
-    setTimeout(() => {
-      this.classList.remove('show');
-    }, 5000);
-  }
+	show(message) {
+		this.shadowRoot.getElementById('error-message').textContent = message;
+		this.classList.add('show');
+		setTimeout(() => {
+			this.classList.remove('show');
+		}, 5000);
+	}
 }
 
 customElements.define('error-display', ErrorDisplay);

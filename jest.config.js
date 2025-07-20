@@ -9,12 +9,10 @@ module.exports = {
 			'<rootDir>/tests/__mocks__/embeddingBridge.js',
 	},
 	transform: {
-    '^.+\\.js$': 'babel-jest',
-  },
-	transformIgnorePatterns: [
-    '/node_modules/(?!yargs|yargs-parser)/',
-  ],
-  globals: {
-    self: {},
-  },
+		'^.+\\.js$': 'babel-jest',
+	},
+	transformIgnorePatterns: ['/node_modules/(?!yargs|yargs-parser)/'],
+	globals: {
+		self: {},
+	},
 };

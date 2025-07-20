@@ -151,7 +151,6 @@ function handleWebSocketConnection(socket, mcrEngine) {
 	);
 }
 
-
 module.exports = {
-    handleWebSocketConnection,
+	handleWebSocketConnection,
 };

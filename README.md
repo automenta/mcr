@@ -42,7 +42,7 @@ This combination unlocks possibilities for more robust, explainable, and sophist
   - **Probabilistic Deduction**: Uses embeddings to weight clauses and perform probabilistic reasoning.
   - **Refinement Loops**: Uses an LLM to refine the output of a strategy.
   - **Embeddings and Knowledge Graph Integration**: Enriches reasoning with semantic context from embeddings and structured knowledge from a graph database.
-- ** evolving translation strategies.
+- \*\* evolving translation strategies.
 - ** Bi-level Co-evolution:** A system for co-evolving both the strategies and the evaluation curriculum.
 - ** Pedalboard Metaphor:** A flexible and powerful way to build complex reasoning pipelines.
 - **📚 Dynamic Lexicon Summary**: Automatically builds a lexicon of known predicates from asserted facts to aid LLM translation.
@@ -618,7 +618,6 @@ To run bootstrap and then 3 evolution iterations:
 node src/evolution/optimizer.js --runBootstrap --iterations 3
 ```
 
-
 ### Example Translation Strategy Approaches
 
 MCR's flexibility comes from its use of different Translation Strategies. These strategies define how natural language is converted to logic. Here are a couple of conceptual approaches:
@@ -760,19 +759,19 @@ To add support for a new LLM provider (e.g., "MyNewLLM"):
       // const { SomeApiClient } = require('some-llm-sdk');
 
       const MyNewLlmProvider = {
-	name: 'mynewllm',
-	async generate(systemPrompt, userPrompt, options = {}) {
-		// const apiKey = config.llm.mynewllm.apiKey; // Get from config
-		// const model = config.llm.mynewllm.model;
-		// if (!apiKey) throw new Error('MyNewLLM API key not configured');
-		logger.debug(
-			`MyNewLlmProvider generating text with model: ${model}`,
-			{ systemPrompt, userPrompt, options }
-		);
-		// ... logic to call the LLM API ...
-		// return generatedText;
-		throw new Error('MyNewLlmProvider not implemented yet');
-	},
+      	name: 'mynewllm',
+      	async generate(systemPrompt, userPrompt, options = {}) {
+      		// const apiKey = config.llm.mynewllm.apiKey; // Get from config
+      		// const model = config.llm.mynewllm.model;
+      		// if (!apiKey) throw new Error('MyNewLLM API key not configured');
+      		logger.debug(
+      			`MyNewLlmProvider generating text with model: ${model}`,
+      			{ systemPrompt, userPrompt, options }
+      		);
+      		// ... logic to call the LLM API ...
+      		// return generatedText;
+      		throw new Error('MyNewLlmProvider not implemented yet');
+      	},
       };
       module.exports = MyNewLlmProvider;
       ```

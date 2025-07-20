@@ -6,31 +6,33 @@ const logger = require('../util/logger');
 let geminiInstance;
 
 function configureGemini(config) {
-    if (!geminiInstance) {
-        if (!config.llm.gemini.apiKey) {
-            logger.error('Gemini API key is not configured.');
-            throw new Error('Gemini API key is missing. Please set GEMINI_API_KEY.');
-        }
-        try {
-            geminiInstance = new ChatGoogleGenerativeAI({
-                apiKey: config.llm.gemini.apiKey,
-                modelName: config.llm.gemini.model,
-            });
-            logger.info(
-                `Gemini provider initialized with model ${config.llm.gemini.model}`
-            );
-        } catch (error) {
-            logger.error(`Failed to initialize Gemini provider: ${error.message}`, {
-                error,
-            });
-            throw new Error(`Gemini initialization failed: ${error.message}`);
-        }
-    }
+	if (!geminiInstance) {
+		if (!config.llm.gemini.apiKey) {
+			logger.error('Gemini API key is not configured.');
+			throw new Error('Gemini API key is missing. Please set GEMINI_API_KEY.');
+		}
+		try {
+			geminiInstance = new ChatGoogleGenerativeAI({
+				apiKey: config.llm.gemini.apiKey,
+				modelName: config.llm.gemini.model,
+			});
+			logger.info(
+				`Gemini provider initialized with model ${config.llm.gemini.model}`
+			);
+		} catch (error) {
+			logger.error(`Failed to initialize Gemini provider: ${error.message}`, {
+				error,
+			});
+			throw new Error(`Gemini initialization failed: ${error.message}`);
+		}
+	}
 }
 
 function getGeminiInstance() {
 	if (!geminiInstance) {
-		throw new Error('Gemini provider not configured. Please call configureGemini first.');
+		throw new Error(
+			'Gemini provider not configured. Please call configureGemini first.'
+		);
 	}
 	return geminiInstance;
 }
@@ -142,5 +144,5 @@ async function generate(systemPrompt, userPrompt, options = {}) {
 module.exports = {
 	name: 'gemini',
 	generate,
-    configureGemini,
+	configureGemini,
 };

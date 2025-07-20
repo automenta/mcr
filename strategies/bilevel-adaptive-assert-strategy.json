@@ -1,40 +1,44 @@
 {
-    "id": "bilevel-adaptive-assert",
-    "name": "Bi-Level Adaptive Assertion Strategy",
-    "description": "A strategy that uses a bi-level translation process to assert facts and rules.",
-    "result_variable": "prolog_clauses",
-    "nodes": [
-        {
-            "id": "step1_bilevel_translation",
-            "type": "JS_Call",
-            "module": "src/strategies/BiLevelAdaptive.js",
-            "function": "translateToLogic",
-            "input_variables": ["llmProvider", "naturalLanguageText", "lexiconSummary"],
-            "output_variable": "translation_result"
-        },
-        {
-            "id": "step2_extract_clauses",
-            "type": "JS_Extract",
-            "input_variable": "translation_result",
-            "property": "clauses",
-            "output_variable": "prolog_clauses"
-        },
-        {
-            "id": "step3_extract_model",
-            "type": "JS_Extract",
-            "input_variable": "translation_result",
-            "property": "intermediateModel",
-            "output_variable": "intermediate_model"
-        }
-    ],
-    "edges": [
-        {
-            "from": "step1_bilevel_translation",
-            "to": "step2_extract_clauses"
-        },
-        {
-            "from": "step1_bilevel_translation",
-            "to": "step3_extract_model"
-        }
-    ]
+	"id": "bilevel-adaptive-assert",
+	"name": "Bi-Level Adaptive Assertion Strategy",
+	"description": "A strategy that uses a bi-level translation process to assert facts and rules.",
+	"result_variable": "prolog_clauses",
+	"nodes": [
+		{
+			"id": "step1_bilevel_translation",
+			"type": "JS_Call",
+			"module": "src/strategies/BiLevelAdaptive.js",
+			"function": "translateToLogic",
+			"input_variables": [
+				"llmProvider",
+				"naturalLanguageText",
+				"lexiconSummary"
+			],
+			"output_variable": "translation_result"
+		},
+		{
+			"id": "step2_extract_clauses",
+			"type": "JS_Extract",
+			"input_variable": "translation_result",
+			"property": "clauses",
+			"output_variable": "prolog_clauses"
+		},
+		{
+			"id": "step3_extract_model",
+			"type": "JS_Extract",
+			"input_variable": "translation_result",
+			"property": "intermediateModel",
+			"output_variable": "intermediate_model"
+		}
+	],
+	"edges": [
+		{
+			"from": "step1_bilevel_translation",
+			"to": "step2_extract_clauses"
+		},
+		{
+			"from": "step1_bilevel_translation",
+			"to": "step3_extract_model"
+		}
+	]
 }

@@ -643,11 +643,15 @@ class StrategyExecutor {
 								`JS_Call node ${node.id} missing 'module' or 'function'.`
 							);
 						}
-						const modulePath = require('path').resolve(__dirname, '..', node.module);
+						const modulePath = require('path').resolve(
+							__dirname,
+							'..',
+							node.module
+						);
 						const customModule = require(modulePath);
 						const args = node.input_variables.map(varName => {
 							if (varName === 'llmProvider') return llmProvider;
-							return executionState[varName]
+							return executionState[varName];
 						});
 						output = await customModule[node.function](...args);
 						break;

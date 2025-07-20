@@ -1,13 +1,13 @@
 import { ManagerComponent } from './ManagerComponent.js';
 
 export class UtilityManager extends ManagerComponent {
-    constructor() {
-        super();
-        this.setAttribute('manager-type', 'Utility');
-    }
+	constructor() {
+		super();
+		this.setAttribute('manager-type', 'Utility');
+	}
 
-    get template() {
-        return `
+	get template() {
+		return `
             ${super.template}
             <error-display></error-display>
             <div class="form-group">
@@ -27,32 +27,46 @@ export class UtilityManager extends ManagerComponent {
                 <button id="generate-examples">Generate</button>
             </div>
         `;
-    }
+	}
 
-    render() {
-        super.render();
-        this.querySelector('#generate-ontology').addEventListener('click', async () => {
-            const domain = this.querySelector('#ontology-domain').value;
-            const instructions = this.querySelector('#ontology-instructions').value;
-            this.showError('');
-            try {
-                await this.api.invoke('util.generate_ontology', { domain, instructions }, (loading) => this.toggleAttribute('loading', loading));
-            } catch (error) {
-                // The error is already displayed by the error handler
-            }
-        });
+	render() {
+		super.render();
+		this.querySelector('#generate-ontology').addEventListener(
+			'click',
+			async () => {
+				const domain = this.querySelector('#ontology-domain').value;
+				const instructions = this.querySelector('#ontology-instructions').value;
+				this.showError('');
+				try {
+					await this.api.invoke(
+						'util.generate_ontology',
+						{ domain, instructions },
+						loading => this.toggleAttribute('loading', loading)
+					);
+				} catch (error) {
+					// The error is already displayed by the error handler
+				}
+			}
+		);
 
-        this.querySelector('#generate-examples').addEventListener('click', async () => {
-            const domain = this.querySelector('#example-domain').value;
-            const instructions = this.querySelector('#example-instructions').value;
-            this.showError('');
-            try {
-                await this.api.invoke('util.generate_example', { domain, instructions }, (loading) => this.toggleAttribute('loading', loading));
-            } catch (error) {
-                // The error is already displayed by the error handler
-            }
-        });
-    }
+		this.querySelector('#generate-examples').addEventListener(
+			'click',
+			async () => {
+				const domain = this.querySelector('#example-domain').value;
+				const instructions = this.querySelector('#example-instructions').value;
+				this.showError('');
+				try {
+					await this.api.invoke(
+						'util.generate_example',
+						{ domain, instructions },
+						loading => this.toggleAttribute('loading', loading)
+					);
+				} catch (error) {
+					// The error is already displayed by the error handler
+				}
+			}
+		);
+	}
 }
 
 customElements.define('utility-manager', UtilityManager);

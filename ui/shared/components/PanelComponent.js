@@ -1,15 +1,15 @@
 export class PanelComponent extends HTMLElement {
-    constructor() {
-        super();
-        this.attachShadow({ mode: 'open' });
-    }
+	constructor() {
+		super();
+		this.attachShadow({ mode: 'open' });
+	}
 
-    connectedCallback() {
-        this.render();
-    }
+	connectedCallback() {
+		this.render();
+	}
 
-    render() {
-        this.shadowRoot.innerHTML = `
+	render() {
+		this.shadowRoot.innerHTML = `
             <link rel="stylesheet" href="../variables.css">
             <style>
                 .panel {
@@ -32,16 +32,16 @@ export class PanelComponent extends HTMLElement {
                 <slot></slot>
             </div>
         `;
-    }
+	}
 
-    set title(value) {
-        this.setAttribute('title', value);
-        this.render();
-    }
+	set title(value) {
+		this.setAttribute('title', value);
+		this.render();
+	}
 
-    get title() {
-        return this.getAttribute('title') || '';
-    }
+	get title() {
+		return this.getAttribute('title') || '';
+	}
 }
 
 customElements.define('panel-component', PanelComponent);

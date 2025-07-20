@@ -23,7 +23,9 @@ class WebSocketService {
 			this.socket.onmessage = event => {
 				const message = JSON.parse(event.data);
 				if (message.messageId && this.pendingRequests.has(message.messageId)) {
-					const { resolve, reject } = this.pendingRequests.get(message.messageId);
+					const { resolve, reject } = this.pendingRequests.get(
+						message.messageId
+					);
 					if (message.payload && message.payload.success === false) {
 						this.emit('error', message.payload.error);
 						reject(message.payload.error);

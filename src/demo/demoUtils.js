@@ -10,7 +10,11 @@ import path from 'path';
  * @param {function} logger - The logger function to report errors.
  * @returns {string|null} The content of the file, or null if an error occurs.
  */
-export const readFileContentSafe = (filePath, fileDescription = 'File', logger) => {
+export const readFileContentSafe = (
+	filePath,
+	fileDescription = 'File',
+	logger
+) => {
 	try {
 		const resolvedPath = path.resolve(filePath);
 		if (!fs.existsSync(resolvedPath)) {

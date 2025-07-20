@@ -78,10 +78,7 @@ module.exports = function (mcrEngine, config) {
 					logger.info(
 						`[Tool:mcr.handle] Treating as an assertion: "${naturalLanguageText}"`
 					);
-					return mcrEngine.assertNLToSession(
-						sessionId,
-						naturalLanguageText
-					);
+					return mcrEngine.assertNLToSession(sessionId, naturalLanguageText);
 				}
 			},
 		},
@@ -299,8 +296,9 @@ module.exports = function (mcrEngine, config) {
 						message: 'Session not found.',
 					};
 				}
-				const { importClauses } =
-					require('./neurosymbolic/symbolicExchange.js');
+				const {
+					importClauses,
+				} = require('./neurosymbolic/symbolicExchange.js');
 				importClauses(session.tau, input.clauses);
 				return { success: true };
 			},
@@ -338,9 +336,7 @@ module.exports = function (mcrEngine, config) {
 			handler: async input => {
 				const includeRules = input?.includeRules === true;
 				try {
-					const ontologies = await ontologyService.listOntologies(
-						includeRules
-					);
+					const ontologies = await ontologyService.listOntologies(includeRules);
 					return { success: true, data: ontologies };
 				} catch (error) {
 					logger.error(`[Tool:ontology.list] Error: ${error.message}`, {
@@ -543,40 +539,40 @@ module.exports = function (mcrEngine, config) {
 				);
 			},
 		},
-    'util.generate_example': {
-      description: 'Generates evaluation examples for a given domain and instructions.',
-      handler: async (input) => {
-        const { domain, instructions } = input;
-        if (!domain || !instructions) {
-          return {
-            success: false,
-            error: ErrorCodes.INVALID_INPUT,
-            message: 'domain and instructions are required.',
-          };
-        }
-        return mcrEngine.generateExample(domain, instructions);
-      },
-    },
-    'util.generate_ontology': {
-      description: 'Generates an ontology for a given domain and instructions.',
-      handler: async (input) => {
-        const { domain, instructions } = input;
-        if (!domain || !instructions) {
-          return {
-            success: false,
-            error: ErrorCodes.INVALID_INPUT,
-            message: 'domain and instructions are required.',
-          };
-        }
-        return mcrEngine.generateOntology(domain, instructions);
-      },
-    },
+		'util.generate_example': {
+			description:
+				'Generates evaluation examples for a given domain and instructions.',
+			handler: async input => {
+				const { domain, instructions } = input;
+				if (!domain || !instructions) {
+					return {
+						success: false,
+						error: ErrorCodes.INVALID_INPUT,
+						message: 'domain and instructions are required.',
+					};
+				}
+				return mcrEngine.generateExample(domain, instructions);
+			},
+		},
+		'util.generate_ontology': {
+			description: 'Generates an ontology for a given domain and instructions.',
+			handler: async input => {
+				const { domain, instructions } = input;
+				if (!domain || !instructions) {
+					return {
+						success: false,
+						error: ErrorCodes.INVALID_INPUT,
+						message: 'domain and instructions are required.',
+					};
+				}
+				return mcrEngine.generateOntology(domain, instructions);
+			},
+		},
 		'analysis.get_strategy_leaderboard': {
 			description: 'Retrieves aggregated performance data for strategies.',
 			handler: async () => {
 				try {
-					const strategyDefinitions =
-						strategyManager.getAvailableStrategies();
+					const strategyDefinitions = strategyManager.getAvailableStrategies();
 					const strategyDetailsMap = new Map();
 					for (const stratInfo of strategyDefinitions) {
 						const definition = strategyManager.getStrategy(stratInfo.id);
@@ -601,12 +597,8 @@ module.exports = function (mcrEngine, config) {
 						.map(row => {
 							const details = strategyDetailsMap.get(row.strategy_hash);
 							return {
-								strategyId: details
-									? details.id
-									: 'unknown_strategy_id',
-								strategyName: details
-									? details.name
-									: row.strategy_hash,
+								strategyId: details ? details.id : 'unknown_strategy_id',
+								strategyName: details ? details.name : row.strategy_hash,
 								evaluations: row.evaluations,
 								successRate:
 									row.successRate !== null
@@ -622,9 +614,7 @@ module.exports = function (mcrEngine, config) {
 										: null,
 							};
 						})
-						.filter(
-							entry => entry.strategyId !== 'unknown_strategy_id'
-						);
+						.filter(entry => entry.strategyId !== 'unknown_strategy_id');
 					return { success: true, data: leaderboardData };
 				} catch (error) {
 					logger.error(
@@ -652,8 +642,7 @@ module.exports = function (mcrEngine, config) {
 					};
 				}
 				try {
-					const strategyDefinition =
-						strategyManager.getStrategy(strategyId);
+					const strategyDefinition = strategyManager.getStrategy(strategyId);
 					if (!strategyDefinition) {
 						return {
 							success: false,
@@ -676,9 +665,7 @@ module.exports = function (mcrEngine, config) {
 								? JSON.parse(run.metrics)
 								: run.metrics,
 						cost:
-							typeof run.cost === 'string'
-								? JSON.parse(run.cost)
-								: run.cost,
+							typeof run.cost === 'string' ? JSON.parse(run.cost) : run.cost,
 					}));
 					let totalLatency = 0,
 						successfulRuns = 0;
@@ -690,15 +677,11 @@ module.exports = function (mcrEngine, config) {
 						totalRuns: processedRuns.length,
 						avgLatencyMs:
 							processedRuns.length > 0
-								? parseFloat(
-										(totalLatency / processedRuns.length).toFixed(2)
-									)
+								? parseFloat((totalLatency / processedRuns.length).toFixed(2))
 								: 0,
 						successRate:
 							processedRuns.length > 0
-								? parseFloat(
-										(successfulRuns / processedRuns.length).toFixed(3)
-									)
+								? parseFloat((successfulRuns / processedRuns.length).toFixed(3))
 								: 0,
 					};
 					return {
@@ -729,26 +712,19 @@ module.exports = function (mcrEngine, config) {
 			handler: async () => {
 				const evalCasesDir = path.join(__dirname, 'evalCases');
 				const curricula = [];
-				function findEvalFilesRecursively(
-					currentDir,
-					relativeBaseDir = ''
-				) {
+				function findEvalFilesRecursively(currentDir, relativeBaseDir = '') {
 					try {
 						const entries = fs.readdirSync(currentDir, {
 							withFileTypes: true,
 						});
 						for (const entry of entries) {
 							const fullPath = path.join(currentDir, entry.name);
-							const relativePath = path.join(
-								relativeBaseDir,
-								entry.name
-							);
+							const relativePath = path.join(relativeBaseDir, entry.name);
 							if (entry.isDirectory()) {
 								findEvalFilesRecursively(fullPath, relativePath);
 							} else if (
 								entry.isFile() &&
-								(entry.name.endsWith('.js') ||
-									entry.name.endsWith('.json')) &&
+								(entry.name.endsWith('.js') || entry.name.endsWith('.json')) &&
 								!/ExampleBase\.js|Utils\.js/.test(entry.name) &&
 								entry.name !== path.basename(__filename)
 							) {
@@ -801,11 +777,7 @@ module.exports = function (mcrEngine, config) {
 						message: 'curriculumId is required.',
 					};
 				}
-				const curriculumPath = path.join(
-					__dirname,
-					'evalCases',
-					curriculumId
-				);
+				const curriculumPath = path.join(__dirname, 'evalCases', curriculumId);
 				if (
 					!fs.existsSync(curriculumPath) ||
 					!fs.statSync(curriculumPath).isFile()
@@ -864,8 +836,7 @@ module.exports = function (mcrEngine, config) {
 				}
 				const options = input?.options || {};
 				const args = [];
-				if (options.iterations)
-					args.push('-i', options.iterations.toString());
+				if (options.iterations) args.push('-i', options.iterations.toString());
 				if (options.bootstrapOnly) args.push('--bootstrapOnly');
 				if (options.runBootstrap) args.push('--runBootstrap');
 				if (options.evalCasesPath) args.push('-p', options.evalCasesPath);
@@ -873,11 +844,7 @@ module.exports = function (mcrEngine, config) {
 					'status',
 					`Starting optimizer with args: ${args.join(' ')}`
 				);
-				const scriptPath = path.join(
-					__dirname,
-					'evolution',
-					'optimizer.js'
-				);
+				const scriptPath = path.join(__dirname, 'evolution', 'optimizer.js');
 				optimizerProcess = spawn('node', [scriptPath, ...args], {
 					stdio: ['ignore', 'pipe', 'pipe'],
 				});
@@ -888,10 +855,7 @@ module.exports = function (mcrEngine, config) {
 					addOptimizerLog('stderr', data.toString())
 				);
 				optimizerProcess.on('error', err => {
-					addOptimizerLog(
-						'error',
-						`Optimizer process error: ${err.message}`
-					);
+					addOptimizerLog('error', `Optimizer process error: ${err.message}`);
 					logger.error(`[OptimizerRuntime] Error: ${err.message}`, {
 						stack: err.stack,
 					});
@@ -961,10 +925,7 @@ module.exports = function (mcrEngine, config) {
 						optimizerProcess.kill('SIGTERM') ||
 						optimizerProcess.kill('SIGKILL');
 					if (killed) {
-						addOptimizerLog(
-							'status',
-							`Optimizer termination signal sent.`
-						);
+						addOptimizerLog('status', `Optimizer termination signal sent.`);
 						return {
 							success: true,
 							message: 'Optimizer termination signal sent.',
@@ -1001,16 +962,10 @@ module.exports = function (mcrEngine, config) {
 				try {
 					const files = fs.readdirSync(demoDir);
 					for (const file of files) {
-						if (
-							file.endsWith('Demo.js') &&
-							!/ExampleBase\.js/.test(file)
-						) {
+						if (file.endsWith('Demo.js') && !/ExampleBase\.js/.test(file)) {
 							const demoId = file.replace(/\.js$/, '');
 							try {
-								const DemoClass = require(path.join(
-									demoDir,
-									file
-								));
+								const DemoClass = require(path.join(demoDir, file));
 								if (
 									typeof DemoClass === 'function' &&
 									DemoClass.prototype?.getName &&
@@ -1063,11 +1018,7 @@ module.exports = function (mcrEngine, config) {
 						message: 'demoId and sessionId are required.',
 					};
 				}
-				const demoFilePath = path.join(
-					__dirname,
-					'demo',
-					`${demoId}.js`
-				);
+				const demoFilePath = path.join(__dirname, 'demo', `${demoId}.js`);
 				if (!fs.existsSync(demoFilePath)) {
 					return {
 						success: false,
@@ -1079,10 +1030,7 @@ module.exports = function (mcrEngine, config) {
 				const logCollector = logEntry => capturedLogs.push(logEntry);
 				try {
 					const DemoClass = require(demoFilePath);
-					if (
-						typeof DemoClass !== 'function' ||
-						!DemoClass.prototype?.run
-					) {
+					if (typeof DemoClass !== 'function' || !DemoClass.prototype?.run) {
 						return {
 							success: false,
 							error: ErrorCodes.DEMO_INVALID,

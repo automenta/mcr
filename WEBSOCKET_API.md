@@ -288,4 +288,5 @@ The following tools can be invoked using the `tool_invoke` message type. The `in
   - Description: Runs a specific demo in a given session, returning captured logs from the demo run.
   - Input: `{ "demoId": "familyOntologyDemo", "sessionId": "id" }`
   - Success Payload: `{ "success": true, "data": { "demoId": "...", "messages": [...] } }`
+
 ---

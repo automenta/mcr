@@ -1,8 +1,8 @@
 export class MessageInput extends HTMLElement {
-    constructor() {
-        super();
-        this.attachShadow({ mode: 'open' });
-        this.shadowRoot.innerHTML = `
+	constructor() {
+		super();
+		this.attachShadow({ mode: 'open' });
+		this.shadowRoot.innerHTML = `
             <link rel="stylesheet" href="../variables.css">
             <style>
                 .input-container {
@@ -36,32 +36,36 @@ export class MessageInput extends HTMLElement {
             </div>
         `;
 
-        this.input = this.shadowRoot.querySelector('input');
-        this.button = this.shadowRoot.querySelector('button');
+		this.input = this.shadowRoot.querySelector('input');
+		this.button = this.shadowRoot.querySelector('button');
 
-        this.button.addEventListener('click', () => this.dispatchEvent(new CustomEvent('send', { detail: this.input.value })));
-        this.input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                this.dispatchEvent(new CustomEvent('send', { detail: this.input.value }));
-            } else if (e.key === 'ArrowUp') {
-                this.dispatchEvent(new CustomEvent('history-back'));
-            } else if (e.key === 'ArrowDown') {
-                this.dispatchEvent(new CustomEvent('history-forward'));
-            }
-        });
-    }
+		this.button.addEventListener('click', () =>
+			this.dispatchEvent(new CustomEvent('send', { detail: this.input.value }))
+		);
+		this.input.addEventListener('keydown', e => {
+			if (e.key === 'Enter') {
+				this.dispatchEvent(
+					new CustomEvent('send', { detail: this.input.value })
+				);
+			} else if (e.key === 'ArrowUp') {
+				this.dispatchEvent(new CustomEvent('history-back'));
+			} else if (e.key === 'ArrowDown') {
+				this.dispatchEvent(new CustomEvent('history-forward'));
+			}
+		});
+	}
 
-    get value() {
-        return this.input.value;
-    }
+	get value() {
+		return this.input.value;
+	}
 
-    set value(value) {
-        this.input.value = value;
-    }
+	set value(value) {
+		this.input.value = value;
+	}
 
-    clear() {
-        this.input.value = '';
-    }
+	clear() {
+		this.input.value = '';
+	}
 }
 
 customElements.define('message-input', MessageInput);

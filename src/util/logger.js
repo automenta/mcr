@@ -52,10 +52,7 @@ const log = (level, message, ...args) => {
 		if (logFilePath) {
 			fs.appendFile(logFilePath, fileMessage, err => {
 				if (err) {
-					console.error(
-						chalk.red('Failed to write to log file:'),
-						err
-					);
+					console.error(chalk.red('Failed to write to log file:'), err);
 				}
 			});
 		}

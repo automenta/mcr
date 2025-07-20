@@ -5,16 +5,16 @@ const MCREngine = require('../src/mcrEngine');
 const { Evaluator } = require('../src/evaluation/metrics');
 
 jest.mock('../src/mcrEngine', () => {
-    return jest.fn().mockImplementation(() => {
-        return {
-            createSession: jest.fn(),
-            deleteSession: jest.fn(),
-            _refineLoop: jest.fn(),
-            config: {
-                evalCasesPath: 'src/evalCases'
-            }
-        };
-    });
+	return jest.fn().mockImplementation(() => {
+		return {
+			createSession: jest.fn(),
+			deleteSession: jest.fn(),
+			_refineLoop: jest.fn(),
+			config: {
+				evalCasesPath: 'src/evalCases',
+			},
+		};
+	});
 });
 jest.mock('../src/evaluation/metrics', () => ({
 	Evaluator: jest.fn().mockImplementation(() => {
@@ -27,10 +27,10 @@ jest.mock('../src/evaluation/metrics', () => ({
 
 describe('Evolution Optimizer', () => {
 	let optimizer;
-    let mcrService;
+	let mcrService;
 
 	beforeEach(() => {
-        mcrService = new MCREngine();
+		mcrService = new MCREngine();
 		optimizer = new OptimizationCoordinator(mcrService);
 		mcrService.createSession.mockResolvedValue({ id: 'test-session' });
 		mcrService.deleteSession.mockResolvedValue(true);

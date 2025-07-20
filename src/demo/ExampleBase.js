@@ -10,7 +10,9 @@ class ExampleBase {
 			);
 		}
 		if (!webSocketManager) {
-			throw new Error('ExampleBase requires a webSocketManager during instantiation.');
+			throw new Error(
+				'ExampleBase requires a webSocketManager during instantiation.'
+			);
 		}
 		this.sessionId = sessionId;
 		this.logCollector = logCollector; // Function to call with log messages

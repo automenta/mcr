@@ -35,7 +35,6 @@ class FamilyOntologyDemo extends ExampleBase {
 			return;
 		}
 
-
 		if (!ontologyContent) {
 			this.dLog.error(
 				`Family ontology file could not be read. Demo cannot proceed with ontology loading.`

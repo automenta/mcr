@@ -22,14 +22,14 @@ export default defineConfig({
 		// assetsDir: 'assets', // Default is 'assets'
 		// sourcemap: true, // Enable for production debugging if needed
 		base: '/', // Adjust if app is served from a sub-path like /ui/ in production
-    rollupOptions: {
-      input: {
-        main: path.resolve(__dirname, 'index.html'),
-        expert: path.resolve(__dirname, 'expert/index.html'),
-        unified: path.resolve(__dirname, 'unified/index.html'),
-        vanilla: path.resolve(__dirname, 'vanilla/index.html'),
-      },
-    },
+		rollupOptions: {
+			input: {
+				main: path.resolve(__dirname, 'index.html'),
+				expert: path.resolve(__dirname, 'expert/index.html'),
+				unified: path.resolve(__dirname, 'unified/index.html'),
+				vanilla: path.resolve(__dirname, 'vanilla/index.html'),
+			},
+		},
 	},
 	test: {
 		globals: true,

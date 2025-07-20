@@ -2,7 +2,12 @@ const crypto = require('crypto');
 const logger = require('./util/logger');
 const { initDb } = require('./store/database');
 const MCREngine = require('./mcrEngine');
-const { prompts, fillTemplate, getPromptTemplateByName, addOrUpdatePromptTemplate } = require('./prompts');
+const {
+	prompts,
+	fillTemplate,
+	getPromptTemplateByName,
+	addOrUpdatePromptTemplate,
+} = require('./prompts');
 const { loadAllEvalCases } = require('./evalCases/baseEvals');
 const fs = require('fs');
 const path = require('path');
@@ -111,7 +116,7 @@ class CurriculumGenerator {
 			);
 			return [];
 		}
-        const engine = new MCREngine();
+		const engine = new MCREngine();
 		const generatePromptTemplate = prompts.GENERATE_EVAL_CASES;
 		if (!generatePromptTemplate) {
 			logger.error(
@@ -317,7 +322,9 @@ class KeywordInputRouter {
 	getStrategy(naturalLanguageText) {
 		const nlLower = naturalLanguageText.toLowerCase();
 		if (nlLower.includes('solve') || nlLower.includes('constraint')) {
-			logger.info('[InputRouter] "solve" or "constraint" keyword found, recommending bilevel-adaptive-assert strategy.');
+			logger.info(
+				'[InputRouter] "solve" or "constraint" keyword found, recommending bilevel-adaptive-assert strategy.'
+			);
 			return 'bilevel-adaptive-assert';
 		}
 		return null;
@@ -542,7 +549,9 @@ class OptimizationCoordinator {
 	constructor(mcrService) {
 		this.mcrService = mcrService;
 		this.config = mcrService.config;
-		this.evaluator = new Evaluator(this.config.evalCasesPath || 'src/evalCases');
+		this.evaluator = new Evaluator(
+			this.config.evalCasesPath || 'src/evalCases'
+		);
 	}
 
 	async bootstrap() {
@@ -714,7 +723,10 @@ class OptimizationCoordinator {
 		for (const inputCase of inputCases) {
 			const loopResult = await this.mcrService._refineLoop(
 				async input => {
-					const res = await this.mcrService.assertNLToSession(session.id, input);
+					const res = await this.mcrService.assertNLToSession(
+						session.id,
+						input
+					);
 					return res.addedFacts;
 				},
 				inputCase.nl,
@@ -909,7 +921,7 @@ Metrics for this example: ${JSON.stringify(ex.metrics)}
 			})
 			.join('\n\n');
 
-        const engine = new MCREngine();
+		const engine = new MCREngine();
 		const critiquePromptTemplate = prompts.CRITIQUE_AND_REWRITE_PROMPT;
 		if (!critiquePromptTemplate) {
 			logger.error(
@@ -1098,32 +1110,32 @@ Do NOT wrap the rewritten prompt in markdown code blocks. Output only the raw te
 }
 
 function generateCurriculum(cases) {
-    const curriculumGenerator = new CurriculumGenerator();
-    return curriculumGenerator.generate();
+	const curriculumGenerator = new CurriculumGenerator();
+	return curriculumGenerator.generate();
 }
 
 function selectStrategy(input, perfData) {
-    const keywordInputRouter = new KeywordInputRouter(perfData.db);
-    return keywordInputRouter.route(input, perfData.llmModelId);
+	const keywordInputRouter = new KeywordInputRouter(perfData.db);
+	return keywordInputRouter.route(input, perfData.llmModelId);
 }
 
 function optimizeStrategies() {
-    const optimizationCoordinator = new OptimizationCoordinator();
-    return optimizationCoordinator.start();
+	const optimizationCoordinator = new OptimizationCoordinator();
+	return optimizationCoordinator.start();
 }
 
 function mutateStrategy(name, examples) {
-    const strategyEvolver = new StrategyEvolver();
-    return strategyEvolver.evolve(name, examples);
+	const strategyEvolver = new StrategyEvolver();
+	return strategyEvolver.evolve(name, examples);
 }
 
 module.exports = {
-    generateCurriculum,
-    selectStrategy,
-    optimizeStrategies,
-    mutateStrategy,
-    CurriculumGenerator,
-    KeywordInputRouter,
-    OptimizationCoordinator,
-    StrategyEvolver
+	generateCurriculum,
+	selectStrategy,
+	optimizeStrategies,
+	mutateStrategy,
+	CurriculumGenerator,
+	KeywordInputRouter,
+	OptimizationCoordinator,
+	StrategyEvolver,
 };

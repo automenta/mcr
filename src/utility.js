@@ -13,7 +13,12 @@ const SCRIPT_NAME = 'utility.js';
 const evalCasesDir = path.join(__dirname, 'evalCases');
 const ontologiesDir = path.join(__dirname, '..', 'ontologies');
 
-async function generateExample(domain, instructions, llmProviderName, modelName) {
+async function generateExample(
+	domain,
+	instructions,
+	llmProviderName,
+	modelName
+) {
 	logger.info(
 		`[${SCRIPT_NAME}] Creating evaluation examples for domain: "${domain}" with instructions: "${instructions}" using ${llmProviderName}`
 	);
@@ -110,7 +115,12 @@ async function generateExample(domain, instructions, llmProviderName, modelName)
 	);
 }
 
-async function generateOntology(domain, instructions, llmProviderName, modelName) {
+async function generateOntology(
+	domain,
+	instructions,
+	llmProviderName,
+	modelName
+) {
 	logger.info(
 		`[${SCRIPT_NAME}] Creating ontology for domain: "${domain}" with instructions: "${instructions}" using ${llmProviderName}`
 	);
@@ -164,46 +174,60 @@ async function generateOntology(domain, instructions, llmProviderName, modelName
 }
 
 async function main() {
-  const scriptSpecificOptions = {
-    domain: {
-      alias: 'd',
-      type: 'string',
-      describe: 'The domain for which to generate examples (e.g., "Family Tree").',
-      demandOption: true,
-    },
-    instructions: {
-      alias: 'i',
-      type: 'string',
-      describe: 'Specific instructions for the types of examples to generate.',
-      default: 'Generate a variety of assertions and queries, including edge cases.',
-    },
-    type: {
-      alias: 't',
-      type: 'string',
-      describe: 'Type of generation to perform: "example" or "ontology".',
-      demandOption: true,
-    }
-  };
+	const scriptSpecificOptions = {
+		domain: {
+			alias: 'd',
+			type: 'string',
+			describe:
+				'The domain for which to generate examples (e.g., "Family Tree").',
+			demandOption: true,
+		},
+		instructions: {
+			alias: 'i',
+			type: 'string',
+			describe: 'Specific instructions for the types of examples to generate.',
+			default:
+				'Generate a variety of assertions and queries, including edge cases.',
+		},
+		type: {
+			alias: 't',
+			type: 'string',
+			describe: 'Type of generation to perform: "example" or "ontology".',
+			demandOption: true,
+		},
+	};
 
-  const argv = await setupGeneratorScript(scriptSpecificOptions, SCRIPT_NAME);
+	const argv = await setupGeneratorScript(scriptSpecificOptions, SCRIPT_NAME);
 
-  if (argv.type === 'example') {
-    await generateExample(argv.domain, argv.instructions, argv.provider, argv.model);
-  } else if (argv.type === 'ontology') {
-    await generateOntology(argv.domain, argv.instructions, argv.provider, argv.model);
-  } else {
-    logger.error(`Invalid type specified: ${argv.type}. Must be "example" or "ontology".`);
-  }
+	if (argv.type === 'example') {
+		await generateExample(
+			argv.domain,
+			argv.instructions,
+			argv.provider,
+			argv.model
+		);
+	} else if (argv.type === 'ontology') {
+		await generateOntology(
+			argv.domain,
+			argv.instructions,
+			argv.provider,
+			argv.model
+		);
+	} else {
+		logger.error(
+			`Invalid type specified: ${argv.type}. Must be "example" or "ontology".`
+		);
+	}
 }
 
 if (require.main === module) {
-  main().catch(error => {
-    logger.error(`[${SCRIPT_NAME}] An unexpected error occurred:`, error);
-    process.exit(1);
-  });
+	main().catch(error => {
+		logger.error(`[${SCRIPT_NAME}] An unexpected error occurred:`, error);
+		process.exit(1);
+	});
 }
 
 module.exports = {
-  generateExample,
-  generateOntology,
+	generateExample,
+	generateOntology,
 };
