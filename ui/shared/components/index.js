@@ -1,3 +1,4 @@
+export * from './MainLayout.js';
 export * from './CurriculumManager.js';
 export * from './ErrorDisplay.js';
 export * from './EvaluationManager.js';
@@ -14,3 +15,4 @@ export * from './Repl.js';
 export * from './StrategyManager.js';
 export * from './SystemState.js';
 export * from './UtilityManager.js';
+export * from './CrudManagerComponent.js';

@@ -5,22 +5,22 @@ const MockPrologReasonerProvider = require('./__mocks__/prologReasonerProvider')
 describe('guidedDeduce', () => {
 	let sessionId;
 	const mcrEngine = new MCREngine();
-	mcrEngine.getLlmProvider(new MockLLMProvider());
-	mcrEngine.getReasonerProvider(new MockPrologReasonerProvider());
+    mcrEngine.llmProvider = new MockLLMProvider();
+    mcrEngine.reasonerProvider = new MockPrologReasonerProvider();
 
 	beforeEach(async () => {
 		sessionId = 'test-session-id';
 		await mcrEngine.createSession(sessionId);
-		await mcrEngine.assertNLToSession(sessionId, 'fact(a). fact(b).');
+		await mcrEngine.addFacts(sessionId, ['fact(a).', 'fact(b).']);
 	});
 
 	afterEach(() => {
 		jest.clearAllMocks();
-		mcrEngine.deleteSession(sessionId);
 	});
 
-	it('should return a probabilistic result', async () => {
-		const results = await mcrEngine.querySessionWithNL(sessionId, 'fact(X).');
-		expect(results.answer).toBe('a');
+	it('should return a result based on facts', async () => {
+		const results = await mcrEngine.querySessionWithNL(sessionId, 'What facts are there?');
+		expect(results.answer).toContain('fact(a)');
+        expect(results.answer).toContain('fact(b)');
 	});
 });

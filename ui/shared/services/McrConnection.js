@@ -18,8 +18,12 @@ export class McrConnection {
 
 		this.ws = new WebSocketService(`ws://${window.location.host}/ws`);
 		this.connectionPromise = this.ws.connect().then(async () => {
-			const { sessionId } = await this.ws.invoke('createSession');
-			this.sessionId = sessionId;
+			const response = await this.ws.invoke('session.create', {});
+			if (response && response.payload && response.payload.success) {
+				this.sessionId = response.payload.data.id;
+			} else {
+				throw new Error('Failed to create session.');
+			}
 		});
 
 		McrConnection.instance = this;

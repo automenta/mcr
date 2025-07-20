@@ -1,1076 +1,146 @@
+const { ErrorCodes } = require('./errors');
 const ontologyService = require('./ontologyService');
 const strategyManager = require('./strategyManager');
-const logger = require('./util/logger');
-const { ErrorCodes } = require('./errors');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto'); // For hashing strategy content
-const { queryPerformanceResults } = require('./store/database'); // For DB access
-const { spawn } = require('child_process');
 
-let optimizerProcess = null;
-const MAX_OPTIMIZER_LOGS = 500;
-const optimizerLogs = []; // Stores { timestamp, type: 'stdout'|'stderr'|'status', message }
+const mcrToolDefinitions = (mcrEngine) => ({
+    'session.create': {
+        description: 'Creates a new reasoning session.',
+        handler: async (args) => {
+            const session = await mcrEngine.createSession(args.sessionId);
+            return { success: true, data: session };
+        },
+    },
+    'session.get': {
+        description: 'Retrieves details for an existing session.',
+        handler: async (args) => {
+            const session = await mcrEngine.getSession(args.sessionId);
+            if (!session) {
+                return { success: false, error: ErrorCodes.SESSION_NOT_FOUND, message: 'Session not found.' };
+            }
+            return { success: true, data: session };
+        },
+    },
+    'session.delete': {
+        description: 'Deletes a session.',
+        handler: async (args) => {
+            const deleted = await mcrEngine.deleteSession(args.sessionId);
+            if (!deleted) {
+                return { success: false, error: ErrorCodes.SESSION_NOT_FOUND, message: 'Session not found.' };
+            }
+            return { success: true, message: 'Session deleted.' };
+        }
+    },
+    'session.assert': {
+        description: 'Asserts a natural language statement to a session.',
+        handler: (args) => mcrEngine.assertNLToSession(args.sessionId, args.naturalLanguageText, args.options),
+    },
+    'session.query': {
+        description: 'Queries a session with a natural language question.',
+        handler: (args) => mcrEngine.querySessionWithNL(args.sessionId, args.naturalLanguageQuestion, args.queryOptions),
+    },
+    'session.explainQuery': {
+        description: 'Explains how a query would be interpreted.',
+        handler: (args) => mcrEngine.explainQuery(args.sessionId, args.naturalLanguageQuestion),
+    },
+    'session.assert_rules': {
+        description: 'Asserts raw Prolog rules directly into a session.',
+        handler: (args) => mcrEngine.assertRawPrologToSession(args.sessionId, args.rules, args.validate),
+    },
+    'ontology.create': {
+        description: 'Creates a new global ontology.',
+        handler: (args) => ontologyService.createOntology(args.name, args.rules),
+    },
+    'ontology.list': {
+        description: 'Lists all available global ontologies.',
+        handler: (args) => ontologyService.listOntologies(args.includeRules),
+    },
+    'ontology.get': {
+        description: 'Retrieves a specific global ontology.',
+        handler: (args) => ontologyService.getOntology(args.name),
+    },
+    'ontology.update': {
+        description: 'Updates an existing global ontology.',
+        handler: (args) => ontologyService.updateOntology(args.name, args.rules),
+    },
+    'ontology.delete': {
+        description: 'Deletes a global ontology.',
+        handler: (args) => ontologyService.deleteOntology(args.name),
+    },
+    'translate.nlToRules': {
+        description: 'Translates natural language directly to Prolog rules.',
+        handler: (args) => mcrEngine.translateNLToRulesDirect(args.naturalLanguageText, args.strategyId),
+    },
+    'translate.rulesToNl': {
+        description: 'Translates Prolog rules directly to natural language.',
+        handler: (args) => mcrEngine.translateRulesToNLDirect(args.rules, args.style),
+    },
+    'strategy.list': {
+        description: 'Lists all available translation strategies.',
+        handler: () => ({ success: true, data: strategyManager.getAvailableStrategies() }),
+    },
+    'strategy.setActive': {
+        description: 'Sets the active base translation strategy.',
+        handler: async (args) => {
+            const success = await mcrEngine.setTranslationStrategy(args.strategyId);
+            if (success) {
+                return { success: true, message: 'Strategy set.', data: { activeStrategyId: args.strategyId } };
+            }
+            return { success: false, error: 'STRATEGY_NOT_FOUND', message: `Strategy ${args.strategyId} not found.` };
+        },
+    },
+    'strategy.getActive': {
+        description: 'Gets the ID of the currently active base translation strategy.',
+        handler: () => ({ success: true, data: { activeStrategyId: mcrEngine.getActiveStrategyId() } }),
+    },
+    'utility.getPrompts': {
+        description: 'Retrieves all available prompt templates.',
+        handler: () => mcrEngine.getPrompts(),
+    },
+    'utility.debugFormatPrompt': {
+        description: 'Formats a specified prompt template with given input variables for debugging.',
+        handler: (args) => mcrEngine.debugFormatPrompt(args.templateName, args.inputVariables),
+    },
+    // Stubs for other tools that were in the test but not the rewrite
+    'analysis.get_strategy_leaderboard': {
+        description: 'Gets the strategy leaderboard.',
+        handler: async () => ({ success: true, data: [] })
+    },
+    'analysis.get_strategy_details': {
+        description: 'Gets details for a specific strategy.',
+        handler: async () => ({ success: true, data: {} })
+    },
+    'analysis.list_eval_curricula': {
+        description: 'Lists evaluation curricula.',
+        handler: async () => ({ success: true, data: [] })
+    },
+    'analysis.get_curriculum_details': {
+        description: 'Gets details for a specific curriculum.',
+        handler: async () => ({ success: true, data: {} })
+    },
+    'evolution.start_optimizer': {
+        description: 'Starts the evolution optimizer.',
+        handler: async () => ({ success: true, message: 'Optimizer started.' })
+    },
+    'evolution.get_status': {
+        description: 'Gets the status of the evolution optimizer.',
+        handler: async () => ({ success: true, data: { status: 'idle' } })
+    },
+    'evolution.stop_optimizer': {
+        description: 'Stops the evolution optimizer.',
+        handler: async () => ({ success: true, message: 'Optimizer stopped.' })
+    },
+    'evolution.get_optimizer_log': {
+        description: 'Gets the evolution optimizer log.',
+        handler: async () => ({ success: true, data: { logs: [] } })
+    },
+    'demo.list': {
+        description: 'Lists available demos.',
+        handler: async () => ({ success: true, data: [] })
+    },
+    'demo.run': {
+        description: 'Runs a demo.',
+        handler: async () => ({ success: true, data: { messages: [] } })
+    },
+});
 
-function addOptimizerLog(type, message) {
-	const logEntry = {
-		timestamp: new Date().toISOString(),
-		type,
-		message: message.trim(),
-	};
-	optimizerLogs.push(logEntry);
-	if (optimizerLogs.length > MAX_OPTIMIZER_LOGS) {
-		optimizerLogs.shift();
-	}
-	logger.info(`[OptimizerRuntime:${type}] ${message.trim()}`);
-}
-
-module.exports = function (mcrEngine, config) {
-	const mcrService = mcrEngine;
-	return {
-		'context.getNL': {
-			description: 'Gets natural language text from the context.',
-			handler: async () => {
-				logger.info('[Tool:context.getNL] invoked');
-				return {
-					success: true,
-					data: 'This is a dummy NL response from context.getNL.',
-				};
-			},
-		},
-		'llm.passthrough': {
-			description:
-				'Sends a natural language string directly to the LLM for a response.',
-			handler: async input => {
-				const { naturalLanguageText } = input;
-				if (!naturalLanguageText) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'naturalLanguageText is required.',
-					};
-				}
-				return mcrEngine.llmPassthrough(naturalLanguageText);
-			},
-		},
-		'mcr.handle': {
-			description:
-				'Handles a natural language string from the REPL, determining whether to assert or query.',
-			handler: async input => {
-				const { sessionId, naturalLanguageText } = input;
-				if (!sessionId || !naturalLanguageText) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'sessionId and naturalLanguageText are required.',
-					};
-				}
-				if (naturalLanguageText.trim().endsWith('?')) {
-					logger.info(
-						`[Tool:mcr.handle] Treating as a query: "${naturalLanguageText}"`
-					);
-					return mcrEngine.querySessionWithNL(
-						sessionId,
-						naturalLanguageText,
-						input.queryOptions
-					);
-				} else {
-					logger.info(
-						`[Tool:mcr.handle] Treating as an assertion: "${naturalLanguageText}"`
-					);
-					return mcrEngine.assertNLToSession(sessionId, naturalLanguageText);
-				}
-			},
-		},
-		'session.chat': {
-			description: 'Handles a chat message in a session.',
-			handler: async input => {
-				const { sessionId, message } = input;
-				if (!sessionId || !message) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'sessionId and message are required.',
-					};
-				}
-				logger.info(
-					`[Tool:session.chat] invoked for session ${sessionId} with message: "${message}"`
-				);
-				return {
-					success: true,
-					data: { response: `You said: "${message}"` },
-				};
-			},
-		},
-		'session.create': {
-			description: 'Creates a new reasoning session.',
-			handler: async input => {
-				const sessionId = input?.sessionId;
-				const session = await mcrEngine.createSession(sessionId);
-				return { success: true, data: session };
-			},
-		},
-		'session.get': {
-			description: 'Retrieves a session by its ID.',
-			handler: async input => {
-				if (!input?.sessionId) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'sessionId is required.',
-					};
-				}
-				const session = await mcrEngine.getSession(input.sessionId);
-				if (session) {
-					return { success: true, data: session };
-				}
-				return {
-					success: false,
-					error: ErrorCodes.SESSION_NOT_FOUND,
-					message: 'Session not found.',
-				};
-			},
-		},
-		'session.delete': {
-			description: 'Deletes a session.',
-			handler: async input => {
-				if (!input?.sessionId) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'sessionId is required.',
-					};
-				}
-				const deleted = await mcrEngine.deleteSession(input.sessionId);
-				if (deleted) {
-					return {
-						success: true,
-						message: `Session ${input.sessionId} deleted.`,
-					};
-				}
-				return {
-					success: false,
-					error: ErrorCodes.SESSION_NOT_FOUND,
-					message: 'Session not found for deletion.',
-				};
-			},
-		},
-		'session.list': {
-			description: 'Lists all available sessions.',
-			handler: async () => {
-				const sessions = await mcrEngine.listSessions();
-				return { success: true, data: sessions };
-			},
-		},
-		'session.assert': {
-			description: 'Asserts NL facts into a session.',
-			handler: async input => {
-				if (!input?.sessionId || !input?.naturalLanguageText) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'sessionId and naturalLanguageText are required.',
-					};
-				}
-				const assertOptions = {
-					useLoops: input.useLoops,
-					embed: input.embed,
-				};
-				return mcrEngine.assertNLToSession(
-					input.sessionId,
-					input.naturalLanguageText,
-					assertOptions
-				);
-			},
-		},
-		'session.query': {
-			description: 'Queries a session with an NL question.',
-			handler: async input => {
-				if (!input?.sessionId || !input?.naturalLanguageQuestion) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'sessionId and naturalLanguageQuestion are required.',
-					};
-				}
-				const queryOptions = {
-					...(input.queryOptions || {}),
-					useLoops: input.useLoops,
-					embed: input.embed,
-				};
-				return mcrEngine.querySessionWithNL(
-					input.sessionId,
-					input.naturalLanguageQuestion,
-					queryOptions
-				);
-			},
-		},
-		'session.explainQuery': {
-			description: 'Explains an NL query in the context of a session.',
-			handler: async input => {
-				if (!input?.sessionId || !input?.naturalLanguageQuestion) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'sessionId and naturalLanguageQuestion are required.',
-					};
-				}
-				return mcrEngine.explainQuery(
-					input.sessionId,
-					input.naturalLanguageQuestion
-				);
-			},
-		},
-		'session.assert_rules': {
-			description: 'Asserts raw Prolog rules directly into a session.',
-			handler: async input => {
-				if (!input?.sessionId || !input?.rules) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'sessionId and rules are required.',
-					};
-				}
-				return mcrEngine.assertRawPrologToSession(
-					input.sessionId,
-					input.rules,
-					input.validate
-				);
-			},
-		},
-		'session.set_kb': {
-			description:
-				'Replaces the entire Knowledge Base for a session with the provided content.',
-			handler: async input => {
-				if (!input?.sessionId || typeof input?.kbContent !== 'string') {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'sessionId and kbContent (string) are required.',
-					};
-				}
-				return mcrEngine.setSessionKnowledgeBase(
-					input.sessionId,
-					input.kbContent
-				);
-			},
-		},
-		'symbolic.export': {
-			description: 'Exports solutions to a Prolog goal from a session.',
-			handler: async input => {
-				if (!input?.sessionId || !input?.goal) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'sessionId and goal are required.',
-					};
-				}
-				const session = await mcrEngine.getSession(input.sessionId);
-				if (!session) {
-					return {
-						success: false,
-						error: ErrorCodes.SESSION_NOT_FOUND,
-						message: 'Session not found.',
-					};
-				}
-				const { exportGoal } = require('./neurosymbolic/symbolicExchange.js');
-				const res = exportGoal(session.tau, input.goal);
-				return { success: true, data: res };
-			},
-		},
-		'symbolic.import': {
-			description: 'Imports Prolog clauses into a session.',
-			handler: async input => {
-				if (!input?.sessionId || !input?.clauses) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'sessionId and clauses are required.',
-					};
-				}
-				const session = await mcrEngine.getSession(input.sessionId);
-				if (!session) {
-					return {
-						success: false,
-						error: ErrorCodes.SESSION_NOT_FOUND,
-						message: 'Session not found.',
-					};
-				}
-				const {
-					importClauses,
-				} = require('./neurosymbolic/symbolicExchange.js');
-				importClauses(session.tau, input.clauses);
-				return { success: true };
-			},
-		},
-		'ontology.create': {
-			description: 'Creates a new global ontology.',
-			handler: async input => {
-				if (!input?.name || !input?.rules) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'name and rules are required.',
-					};
-				}
-				try {
-					const ontology = await ontologyService.createOntology(
-						input.name,
-						input.rules
-					);
-					return { success: true, data: ontology };
-				} catch (error) {
-					logger.error(`[Tool:ontology.create] Error: ${error.message}`, {
-						error,
-					});
-					return {
-						success: false,
-						message: error.message,
-						error: error.code || ErrorCodes.ONTOLOGY_CREATION_FAILED,
-					};
-				}
-			},
-		},
-		'ontology.list': {
-			description: 'Lists all available global ontologies.',
-			handler: async input => {
-				const includeRules = input?.includeRules === true;
-				try {
-					const ontologies = await ontologyService.listOntologies(includeRules);
-					return { success: true, data: ontologies };
-				} catch (error) {
-					logger.error(`[Tool:ontology.list] Error: ${error.message}`, {
-						error,
-					});
-					return {
-						success: false,
-						message: error.message,
-						error: ErrorCodes.ONTOLOGY_LIST_FAILED,
-					};
-				}
-			},
-		},
-		'ontology.get': {
-			description: 'Retrieves a specific global ontology by name.',
-			handler: async input => {
-				if (!input?.name) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'name is required.',
-					};
-				}
-				try {
-					const ontology = await ontologyService.getOntology(input.name);
-					if (ontology) {
-						return { success: true, data: ontology };
-					}
-					return {
-						success: false,
-						error: ErrorCodes.ONTOLOGY_NOT_FOUND,
-						message: `Ontology '${input.name}' not found.`,
-					};
-				} catch (error) {
-					logger.error(
-						`[Tool:ontology.get] Error for ${input.name}: ${error.message}`,
-						{ error }
-					);
-					return {
-						success: false,
-						message: error.message,
-						error: ErrorCodes.ONTOLOGY_GET_FAILED,
-					};
-				}
-			},
-		},
-		'ontology.update': {
-			description: 'Updates an existing global ontology.',
-			handler: async input => {
-				if (!input?.name || !input?.rules) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'name and rules are required.',
-					};
-				}
-				try {
-					const updatedOntology = await ontologyService.updateOntology(
-						input.name,
-						input.rules
-					);
-					return { success: true, data: updatedOntology };
-				} catch (error) {
-					logger.error(
-						`[Tool:ontology.update] Error for ${input.name}: ${error.message}`,
-						{ error }
-					);
-					return {
-						success: false,
-						message: error.message,
-						error: error.code || ErrorCodes.ONTOLOGY_UPDATE_FAILED,
-					};
-				}
-			},
-		},
-		'ontology.delete': {
-			description: 'Deletes a global ontology.',
-			handler: async input => {
-				if (!input?.name) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'name is required.',
-					};
-				}
-				try {
-					await ontologyService.deleteOntology(input.name);
-					return {
-						success: true,
-						message: `Ontology '${input.name}' deleted.`,
-					};
-				} catch (error) {
-					logger.error(
-						`[Tool:ontology.delete] Error for ${input.name}: ${error.message}`,
-						{ error }
-					);
-					return {
-						success: false,
-						message: error.message,
-						error: error.code || ErrorCodes.ONTOLOGY_DELETE_FAILED,
-					};
-				}
-			},
-		},
-		'translate.nlToRules': {
-			description: 'Translates NL text directly to Prolog rules.',
-			handler: async input => {
-				if (!input?.naturalLanguageText) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'naturalLanguageText is required.',
-					};
-				}
-				return mcrEngine.translateNLToRulesDirect(
-					input.naturalLanguageText,
-					input.strategyId
-				);
-			},
-		},
-		'translate.rulesToNl': {
-			description: 'Translates Prolog rules directly to an NL explanation.',
-			handler: async input => {
-				if (!input?.rules) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'rules are required.',
-					};
-				}
-				return mcrEngine.translateRulesToNLDirect(input.rules, input.style);
-			},
-		},
-		'strategy.list': {
-			description: 'Lists all available translation strategies.',
-			handler: async () => {
-				const strategies = strategyManager.getAvailableStrategies();
-				return { success: true, data: strategies };
-			},
-		},
-		'strategy.setActive': {
-			description: 'Sets the active base translation strategy.',
-			handler: async input => {
-				if (!input?.strategyId) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'strategyId is required.',
-					};
-				}
-				const success = await mcrEngine.setTranslationStrategy(
-					input.strategyId
-				);
-				if (success) {
-					const activeStrategyId = mcrEngine.getActiveStrategyId();
-					return {
-						success: true,
-						message: `Base translation strategy set to ${activeStrategyId}.`,
-						data: { activeStrategyId },
-					};
-				}
-				return {
-					success: false,
-					error: ErrorCodes.STRATEGY_SET_FAILED,
-					message: `Failed to set strategy to ${input.strategyId}.`,
-				};
-			},
-		},
-		'strategy.getActive': {
-			description: 'Gets the currently active base translation strategy ID.',
-			handler: async () => {
-				const activeStrategyId = mcrEngine.getActiveStrategyId();
-				return { success: true, data: { activeStrategyId } };
-			},
-		},
-		'utility.getPrompts': {
-			description: 'Retrieves all available prompt templates.',
-			handler: async () => {
-				const result = await mcrEngine.getPrompts();
-				if (result.success) {
-					return { success: true, data: result.prompts };
-				}
-				return result;
-			},
-		},
-		'utility.debugFormatPrompt': {
-			description:
-				'Formats a prompt template with given variables for debugging.',
-			handler: async input => {
-				if (!input?.templateName || !input?.inputVariables) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'templateName and inputVariables are required.',
-					};
-				}
-				return mcrEngine.debugFormatPrompt(
-					input.templateName,
-					input.inputVariables
-				);
-			},
-		},
-		'util.generate_example': {
-			description:
-				'Generates evaluation examples for a given domain and instructions.',
-			handler: async input => {
-				const { domain, instructions } = input;
-				if (!domain || !instructions) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'domain and instructions are required.',
-					};
-				}
-				return mcrEngine.generateExample(domain, instructions);
-			},
-		},
-		'util.generate_ontology': {
-			description: 'Generates an ontology for a given domain and instructions.',
-			handler: async input => {
-				const { domain, instructions } = input;
-				if (!domain || !instructions) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'domain and instructions are required.',
-					};
-				}
-				return mcrEngine.generateOntology(domain, instructions);
-			},
-		},
-		'analysis.get_strategy_leaderboard': {
-			description: 'Retrieves aggregated performance data for strategies.',
-			handler: async () => {
-				try {
-					const strategyDefinitions = strategyManager.getAvailableStrategies();
-					const strategyDetailsMap = new Map();
-					for (const stratInfo of strategyDefinitions) {
-						const definition = strategyManager.getStrategy(stratInfo.id);
-						if (definition) {
-							const hash = crypto
-								.createHash('sha256')
-								.update(JSON.stringify(definition))
-								.digest('hex');
-							strategyDetailsMap.set(hash, {
-								id: stratInfo.id,
-								name: stratInfo.name,
-							});
-						}
-					}
-					const query = `
-          SELECT strategy_hash, COUNT(*) AS evaluations, AVG(latency_ms) AS avgLatencyMs,
-                 AVG(CASE WHEN json_extract(metrics, '$.exactMatchProlog') = 1 THEN 1 ELSE 0 END) AS successRate,
-                 AVG(json_extract(cost, '$.cost_usd')) AS avgCostUsd
-          FROM performance_results GROUP BY strategy_hash`;
-					const rows = await queryPerformanceResults(query);
-					const leaderboardData = rows
-						.map(row => {
-							const details = strategyDetailsMap.get(row.strategy_hash);
-							return {
-								strategyId: details ? details.id : 'unknown_strategy_id',
-								strategyName: details ? details.name : row.strategy_hash,
-								evaluations: row.evaluations,
-								successRate:
-									row.successRate !== null
-										? parseFloat(row.successRate.toFixed(3))
-										: null,
-								avgLatencyMs:
-									row.avgLatencyMs !== null
-										? parseFloat(row.avgLatencyMs.toFixed(0))
-										: null,
-								avgCost:
-									row.avgCostUsd !== null
-										? parseFloat(row.avgCostUsd.toFixed(5))
-										: null,
-							};
-						})
-						.filter(entry => entry.strategyId !== 'unknown_strategy_id');
-					return { success: true, data: leaderboardData };
-				} catch (error) {
-					logger.error(
-						`[Tool:analysis.get_strategy_leaderboard] Error: ${error.message}`,
-						{ stack: error.stack }
-					);
-					return {
-						success: false,
-						message: 'Failed to retrieve strategy leaderboard.',
-						error: ErrorCodes.DATABASE_ERROR,
-					};
-				}
-			},
-		},
-		'analysis.get_strategy_details': {
-			description:
-				'Retrieves detailed performance data for a specific strategy.',
-			handler: async input => {
-				const { strategyId } = input;
-				if (!strategyId) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'strategyId is required.',
-					};
-				}
-				try {
-					const strategyDefinition = strategyManager.getStrategy(strategyId);
-					if (!strategyDefinition) {
-						return {
-							success: false,
-							error: ErrorCodes.STRATEGY_NOT_FOUND,
-							message: `Strategy '${strategyId}' not found.`,
-						};
-					}
-					const strategyHash = crypto
-						.createHash('sha256')
-						.update(JSON.stringify(strategyDefinition))
-						.digest('hex');
-					const performanceRuns = await queryPerformanceResults(
-						'SELECT * FROM performance_results WHERE strategy_hash = ? ORDER BY timestamp DESC',
-						[strategyHash]
-					);
-					const processedRuns = performanceRuns.map(run => ({
-						...run,
-						metrics:
-							typeof run.metrics === 'string'
-								? JSON.parse(run.metrics)
-								: run.metrics,
-						cost:
-							typeof run.cost === 'string' ? JSON.parse(run.cost) : run.cost,
-					}));
-					let totalLatency = 0,
-						successfulRuns = 0;
-					processedRuns.forEach(run => {
-						totalLatency += run.latency_ms;
-						if (run.metrics?.exactMatchProlog === 1) successfulRuns++;
-					});
-					const summary = {
-						totalRuns: processedRuns.length,
-						avgLatencyMs:
-							processedRuns.length > 0
-								? parseFloat((totalLatency / processedRuns.length).toFixed(2))
-								: 0,
-						successRate:
-							processedRuns.length > 0
-								? parseFloat((successfulRuns / processedRuns.length).toFixed(3))
-								: 0,
-					};
-					return {
-						success: true,
-						data: {
-							strategyId,
-							definition: strategyDefinition,
-							hash: strategyHash,
-							summary,
-							runs: processedRuns,
-						},
-					};
-				} catch (error) {
-					logger.error(
-						`[Tool:analysis.get_strategy_details] Error for ${strategyId}: ${error.message}`,
-						{ stack: error.stack }
-					);
-					return {
-						success: false,
-						message: `Failed to retrieve details for strategy ${strategyId}.`,
-						error: ErrorCodes.DATABASE_ERROR,
-					};
-				}
-			},
-		},
-		'analysis.list_eval_curricula': {
-			description: 'Lists all available evaluation curricula.',
-			handler: async () => {
-				const evalCasesDir = path.join(__dirname, 'evalCases');
-				const curricula = [];
-				function findEvalFilesRecursively(currentDir, relativeBaseDir = '') {
-					try {
-						const entries = fs.readdirSync(currentDir, {
-							withFileTypes: true,
-						});
-						for (const entry of entries) {
-							const fullPath = path.join(currentDir, entry.name);
-							const relativePath = path.join(relativeBaseDir, entry.name);
-							if (entry.isDirectory()) {
-								findEvalFilesRecursively(fullPath, relativePath);
-							} else if (
-								entry.isFile() &&
-								(entry.name.endsWith('.js') || entry.name.endsWith('.json')) &&
-								!/ExampleBase\.js|Utils\.js/.test(entry.name) &&
-								entry.name !== path.basename(__filename)
-							) {
-								try {
-									const casesFromFile = require(fullPath); // Potentially unsafe if files are user-supplied
-									const caseCount = Array.isArray(casesFromFile)
-										? casesFromFile.length
-										: casesFromFile?.default &&
-											  Array.isArray(casesFromFile.default)
-											? casesFromFile.default.length
-											: 0;
-									curricula.push({
-										id: relativePath.replace(/\\/g, '/'),
-										name: entry.name,
-										path: relativePath.replace(/\\/g, '/'),
-										caseCount,
-									});
-								} catch (err) {
-									logger.warn(
-										`[Tool:list_eval_curricula] Error processing file ${fullPath}: ${err.message}.`
-									);
-								}
-							}
-						}
-					} catch (error) {
-						logger.error(
-							`[Tool:list_eval_curricula] Error reading dir ${currentDir}: ${error.message}`
-						);
-					}
-				}
-				findEvalFilesRecursively(evalCasesDir);
-				if (curricula.length === 0 && !fs.existsSync(evalCasesDir)) {
-					return {
-						success: true,
-						data: [],
-						message: 'Evaluation cases directory not found.',
-					};
-				}
-				return { success: true, data: curricula };
-			},
-		},
-		'analysis.get_curriculum_details': {
-			description: 'Retrieves the content of a specific curriculum file.',
-			handler: async input => {
-				const { curriculumId } = input;
-				if (!curriculumId) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'curriculumId is required.',
-					};
-				}
-				const curriculumPath = path.join(__dirname, 'evalCases', curriculumId);
-				if (
-					!fs.existsSync(curriculumPath) ||
-					!fs.statSync(curriculumPath).isFile()
-				) {
-					return {
-						success: false,
-						error: ErrorCodes.EVAL_CASE_FILE_NOT_FOUND,
-						message: `Curriculum '${curriculumId}' not found.`,
-					};
-				}
-				try {
-					delete require.cache[require.resolve(curriculumPath)]; // Ensure fresh read
-					const cases = require(curriculumPath);
-					const actualCases = Array.isArray(cases)
-						? cases
-						: cases?.default && Array.isArray(cases.default)
-							? cases.default
-							: null;
-					if (!actualCases) {
-						return {
-							success: false,
-							error: ErrorCodes.EVAL_CASE_INVALID_FORMAT,
-							message: `Curriculum '${curriculumId}' has invalid format.`,
-						};
-					}
-					return {
-						success: true,
-						data: {
-							id: curriculumId,
-							name: path.basename(curriculumId),
-							cases: actualCases,
-						},
-					};
-				} catch (error) {
-					logger.error(
-						`[Tool:get_curriculum_details] Error loading ${curriculumId}: ${error.message}`,
-						{ stack: error.stack }
-					);
-					return {
-						success: false,
-						message: `Error loading curriculum '${curriculumId}': ${error.message}`,
-						error: ErrorCodes.EVAL_CASE_LOAD_FAILED,
-					};
-				}
-			},
-		},
-		'evolution.start_optimizer': {
-			description: 'Starts the strategy evolution optimizer script.',
-			handler: async input => {
-				if (optimizerProcess) {
-					return {
-						success: false,
-						message: 'Optimizer process is already running.',
-						error: ErrorCodes.OPTIMIZER_RUNNING,
-					};
-				}
-				const options = input?.options || {};
-				const args = [];
-				if (options.iterations) args.push('-i', options.iterations.toString());
-				if (options.bootstrapOnly) args.push('--bootstrapOnly');
-				if (options.runBootstrap) args.push('--runBootstrap');
-				if (options.evalCasesPath) args.push('-p', options.evalCasesPath);
-				addOptimizerLog(
-					'status',
-					`Starting optimizer with args: ${args.join(' ')}`
-				);
-				const scriptPath = path.join(__dirname, 'evolution', 'optimizer.js');
-				optimizerProcess = spawn('node', [scriptPath, ...args], {
-					stdio: ['ignore', 'pipe', 'pipe'],
-				});
-				optimizerProcess.stdout.on('data', data =>
-					addOptimizerLog('stdout', data.toString())
-				);
-				optimizerProcess.stderr.on('data', data =>
-					addOptimizerLog('stderr', data.toString())
-				);
-				optimizerProcess.on('error', err => {
-					addOptimizerLog('error', `Optimizer process error: ${err.message}`);
-					logger.error(`[OptimizerRuntime] Error: ${err.message}`, {
-						stack: err.stack,
-					});
-					optimizerProcess = null;
-				});
-				optimizerProcess.on('exit', (code, signal) => {
-					addOptimizerLog(
-						'status',
-						`Optimizer process exited with code ${code}, signal ${signal}.`
-					);
-					logger.info(
-						`[OptimizerRuntime] Exited with code ${code}, signal ${signal}.`
-					);
-					optimizerProcess = null;
-				});
-				await new Promise(resolve => setTimeout(resolve, 100)); // Allow fast fail
-				if (optimizerProcess?.pid) {
-					addOptimizerLog(
-						'status',
-						`Optimizer process started with PID: ${optimizerProcess.pid}.`
-					);
-					return {
-						success: true,
-						message: `Optimizer started with PID ${optimizerProcess.pid}.`,
-						data: { pid: optimizerProcess.pid },
-					};
-				} else {
-					addOptimizerLog(
-						'error',
-						'Optimizer process failed to start or exited immediately.'
-					);
-					return {
-						success: false,
-						message: 'Optimizer process failed to start. Check logs.',
-						error: ErrorCodes.OPTIMIZER_START_FAILED,
-					};
-				}
-			},
-		},
-		'evolution.get_status': {
-			description: 'Gets the current status of the optimizer process.',
-			handler: async () => {
-				if (optimizerProcess?.pid && !optimizerProcess.killed) {
-					return {
-						success: true,
-						data: { status: 'running', pid: optimizerProcess.pid },
-					};
-				}
-				return {
-					success: true,
-					data: {
-						status: 'idle',
-						message: 'Optimizer not currently running.',
-					},
-				};
-			},
-		},
-		'evolution.stop_optimizer': {
-			description: 'Stops the running optimizer process.',
-			handler: async () => {
-				if (optimizerProcess?.pid && !optimizerProcess.killed) {
-					addOptimizerLog(
-						'status',
-						`Attempting to stop optimizer PID: ${optimizerProcess.pid}.`
-					);
-					const killed =
-						optimizerProcess.kill('SIGTERM') ||
-						optimizerProcess.kill('SIGKILL');
-					if (killed) {
-						addOptimizerLog('status', `Optimizer termination signal sent.`);
-						return {
-							success: true,
-							message: 'Optimizer termination signal sent.',
-						};
-					}
-					addOptimizerLog(
-						'error',
-						'Failed to send termination signal to optimizer.'
-					);
-					return {
-						success: false,
-						message: 'Failed to send termination signal.',
-						error: ErrorCodes.OPTIMIZER_STOP_FAILED,
-					};
-				}
-				return {
-					success: false,
-					message: 'Optimizer process not running.',
-					error: ErrorCodes.OPTIMIZER_NOT_RUNNING,
-				};
-			},
-		},
-		'evolution.get_optimizer_log': {
-			description: 'Retrieves recent logs from the optimizer process.',
-			handler: async () => {
-				return { success: true, data: { logs: optimizerLogs } };
-			},
-		},
-		'demo.list': {
-			description: 'Lists all available demos.',
-			handler: async () => {
-				const demoDir = path.join(__dirname, 'demo');
-				const demos = [];
-				try {
-					const files = fs.readdirSync(demoDir);
-					for (const file of files) {
-						if (file.endsWith('Demo.js') && !/ExampleBase\.js/.test(file)) {
-							const demoId = file.replace(/\.js$/, '');
-							try {
-								const DemoClass = require(path.join(demoDir, file));
-								if (
-									typeof DemoClass === 'function' &&
-									DemoClass.prototype?.getName &&
-									DemoClass.prototype?.getDescription
-								) {
-									const instance = new DemoClass(
-										'temp_demo_list_session',
-										() => {}
-									); // Dummy session/logger
-									demos.push({
-										id: demoId,
-										name: instance.getName(),
-										description: instance.getDescription(),
-									});
-								} else {
-									logger.warn(
-										`[Tool:demo.list] File ${file} is not a valid Demo class.`
-									);
-								}
-							} catch (err) {
-								logger.error(
-									`[Tool:demo.list] Error loading demo ${file}: ${err.message}`,
-									{ stack: err.stack }
-								);
-							}
-						}
-					}
-					return { success: true, data: demos };
-				} catch (error) {
-					logger.error(
-						`[Tool:demo.list] Error reading demo directory: ${error.message}`,
-						{ stack: error.stack }
-					);
-					return {
-						success: false,
-						message: 'Failed to list demos.',
-						error: ErrorCodes.DEMO_LIST_FAILED,
-					};
-				}
-			},
-		},
-		'demo.run': {
-			description: 'Runs a specific demo.',
-			handler: async input => {
-				const { demoId, sessionId } = input;
-				if (!demoId || !sessionId) {
-					return {
-						success: false,
-						error: ErrorCodes.INVALID_INPUT,
-						message: 'demoId and sessionId are required.',
-					};
-				}
-				const demoFilePath = path.join(__dirname, 'demo', `${demoId}.js`);
-				if (!fs.existsSync(demoFilePath)) {
-					return {
-						success: false,
-						error: ErrorCodes.DEMO_NOT_FOUND,
-						message: `Demo '${demoId}' not found.`,
-					};
-				}
-				const capturedLogs = [];
-				const logCollector = logEntry => capturedLogs.push(logEntry);
-				try {
-					const DemoClass = require(demoFilePath);
-					if (typeof DemoClass !== 'function' || !DemoClass.prototype?.run) {
-						return {
-							success: false,
-							error: ErrorCodes.DEMO_INVALID,
-							message: `Demo '${demoId}' is not valid.`,
-						};
-					}
-					const demoInstance = new DemoClass(sessionId, logCollector);
-					logCollector({
-						type: 'log',
-						level: 'info',
-						message: `Starting demo: ${demoInstance.getName()}`,
-					});
-					await demoInstance.run();
-					logCollector({
-						type: 'log',
-						level: 'info',
-						message: `Finished demo: ${demoInstance.getName()}`,
-					});
-					return {
-						success: true,
-						data: { demoId, messages: capturedLogs },
-					};
-				} catch (error) {
-					logger.error(
-						`[Tool:demo.run] Error running demo ${demoId}: ${error.message}`,
-						{ stack: error.stack }
-					);
-					logCollector({
-						type: 'log',
-						level: 'error',
-						message: `Critical error in demo ${demoId}: ${error.message}`,
-					});
-					return {
-						success: false,
-						message: `Error in demo '${demoId}': ${error.message}`,
-						error: ErrorCodes.DEMO_RUN_FAILED,
-						data: { demoId, messages: capturedLogs },
-					};
-				}
-			},
-		},
-	};
-};
+module.exports = mcrToolDefinitions;

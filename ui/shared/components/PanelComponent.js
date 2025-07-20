@@ -10,7 +10,7 @@ export class PanelComponent extends HTMLElement {
 
 	render() {
 		this.shadowRoot.innerHTML = `
-            <link rel="stylesheet" href="../variables.css">
+            <link rel="stylesheet" href="/shared/css/variables.css">
             <style>
                 .panel {
                     background-color: var(--panel-bg);

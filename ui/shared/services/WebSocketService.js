@@ -15,22 +15,37 @@ class WebSocketService {
 			}
 			this.socket = new WebSocket(this.url);
 
-			this.socket.onopen = () => {
-				console.log('WebSocket connected');
-				resolve();
+			const onOpen = () => {
+				console.log('WebSocket socket opened, waiting for connection_ack...');
+				// At this point, the socket is open, but we wait for the server's ack
 			};
 
-			this.socket.onmessage = event => {
+			const onMessage = event => {
+				const message = JSON.parse(event.data);
+
+				// The first message should be connection_ack
+				if (message.type === 'connection_ack') {
+					console.log('WebSocket connection acknowledged by server.');
+					this.socket.onmessage = handleIncomingMessages; // Switch to normal message handler
+					resolve();
+					return;
+				}
+
+				// If we get something else before ack, it's an error
+				reject(new Error('Did not receive connection_ack as first message.'));
+				this.socket.close();
+			};
+
+			const handleIncomingMessages = event => {
 				const message = JSON.parse(event.data);
 				if (message.messageId && this.pendingRequests.has(message.messageId)) {
-					const { resolve, reject } = this.pendingRequests.get(
-						message.messageId
-					);
+					const { resolve: reqResolve, reject: reqReject } =
+						this.pendingRequests.get(message.messageId);
 					if (message.payload && message.payload.success === false) {
 						this.emit('error', message.payload.error);
-						reject(message.payload.error);
+						reqReject(message.payload.error);
 					} else {
-						resolve(message);
+						reqResolve(message);
 					}
 					this.pendingRequests.delete(message.messageId);
 				} else if (this.listeners.has(message.type)) {
@@ -40,15 +55,26 @@ class WebSocketService {
 				}
 			};
 
-			this.socket.onerror = error => {
+			const onError = error => {
 				console.error('WebSocket error:', error);
 				reject(error);
 			};
 
-			this.socket.onclose = () => {
+			const onClose = () => {
 				console.log('WebSocket disconnected');
 				this.socket = null;
+				// Reject any pending requests
+				this.pendingRequests.forEach(({ reject: reqReject }) =>
+					reqReject(new Error('WebSocket disconnected.'))
+				);
+				this.pendingRequests.clear();
+				reject(new Error('WebSocket disconnected.'));
 			};
+
+			this.socket.onopen = onOpen;
+			this.socket.onmessage = onMessage; // Initial handler waits for ack
+			this.socket.onerror = onError;
+			this.socket.onclose = onClose;
 		});
 	}
 

@@ -32,14 +32,18 @@ export class ManagerComponent extends PanelComponent {
         }
       </style>
       <div class="loading">Loading...</div>
+      <error-display></error-display>
       <slot></slot>
     `;
 	}
 
-	render() {
-		super.render();
-		this.innerHTML = this.template;
-	}
+	    render() {
+        super.render();
+        const slot = this.shadowRoot.querySelector('slot');
+        const newContent = document.createElement('div');
+        newContent.innerHTML = this.template;
+        slot.replaceWith(newContent);
+    }
 
 	async listItems() {
 		this.showError('');

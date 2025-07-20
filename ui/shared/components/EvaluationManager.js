@@ -9,7 +9,6 @@ class EvaluationManager extends ManagerComponent {
 	get template() {
 		return `
             ${super.template}
-            <error-display></error-display>
             <button>Run Evaluation</button>
         `;
 	}

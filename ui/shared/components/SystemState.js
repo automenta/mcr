@@ -29,13 +29,12 @@ export class SystemState extends HTMLElement {
                     background-color: #f3f4f6;
                 }
             </style>
-            <panel-component>
+            <panel-component title="Knowledge Base">
                 <div>
-                    <h2>Knowledge Base</h2>
                     <div class="controls">
                         <button id="toggle-raw">Show Raw</button>
                     </div>
-                    <pre><code class="language-json"></code></pre>
+                    <pre><code class="language-prolog"></code></pre>
                 </div>
             </panel-component>
         `;
@@ -69,30 +68,23 @@ export class SystemState extends HTMLElement {
 	}
 
 	render() {
-		if (this.isRawVisible) {
-			this.codeElement.textContent = this.knowledgeBase;
-		} else {
-			try {
-				const kb = JSON.parse(this.knowledgeBase);
-				let html = '<ul>';
-				for (const predicate in kb) {
-					html += `<li><strong>${predicate}</strong></li>`;
-					html += '<ul>';
-					kb[predicate].forEach(args => {
-						html += `<li>${predicate}(${args.join(', ')}).</li>`;
-					});
-					html += '</ul>';
-				}
-				html += '</ul>';
-				this.codeElement.innerHTML = html;
-			} catch (e) {
-				this.codeElement.textContent = this.knowledgeBase;
-			}
-		}
-		if (typeof hljs !== 'undefined') {
-			hljs.highlightElement(this.codeElement);
-		}
-	}
+        const codeElement = this.shadowRoot.querySelector('code');
+        if (!codeElement) return;
+
+        let content = '';
+        if (this.isRawVisible) {
+            content = this.knowledgeBase;
+        } else {
+            // This is a simplified display. A proper Prolog parser would be better.
+            content = (this.knowledgeBase || '')
+                .replace(/([a-z_]+)\(/g, '\n  $1(')
+                .trim();
+        }
+        codeElement.textContent = content;
+        if (typeof hljs !== 'undefined') {
+            hljs.highlightElement(codeElement);
+        }
+    }
 }
 
 customElements.define('system-state', SystemState);

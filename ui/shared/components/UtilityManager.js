@@ -9,7 +9,6 @@ export class UtilityManager extends ManagerComponent {
 	get template() {
 		return `
             ${super.template}
-            <error-display></error-display>
             <div class="form-group">
                 <h4>Generate Ontology</h4>
                 <label for="ontology-domain">Domain:</label>

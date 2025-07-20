@@ -7,7 +7,7 @@ export class Repl extends HTMLElement {
 		super();
 		this.attachShadow({ mode: 'open' });
 		this.shadowRoot.innerHTML = `
-            <link rel="stylesheet" href="../variables.css">
+            <link rel="stylesheet" href="/shared/css/variables.css">
             <style>
                 .repl-container {
                     display: flex;
@@ -151,4 +151,4 @@ export class Repl extends HTMLElement {
 	}
 }
 
-customElements.define('repl-repl', Repl);
+customElements.define('mcr-repl', Repl);

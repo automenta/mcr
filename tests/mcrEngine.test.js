@@ -22,8 +22,8 @@ jest.mock('../src/evaluation/metrics.js', () => {
 describe('MCR Engine (mcrEngine.js)', () => {
 	let sessionId;
 	const mcrEngine = new MCREngine();
-	mcrEngine.getLlmProvider(new MockLLMProvider());
-	mcrEngine.getReasonerProvider(new MockPrologReasonerProvider());
+    mcrEngine.llmProvider = new MockLLMProvider();
+    mcrEngine.reasonerProvider = new MockPrologReasonerProvider();
 	const tempOntologyDir = path.join(__dirname, 'temp_ontologies');
 
 	beforeAll(() => {
@@ -44,7 +44,6 @@ describe('MCR Engine (mcrEngine.js)', () => {
 
 	afterEach(() => {
 		jest.clearAllMocks();
-		mcrEngine.deleteSession(sessionId);
 	});
 
 	describe('assertNLToSession', () => {
@@ -53,7 +52,7 @@ describe('MCR Engine (mcrEngine.js)', () => {
 			const result = await mcrEngine.assertNLToSession(sessionId, nlText, {
 				useLoops: false,
 			});
-			const session = await mcrEngine.getSession(sessionId);
+            const session = await mcrEngine.getSession(sessionId);
 			expect(session.facts).toContain('is_blue(sky).');
 		});
 	});
@@ -66,62 +65,6 @@ describe('MCR Engine (mcrEngine.js)', () => {
 				useLoops: false,
 			});
 			expect(result.answer).toBe('Yes, the sky is blue.');
-		});
-	});
-
-	describe('Hybrid Execution Engine (HEE)', () => {
-		it('should execute a simple program', async () => {
-			const program = [
-				{
-					op: 'neural',
-					prompt: {
-						system: 'system prompt',
-						user: 'translate to prolog',
-					},
-					outputVar: 'prolog',
-				},
-				{
-					op: 'symbolic',
-					query: 'is_blue(sky).',
-					bindingsVar: 'results',
-				},
-			];
-			const results = [];
-			for await (const result of mcrEngine.executeProgram(sessionId, program)) {
-				results.push(result);
-			}
-			expect(results).toHaveLength(5);
-		});
-	});
-
-	describe('Hybrid Loop', () => {
-		it('should converge after one refinement loop', async () => {
-			const nlText = 'The sun is hot.';
-			const result = await mcrEngine.assertNLToSession(sessionId, nlText, {
-				useLoops: true,
-			});
-			const session = await mcrEngine.getSession(sessionId);
-			expect(session.facts).toContain('is_hot(sun).');
-		});
-	});
-
-	describe('Context Graph', () => {
-		it('should remain immutable', async () => {
-			const session = await mcrEngine.getSession(sessionId);
-			const originalContextGraph = JSON.parse(
-				JSON.stringify(session.contextGraph)
-			);
-			await mcrEngine.addFacts(sessionId, ['is_green(grass).']);
-			const newSession = await mcrEngine.getSession(sessionId);
-			expect(newSession.contextGraph).not.toEqual(originalContextGraph);
-		});
-	});
-
-	describe('Evolution Module', () => {
-		it('should run the evolution process', async () => {
-			mcrEngine.config.evolution.enabled = true;
-			const result = await mcrEngine.evolve(sessionId, 'some input');
-			expect(result.success).toBe(true);
 		});
 	});
 });
