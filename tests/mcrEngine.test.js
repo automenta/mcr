@@ -22,8 +22,8 @@ jest.mock('../src/evaluation/metrics.js', () => {
 describe('MCR Engine (mcrEngine.js)', () => {
 	let sessionId;
 	const mcrEngine = new MCREngine();
-    mcrEngine.llmProvider = new MockLLMProvider();
-    mcrEngine.reasonerProvider = new MockPrologReasonerProvider();
+	mcrEngine.llmProvider = new MockLLMProvider();
+	mcrEngine.reasonerProvider = new MockPrologReasonerProvider();
 	const tempOntologyDir = path.join(__dirname, 'temp_ontologies');
 
 	beforeAll(() => {
@@ -52,7 +52,7 @@ describe('MCR Engine (mcrEngine.js)', () => {
 			const result = await mcrEngine.assertNLToSession(sessionId, nlText, {
 				useLoops: false,
 			});
-            const session = await mcrEngine.getSession(sessionId);
+			const session = await mcrEngine.getSession(sessionId);
 			expect(session.facts).toContain('is_blue(sky).');
 		});
 	});

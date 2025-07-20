@@ -37,13 +37,13 @@ export class ManagerComponent extends PanelComponent {
     `;
 	}
 
-	    render() {
-        super.render();
-        const slot = this.shadowRoot.querySelector('slot');
-        const newContent = document.createElement('div');
-        newContent.innerHTML = this.template;
-        slot.replaceWith(newContent);
-    }
+	render() {
+		super.render();
+		const slot = this.shadowRoot.querySelector('slot');
+		const newContent = document.createElement('div');
+		newContent.innerHTML = this.template;
+		slot.replaceWith(newContent);
+	}
 
 	async listItems() {
 		this.showError('');

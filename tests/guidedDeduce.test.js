@@ -5,8 +5,8 @@ const MockPrologReasonerProvider = require('./__mocks__/prologReasonerProvider')
 describe('guidedDeduce', () => {
 	let sessionId;
 	const mcrEngine = new MCREngine();
-    mcrEngine.llmProvider = new MockLLMProvider();
-    mcrEngine.reasonerProvider = new MockPrologReasonerProvider();
+	mcrEngine.llmProvider = new MockLLMProvider();
+	mcrEngine.reasonerProvider = new MockPrologReasonerProvider();
 
 	beforeEach(async () => {
 		sessionId = 'test-session-id';
@@ -19,8 +19,11 @@ describe('guidedDeduce', () => {
 	});
 
 	it('should return a result based on facts', async () => {
-		const results = await mcrEngine.querySessionWithNL(sessionId, 'What facts are there?');
+		const results = await mcrEngine.querySessionWithNL(
+			sessionId,
+			'What facts are there?'
+		);
 		expect(results.answer).toContain('fact(a)');
-        expect(results.answer).toContain('fact(b)');
+		expect(results.answer).toContain('fact(b)');
 	});
 });

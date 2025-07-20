@@ -2,12 +2,12 @@ import { ManagerComponent } from './ManagerComponent.js';
 import './ErrorDisplay.js';
 
 export class CrudManagerComponent extends ManagerComponent {
-    constructor() {
-        super();
-    }
+	constructor() {
+		super();
+	}
 
-    get template() {
-        return `
+	get template() {
+		return `
             ${super.template}
             <div class="controls">
                 <select id="item-select"></select>
@@ -19,125 +19,121 @@ export class CrudManagerComponent extends ManagerComponent {
             <textarea id="item-display" placeholder="Select an item to view its content..."></textarea>
             <button id="update-item">Update</button>
         `;
-    }
+	}
 
-    render() {
-        super.render();
-        const slot = this.shadowRoot.querySelector('slot');
-        const newContent = document.createElement('div');
-        newContent.innerHTML = this.template;
-        slot.replaceWith(newContent);
+	render() {
+		super.render();
+		const slot = this.shadowRoot.querySelector('slot');
+		const newContent = document.createElement('div');
+		newContent.innerHTML = this.template;
+		slot.replaceWith(newContent);
 
-        this.shadowRoot.querySelector('#item-select').addEventListener(
-            'change',
-            this.onItemSelected.bind(this)
-        );
-        this.shadowRoot.querySelector('#create-item').addEventListener(
-            'click',
-            this.createItem.bind(this)
-        );
-        this.shadowRoot.querySelector('#delete-item').addEventListener(
-            'click',
-            this.deleteItem.bind(this)
-        );
-        this.shadowRoot.querySelector('#update-item').addEventListener(
-            'click',
-            this.updateItem.bind(this)
-        );
-    }
+		this.shadowRoot
+			.querySelector('#item-select')
+			.addEventListener('change', this.onItemSelected.bind(this));
+		this.shadowRoot
+			.querySelector('#create-item')
+			.addEventListener('click', this.createItem.bind(this));
+		this.shadowRoot
+			.querySelector('#delete-item')
+			.addEventListener('click', this.deleteItem.bind(this));
+		this.shadowRoot
+			.querySelector('#update-item')
+			.addEventListener('click', this.updateItem.bind(this));
+	}
 
-    updateItemList(items) {
-        const select = this.querySelector('#item-select');
-        select.innerHTML = `<option value="">Select a ${this.managerType.toLowerCase()}</option>`;
-        items.forEach(item => {
-            const option = document.createElement('option');
-            option.value = item.id;
-            option.textContent = item.name || item.id;
-            select.appendChild(option);
-        });
-    }
+	updateItemList(items) {
+		const select = this.querySelector('#item-select');
+		select.innerHTML = `<option value="">Select a ${this.managerType.toLowerCase()}</option>`;
+		items.forEach(item => {
+			const option = document.createElement('option');
+			option.value = item.id;
+			option.textContent = item.name || item.id;
+			select.appendChild(option);
+		});
+	}
 
-    async onItemSelected() {
-        const itemId = this.querySelector('#item-select').value;
-        const display = this.querySelector('#item-display');
-        if (!itemId) {
-            display.value = '';
-            return;
-        }
+	async onItemSelected() {
+		const itemId = this.querySelector('#item-select').value;
+		const display = this.querySelector('#item-display');
+		if (!itemId) {
+			display.value = '';
+			return;
+		}
 
-        this.showError('');
-        try {
-            const item = await this.api.invoke(
-                `${this.managerType.toLowerCase()}.get`,
-                { id: itemId },
-                loading => this.toggleAttribute('loading', loading)
-            );
-            display.value = item.content;
-        } catch (error) {
-            // The error is already displayed by the error handler
-        }
-    }
+		this.showError('');
+		try {
+			const item = await this.api.invoke(
+				`${this.managerType.toLowerCase()}.get`,
+				{ id: itemId },
+				loading => this.toggleAttribute('loading', loading)
+			);
+			display.value = item.content;
+		} catch (error) {
+			// The error is already displayed by the error handler
+		}
+	}
 
-    async createItem() {
-        const itemName = prompt(
-            `Enter a name for the new ${this.managerType.toLowerCase()}:`
-        );
-        if (!itemName) return;
+	async createItem() {
+		const itemName = prompt(
+			`Enter a name for the new ${this.managerType.toLowerCase()}:`
+		);
+		if (!itemName) return;
 
-        this.showError('');
-        try {
-            await this.api.invoke(
-                `${this.managerType.toLowerCase()}.create`,
-                { id: itemName, content: '' },
-                loading => this.toggleAttribute('loading', loading)
-            );
-            this.listItems();
-        } catch (error) {
-            // The error is already displayed by the error handler
-        }
-    }
+		this.showError('');
+		try {
+			await this.api.invoke(
+				`${this.managerType.toLowerCase()}.create`,
+				{ id: itemName, content: '' },
+				loading => this.toggleAttribute('loading', loading)
+			);
+			this.listItems();
+		} catch (error) {
+			// The error is already displayed by the error handler
+		}
+	}
 
-    async deleteItem() {
-        const itemId = this.querySelector('#item-select').value;
-        if (!itemId) return;
+	async deleteItem() {
+		const itemId = this.querySelector('#item-select').value;
+		if (!itemId) return;
 
-        if (
-            confirm(
-                `Are you sure you want to delete the ${this.managerType.toLowerCase()} "${itemId}"?`
-            )
-        ) {
-            this.showError('');
-            try {
-                await this.api.invoke(
-                    `${this.managerType.toLowerCase()}.delete`,
-                    { id: itemId },
-                    loading => this.toggleAttribute('loading', loading)
-                );
-                this.listItems();
-                this.querySelector('#item-display').value = '';
-            } catch (error) {
-                // The error is already displayed by the error handler
-            }
-        }
-    }
+		if (
+			confirm(
+				`Are you sure you want to delete the ${this.managerType.toLowerCase()} "${itemId}"?`
+			)
+		) {
+			this.showError('');
+			try {
+				await this.api.invoke(
+					`${this.managerType.toLowerCase()}.delete`,
+					{ id: itemId },
+					loading => this.toggleAttribute('loading', loading)
+				);
+				this.listItems();
+				this.querySelector('#item-display').value = '';
+			} catch (error) {
+				// The error is already displayed by the error handler
+			}
+		}
+	}
 
-    async updateItem() {
-        const itemId = this.querySelector('#item-select').value;
-        if (!itemId) return;
+	async updateItem() {
+		const itemId = this.querySelector('#item-select').value;
+		if (!itemId) return;
 
-        const content = this.querySelector('#item-display').value;
-        this.showError('');
-        try {
-            await this.api.invoke(
-                `${this.managerType.toLowerCase()}.update`,
-                { id: itemId, content },
-                loading => this.toggleAttribute('loading', loading)
-            );
-            alert(`${this.managerType} updated successfully.`);
-        } catch (error) {
-            // The error is already displayed by the error handler
-        }
-    }
+		const content = this.querySelector('#item-display').value;
+		this.showError('');
+		try {
+			await this.api.invoke(
+				`${this.managerType.toLowerCase()}.update`,
+				{ id: itemId, content },
+				loading => this.toggleAttribute('loading', loading)
+			);
+			alert(`${this.managerType} updated successfully.`);
+		} catch (error) {
+			// The error is already displayed by the error handler
+		}
+	}
 }
 
 customElements.define('crud-manager-component', CrudManagerComponent);

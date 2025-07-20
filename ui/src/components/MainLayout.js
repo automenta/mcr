@@ -6,13 +6,13 @@ import '@shared/components/SystemState.js';
 import '@shared/components/LogDisplay.js';
 
 class MainLayout extends HTMLElement {
-    constructor() {
-        super();
-        this.attachShadow({ mode: 'open' });
-    }
+	constructor() {
+		super();
+		this.attachShadow({ mode: 'open' });
+	}
 
-    connectedCallback() {
-        this.shadowRoot.innerHTML = `
+	connectedCallback() {
+		this.shadowRoot.innerHTML = `
             <style>
                 :host {
                     display: grid;
@@ -49,7 +49,7 @@ class MainLayout extends HTMLElement {
                 <log-display></log-display>
             </div>
         `;
-    }
+	}
 }
 
 customElements.define('main-layout', MainLayout);

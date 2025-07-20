@@ -68,23 +68,23 @@ export class SystemState extends HTMLElement {
 	}
 
 	render() {
-        const codeElement = this.shadowRoot.querySelector('code');
-        if (!codeElement) return;
+		const codeElement = this.shadowRoot.querySelector('code');
+		if (!codeElement) return;
 
-        let content = '';
-        if (this.isRawVisible) {
-            content = this.knowledgeBase;
-        } else {
-            // This is a simplified display. A proper Prolog parser would be better.
-            content = (this.knowledgeBase || '')
-                .replace(/([a-z_]+)\(/g, '\n  $1(')
-                .trim();
-        }
-        codeElement.textContent = content;
-        if (typeof hljs !== 'undefined') {
-            hljs.highlightElement(codeElement);
-        }
-    }
+		let content = '';
+		if (this.isRawVisible) {
+			content = this.knowledgeBase;
+		} else {
+			// This is a simplified display. A proper Prolog parser would be better.
+			content = (this.knowledgeBase || '')
+				.replace(/([a-z_]+)\(/g, '\n  $1(')
+				.trim();
+		}
+		codeElement.textContent = content;
+		if (typeof hljs !== 'undefined') {
+			hljs.highlightElement(codeElement);
+		}
+	}
 }
 
 customElements.define('system-state', SystemState);
