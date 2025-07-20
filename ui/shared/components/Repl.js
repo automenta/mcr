@@ -1,4 +1,4 @@
-import { McrConnection } from '../services/McrConnection.js';
+import { mcrConnection } from '../services/McrConnection.js';
 import './MessageDisplay.js';
 import './MessageInput.js';
 
@@ -55,14 +55,13 @@ export class Repl extends HTMLElement {
 		this.messageInput.addEventListener('history-back', this.historyBack.bind(this));
 		this.messageInput.addEventListener('history-forward', this.historyForward.bind(this));
 		this.clearButton.addEventListener('click', this.clearRepl.bind(this));
-        this.mcrConnection = new McrConnection();
 	}
 
 	async connectedCallback() {
 		try {
-			await this.mcrConnection.connectionPromise;
+			await mcrConnection.connectionPromise;
 			this.messageDisplay.addMessage('System', 'Connected to server.');
-			this.sessionId = this.mcrConnection.sessionId;
+			this.sessionId = mcrConnection.sessionId;
 			this.messageDisplay.addMessage('System', `Session created: ${this.sessionId}`);
 		} catch (err) {
 			this.messageDisplay.addMessage('System', 'Failed to connect to server.', 'error');
@@ -95,10 +94,12 @@ export class Repl extends HTMLElement {
 		this.history.push(message);
 		this.historyIndex = this.history.length;
 
-		this.mcrConnection.invoke('mcr.handle', {
-			sessionId: this.sessionId,
-			naturalLanguageText: message,
-		}).then(this.handleResponse.bind(this));
+		mcrConnection
+			.invoke('mcr.handle', {
+				sessionId: this.sessionId,
+				naturalLanguageText: message,
+			})
+			.then(this.handleResponse.bind(this));
 
 		this.messageInput.clear();
 	}
@@ -108,28 +109,27 @@ export class Repl extends HTMLElement {
 	}
 
 	handleResponse(response) {
-		const { payload } = response;
-		if (payload.success) {
+		if (response.success) {
 			let content = '';
-			if (payload.data && payload.data.answer) {
-				content = payload.data.answer;
-			} else if (payload.message) {
-				content = payload.message;
+			if (response.data && response.data.answer) {
+				content = response.data.answer;
+			} else if (response.message) {
+				content = response.message;
 			} else {
-				content = JSON.stringify(payload, null, 2);
+				content = JSON.stringify(response.data, null, 2);
 			}
 			this.messageDisplay.addMessage('System', content);
 			document.dispatchEvent(
 				new CustomEvent('knowledge-base-updated', {
 					detail: {
-						knowledgeBase: payload.fullKnowledgeBase,
+						knowledgeBase: response.fullKnowledgeBase,
 					},
 				})
 			);
 		} else {
-			let errorMessage = `Error: ${payload.error}`;
-			if (payload.details) {
-				errorMessage += ` - ${payload.details}`;
+			let errorMessage = `Error: ${response.error}`;
+			if (response.details) {
+				errorMessage += ` - ${response.details}`;
 			}
 			this.messageDisplay.addMessage('System', errorMessage, 'error');
 		}
