@@ -23,10 +23,7 @@ export class CrudManagerComponent extends ManagerComponent {
 
 	render() {
 		super.render();
-		const slot = this.shadowRoot.querySelector('slot');
-		const newContent = document.createElement('div');
-		newContent.innerHTML = this.template;
-		slot.replaceWith(newContent);
+		this.shadowRoot.innerHTML = this.template;
 
 		this.shadowRoot
 			.querySelector('#item-select')
@@ -43,35 +40,38 @@ export class CrudManagerComponent extends ManagerComponent {
 	}
 
 	updateItemList(items) {
-		const select = this.querySelector('#item-select');
-		select.innerHTML = `<option value="">Select a ${this.managerType.toLowerCase()}</option>`;
-		items.forEach(item => {
-			const option = document.createElement('option');
-			option.value = item.id;
-			option.textContent = item.name || item.id;
-			select.appendChild(option);
-		});
+		const select = this.shadowRoot.querySelector('#item-select');
+		const options = items.map(
+			item => `<option value="${item.id}">${item.name || item.id}</option>`
+		);
+		select.innerHTML = `<option value="">Select a ${this.managerType.toLowerCase()}</option>${options.join('')}`;
+	}
+
+	async handleApiCall(operation, args = {}, successCallback = () => {}) {
+		this.showError('');
+		try {
+			const result = await this.api.invoke(
+				`${this.managerType.toLowerCase()}.${operation}`,
+				args,
+				loading => this.toggleAttribute('loading', loading)
+			);
+			successCallback(result);
+		} catch (error) {
+			// The error is already displayed by the error handler
+		}
 	}
 
 	async onItemSelected() {
-		const itemId = this.querySelector('#item-select').value;
-		const display = this.querySelector('#item-display');
+		const itemId = this.shadowRoot.querySelector('#item-select').value;
+		const display = this.shadowRoot.querySelector('#item-display');
 		if (!itemId) {
 			display.value = '';
 			return;
 		}
 
-		this.showError('');
-		try {
-			const item = await this.api.invoke(
-				`${this.managerType.toLowerCase()}.get`,
-				{ id: itemId },
-				loading => this.toggleAttribute('loading', loading)
-			);
+		await this.handleApiCall('get', { id: itemId }, item => {
 			display.value = item.content;
-		} catch (error) {
-			// The error is already displayed by the error handler
-		}
+		});
 	}
 
 	async createItem() {
@@ -80,21 +80,13 @@ export class CrudManagerComponent extends ManagerComponent {
 		);
 		if (!itemName) return;
 
-		this.showError('');
-		try {
-			await this.api.invoke(
-				`${this.managerType.toLowerCase()}.create`,
-				{ id: itemName, content: '' },
-				loading => this.toggleAttribute('loading', loading)
-			);
+		await this.handleApiCall('create', { id: itemName, content: '' }, () => {
 			this.listItems();
-		} catch (error) {
-			// The error is already displayed by the error handler
-		}
+		});
 	}
 
 	async deleteItem() {
-		const itemId = this.querySelector('#item-select').value;
+		const itemId = this.shadowRoot.querySelector('#item-select').value;
 		if (!itemId) return;
 
 		if (
@@ -102,37 +94,21 @@ export class CrudManagerComponent extends ManagerComponent {
 				`Are you sure you want to delete the ${this.managerType.toLowerCase()} "${itemId}"?`
 			)
 		) {
-			this.showError('');
-			try {
-				await this.api.invoke(
-					`${this.managerType.toLowerCase()}.delete`,
-					{ id: itemId },
-					loading => this.toggleAttribute('loading', loading)
-				);
+			await this.handleApiCall('delete', { id: itemId }, () => {
 				this.listItems();
-				this.querySelector('#item-display').value = '';
-			} catch (error) {
-				// The error is already displayed by the error handler
-			}
+				this.shadowRoot.querySelector('#item-display').value = '';
+			});
 		}
 	}
 
 	async updateItem() {
-		const itemId = this.querySelector('#item-select').value;
+		const itemId = this.shadowRoot.querySelector('#item-select').value;
 		if (!itemId) return;
 
-		const content = this.querySelector('#item-display').value;
-		this.showError('');
-		try {
-			await this.api.invoke(
-				`${this.managerType.toLowerCase()}.update`,
-				{ id: itemId, content },
-				loading => this.toggleAttribute('loading', loading)
-			);
+		const content = this.shadowRoot.querySelector('#item-display').value;
+		await this.handleApiCall('update', { id: itemId, content }, () => {
 			alert(`${this.managerType} updated successfully.`);
-		} catch (error) {
-			// The error is already displayed by the error handler
-		}
+		});
 	}
 }
 

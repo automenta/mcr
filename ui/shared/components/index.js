@@ -1,4 +1,3 @@
-export * from './MainLayout.js';
 export * from './CurriculumManager.js';
 export * from './ErrorDisplay.js';
 export * from './EvaluationManager.js';

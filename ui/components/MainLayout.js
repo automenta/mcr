@@ -51,8 +51,6 @@ class MainLayout extends HTMLElement {
             </div>
             <error-display></error-display>
         `;
-	}
-}
 
 		this.errorDisplay = this.shadowRoot.querySelector('error-display');
 		document.addEventListener('show-error', (e) => {
