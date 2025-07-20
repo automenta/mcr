@@ -1,8 +1,19 @@
 const { ErrorCodes } = require('./errors');
 const ontologyService = require('./ontologyService');
 const strategyManager = require('./strategyManager');
+const { generateExample, generateOntology } = require('./utility');
 
 const mcrToolDefinitions = mcrEngine => ({
+	'llm.passthrough': {
+		description: 'Sends a natural language string directly to the LLM.',
+		handler: args => mcrEngine.llmPassthrough(args.naturalLanguageText),
+	},
+	'mcr.handle': {
+		description:
+			'Smart handler for REPLs; auto-detects assertion vs. query.',
+		handler: args =>
+			mcrEngine.handleMCRCommand(args.sessionId, args.naturalLanguageText),
+	},
 	'session.create': {
 		description: 'Creates a new reasoning session.',
 		handler: async args => {
@@ -69,6 +80,10 @@ const mcrToolDefinitions = mcrEngine => ({
 				args.rules,
 				args.validate
 			),
+	},
+	'session.set_kb': {
+		description: 'Replaces the entire Knowledge Base for a session.',
+		handler: args => mcrEngine.setKnowledgeBase(args.sessionId, args.kbContent),
 	},
 	'ontology.create': {
 		description: 'Creates a new global ontology.',
@@ -145,22 +160,19 @@ const mcrToolDefinitions = mcrEngine => ({
 		handler: args =>
 			mcrEngine.debugFormatPrompt(args.templateName, args.inputVariables),
 	},
-	// Stubs for other tools that were in the test but not the rewrite
-	'analysis.get_strategy_leaderboard': {
-		description: 'Gets the strategy leaderboard.',
-		handler: async () => ({ success: true, data: [] }),
+	'util.generate_example': {
+		description: 'Generates evaluation examples for a given domain and instructions.',
+		handler: async args => {
+			await generateExample(args.domain, args.instructions);
+			return { success: true, data: 'Evaluation examples generated.' };
+		},
 	},
-	'analysis.get_strategy_details': {
-		description: 'Gets details for a specific strategy.',
-		handler: async () => ({ success: true, data: {} }),
-	},
-	'analysis.list_eval_curricula': {
-		description: 'Lists evaluation curricula.',
-		handler: async () => ({ success: true, data: [] }),
-	},
-	'analysis.get_curriculum_details': {
-		description: 'Gets details for a specific curriculum.',
-		handler: async () => ({ success: true, data: {} }),
+	'util.generate_ontology': {
+		description: 'Generates an ontology for a given domain and instructions.',
+		handler: async args => {
+			await generateOntology(args.domain, args.instructions);
+			return { success: true, data: 'Ontology generated.' };
+		},
 	},
 	'evolution.start_optimizer': {
 		description: 'Starts the evolution optimizer.',

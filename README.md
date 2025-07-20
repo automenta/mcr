@@ -153,20 +153,17 @@ This section guides you through getting MCR up and running quickly for developme
 ```bash
 git clone http://dumb.ai # Replace with the actual repository URL if different
 cd model-context-reasoner
-npm install --legacy-peer-deps
+npm install
 ```
 
 **2. Configure LLM:**
 Create a `.env` file in the project root (copy from `.env.example`) and add your chosen LLM provider API key and settings.
 
 **3. Build the MCR Workbench UI (Production Mode):**
-The MCR Workbench is a React application. For production-like deployment, you need to build its static assets.
+The MCR Workbench is a React application. For production-like deployment, you need to build its static assets. This can be done from the root of the project.
 
 ```bash
-cd ui
-npm install
-npm run build
-cd ..
+npm run build:ui
 ```
 
 This will create a `dist` folder inside the `ui` directory containing the built UI assets. **This step is mandatory for the MCR server to serve the UI as described below.**
@@ -184,7 +181,7 @@ The server will start, typically on `http://localhost:8080` (or your configured 
 Open your web browser and navigate to `http://localhost:8080` (or your configured server address).
 You should see the MCR Workbench interface, which allows you to manage sessions, interact with the reasoner, and access system analysis tools.
 
-The previous CLI and TUI interfaces (`./cli.js`, `chat.js`) have been **removed** and their functionality is now integrated into the MCR Workbench.
+The previous CLI and TUI interfaces have been **removed** and their functionality is now integrated into the MCR Workbench.
 
 **Alternative: Running UI in Development Mode (Hot Reloading)**
 
@@ -532,9 +529,9 @@ The MCR Workbench is the primary interface for interacting with the MCR system. 
   - Explore and manage evaluation curricula (TODO).
   - Control and monitor the MCR Evolution Engine (TODO).
 
-## 💻 CLI (`./cli.js`)
+## 💻 CLI
 
-The Command Line Interface (`./cli.js` and associated TUI `chat` and `perf-dashboard` commands) has been **deprecated and removed**. All its functionalities are intended to be covered and enhanced by the **MCR Workbench**.
+The Command Line Interface (and associated TUI `chat` and `perf-dashboard` commands) has been **deprecated and removed**. All its functionalities are intended to be covered and enhanced by the **MCR Workbench**.
 
 ## 🤖 MCR Evolution Engine
 
@@ -655,7 +652,7 @@ The MCR system allows for these and other strategy types to be defined and manag
 Predefined demonstrations of MCR's capabilities can be run from the **MCR Workbench** (Interactive Session Mode -> Demos tab).
 (Note: Server-side tools `demo.list` and `demo.run`, and the UI implementation for listing and running demos are currently TODO items from the refactoring plan.)
 
-The previous standalone demo runner (`demo.js`) has been removed.
+The previous standalone demo runner has been removed.
 
 ## 📊 Evaluation System & Performance Dashboard
 
@@ -732,7 +729,7 @@ If the MCP client supports WebSocket connections for MCP:
 1. Update the client's configuration to point to the MCR WebSocket endpoint: `ws://localhost:8080/ws`.
 2. The client should then use MCP's WebSocket message protocol to interact with the tools listed above.
 
-(Note: The previous `GET /mcp/sse` endpoint for Server-Sent Events is no longer the primary mechanism if MCP interaction is consolidated over WebSockets. If SSE is still strictly required by some MCP clients, that endpoint would need to be separately maintained or re-added to `src/app.js` outside the main MCR tool WebSocket flow.)
+(Note: The previous `GET /mcp/sse` endpoint for Server-Sent Events is no longer the primary mechanism and has been removed.)
 
 ## Code Guidelines
 

@@ -392,6 +392,36 @@ class MCREngine {
 			`[MCREngine] Initialized with effective assertion strategy: "${strategy.name}" (ID: ${strategy.id})`
 		);
 	}
+
+	async llmPassthrough(naturalLanguageText) {
+		const llmResult = await this.llmProvider.generate(
+			prompts.LLM_PASSTHROUGH.system,
+			fillTemplate(prompts.LLM_PASSTHROUGH.user, { naturalLanguageText })
+		);
+		return { success: true, response: llmResult.text };
+	}
+
+	async handleMCRCommand(sessionId, naturalLanguageText) {
+		if (naturalLanguageText.trim().endsWith('?')) {
+			return this.querySessionWithNL(sessionId, naturalLanguageText);
+		}
+		return this.assertNLToSession(sessionId, naturalLanguageText);
+	}
+
+	async setKnowledgeBase(sessionId, kbContent) {
+		const session = await this.getSession(sessionId);
+		if (!session) {
+			throw new MCRError(ErrorCodes.SESSION_NOT_FOUND, 'Session not found.');
+		}
+		session.facts = kbContent.split('\n').filter(line => line.trim() !== '');
+		this._updateLexiconWithFacts(session, session.facts);
+		const fullKnowledgeBase = await this.getKnowledgeBase(sessionId);
+		return {
+			success: true,
+			message: 'Knowledge base updated successfully.',
+			fullKnowledgeBase,
+		};
+	}
 }
 
 module.exports = MCREngine;
