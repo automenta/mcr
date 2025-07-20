@@ -4,6 +4,7 @@ import '@shared/components/OntologyManager.js';
 import '@shared/components/StrategyManager.js';
 import '@shared/components/SystemState.js';
 import '@shared/components/LogDisplay.js';
+import '@shared/components/ErrorDisplay.js';
 
 class MainLayout extends HTMLElement {
 	constructor() {
@@ -48,7 +49,15 @@ class MainLayout extends HTMLElement {
                 <system-state></system-state>
                 <log-display></log-display>
             </div>
+            <error-display></error-display>
         `;
+	}
+}
+
+		this.errorDisplay = this.shadowRoot.querySelector('error-display');
+		document.addEventListener('show-error', (e) => {
+			this.errorDisplay.show(e.detail);
+		});
 	}
 }
 

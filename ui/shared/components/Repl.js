@@ -1,6 +1,9 @@
 import { McrConnection } from '../services/McrConnection.js';
+import { MessageHandler } from '../services/MessageHandler.js';
 import './MessageDisplay.js';
 import './MessageInput.js';
+import './repl/ConnectionStatus.js';
+import './repl/LoadingIndicator.js';
 
 export class Repl extends HTMLElement {
 	constructor() {
@@ -16,6 +19,10 @@ export class Repl extends HTMLElement {
                     background-color: var(--panel-bg);
                     color: var(--text-color);
                     font-family: var(--font-family);
+                    border: 1px solid var(--border-color);
+                    border-radius: var(--border-radius);
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    padding: 1rem;
                 }
                 .controls {
                     display: flex;
@@ -36,10 +43,12 @@ export class Repl extends HTMLElement {
                 }
             </style>
             <div class="repl-container">
+                <connection-status></connection-status>
                 <div class="controls">
                     <button id="clear-repl">Clear</button>
                 </div>
                 <message-display></message-display>
+                <loading-indicator></loading-indicator>
                 <message-input></message-input>
             </div>
         `;
@@ -47,6 +56,8 @@ export class Repl extends HTMLElement {
 		this.messageDisplay = this.shadowRoot.querySelector('message-display');
 		this.messageInput = this.shadowRoot.querySelector('message-input');
 		this.clearButton = this.shadowRoot.querySelector('#clear-repl');
+        this.connectionStatus = this.shadowRoot.querySelector('connection-status');
+        this.loadingIndicator = this.shadowRoot.querySelector('loading-indicator');
 
 		this.history = [];
 		this.historyIndex = -1;
@@ -67,18 +78,11 @@ export class Repl extends HTMLElement {
 	async connectedCallback() {
 		try {
 			await this.mcrConnection.connectionPromise;
-			this.messageDisplay.addMessage('System', 'Connected to server.');
-			this.sessionId = this.mcrConnection.sessionId;
-			this.messageDisplay.addMessage(
-				'System',
-				`Session created: ${this.sessionId}`
-			);
+            this.sessionId = this.mcrConnection.sessionId;
+            this.messageHandler = new MessageHandler(this.sessionId);
+			this.connectionStatus.status = { connected: true, message: `Session created: ${this.sessionId}` };
 		} catch (err) {
-			this.messageDisplay.addMessage(
-				'System',
-				'Failed to connect to server.',
-				'error'
-			);
+			this.connectionStatus.status = { connected: false, message: 'Failed to connect to server.' };
 			console.error(err);
 		}
 	}
@@ -100,7 +104,7 @@ export class Repl extends HTMLElement {
 		}
 	}
 
-	sendMessage(e) {
+	async sendMessage(e) {
 		const message = e.detail;
 		if (!message) return;
 
@@ -108,12 +112,17 @@ export class Repl extends HTMLElement {
 		this.history.push(message);
 		this.historyIndex = this.history.length;
 
-		this.mcrConnection
-			.invoke('mcr.handle', {
-				sessionId: this.sessionId,
-				naturalLanguageText: message,
-			})
-			.then(this.handleResponse.bind(this));
+        this.loadingIndicator.show();
+
+		try {
+            const response = await this.messageHandler.sendMessage(message);
+            this.handleResponse(response);
+        } catch (err) {
+            this.handleError(err);
+        } finally {
+            this.loadingIndicator.hide();
+        }
+
 
 		this.messageInput.clear();
 	}
@@ -142,13 +151,17 @@ export class Repl extends HTMLElement {
 				})
 			);
 		} else {
-			let errorMessage = `Error: ${payload.error}`;
-			if (payload.details) {
-				errorMessage += ` - ${payload.details}`;
-			}
-			this.messageDisplay.addMessage('System', errorMessage, 'error');
+            this.handleError(payload);
 		}
 	}
+
+    handleError(error) {
+        let errorMessage = `Error: ${error.error}`;
+        if (error.details) {
+            errorMessage += ` - ${error.details}`;
+        }
+        document.dispatchEvent(new CustomEvent('show-error', { detail: errorMessage }));
+    }
 }
 
 customElements.define('mcr-repl', Repl);
