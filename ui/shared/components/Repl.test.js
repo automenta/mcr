@@ -4,11 +4,13 @@ import { MessageDisplay } from './MessageDisplay';
 import { MessageInput } from './MessageInput';
 
 vi.mock('../services/McrConnection.js', () => ({
-  default: {
-    connectionPromise: Promise.resolve(),
-    invoke: vi.fn(),
-    subscribe: vi.fn(),
-    unsubscribe: vi.fn(),
+  McrConnection: class {
+    constructor() {
+      this.connectionPromise = Promise.resolve();
+    }
+    invoke = vi.fn();
+    subscribe = vi.fn();
+    unsubscribe = vi.fn();
   },
 }));
 
