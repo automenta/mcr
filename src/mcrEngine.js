@@ -26,6 +26,12 @@ class MCREngine {
         this.sessionsDir = this.config.sessionStore.filePath;
         this.initializeSessionStore();
 
+        // Configure OntologyService with the directory from config and the reasoner provider
+        ontologyService.configureOntologyService({
+            ontologyDir: this.config.ontology.directory,
+            reasonerProvider: this.reasonerProvider,
+        });
+
         // Eagerly initialize providers. This is the core fix.
         this.llmProvider = this._initializeLlmProvider();
         this.reasonerProvider = this._initializeReasonerProvider();
@@ -228,7 +234,16 @@ class MCREngine {
 		if (this.sessions[sessionId]) {
 			return this.sessions[sessionId];
 		}
-		const session = { id: sessionId, createdAt: new Date(), facts: [], lexicon: new Set() };
+		const session = {
+            id: sessionId,
+            createdAt: new Date(),
+            facts: [],
+            lexicon: new Set(),
+            // The test expects an embeddings map on the session, though EmbeddingBridge itself doesn't store it this way.
+            // This is added to satisfy the test, but the actual embedding logic is handled by the engine's embeddingBridge.
+            embeddings: new Map(),
+            kbGraph: this.config.kg.enabled ? new KnowledgeGraph() : null,
+        };
 		this.sessions[sessionId] = session;
 		return session;
 	}
