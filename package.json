@@ -8,9 +8,6 @@
 		"dev": "nodemon mcr.js",
 		"test": "NODE_OPTIONS=--experimental-vm-modules jest",
 		"test:coverage": "jest --coverage",
-		"test:ui": "vitest run --root ui/",
-		"test:ui-watch": "vitest --root ui/",
-		"test:ui-browser": "vitest --ui --root ui/",
 		"dev:ui": "cd ui && vite",
 		"build:ui": "vite build ui/",
 		"preview:ui": "vite preview ui/",
@@ -119,11 +116,13 @@
 		"globals": "^16.3.0",
 		"http-server": "^14.1.1",
 		"jest": "^30.0.4",
+		"jest-environment-jsdom": "^30.0.4",
 		"jsdom": "^26.1.0",
 		"nodemon": "^3.1.10",
 		"prettier": "^3.6.2",
 		"supertest": "^7.1.3",
 		"ts-jest": "^29.4.0",
+		"vite-jest": "^0.1.4",
 		"vitest": "^3.2.4"
 	},
 	"engines": {

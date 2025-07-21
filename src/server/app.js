@@ -1,13 +1,13 @@
 const express = require('express');
 const http = require('http');
 const { WebSocketServer } = require('ws');
-const { handleWebSocketConnection } = require('./websocketApi');
+const { handleWebSocketConnection } = require('../api/websocketApi');
 const path = require('path');
 
 // Assuming logger and errorHandlerMiddleware are accessible or passed in mcr.js
 // For standalone tool checking, we might need placeholders if not modifying mcr.js in this step
-const logger = require('./util/logger'); // Assuming logger is here
-const { errorHandlerMiddleware } = require('./errors');
+const logger = require('../util/logger'); // Assuming logger is here
+const { errorHandlerMiddleware } = require('../errors');
 
 async function createServer(mcrEngine) {
 	const app = express();

@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const logger = require('./util/logger');
-const { initDb } = require('./store/database');
-const MCREngine = require('./mcrEngine');
+const { initDb, closeDb } = require('./store/database');
+const MCREngine = require('./core/mcrEngine');
 const {
 	prompts,
 	fillTemplate,
@@ -1109,7 +1109,7 @@ Do NOT wrap the rewritten prompt in markdown code blocks. Output only the raw te
 	}
 }
 
-function generateCurriculum(cases) {
+function generateCurriculum() {
 	const curriculumGenerator = new CurriculumGenerator();
 	return curriculumGenerator.generate();
 }

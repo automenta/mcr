@@ -1,8 +1,8 @@
-const MockPrologReasonerProvider = jest.fn().mockImplementation(() => {
-	return {
-		executeQuery: jest
+class MockPrologReasonerProvider {
+	constructor() {
+		this.executeQuery = jest
 			.fn()
-			.mockImplementation((knowledgeBase, query, options) => {
+			.mockImplementation((knowledgeBase, query) => {
 				if (query === 'is_blue(sky).') {
 					return Promise.resolve({
 						results: [{ X: 'yes' }],
@@ -20,8 +20,8 @@ const MockPrologReasonerProvider = jest.fn().mockImplementation(() => {
 					return Promise.resolve({ results, proof: 'mock proof' });
 				}
 				return Promise.resolve({ results: [] });
-			}),
-		validate: jest.fn().mockImplementation(knowledgeBase => {
+			});
+		this.validate = jest.fn().mockImplementation(knowledgeBase => {
 			if (typeof knowledgeBase !== 'string') {
 				return Promise.resolve({ isValid: true });
 			}
@@ -29,9 +29,9 @@ const MockPrologReasonerProvider = jest.fn().mockImplementation(() => {
 				return Promise.resolve({ isValid: false, error: 'Invalid Prolog' });
 			}
 			return Promise.resolve({ isValid: true });
-		}),
-		history: [],
-	};
-});
+		});
+		this.history = [];
+	}
+}
 
 module.exports = MockPrologReasonerProvider;

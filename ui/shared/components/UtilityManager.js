@@ -42,7 +42,7 @@ export class UtilityManager extends ManagerComponent {
 						{ domain, instructions },
 						loading => this.toggleAttribute('loading', loading)
 					);
-				} catch (error) {
+				} catch {
 					// The error is already displayed by the error handler
 				}
 			}
@@ -60,7 +60,7 @@ export class UtilityManager extends ManagerComponent {
 						{ domain, instructions },
 						loading => this.toggleAttribute('loading', loading)
 					);
-				} catch (error) {
+				} catch {
 					// The error is already displayed by the error handler
 				}
 			}

@@ -7,7 +7,7 @@ console.log('[MCR Pre-Init] Starting mcr.js...'); // Very early log
  * and handles uncaught exceptions and unhandled promise rejections.
  * @returns {Promise<import('http').Server>} A promise that resolves to the running HTTP server instance.
  */
-const MCREngine = require('./src/mcrEngine');
+const MCREngine = require('./src/core/mcrEngine');
 
 async function startServer() {
 	// Logger and config should be initialized first
@@ -19,7 +19,7 @@ async function startServer() {
 
 	if (config.embedding.model) {
 		try {
-			const tf = require('@tensorflow/tfjs-node');
+			require('@tensorflow/tfjs-node');
 			logger.info('[MCR Init] TensorFlow.js backend initialized.');
 		} catch (error) {
 			logger.error(
@@ -31,7 +31,7 @@ async function startServer() {
 
 	if (config.kg.enabled) {
 		try {
-			const graphology = require('graphology');
+			require('graphology');
 			logger.info('[MCR Init] Graphology library loaded.');
 		} catch (error) {
 			logger.error(
@@ -41,7 +41,7 @@ async function startServer() {
 		}
 	}
 
-	const createHttpServer = require('./src/app'); // This is now an async function
+	const createHttpServer = require('./src/server/app'); // This is now an async function
 
 	logger.debug('[MCR Init] src/app (createServer) required.');
 	logger.debug('[MCR Init] config required.');

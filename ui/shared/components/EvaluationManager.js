@@ -32,7 +32,7 @@ class EvaluationManager extends ManagerComponent {
 					},
 				})
 			);
-		} catch (err) {
+		} catch {
 			// The error is already displayed by the error handler
 		}
 	}

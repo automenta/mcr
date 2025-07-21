@@ -1,6 +1,8 @@
-const MCREngine = require('../src/mcrEngine');
-const MockLLMProvider = require('./__mocks__/llmProvider');
-const MockPrologReasonerProvider = require('./__mocks__/prologReasonerProvider');
+const MCREngine = require('../src/core/mcrEngine');
+jest.mock('../src/llm/ollamaProvider');
+jest.mock('../src/reason/prologReasoner');
+const MockLLMProvider = require('../src/llm/ollamaProvider');
+const MockPrologReasonerProvider = require('../src/reason/prologReasoner');
 
 describe('guidedDeduce', () => {
 	let sessionId;
@@ -10,8 +12,8 @@ describe('guidedDeduce', () => {
 
 	beforeEach(async () => {
 		sessionId = 'test-session-id';
-		await mcrEngine.createSession(sessionId);
-		await mcrEngine.addFacts(sessionId, ['fact(a).', 'fact(b).']);
+		await mcrEngine.sessionManager.createSession(sessionId);
+		await mcrEngine.sessionManager.addFacts(sessionId, ['fact(a).', 'fact(b).']);
 	});
 
 	afterEach(() => {

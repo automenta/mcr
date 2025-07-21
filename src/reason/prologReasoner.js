@@ -101,71 +101,59 @@ async function executeQuery(knowledgeBase, query, options = {}) {
 	const session = prolog.create(1000);
 	const results = [];
 
-	function getProofTrace() {
-		if (!trace) {
-			return null;
-		}
+	const getProofTrace = () => {
+		if (!trace) return null;
 		const tree = session.thread.get_tree();
-		if (!tree) {
-			return null;
-		}
-		return formatTrace(tree, session);
-	}
+		return tree ? formatTrace(tree, session) : null;
+	};
 
-	return new Promise((resolve, reject) => {
-		try {
+	try {
+		await new Promise((resolve, reject) => {
 			session.consult(knowledgeBase, {
-				success: () => {
-					session.query(query, {
-						success: () => {
-							function processNextAnswer() {
-								session.answer({
-									success: answer => {
-										if (
-											answer === false ||
-											(prolog.type &&
-												typeof prolog.type.is_theta_nil === 'function' &&
-												prolog.type.is_theta_nil(answer))
-										) {
-											resolve({ results, trace: getProofTrace() });
-											return;
-										}
-
-										const formatted = formatAnswer(answer);
-										results.push(formatted);
-
-										if (results.length >= limit) {
-											resolve({ results, trace: getProofTrace() });
-											return;
-										}
-										processNextAnswer();
-									},
-									error: err => {
-										reject(new Error(`Prolog error processing answer: ${err}`));
-									},
-									fail: () => {
-										resolve({ results, trace: getProofTrace() });
-									},
-									limit: () => {
-										resolve({ results, trace: getProofTrace() });
-									},
-								});
-							}
-							processNextAnswer();
-						},
-						error: err => {
-							reject(new Error(`Prolog query error: ${err}`));
-						},
-					});
-				},
-				error: err => {
-					reject(new Error(`Prolog knowledge base error: ${err}`));
-				},
+				success: resolve,
+				error: err =>
+					reject(new Error(`Prolog knowledge base error: ${err}`)),
 			});
-		} catch (error) {
-			reject(new Error(`Unexpected Prolog error: ${error.message}`));
+		});
+
+		await new Promise((resolve, reject) => {
+			session.query(query, {
+				success: resolve,
+				error: err => reject(new Error(`Prolog query error: ${err}`)),
+			});
+		});
+
+		while (results.length < limit) {
+			const answer = await new Promise((resolve, reject) => {
+				session.answer({
+					success: resolve,
+					error: err =>
+						reject(new Error(`Prolog error processing answer: ${err}`)),
+					fail: () => resolve(false),
+					limit: () => resolve(false),
+				});
+			});
+
+			if (
+				answer === false ||
+				(prolog.type &&
+					typeof prolog.type.is_theta_nil === 'function' &&
+					prolog.type.is_theta_nil(answer))
+			) {
+				break;
+			}
+
+			results.push(formatAnswer(answer));
 		}
-	});
+
+		return { results, trace: getProofTrace() };
+	} catch (error) {
+		logger.error(`[PrologReasoner] executeQuery error: ${error.message}`, {
+			knowledgeBase,
+			query,
+		});
+		throw error;
+	}
 }
 
 /**
@@ -175,9 +163,6 @@ async function executeQuery(knowledgeBase, query, options = {}) {
  *          indicating if the knowledge base is valid.
  */
 async function validateKnowledgeBase(knowledgeBase) {
-	const kbSnippet =
-		knowledgeBase.substring(0, 200) + (knowledgeBase.length > 200 ? '...' : '');
-
 	try {
 		const session = prolog.create(100);
 		let consultError = null;

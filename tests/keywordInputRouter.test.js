@@ -1,7 +1,6 @@
 // tests/keywordInputRouter.test.js
 
 const { KeywordInputRouter } = require('../src/evolutionModule');
-const db = require('../src/store/database');
 const logger = require('../src/util/logger');
 
 jest.mock('../src/store/database');

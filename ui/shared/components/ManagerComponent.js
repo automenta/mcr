@@ -48,18 +48,18 @@ export class ManagerComponent extends PanelComponent {
 	async listItems() {
 		this.showError('');
 		try {
-			const items = await this.api.invoke(
+			const result = await this.api.invoke(
 				`${this.managerType.toLowerCase()}.list`,
 				{},
 				loading => this.toggleAttribute('loading', loading)
 			);
-			this.updateItemList(items);
-		} catch (error) {
+			this.updateItemList(result);
+		} catch {
 			// The error is already displayed by the error handler
 		}
 	}
 
-	updateItemList(items) {
+	updateItemList() {
 		// To be implemented by subclasses
 	}
 

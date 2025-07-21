@@ -56,7 +56,7 @@ export class CrudManagerComponent extends ManagerComponent {
 				loading => this.toggleAttribute('loading', loading)
 			);
 			successCallback(result);
-		} catch (error) {
+		} catch {
 			// The error is already displayed by the error handler
 		}
 	}

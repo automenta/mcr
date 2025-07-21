@@ -1,8 +1,8 @@
-const MockLLMProvider = jest.fn().mockImplementation(() => {
-	return {
-		generate: jest
+class MockLLMProvider {
+	constructor() {
+		this.generate = jest
 			.fn()
-			.mockImplementation((systemPrompt, userPrompt, options) => {
+			.mockImplementation((systemPrompt, userPrompt) => {
 				if (userPrompt.includes('invalid')) {
 					return Promise.resolve({ text: 'invalid_prolog.' });
 				}
@@ -41,9 +41,9 @@ const MockLLMProvider = jest.fn().mockImplementation(() => {
 					});
 				}
 				return Promise.resolve({ text: 'default mock response' });
-			}),
-		history: [],
-	};
-});
+			});
+		this.history = [];
+	}
+}
 
 module.exports = MockLLMProvider;

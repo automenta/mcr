@@ -1,10 +1,9 @@
 // tests/optimizer.test.js
 
 const { OptimizationCoordinator } = require('../src/evolutionModule');
-const MCREngine = require('../src/mcrEngine');
-const { Evaluator } = require('../src/evaluation/metrics');
+const MCREngine = require('../src/core/mcrEngine');
 
-jest.mock('../src/mcrEngine', () => {
+jest.mock('../src/core/mcrEngine', () => {
 	return jest.fn().mockImplementation(() => {
 		return {
 			createSession: jest.fn(),

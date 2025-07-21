@@ -1,5 +1,4 @@
 import ExampleBase from './ExampleBase.js';
-import { readFileContentSafe } from './demoUtils.js';
 
 class FamilyOntologyDemo extends ExampleBase {
 	getName() {

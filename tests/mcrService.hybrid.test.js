@@ -1,17 +1,20 @@
-const MCREngine = require('../src/mcrEngine');
+const MCREngine = require('../src/core/mcrEngine');
 
 describe('MCR Engine Hybrid Functionality', () => {
 	let sessionId;
 	let mcrEngine;
 
 	beforeEach(async () => {
+		jest.mock('../src/llm/ollamaProvider');
+		jest.mock('../src/reason/prologReasoner');
+		const MockLLMProvider = require('../src/llm/ollamaProvider');
+		const MockPrologReasonerProvider = require('../src/reason/prologReasoner');
 		mcrEngine = new MCREngine();
 		mcrEngine.config.kg.enabled = true;
-		mcrEngine.llmProvider = new (require('./__mocks__/llmProvider'))();
-		mcrEngine.reasonerProvider =
-			new (require('./__mocks__/prologReasonerProvider'))();
+		mcrEngine.llmProvider = new MockLLMProvider();
+		mcrEngine.reasonerProvider = new MockPrologReasonerProvider();
 		sessionId = 'test-session-id';
-		await mcrEngine.createSession(sessionId);
+		await mcrEngine.sessionManager.createSession(sessionId);
 	});
 
 	afterEach(() => {

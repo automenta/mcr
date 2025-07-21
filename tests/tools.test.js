@@ -59,13 +59,11 @@ describe('MCR Tool Definitions (src/tools.js)', () => {
 	});
 	it('should not have undefined handlers for any defined tool', () => {
 		for (const toolName in mcrToolDefinitions) {
-			if (Object.prototype.hasOwnProperty.call(mcrToolDefinitions, toolName)) {
-				expect(mcrToolDefinitions[toolName]).toBeDefined();
-				expect(mcrToolDefinitions[toolName].description).toBeDefined();
-				expect(typeof mcrToolDefinitions[toolName].description).toBe('string');
-				expect(mcrToolDefinitions[toolName].handler).toBeDefined();
-				expect(typeof mcrToolDefinitions[toolName].handler).toBe('function');
-			}
+			expect(mcrToolDefinitions[toolName]).toBeDefined();
+			expect(mcrToolDefinitions[toolName].description).toBeDefined();
+			expect(typeof mcrToolDefinitions[toolName].description).toBe('string');
+			expect(mcrToolDefinitions[toolName].handler).toBeDefined();
+			expect(typeof mcrToolDefinitions[toolName].handler).toBe('function');
 		}
 	});
 });

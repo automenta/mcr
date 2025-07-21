@@ -1,7 +1,6 @@
 // src/websocketApi.js
 const logger = require('./util/logger');
-const { ErrorCodes, ApiError } = require('./errors');
-const { v4: uuidv4 } = require('uuid');
+const { ErrorCodes } = require('../errors');
 const mcrToolDefinitions = require('./tools');
 
 async function routeMessage(socket, message, mcrEngine) {

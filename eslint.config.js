@@ -18,17 +18,33 @@ module.exports = [
 	// Configuration for server-side JavaScript files (CommonJS)
 	{
 		files: [
-			'src/**/*.js',
+			'src/core/**/*.js',
+			'src/server/**/*.js',
+			'src/api/**/*.js',
+			'src/bridges/**/*.js',
+			'src/demo/**/*.js',
+			'src/llm/**/*.js',
+			'src/reason/**/*.js',
+			'src/store/**/*.js',
+			'src/strategies/**/*.js',
+			'src/util/**/*.js',
+			'src/interfaces/**/*.js',
+			'src/neurosymbolic/**/*.js',
+			'src/evalCases/**/*.js',
+			'src/evaluation/**/*.js',
+			'src/prompts/**/*.js',
 			'tests/**/*.js',
 			'*.js', // Root level JS files like mcr.js, babel.config.js, etc.
 			'prompts/**/*.js',
 			'scripts/**/*.js', // If you have any scripts
+			'src/*.js',
 		],
 		languageOptions: {
 			ecmaVersion: 2022,
 			sourceType: 'commonjs',
 			globals: {
 				...globals.node,
+				process: 'readonly',
 			},
 		},
 		rules: {
@@ -58,7 +74,7 @@ module.exports = [
 	},
 	// Configuration for UI files (React, JSX, ES Modules)
 	{
-		files: ['ui/src/**/*.{js,jsx}', 'ui/*.js', 'ui/*.jsx'], // Include ui/eslint.config.js if it's meant to be linted as ESM
+		files: ['ui/**/*.{js,jsx}'],
 		plugins: {
 			react: eslintPluginReact,
 		},
@@ -68,6 +84,22 @@ module.exports = [
 			globals: {
 				...globals.browser, // Add browser globals
 				...globals.node, // Some Vite/tooling related files in UI might need node globals
+				HTMLElement: 'readonly',
+				document: 'readonly',
+				customElements: 'readonly',
+				setTimeout: 'readonly',
+				CustomEvent: 'readonly',
+				navigator: 'readonly',
+				console: 'readonly',
+				alert: 'readonly',
+				confirm: 'readonly',
+				prompt: 'readonly',
+				vis: 'readonly',
+				Chart: 'readonly',
+				hljs: 'readonly',
+				WebSocket: 'readonly',
+				window: 'readonly',
+				KeyboardEvent: 'readonly',
 			},
 			parserOptions: {
 				ecmaFeatures: {
@@ -91,6 +123,13 @@ module.exports = [
 			'no-console': 'off', // Consistent with server-side
 		},
 	},
+	// Configuration for demo files
+	{
+		files: ['src/demo/**/*.js'],
+		languageOptions: {
+			sourceType: 'module',
+		},
+	},
 	// Configuration for UI test files (Vitest, React Testing Library)
 	// This assumes Vitest tests are also in ui/src and might use JSX
 	{
@@ -106,6 +145,36 @@ module.exports = [
 		},
 		rules: {
 			// any specific rules for UI tests
+		},
+	},
+	// Configuration for config files
+	{
+		files: ['config/**/*.js'],
+		languageOptions: {
+			globals: {
+				...globals.node,
+				module: 'readonly',
+				require: 'readonly',
+			},
+		},
+	},
+	// Configuration for mock files
+	{
+		files: ['**/__mocks__/**/*.js'],
+		languageOptions: {
+			globals: {
+				...globals.jest,
+				jest: 'readonly',
+				console: 'readonly',
+				module: 'readonly',
+			},
+		},
+	},
+	// Configuration for neurosymbolic files
+	{
+		files: ['src/neurosymbolic/**/*.js'],
+		languageOptions: {
+			sourceType: 'module',
 		},
 	},
 ];

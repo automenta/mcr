@@ -1,7 +1,8 @@
-const MCREngine = require('../src/mcrEngine');
-const { ErrorCodes } = require('../src/errors');
-const MockLLMProvider = require('./__mocks__/llmProvider');
-const MockPrologReasonerProvider = require('./__mocks__/prologReasonerProvider');
+const MCREngine = require('../src/core/mcrEngine');
+jest.mock('../src/llm/ollamaProvider');
+jest.mock('../src/reason/prologReasoner');
+const MockLLMProvider = require('../src/llm/ollamaProvider');
+const MockPrologReasonerProvider = require('../src/reason/prologReasoner');
 const ontologyService = require('../src/ontologyService');
 const fs = require('fs');
 const path = require('path');
@@ -39,7 +40,7 @@ describe('MCR Engine (mcrEngine.js)', () => {
 
 	beforeEach(async () => {
 		sessionId = 'test-session-id';
-		await mcrEngine.createSession(sessionId);
+		await mcrEngine.sessionManager.createSession(sessionId);
 	});
 
 	afterEach(() => {
@@ -49,10 +50,10 @@ describe('MCR Engine (mcrEngine.js)', () => {
 	describe('assertNLToSession', () => {
 		it('should successfully assert a natural language statement', async () => {
 			const nlText = 'The sky is blue.';
-			const result = await mcrEngine.assertNLToSession(sessionId, nlText, {
+			await mcrEngine.assertNLToSession(sessionId, nlText, {
 				useLoops: false,
 			});
-			const session = await mcrEngine.getSession(sessionId);
+			const session = await mcrEngine.sessionManager.getSession(sessionId);
 			expect(session.facts).toContain('is_blue(sky).');
 		});
 	});
@@ -60,7 +61,7 @@ describe('MCR Engine (mcrEngine.js)', () => {
 	describe('querySessionWithNL', () => {
 		it('should successfully query a session with NL', async () => {
 			const nlQuestion = 'Is the sky blue?';
-			await mcrEngine.addFacts(sessionId, ['is_blue(sky).']);
+			await mcrEngine.sessionManager.addFacts(sessionId, ['is_blue(sky).']);
 			const result = await mcrEngine.querySessionWithNL(sessionId, nlQuestion, {
 				useLoops: false,
 			});
