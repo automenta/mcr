@@ -1,7 +1,6 @@
 const js = require('@eslint/js');
 const globals = require('globals');
 const eslintPluginJest = require('eslint-plugin-jest');
-const eslintPluginReact = require('eslint-plugin-react');
 
 module.exports = [
 	{
@@ -56,42 +55,7 @@ module.exports = [
 			'jest/no-conditional-expect': 'warn', // Downgrade to warn for now
 		},
 	},
-	// Configuration for UI files (React, JSX, ES Modules)
-	{
-		files: ['ui/src/**/*.{js,jsx}', 'ui/*.js', 'ui/*.jsx'], // Include ui/eslint.config.js if it's meant to be linted as ESM
-		plugins: {
-			react: eslintPluginReact,
-		},
-		languageOptions: {
-			ecmaVersion: 2022,
-			sourceType: 'module', // UI code uses ES Modules
-			globals: {
-				...globals.browser, // Add browser globals
-				...globals.node, // Some Vite/tooling related files in UI might need node globals
-			},
-			parserOptions: {
-				ecmaFeatures: {
-					jsx: true,
-				},
-			},
-		},
-		settings: {
-			react: {
-				version: 'detect',
-			},
-		},
-		rules: {
-			...eslintPluginReact.configs.recommended.rules,
-			'react/react-in-jsx-scope': 'off',
-			'react/prop-types': 'off', // Keep this off as per original config
-			'no-unused-vars': [
-				'warn',
-				{ argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
-			],
-			'no-console': 'off', // Consistent with server-side
-		},
-	},
-	// Configuration for UI test files (Vitest, React Testing Library)
+	// Configuration for UI test files (Vitest)
 	// This assumes Vitest tests are also in ui/src and might use JSX
 	{
 		files: ['ui/src/**/*.test.{js,jsx}'],

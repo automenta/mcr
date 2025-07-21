@@ -48,7 +48,7 @@ This combination unlocks possibilities for more robust, explainable, and sophist
 - **📚 Dynamic Lexicon Summary**: Automatically builds a lexicon of known predicates from asserted facts to aid LLM translation.
 - **🛡️ Robust Error Handling**: Centralized error handling for WebSocket API calls.
 - **✅ Configuration Validation**: Validates essential configurations on server startup.
-- **🌐 MCR Workbench (UI)**: A React-based Single Page Application for all user interactions, replacing previous CLI/TUI tools. Features include:
+- **🌐 MCR Workbench (UI)**: A Single Page Application for all user interactions, replacing previous CLI/TUI tools. Features include:
   - **Interactive Session Mode**: Real-time chat, ontology loading, demo running, live KB view.
   - **System Analysis Mode**: Strategy performance dashboards, curriculum explorer, evolver controls.
 - **🕸️ Comprehensive WebSocket API**: A rich API based on a `tool_invoke` / `tool_result` message pattern, including:
@@ -160,7 +160,7 @@ npm install --legacy-peer-deps
 Create a `.env` file in the project root (copy from `.env.example`) and add your chosen LLM provider API key and settings.
 
 **3. Build the MCR Workbench UI (Production Mode):**
-The MCR Workbench is a React application. For production-like deployment, you need to build its static assets.
+The MCR Workbench is a web application. For production-like deployment, you need to build its static assets.
 
 ```bash
 cd ui
