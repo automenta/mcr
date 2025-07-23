@@ -20,7 +20,7 @@
 		"generate-examples": "node src/utility.js --type example",
 		"generate-ontology": "node src/utility.js --type ontology",
 		"dev:vanilla": "http-server ui/vanilla -p 3001",
-		"tui": "node repl.js"
+		"tui": "node src/tui/index.js"
 	},
 	"keywords": [
 		"llm",
@@ -70,6 +70,8 @@
 		"@tensorflow/tfjs-node": "^4.20.0",
 		"@types/jest": "^30.0.0",
 		"axios": "^1.10.0",
+		"blessed": "^0.1.81",
+		"blessed-contrib": "^4.11.0",
 		"canvas": "^3.1.2",
 		"chalk": "^4.1.2",
 		"commander": "^14.0.0",
@@ -87,9 +89,7 @@
 		"vite": "^7.0.4",
 		"winston": "^3.0.0",
 		"ws": "^8.18.0",
-		"yargs": "^18.0.0",
-		"blessed": "^0.1.81",
-		"blessed-contrib": "^4.11.0"
+		"yargs": "^18.0.0"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.24.5",
