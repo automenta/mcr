@@ -1,4 +1,5 @@
 const blessed = require('blessed');
+const clipboardy = require('clipboardy');
 
 class ChatLog {
     constructor(grid) {
@@ -7,20 +8,27 @@ class ChatLog {
             content: '',
             tags: true,
             scrollable: true,
+            wrap: true,
             alwaysScroll: true,
+            mouse: true,
+            keys: true,
+            vi: true,
             scrollbar: {
-                ch: ' ',
+                ch: '┃',
                 track: {
-                    bg: '#4A4A4A'
+                    bg: '#2E2E2E'
                 },
                 style: {
-                    inverse: true
+                    fg: 'cyan',
+                    inverse: false
                 }
             },
             style: {
                 fg: '#E0E0E0',
+                bg: '#1E1E1E',
                 border: {
-                    fg: '#5E5E5E'
+                    fg: '#5E5E5E',
+                    bg: '#1E1E1E'
                 }
             }
         });
@@ -28,7 +36,15 @@ class ChatLog {
 
     log(message) {
         const timestamp = new Date().toLocaleTimeString();
-        this.element.log(`[${timestamp}] ${message}`);
+        this.element.log(`{gray-fg}[${timestamp}]{/gray-fg} ${message}`);
+    }
+
+    copy() {
+        const selectedText = this.element.getSelectedText();
+        if (selectedText) {
+            clipboardy.writeSync(selectedText);
+            this.log('{green-fg}Copied to clipboard!{/green-fg}');
+        }
     }
 
     clear() {

@@ -2,19 +2,21 @@ const blessed = require('blessed');
 
 class InputBar {
     constructor(grid) {
-        this.element = grid.set(10, 0, 2, 12, blessed.textbox, {
+        this.element = grid.set(10, 4, 1, 8, blessed.textbox, {
             label: ' {bold}💬 Input 💬{/} ',
             inputOnFocus: true,
             style: {
                 fg: 'white',
-                bg: '#2E2E2E',
+                bg: '#1E1E1E',
                 border: {
-                    fg: '#5E5E5E'
+                    fg: '#5E5E5E',
+                    bg: '#1E1E1E'
                 },
                 focus: {
-                    bg: '#4A4A4A',
+                    bg: '#2E2E2E',
                     border: {
-                        fg: '#8A8A8A'
+                        fg: '#8A8A8A',
+                        bg: '#2E2E2E'
                     }
                 }
             }
@@ -27,6 +29,25 @@ class InputBar {
             if (this.historyIndex > 0) {
                 this.historyIndex--;
                 this.element.setValue(this.history[this.historyIndex]);
+                this.element.screen.render();
+            }
+        });
+
+        this.element.key('tab', () => {
+            const text = this.element.getValue();
+            if (text.startsWith('/')) {
+                const commands = ['/exit', '/clear', '/clear-kb', '/help'];
+                const currentCommand = text.slice(1);
+                const matchingCommands = commands.filter(c => c.startsWith(text));
+                if (matchingCommands.length === 1) {
+                    this.element.setValue(matchingCommands[0]);
+                } else if (matchingCommands.length > 1) {
+                    // In a real app, you might show a list of suggestions.
+                    // For now, we'll just cycle through them.
+                    const currentIndex = matchingCommands.indexOf(text);
+                    const nextIndex = (currentIndex + 1) % matchingCommands.length;
+                    this.element.setValue(matchingCommands[nextIndex]);
+                }
                 this.element.screen.render();
             }
         });

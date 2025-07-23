@@ -6,6 +6,7 @@ const KbTree = require('./kbTree');
 const ChatLog = require('./chatLog');
 const InputBar = require('./inputBar');
 const Help = require('./help');
+const StatusBar = require('./statusBar');
 
 class App {
     constructor() {
@@ -21,12 +22,15 @@ class App {
         this.chatLog = new ChatLog(this.grid);
         this.inputBar = new InputBar(this.grid);
         this.help = new Help(this.screen);
+        this.statusBar = new StatusBar(this.grid);
 
         this.screen.on('resize', () => {
             this.header.element.emit('attach');
             this.kbTree.element.emit('attach');
+            this.kbTree.searchBar.emit('attach');
             this.chatLog.element.emit('attach');
             this.inputBar.element.emit('attach');
+            this.statusBar.element.emit('attach');
             this.screen.render();
         });
 
@@ -35,9 +39,10 @@ class App {
         this.loadingSpinner = blessed.loading({
             top: 'center',
             left: 'center',
-            width: 10,
+            width: 20,
             height: 5,
             border: 'line',
+            tags: true,
             content: 'Loading...'
         });
         this.screen.append(this.loadingSpinner);
@@ -50,7 +55,7 @@ class App {
     setupHotkeys() {
         this.screen.key(['escape', 'q', 'C-c'], () => process.exit(0));
 
-        const components = [this.inputBar.element, this.chatLog.element, this.kbTree.element];
+        const components = [this.inputBar.element, this.chatLog.element, this.kbTree.element, this.kbTree.searchBar];
         let focusIndex = 0;
 
         this.screen.key(['C-w'], () => {
@@ -63,6 +68,10 @@ class App {
             this.screen.render();
         });
 
+        this.screen.key(['C-y'], () => {
+            this.chatLog.copy();
+        });
+
         this.screen.key(['?'], () => this.help.toggle());
     }
 
@@ -71,6 +80,7 @@ class App {
 
         this.ws.on('open', () => {
             this.chatLog.log('🚀 Connected to WebSocket server.');
+            this.statusBar.updateStatus('{green-fg}Connected{/green-fg}');
             this.screen.render();
         });
 
@@ -81,11 +91,13 @@ class App {
 
         this.ws.on('close', () => {
             this.chatLog.log('🔌 Disconnected from WebSocket server.');
+            this.statusBar.updateStatus('{red-fg}Disconnected{/red-fg}');
             this.screen.render();
         });
 
         this.ws.on('error', (err) => {
             this.chatLog.log(`🔥 WebSocket error: ${err.message}`);
+            this.statusBar.updateStatus('{red-fg}Error{/red-fg}');
             this.screen.render();
         });
     }
@@ -148,6 +160,20 @@ class App {
         switch (command) {
             case 'exit':
                 process.exit(0);
+                break;
+            case 'clear':
+                this.chatLog.clear();
+                break;
+            case 'clear-kb':
+                this.ws.send(JSON.stringify({
+                    type: 'invoke',
+                    tool: 'kb.clear',
+                    args: {}
+                }));
+                this.chatLog.log('🧠 Knowledge base cleared.');
+                break;
+            case 'help':
+                this.help.toggle();
                 break;
             default:
                 this.chatLog.log(`🔥 Unknown command: ${command}`);

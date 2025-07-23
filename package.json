@@ -74,6 +74,7 @@
 		"blessed-contrib": "^4.11.0",
 		"canvas": "^3.1.2",
 		"chalk": "^4.1.2",
+		"clipboardy": "^4.0.0",
 		"commander": "^14.0.0",
 		"dagre": "^0.8.5",
 		"dotenv": "^16.6.1",

@@ -12,14 +12,16 @@ class Help {
 {center}{bold}Help{/bold}{/center}
 
 {bold}Hotkeys:{/bold}
-  {blue-fg}Ctrl-C{/blue-fg}, {blue-fg}q{/blue-fg}, {blue-fg}escape{/blue-fg}: Quit
-  {blue-fg}Ctrl-W{/blue-fg}: Cycle focus between components
-  {blue-fg}Ctrl-L{/blue-fg}: Clear the chat log
+  {cyan-fg}Ctrl-C{/cyan-fg}, {cyan-fg}q{/cyan-fg}, {cyan-fg}escape{/cyan-fg}: Quit
+  {cyan-fg}Ctrl-W{/cyan-fg}: Cycle focus between components
+  {cyan-fg}Ctrl-L{/cyan-fg}: Clear the chat log
+  {cyan-fg}?{/cyan-fg}: Toggle this help screen
 
 {bold}Commands:{/bold}
-  {blue-fg}/help{/blue-fg}: Show this help screen
-  {blue-fg}/clear{/blue-fg}: Clear the chat log
-  {blue-fg}/exit{/blue-fg}: Exit the REPL
+  {cyan-fg}/help{/cyan-fg}: Show this help screen
+  {cyan-fg}/clear{/cyan-fg}: Clear the chat log
+  {cyan-fg}/clear-kb{/cyan-fg}: Clear the knowledge base
+  {cyan-fg}/exit{/cyan-fg}: Exit the REPL
 `,
             tags: true,
             border: {
