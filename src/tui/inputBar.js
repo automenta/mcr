@@ -3,16 +3,19 @@ const blessed = require('blessed');
 class InputBar {
     constructor(grid) {
         this.element = grid.set(10, 0, 2, 12, blessed.textbox, {
-            label: '💬 Input 💬',
+            label: ' {bold}💬 Input 💬{/} ',
             inputOnFocus: true,
             style: {
                 fg: 'white',
-                bg: 'blue',
+                bg: '#2E2E2E',
                 border: {
-                    fg: 'blue'
+                    fg: '#5E5E5E'
                 },
                 focus: {
-                    bg: 'red'
+                    bg: '#4A4A4A',
+                    border: {
+                        fg: '#8A8A8A'
+                    }
                 }
             }
         });

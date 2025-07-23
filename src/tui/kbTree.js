@@ -2,13 +2,17 @@ const contrib = require('blessed-contrib');
 
 class KbTree {
     constructor(grid) {
-        this.element = grid.set(1, 0, 10, 4, contrib.tree, {
-            label: '🌳 Knowledge Base 🌳',
+        this.element = grid.set(1, 0, 9, 4, contrib.tree, {
+            label: ' {bold}🌳 Knowledge Base 🌳{/} ',
             style: {
-                fg: 'green',
-                text: 'green',
+                fg: '#A8A8A8',
+                text: '#A8A8A8',
                 border: {
-                    fg: 'green'
+                    fg: '#5E5E5E'
+                },
+                selected: {
+                    bg: '#4A4A4A',
+                    fg: 'white'
                 }
             }
         });

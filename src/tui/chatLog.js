@@ -3,7 +3,7 @@ const blessed = require('blessed');
 class ChatLog {
     constructor(grid) {
         this.element = grid.set(1, 4, 9, 8, blessed.log, {
-            label: '📝 Chat/Log 📝',
+            label: ' {bold}📝 Chat/Log 📝{/} ',
             content: '',
             tags: true,
             scrollable: true,
@@ -11,16 +11,16 @@ class ChatLog {
             scrollbar: {
                 ch: ' ',
                 track: {
-                    bg: 'cyan'
+                    bg: '#4A4A4A'
                 },
                 style: {
                     inverse: true
                 }
             },
             style: {
-                fg: 'white',
+                fg: '#E0E0E0',
                 border: {
-                    fg: 'white'
+                    fg: '#5E5E5E'
                 }
             }
         });

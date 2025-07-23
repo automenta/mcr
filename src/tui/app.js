@@ -32,6 +32,17 @@ class App {
 
         this.ws = null;
 
+        this.loadingSpinner = blessed.loading({
+            top: 'center',
+            left: 'center',
+            width: 10,
+            height: 5,
+            border: 'line',
+            content: 'Loading...'
+        });
+        this.screen.append(this.loadingSpinner);
+        this.loadingSpinner.hide();
+
         this.setupHotkeys();
         this.setupWebSocket();
     }
@@ -80,6 +91,9 @@ class App {
     }
 
     handleWebSocketMessage(response) {
+        this.loadingSpinner.stop();
+        this.loadingSpinner.hide();
+
         if (response.type === 'response') {
             const { payload } = response;
             if (payload.success) {
@@ -116,6 +130,7 @@ class App {
                 this.handleCommand(text);
             } else if (text) {
                 this.chatLog.log(`💬 {blue-fg}User:{/blue-fg} ${text}`);
+                this.loadingSpinner.load('Thinking...');
                 this.ws.send(JSON.stringify({
                     type: 'invoke',
                     tool: 'mcr.handle',
@@ -131,13 +146,6 @@ class App {
     handleCommand(text) {
         const [command, ...args] = text.slice(1).split(' ');
         switch (command) {
-            case 'help':
-                this.help.toggle();
-                break;
-            case 'clear':
-                this.chatLog.clear();
-                this.screen.render();
-                break;
             case 'exit':
                 process.exit(0);
                 break;
