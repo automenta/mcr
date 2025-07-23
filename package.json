@@ -19,7 +19,8 @@
 		"lint:ui": "eslint ui/",
 		"generate-examples": "node src/utility.js --type example",
 		"generate-ontology": "node src/utility.js --type ontology",
-		"dev:vanilla": "http-server ui/vanilla -p 3001"
+		"dev:vanilla": "http-server ui/vanilla -p 3001",
+		"tui": "node repl.js"
 	},
 	"keywords": [
 		"llm",
@@ -86,7 +87,9 @@
 		"vite": "^7.0.4",
 		"winston": "^3.0.0",
 		"ws": "^8.18.0",
-		"yargs": "^18.0.0"
+		"yargs": "^18.0.0",
+		"blessed": "^0.1.81",
+		"blessed-contrib": "^4.11.0"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.24.5",
