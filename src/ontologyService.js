@@ -7,7 +7,8 @@ const PrologReasonerProvider = require('./reason/prologReasoner');
 
 let ONTOLOGY_DIR = null;
 let reasonerProvider = null;
-const ONTOLOGY_EXTENSION = '.pl';
+// Define ontology extension as a constant for easier modification
+const ONTOLOGY_FILE_EXTENSION = '.pl';
 
 function configureOntologyService(options = {}) {
 	if (options.ontologyDir) {

@@ -57,7 +57,9 @@ class Embedding {
 				logger.warn(
 					`[EmbeddingService] Initialized with a mock service. Configured LLM provider '${provider}' is not supported for embeddings.`
 				);
-				this.embeddingDimension = 5; // Mock dimension
+				// Define mock embedding dimension with a constant for readability
+				const MOCK_EMBEDDING_DIMENSION = 5;
+				this.embeddingDimension = MOCK_EMBEDDING_DIMENSION; // Use the constant
 			}
 		} catch (error) {
 			logger.error(

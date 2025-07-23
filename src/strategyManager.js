@@ -5,7 +5,7 @@ const logger = require('./util/logger');
 const { MCRError, ErrorCodes } = require('./errors');
 
 // Define the new directory for JSON strategies relative to the project root
-const STRATEGIES_DIR_JSON = path.join(__dirname, '..', 'strategies');
+const STRATEGIES_DIR_JSON = path.resolve(__dirname, '..', 'strategies'); // Use resolve for clarity
 
 /**
  * @class StrategyManager
