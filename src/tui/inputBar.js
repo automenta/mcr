@@ -2,7 +2,7 @@ const blessed = require('blessed');
 
 class InputBar {
     constructor(grid) {
-        this.element = grid.set(11, 0, 1, 12, blessed.textbox, {
+        this.element = grid.set(10, 0, 2, 12, blessed.textbox, {
             label: '💬 Input 💬',
             inputOnFocus: true,
             style: {

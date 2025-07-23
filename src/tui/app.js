@@ -118,8 +118,8 @@ class App {
                 this.chatLog.log(`💬 {blue-fg}User:{/blue-fg} ${text}`);
                 this.ws.send(JSON.stringify({
                     type: 'invoke',
-                    procedure: 'mcr.handle',
-                    params: {
+                    tool: 'mcr.handle',
+                    args: {
                         naturalLanguageText: text,
                     }
                 }));

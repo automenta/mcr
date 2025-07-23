@@ -2,7 +2,7 @@ const blessed = require('blessed');
 
 class ChatLog {
     constructor(grid) {
-        this.element = grid.set(1, 4, 10, 8, blessed.log, {
+        this.element = grid.set(1, 4, 9, 8, blessed.log, {
             label: '📝 Chat/Log 📝',
             content: '',
             tags: true,
