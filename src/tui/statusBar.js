@@ -1,4 +1,4 @@
-const blessed = require('blessed');
+import blessed from 'blessed';
 
 class StatusBar {
     constructor(grid) {
@@ -29,4 +29,4 @@ class StatusBar {
     }
 }
 
-module.exports = StatusBar;
+export default StatusBar;

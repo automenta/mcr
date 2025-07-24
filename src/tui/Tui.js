@@ -1,7 +1,5 @@
-
 import blessed from 'blessed';
 import contrib from 'blessed-contrib';
-import WebSocket from 'ws';
 import Header from './header.js';
 import KbTree from './kbTree.js';
 import ChatLog from './chatLog.js';
@@ -18,11 +16,9 @@ class Tui {
             title: 'MCR TUI REPL',
             cursor: {
                 artificial: true,
-                shape: {
-                    bold: true,
-                    underline: true,
-                    blink: true
-                }
+                shape: 'line',
+                blink: true,
+                color: 'white'
             }
         });
 
@@ -48,34 +44,29 @@ class Tui {
     }
 
     start() {
-        // Set initial focus
         this.focusOrder[this.currentFocus].focus();
-        
-        // Render the screen
         this.screen.render();
     }
 
     setupHotkeys() {
-        this.screen.key(['escape', 'q', 'C-c'], () => process.exit(0));
+        this.screen.key(['escape', 'q', 'C-c'], () => {
+            this.wsManager.close();
+            process.exit(0);
+        });
         this.screen.key(['C-w'], this.focusNext.bind(this));
         this.screen.key(['?'], this.help.toggle.bind(this.help));
     }
 
     focusNext() {
-        const components = [this.inputBar, this.chatLog, this.kbTree];
-        const currentIndex = components.findIndex(c => c.hasFocus());
-        const nextIndex = (currentIndex + 1) % components.length;
-        components[nextIndex].focus();
+        this.currentFocus = (this.currentFocus + 1) % this.focusOrder.length;
+        this.focusOrder[this.currentFocus].focus();
     }
 
     setupEventHandlers() {
-        // WebSocket events
         this.wsManager.onConnect(() => {
             this.logSystemMessage('🚀 Connected to MCR server');
             this.statusBar.updateStatus('{green-fg}Connected{/green-fg}');
-            
-            // Request initial knowledge base
-            this.wsManager.invoke('mcr.handle', { naturalLanguageText: '__GET_KB__' });
+            this.wsManager.invoke('session.get', {});
         });
 
         this.wsManager.onDisconnect(() => {
@@ -87,31 +78,26 @@ class Tui {
             this.handleWebSocketMessage(message);
         });
 
-        // Input bar submission
         this.inputBar.onSubmit(text => {
             this.handleUserInput(text);
         });
     }
 
     handleWebSocketMessage(message) {
-        // Process message from MCR server
         try {
             if (typeof message === 'string') {
                 message = JSON.parse(message);
             }
             
             switch (message.type) {
-                case 'result':
-                    this.handleMcrResult(message);
+                case 'tool_result':
+                    this.handleMcrResult(message.payload);
                     break;
                 case 'error':
-                    this.handleMcrError(message);
+                    this.handleMcrError(message.payload);
                     break;
                 case 'connection_ack':
-                    this.logSystemMessage(message.message);
-                    break;
-                case 'session_created':
-                    this.logSystemMessage(`Session created: ${message.payload.sessionId}`);
+                    this.logSystemMessage('Connection acknowledged by server.');
                     break;
                 default:
                     this.logSystemMessage(`Unhandled message type: ${message.type}`);
@@ -119,52 +105,50 @@ class Tui {
         } catch (error) {
             this.logSystemMessage(`Error parsing message: ${error.message}`);
         }
+        this.screen.render();
     }
 
-    handleMcrResult(result) {
-        if (result.payload.success) {
+    handleMcrResult(payload) {
+        if (payload.success) {
             let content = '';
-            if (result.payload.data?.answer) {
-                content = blessed.escape(result.payload.data.answer);
-            } else if (result.payload.message) {
-                content = blessed.escape(result.payload.message);
+            if (payload.data?.answer) {
+                content = blessed.escape(payload.data.answer);
+            } else if (payload.message) {
+                content = blessed.escape(payload.message);
             } else {
-                content = blessed.escape(JSON.stringify(result.payload, null, 2));
+                content = blessed.escape(JSON.stringify(payload.data, null, 2));
             }
             this.chatLog.log(`✅ {green-fg}System:{/green-fg} ${content}`);
         } else {
-            let errorMessage = `❌ Error: ${blessed.escape(result.payload.error || 'Unknown error')}`;
-            if (result.payload.details) {
-                errorMessage += ` - ${blessed.escape(JSON.stringify(result.payload.details))}`;
+            let errorMessage = `❌ Error: ${blessed.escape(payload.error || 'Unknown error')}`;
+            if (payload.details) {
+                errorMessage += ` - ${blessed.escape(JSON.stringify(payload.details))}`;
             }
             this.chatLog.log(`🔥 {red-fg}System:{/red-fg} ${errorMessage}`);
         }
 
-        if (result.payload.data?.fullKnowledgeBase) {
-            this.kbTree.setData(result.payload.data.fullKnowledgeBase);
+        if (payload.fullKnowledgeBase) {
+            this.kbTree.setData(payload.fullKnowledgeBase);
         }
         
         this.screen.render();
     }
 
     handleUserInput(text) {
-        // Handle commands
         if (text.startsWith('/')) {
             this.handleCommand(text);
             return;
         }
         
         if (!text.trim()) {
-            return; // Ignore empty input
+            return;
         }
         
-        // Log the input
         this.chatLog.log(`{cyan-fg}You:{/cyan-fg} ${text}`);
         
-        // Send to server
         this.wsManager.invoke('mcr.handle', { naturalLanguageText: text })
             .catch(error => {
-                this.chatLog.log('{red-fg}Not connected to server{/red-fg}');
+                this.chatLog.log(`{red-fg}Error sending message: ${error.message}{/red-fg}`);
             });
     }
 
@@ -172,13 +156,14 @@ class Tui {
         const [command, ...args] = text.slice(1).split(' ');
         switch (command) {
             case 'exit':
+                this.wsManager.close();
                 process.exit(0);
                 break;
             case 'clear':
                 this.chatLog.clear();
                 break;
             case 'clear-kb':
-                this.wsManager.invoke('kb.clear', {})
+                this.wsManager.invoke('session.set_kb', { content: '' })
                     .catch(error => {
                         this.chatLog.log(`{red-fg}Failed to clear KB: ${error.message}{/red-fg}`);
                     });

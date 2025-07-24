@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 
 class TuiWebSocketManager {
-	constructor(url = 'ws://localhost:8080') {
+	constructor(url = 'ws://localhost:8080/ws') {
 		this.url = url;
 		this.socket = null;
 		this.messageId = 0;
@@ -111,7 +111,7 @@ class TuiWebSocketManager {
 			try {
 				this.socket.send(JSON.stringify(message));
 			} catch (error) {
-				reject(error);
+				reject(.error);
 			}
 		});
 	}
@@ -126,4 +126,4 @@ class TuiWebSocketManager {
 	}
 }
 
-module.exports = TuiWebSocketManager;
+export default TuiWebSocketManager;

@@ -1,5 +1,5 @@
-const blessed = require('blessed');
-const clipboardy = require('clipboardy');
+import blessed from 'blessed';
+import clipboardy from 'clipboardy';
 
 class ChatLog {
     constructor(grid) {
@@ -50,6 +50,14 @@ class ChatLog {
     clear() {
         this.element.setContent('');
     }
+
+    focus() {
+        this.element.focus();
+    }
+
+    hasFocus() {
+        return this.element.focused;
+    }
 }
 
-module.exports = ChatLog;
+export default ChatLog;

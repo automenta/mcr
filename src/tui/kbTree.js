@@ -1,10 +1,10 @@
-const contrib = require('blessed-contrib');
-const blessed = require('blessed');
+import contrib from 'blessed-contrib';
+import blessed from 'blessed';
 
 class KbTree {
     constructor(grid) {
         this.grid = grid;
-        this.element = this.grid.set(1, 0, 8, 4, contrib.tree, {
+        this.element = this.grid.set(1, 0, 9, 4, contrib.tree, {
             label: ' {bold}🌳 Knowledge Base 🌳{/} ',
             template: {
                 lines: true,
@@ -27,7 +27,7 @@ class KbTree {
             }
         });
 
-        this.searchBar = this.grid.set(9, 0, 1, 4, blessed.textbox, {
+        this.searchBar = this.grid.set(10, 0, 2, 4, blessed.textbox, {
             label: 'Search',
             inputOnFocus: true,
             style: {
@@ -125,6 +125,14 @@ class KbTree {
         }
         this.element.setData(this.treeData);
     }
+
+    focus() {
+        this.element.focus();
+    }
+
+    hasFocus() {
+        return this.element.focused;
+    }
 }
 
-module.exports = KbTree;
+export default KbTree;

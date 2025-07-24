@@ -1,5 +1,5 @@
-const blessed = require('blessed');
-const chalk = require('chalk');
+import blessed from 'blessed';
+import chalk from 'chalk';
 
 class Header {
     constructor(grid) {
@@ -44,4 +44,4 @@ class Header {
     }
 }
 
-module.exports = Header;
+export default Header;

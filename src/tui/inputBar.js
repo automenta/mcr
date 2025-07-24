@@ -1,8 +1,8 @@
-const blessed = require('blessed');
+import blessed from 'blessed';
 
 class InputBar {
     constructor(grid) {
-        this.element = grid.set(10, 4, 1, 8, blessed.textbox, {
+        this.element = grid.set(10, 4, 2, 8, blessed.textbox, {
             label: ' {bold}💬 Input 💬{/} ',
             inputOnFocus: true,
             style: {
@@ -76,6 +76,14 @@ class InputBar {
             }
         });
     }
+
+    focus() {
+        this.element.focus();
+    }
+
+    hasFocus() {
+        return this.element.focused;
+    }
 }
 
-module.exports = InputBar;
+export default InputBar;
