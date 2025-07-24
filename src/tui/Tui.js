@@ -90,6 +90,7 @@ class Tui {
             }
             
             switch (message.type) {
+                case 'result':
                 case 'tool_result':
                     this.handleMcrResult(message.payload);
                     break;

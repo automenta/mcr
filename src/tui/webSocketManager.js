@@ -117,13 +117,22 @@ class TuiWebSocketManager {
 	}
 	
 	// Convenience method for invoking tools
-	invoke(tool, args = {}) {
-		return this.sendMessage({
-			type: 'invoke',
-			tool,
-			args
-		});
-	}
+	invoke(toolName, input = {}) {
+        const message = {
+            type: 'tool_invoke',
+            payload: {
+                tool_name: toolName,
+                input: input
+            }
+        };
+        return this.sendMessage(message);
+    }
+
+    close() {
+        if (this.socket) {
+            this.socket.close();
+        }
+    }
 }
 
 module.exports = TuiWebSocketManager;
