@@ -5,7 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const mcrToolDefinitions = require('./tools');
 
 async function routeMessage(socket, message, mcrEngine) {
-	const { type, tool, args, messageId } = message;
+	const { type, tool, args, messageId, payload } = message;
 	const correlationId = socket.correlationId;
 
 	logger.info(
@@ -14,21 +14,28 @@ async function routeMessage(socket, message, mcrEngine) {
 
 	try {
 		switch (type) {
+			case 'tool_invoke':
 			case 'invoke':
+				const toolName = type === 'tool_invoke' ? payload.tool_name : tool;
+				const input = type === 'tool_invoke' ? payload.input : args;
+
 				let result;
 				const tools = mcrToolDefinitions(mcrEngine, mcrEngine.config);
-				const toolDefinition = tools[tool];
+				const toolDefinition = tools[toolName];
 
 				if (toolDefinition && typeof toolDefinition.handler === 'function') {
-					logger.debug(`[WS-API][${correlationId}] Invoking tool: ${tool}`, {
-						input: args,
-					});
+					logger.debug(
+						`[WS-API][${correlationId}] Invoking tool: ${toolName}`,
+						{
+							input: input,
+						}
+					);
 
-					result = await toolDefinition.handler(args || {});
+					result = await toolDefinition.handler(input || {});
 
 					if (
 						result.success &&
-						(tool === 'session.create' || tool === 'session.get') &&
+						(toolName === 'session.create' || toolName === 'session.get') &&
 						result.data?.id
 					) {
 						if (socket.sessionId !== result.data.id) {
@@ -39,19 +46,22 @@ async function routeMessage(socket, message, mcrEngine) {
 						}
 					}
 				} else {
-					logger.warn(`[WS-API][${correlationId}] Unknown tool: ${tool}`, {
-						messageId,
-					});
+					logger.warn(
+						`[WS-API][${correlationId}] Unknown tool: ${toolName}`,
+						{
+							messageId,
+						}
+					);
 					socket.send(
 						JSON.stringify({
 							type: 'error',
 							correlationId,
 							messageId,
-							tool,
+							tool: toolName,
 							payload: {
 								success: false,
 								error: ErrorCodes.UNKNOWN_TOOL,
-								message: `Unknown tool: ${tool}`,
+								message: `Unknown tool: ${toolName}`,
 							},
 						})
 					);
@@ -63,7 +73,7 @@ async function routeMessage(socket, message, mcrEngine) {
 						type: 'result',
 						correlationId,
 						messageId,
-						tool,
+						tool: toolName,
 						payload: result,
 					})
 				);
