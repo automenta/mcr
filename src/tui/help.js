@@ -1,4 +1,4 @@
-import blessed from 'blessed';
+const blessed = require('blessed');
 
 class Help {
     constructor(screen) {
@@ -61,4 +61,4 @@ class Help {
     }
 }
 
-export default Help;
+module.exports = Help;

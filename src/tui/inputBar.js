@@ -1,4 +1,4 @@
-import blessed from 'blessed';
+const blessed = require('blessed');
 
 class InputBar {
     constructor(grid) {
@@ -86,4 +86,4 @@ class InputBar {
     }
 }
 
-export default InputBar;
+module.exports = InputBar;

@@ -1,11 +1,11 @@
-import blessed from 'blessed';
-import contrib from 'blessed-contrib';
-import Header from './header.js';
-import KbTree from './kbTree.js';
-import ChatLog from './chatLog.js';
-import InputBar from './inputBar.js';
-import Help from './help.js';
-import StatusBar from './statusBar.js';
+const blessed = require('blessed');
+const contrib = require('blessed-contrib');
+const Header = require('./header.js');
+const KbTree = require('./kbTree.js');
+const ChatLog = require('./chatLog.js');
+const InputBar = require('./inputBar.js');
+const Help = require('./help.js');
+const StatusBar = require('./statusBar.js');
 
 class Tui {
     constructor(wsManager) {
@@ -186,4 +186,4 @@ class Tui {
     }
 }
 
-export default Tui;
+module.exports = Tui;

@@ -1,5 +1,5 @@
-import contrib from 'blessed-contrib';
-import blessed from 'blessed';
+const contrib = require('blessed-contrib');
+const blessed = require('blessed');
 
 class KbTree {
     constructor(grid) {
@@ -135,4 +135,4 @@ class KbTree {
     }
 }
 
-export default KbTree;
+module.exports = KbTree;

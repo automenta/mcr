@@ -1,5 +1,5 @@
-import blessed from 'blessed';
-import clipboardy from 'clipboardy';
+const blessed = require('blessed');
+const clipboardy = require('clipboardy');
 
 class ChatLog {
     constructor(grid) {
@@ -60,4 +60,4 @@ class ChatLog {
     }
 }
 
-export default ChatLog;
+module.exports = ChatLog;

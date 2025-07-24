@@ -1,4 +1,4 @@
-import WebSocket from 'ws';
+const WebSocket = require('ws');
 
 class TuiWebSocketManager {
 	constructor(url = 'ws://localhost:8080/ws') {
@@ -111,7 +111,7 @@ class TuiWebSocketManager {
 			try {
 				this.socket.send(JSON.stringify(message));
 			} catch (error) {
-				reject(.error);
+				reject(error);
 			}
 		});
 	}
@@ -126,4 +126,4 @@ class TuiWebSocketManager {
 	}
 }
 
-export default TuiWebSocketManager;
+module.exports = TuiWebSocketManager;
