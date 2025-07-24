@@ -1,10 +1,16 @@
+# Dependencies
 node_modules/
-.env
-*.log
-coverage/
-data/
-.idea
-evaluation-report.json
-performance_results.db
+
+# Build artifacts
 dist/
-.aider*
+build/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Other
+.env
+.DS_Store
