@@ -2,7 +2,7 @@
   "name": "model-context-reasoner",
   "version": "1.0.0",
   "description": "A simplified, elegant neurosymbolic library for JavaScript.",
-  "main": "src/index.js",
+  "main": "index.js",
   "type": "module",
   "scripts": {
     "test": "vitest"

@@ -10,16 +10,22 @@ class MCR {
   /**
    * @constructor
    * @param {object} config - The configuration object for the MCR instance.
-   * @param {object} [config.llm] - The LLM provider configuration.
-   * @param {string|function} [config.llm.provider='openai'] - The LLM provider to use. Can be 'openai', 'gemini', 'ollama', or a custom function.
-   * @param {string} [config.llm.model='gpt-4o-mini'] - The model to use for the LLM provider.
-   * @param {string} [config.llm.apiKey] - The API key for the LLM provider.
-   * @param {string|object} [config.storage='memory'] - The storage provider to use. Can be 'memory' or a custom object with `load` and `save` methods.
-   * @param {number} [config.maxRetries=3] - The maximum number of retries for LLM and Prolog operations.
-   * @param {boolean} [config.debug=false] - Whether to enable debug logging.
    */
-  constructor(config = {}) {
-    this.config = {
+  constructor(config) {
+    this.config = config;
+    this.sessions = new Map();
+    this.llmProvider = null;
+    this.storageProvider = null;
+  }
+
+  /**
+   * Creates and initializes an MCR instance.
+   * @param {object} config - The configuration object for the MCR instance.
+   * @returns {Promise<MCR>} A promise that resolves to a new MCR instance.
+   */
+  static async create(config = {}) {
+    console.log('MCR.create: start');
+    const mcr = new MCR({
       llm: {
         provider: 'openai',
         model: 'gpt-4o-mini',
@@ -29,14 +35,17 @@ class MCR {
       maxRetries: 3,
       debug: false,
       ...config,
-    };
+    });
 
-    this.sessions = new Map();
-    this.llmProvider = getLLMProvider(this.config.llm);
+    mcr.llmProvider = await getLLMProvider(mcr.config.llm);
+    console.log('MCR.create: llmProvider initialized');
 
-    if (typeof this.config.storage === 'object' && this.config.storage !== null) {
-      this.storageProvider = this.config.storage;
+    if (typeof mcr.config.storage === 'object' && mcr.config.storage !== null) {
+      mcr.storageProvider = mcr.config.storage;
     }
+
+    console.log('MCR.create: end');
+    return mcr;
   }
 
   /**
