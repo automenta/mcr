@@ -1,4 +1,4 @@
-import pl from 'tau-prolog';
+import * as pl from 'tau-prolog';
 import { v4 as uuidv4 } from 'uuid';
 import { getLLMProvider } from './llmProviders.js';
 
