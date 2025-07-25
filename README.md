@@ -32,11 +32,17 @@ const config = {
   },
 };
 
-const mcr = new MCR(config);
+const mcr = await MCR.create(config);
 
-const sessionId = await mcr.createSession();
+const sessionId = await mcr.createSession('man(socrates). mortal(X) :- man(X).');
 await mcr.assert(sessionId, 'Socrates is a man.');
 const result = await mcr.query(sessionId, 'Is Socrates mortal?');
 
 console.log(result.answer);
+
+await mcr.retract(sessionId, 'Socrates is a man.');
+const retractedResult = await mcr.query(sessionId, 'Is Socrates mortal?');
+console.log(retractedResult.answer);
 ```
+
+MCR now uses a `Session` class to manage the state of each conversation. You can create a new session with an initial knowledge base, and then use the `assert`, `retract`, and `query` methods to interact with it.

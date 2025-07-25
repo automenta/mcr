@@ -1,6 +1,5 @@
-import * as pl from 'tau-prolog';
-import { v4 as uuidv4 } from 'uuid';
 import { getLLMProvider } from './llmProviders.js';
+import Session from './session.js';
 
 /**
  * @class MCR
@@ -54,26 +53,12 @@ class MCR {
    * @returns {Promise<string>} The ID of the new session.
    */
   async createSession(initialKb = '') {
-    const sessionId = uuidv4();
-    const session = {
-      prolog: pl.create(),
-      kb: initialKb,
-      lexicon: '',
-    };
-    this.sessions.set(sessionId, session);
+    const session = new Session(initialKb);
+    this.sessions.set(session.id, session);
     if (initialKb) {
-      await this.loadOntology(sessionId, initialKb);
+      await this.loadOntology(session.id, initialKb);
     }
-    return sessionId;
-  }
-
-  /**
-   * Deletes a session.
-   * @param {string} id - The ID of the session to delete.
-   * @returns {Promise<void>}
-   */
-  async deleteSession(id) {
-    this.sessions.delete(id);
+    return session.id;
   }
 
   /**
@@ -91,8 +76,7 @@ class MCR {
     const prologClause = await this.llmProvider.generate(prompt);
 
     try {
-      await session.prolog.consult(prologClause);
-      session.kb += `\n${prologClause}`;
+      await session.consult(prologClause);
       await this.updateLexicon(id);
       if (this.storageProvider) {
         await this.storageProvider.save(id, session.kb);
@@ -118,25 +102,16 @@ class MCR {
     const prompt = `Convert the following natural language text into a Prolog pattern for retraction. Use the following lexicon for context:\n\n${lexicon}\n\nText: "${nlPattern}"`;
     const prologPattern = await this.llmProvider.generate(prompt);
 
-    // This is a simplified implementation. Retraction in tau-prolog is more complex.
-    // For now, we'll just remove the clause from the KB string and re-consult.
-    const initialKb = session.kb;
-    const newKb = initialKb.replace(new RegExp(`^${prologPattern}.*\\.$`, 'm'), '');
+    const removed = await session.retract(prologPattern);
 
-    if (initialKb.length === newKb.length) {
-      return { success: false, removed: 0 };
+    if (removed > 0) {
+      await this.updateLexicon(id);
+      if (this.storageProvider) {
+        await this.storageProvider.save(id, session.kb);
+      }
     }
 
-    session.kb = newKb;
-    session.prolog = pl.create();
-    await session.prolog.consult(session.kb);
-    await this.updateLexicon(id);
-
-    if (this.storageProvider) {
-      await this.storageProvider.save(id, session.kb);
-    }
-
-    return { success: true, removed: 1 };
+    return { success: removed > 0, removed };
   }
 
   /**
@@ -155,11 +130,7 @@ class MCR {
     const prompt = `Convert the following natural language question into a Prolog query. Use the following lexicon for context:\n\n${lexicon}\n\nQuestion: "${nlQuery}"`;
     const prologQuery = await this.llmProvider.generate(prompt);
 
-    const results = [];
-    await session.prolog.query(prologQuery);
-    for await (const answer of session.prolog.answers()) {
-      results.push(session.prolog.format_answer(answer));
-    }
+    const results = await session.query(prologQuery);
 
     if (results.length > 0) {
       const explanationPrompt = `Explain the following Prolog query results in natural language:\n\nQuery: ${prologQuery}\n\nResults:\n${results.join('\n')}`;
@@ -187,8 +158,7 @@ class MCR {
 
     // For simplicity, we assume pathOrContent is the content itself.
     // A more robust implementation would handle file paths.
-    session.kb += `\n${pathOrContent}`;
-    await session.prolog.consult(pathOrContent);
+    await session.consult(pathOrContent);
     await this.updateLexicon(id);
 
     if (this.storageProvider) {
@@ -248,14 +218,3 @@ class MCR {
 }
 
 export default MCR;
-
-/**
- * Composes single-argument functions from right to left. The rightmost
- * function can take multiple arguments; the remaining functions must be unary.
- *
- * @param {...Function} fns The functions to compose.
- * @returns {Function} A function obtained by composing the argument functions
- * from right to left. For example, compose(f, g, h) is identical to doing
- * (...args) => f(g(h(...args))).
- */
-export const compose = (...fns) => (x) => fns.reduceRight((v, f) => f(v), x);
